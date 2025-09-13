@@ -1,0 +1,46 @@
+name: Deploy to Azure Web App (Linux)
+
+on:
+  push:
+    branches: [ "main" ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  AZURE_WEBAPP_NAME: travelbuddy
+  AZURE_RESOURCE_GROUP: travelbuddy
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Remove legacy Windows Kudu scripts (if any)
+        run: |
+          rm -f .deployment deploy.cmd || true
+
+      - name: Install backend dependencies
+        run: |
+          cd backend && npm install --production=false
+
+      # Deploy source to Web App; Oryx will build using App Settings in Azure
+      - name: Deploy to Azure Web App
+        uses: azure/webapps-deploy@v3
+        with:
+          app-name: ${{ env.AZURE_WEBAPP_NAME }}
+          package: .
+          publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
+
+  # Note:
+  # - For server-side build (Oryx) during deployment, ensure the following App Settings
+  #   are configured in the Web App (via Azure Portal):
+  #     SCM_DO_BUILD_DURING_DEPLOYMENT=true
+  #     NPM_CONFIG_PRODUCTION=false
+  #     NODE_ENV=production
+  #     WEBSITE_NODE_DEFAULT_VERSION=~20
+  # - If you prefer CI build instead, uncomment steps to setup Node and run npm ci && npm run build,
+  #   then deploy the output as an artifact.
