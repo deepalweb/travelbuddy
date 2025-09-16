@@ -1841,6 +1841,7 @@ app.post('/api/admin/moderate/:postId', requireAdminAuth, async (req, res) => {
   }
 });
 
+<<<<<<< HEAD
 // Recommendations API
 app.get('/api/recommendations/planner', async (req, res) => {
   try {
@@ -1895,6 +1896,8 @@ app.get('/api/recommendations/planner', async (req, res) => {
   }
 });
 
+=======
+>>>>>>> 25dfd0e7057dc9918b9fb42f119370715379fda2
 // Health check
 app.get('/health', (req, res) => {
   const dbState = mongoose.connection?.readyState;
@@ -2230,6 +2233,7 @@ app.get('/api/subscriptions/analytics', async (req, res) => {
   }
 });
 
+<<<<<<< HEAD
 // Daily planner recommendations endpoint
 app.get('/api/recommendations/planner', async (req, res) => {
   try {
@@ -2500,6 +2504,8 @@ app.get('/api/users/:id/stats', async (req, res) => {
   }
 });
 
+=======
+>>>>>>> 25dfd0e7057dc9918b9fb42f119370715379fda2
 // Community moderation analytics
 app.get('/api/admin/moderation/stats', requireAdminAuth, async (req, res) => {
   try {
@@ -2518,6 +2524,7 @@ app.get('/api/admin/moderation/stats', requireAdminAuth, async (req, res) => {
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
+<<<<<<< HEAD
 });
 
 // Emergency Services API endpoints
@@ -2671,4 +2678,6 @@ app.get('/api/emergency/hospitals', enforcePolicy('places'), async (req, res) =>
     recordUsage({ api: 'places', action: 'emergency_hospital', status: 'error', meta: { err: error?.message } });
     res.status(500).json({ error: 'Failed to fetch hospitals', details: error?.message });
   }
+=======
+>>>>>>> 25dfd0e7057dc9918b9fb42f119370715379fda2
 });

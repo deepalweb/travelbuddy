@@ -1,0 +1,61 @@
+name: Deploy to Azure Web App (dev)
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+env:
+  AZURE_WEBAPP_NAME: travelbuddy
+  AZURE_RESOURCE_GROUP: travelbuddy
+  NODE_VERSION: '20'
+
+jobs:
+  build-and-deploy:
+    name: Build and Deploy
+    environment: dev
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write   # required for OIDC login
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build web app
+        run: npm run build
+
+      - name: Azure login (OIDC)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Display App Settings (optional)
+        run: |
+          az webapp config appsettings list --name $AZURE_WEBAPP_NAME --resource-group $AZURE_RESOURCE_GROUP || true
+
+      - name: Zip package
+        run: |
+          zip -r release.zip . -x "node_modules/*" ".git/*" ".github/*" "**/*.map"
+
+      - name: Deploy to Azure Web App (zip deploy)
+        run: |
+          az webapp deploy \
+            --name $AZURE_WEBAPP_NAME \
+            --resource-group $AZURE_RESOURCE_GROUP \
+            --src-path release.zip \
+            --type zip \
+            --async false
+
+      - name: Restart Web App
+        run: az webapp restart --name $AZURE_WEBAPP_NAME --resource-group $AZURE_RESOURCE_GROUP
