@@ -40,6 +40,11 @@ jobs:
         with:
           name: node-app
           path: .
+          exclude: |
+            travel_buddy_mobile/
+            **/*.md
+            test-*
+            *.log
 
   deploy:
     runs-on: ubuntu-latest

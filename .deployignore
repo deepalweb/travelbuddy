@@ -1,0 +1,8 @@
+travel_buddy_mobile/
+*.md
+test-*
+*.log
+.git/
+.github/
+node_modules/
+**/*.map
