@@ -2,10 +2,10 @@
 # Run this script to deploy manually using Azure CLI
 
 # Variables - UPDATE THESE
-$RESOURCE_GROUP = "travelbuddy-rg"
-$APP_NAME = "travelbuddy-app"
-$LOCATION = "East US"  # Change to your preferred location
-$SKU = "B1"            # Basic plan - upgrade to S1 for production
+$RESOURCE_GROUP = "travelbuddy"
+$APP_NAME = "travelbuddy"
+$LOCATION = "East US 2"
+$SKU = "P2v3"          # Premium v3 plan (current)
 
 # Login to Azure (run this once)
 Write-Host "🔐 Logging into Azure..."
