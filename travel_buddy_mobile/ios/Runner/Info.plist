@@ -1,0 +1,88 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>$(DEVELOPMENT_LANGUAGE)</string>
+	<key>CFBundleDisplayName</key>
+	<string>Travel Buddy Mobile</string>
+	<key>CFBundleExecutable</key>
+	<string>$(EXECUTABLE_NAME)</string>
+	<key>CFBundleIdentifier</key>
+	<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>travel_buddy_mobile</string>
+	<key>CFBundlePackageType</key>
+	<string>APPL</string>
+	<key>CFBundleShortVersionString</key>
+	<string>$(FLUTTER_BUILD_NAME)</string>
+	<key>CFBundleSignature</key>
+	<string>????</string>
+	<key>CFBundleVersion</key>
+	<string>$(FLUTTER_BUILD_NUMBER)</string>
+	<key>LSRequiresIPhoneOS</key>
+	<true/>
+	<key>UILaunchStoryboardName</key>
+	<string>LaunchScreen</string>
+	<key>UIMainStoryboardFile</key>
+	<string>Main</string>
+	<key>UISupportedInterfaceOrientations</key>
+	<array>
+		<string>UIInterfaceOrientationPortrait</string>
+		<string>UIInterfaceOrientationLandscapeLeft</string>
+		<string>UIInterfaceOrientationLandscapeRight</string>
+	</array>
+	<key>UISupportedInterfaceOrientations~ipad</key>
+	<array>
+		<string>UIInterfaceOrientationPortrait</string>
+		<string>UIInterfaceOrientationPortraitUpsideDown</string>
+		<string>UIInterfaceOrientationLandscapeLeft</string>
+		<string>UIInterfaceOrientationLandscapeRight</string>
+	</array>
+	<key>CADisableMinimumFrameDurationOnPhone</key>
+	<true/>
+	<key>UIApplicationSupportsIndirectInputEvents</key>
+	<true/>
+	
+	<!-- Location permissions -->
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Travel Buddy needs location access to find nearby places and provide personalized recommendations.</string>
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>Travel Buddy needs location access to find nearby places and provide location-based services.</string>
+	<key>NSLocationAlwaysUsageDescription</key>
+	<string>Travel Buddy needs location access to provide location-based services and safety features.</string>
+	
+	<!-- Camera permissions -->
+	<key>NSCameraUsageDescription</key>
+	<string>Travel Buddy needs camera access to take photos of places and share travel experiences.</string>
+	
+	<!-- Photo library permissions -->
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Travel Buddy needs photo library access to save and share travel photos.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>Travel Buddy needs permission to save photos to your photo library.</string>
+	
+	<!-- Microphone permissions -->
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Travel Buddy needs microphone access for voice notes and emergency features.</string>
+	
+	<!-- Contacts permissions -->
+	<key>NSContactsUsageDescription</key>
+	<string>Travel Buddy needs contacts access to share travel plans with friends and emergency contacts.</string>
+	
+	<!-- Calendar permissions -->
+	<key>NSCalendarsUsageDescription</key>
+	<string>Travel Buddy needs calendar access to add travel events and itineraries.</string>
+	
+	<!-- Motion permissions -->
+	<key>NSMotionUsageDescription</key>
+	<string>Travel Buddy uses motion data to track walking activities and provide fitness insights during travel.</string>
+	
+	<!-- Face ID permissions -->
+	<key>NSFaceIDUsageDescription</key>
+	<string>Travel Buddy uses Face ID for secure authentication and protecting your travel data.</string>
+
+</dict>
+</plist>

@@ -1,0 +1,27 @@
+{
+  "type": "module",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4.1.11"
+  },
+  "dependencies": {
+    "bcryptjs": "^3.0.2",
+    "compression": "^1.7.4",
+    "copy-of-travel-buddy-web-explorer": "file:..",
+    "cors": "^2.8.5",
+    "dotenv": "^17.2.1",
+    "express": "^5.1.0",
+    "express-session": "^1.18.2",
+    "firebase-admin": "^13.0.2",
+    "google-auth-library": "^10.2.1",
+    "jsonwebtoken": "^9.0.2",
+    "mongoose": "^8.17.0",
+    "node-fetch": "^3.3.2",
+    "passport": "^0.7.0",
+    "passport-google-oauth20": "^2.0.0",
+    "socket.io": "^4.8.1"
+  }
+}

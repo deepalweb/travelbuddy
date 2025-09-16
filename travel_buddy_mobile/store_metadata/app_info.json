@@ -1,0 +1,49 @@
+{
+  "app_name": "Travel Buddy",
+  "package_name": "com.travelbuddy.mobile",
+  "version": "1.0.0",
+  "version_code": 1,
+  "category": "Travel & Local",
+  "content_rating": "Everyone",
+  "target_sdk": 34,
+  "min_sdk": 23,
+  "privacy_policy_url": "https://travelbuddy.com/privacy",
+  "support_email": "support@travelbuddy.com",
+  "website": "https://travelbuddy.com",
+  "short_description": "AI-powered travel companion for discovering places, planning trips & community",
+  "feature_graphic_required": true,
+  "screenshots_required": {
+    "phone": 8,
+    "tablet": 1
+  },
+  "app_icon_sizes": [
+    "48x48",
+    "72x72",
+    "96x96",
+    "144x144",
+    "192x192",
+    "512x512"
+  ],
+  "permissions": [
+    "ACCESS_FINE_LOCATION",
+    "ACCESS_COARSE_LOCATION", 
+    "INTERNET",
+    "ACCESS_NETWORK_STATE",
+    "CAMERA",
+    "READ_EXTERNAL_STORAGE",
+    "CALL_PHONE",
+    "SEND_SMS",
+    "VIBRATE",
+    "WAKE_LOCK"
+  ],
+  "features": [
+    "AI-powered recommendations",
+    "Location-based discovery",
+    "Trip planning & itineraries", 
+    "Community sharing",
+    "Safety hub",
+    "Real-time updates",
+    "Offline capabilities",
+    "Multi-language support"
+  ]
+}

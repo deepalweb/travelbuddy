@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Geolocation Test</title>
+    <style>
+        body { font-family: Arial; padding: 20px; }
+        .section { margin: 20px 0; padding: 15px; border: 1px solid #ccc; border-radius: 5px; }
+        .success { background: #d4edda; border-color: #c3e6cb; }
+        .error { background: #f8d7da; border-color: #f5c6cb; }
+        .info { background: #d1ecf1; border-color: #bee5eb; }
+        pre { background: #f8f9fa; padding: 10px; border-radius: 3px; }
+    </style>
+</head>
+<body>
+    <h1>🧪 Location Debug Test</h1>
+    
+    <div class="section">
+        <h3>1. Browser Support</h3>
+        <div id="support-result"></div>
+    </div>
+    
+    <div class="section">
+        <h3>2. Geolocation Test</h3>
+        <button onclick="testGeolocation()">Test Geolocation</button>
+        <div id="geo-result"></div>
+    </div>
+    
+    <div class="section">
+        <h3>3. Default Location (Colombo)</h3>
+        <div id="default-info" class="info">
+            Lat: 6.9271, Lng: 79.8612 (Colombo, Sri Lanka)
+        </div>
+    </div>
+    
+    <div class="section">
+        <h3>4. Backend API Test</h3>
+        <button onclick="testAPI()">Test Places API</button>
+        <div id="api-result"></div>
+    </div>
+
+    <script>
+        // Check browser support
+        const supportDiv = document.getElementById('support-result');
+        if (navigator.geolocation) {
+            supportDiv.innerHTML = '<div class="success">✅ Geolocation is supported</div>';
+        } else {
+            supportDiv.innerHTML = '<div class="error">❌ Geolocation is not supported</div>';
+        }
+
+        // Test geolocation
+        function testGeolocation() {
+            const resultDiv = document.getElementById('geo-result');
+            resultDiv.innerHTML = '<div class="info">📍 Requesting location permission...</div>';
+            
+            navigator.geolocation.getCurrentPosition(
+                (position) => {
+                    const { latitude, longitude } = position.coords;
+                    const defaultLat = 6.9271;
+                    const defaultLng = 79.8612;
+                    
+                    const isDefault = Math.abs(latitude - defaultLat) < 0.001 && Math.abs(longitude - defaultLng) < 0.001;
+                    
+                    resultDiv.innerHTML = `
+                        <div class="success">
+                            <h4>✅ Location Success</h4>
+                            <pre>Latitude: ${latitude.toFixed(6)}
+Longitude: ${longitude.toFixed(6)}
+Accuracy: ${position.coords.accuracy}m
+Timestamp: ${new Date(position.timestamp).toLocaleString()}</pre>
+                            ${isDefault ? 
+                                '<p style="color: orange;">⚠️ This matches the default location (Colombo)</p>' : 
+                                '<p style="color: green;">✅ This is your real location (different from default)</p>'
+                            }
+                        </div>
+                    `;
+                },
+                (error) => {
+                    let errorMsg = '';
+                    switch (error.code) {
+                        case error.PERMISSION_DENIED:
+                            errorMsg = '🚫 Permission denied - Click the location icon in address bar to allow';
+                            break;
+                        case error.POSITION_UNAVAILABLE:
+                            errorMsg = '📡 Position unavailable - Check GPS/WiFi connection';
+                            break;
+                        case error.TIMEOUT:
+                            errorMsg = '⏰ Request timeout - Try again';
+                            break;
+                        default:
+                            errorMsg = '❓ Unknown error';
+                    }
+                    
+                    resultDiv.innerHTML = `
+                        <div class="error">
+                            <h4>❌ Location Failed</h4>
+                            <p>${errorMsg}</p>
+                            <pre>Error Code: ${error.code}
+Error Message: ${error.message}</pre>
+                        </div>
+                    `;
+                },
+                {
+                    enableHighAccuracy: true,
+                    timeout: 5000,
+                    maximumAge: 0
+                }
+            );
+        }
+
+        // Test API with different coordinates
+        async function testAPI() {
+            const resultDiv = document.getElementById('api-result');
+            
+            // Test with both default location and a known location (New York)
+            const testCases = [
+                { name: 'Default (Colombo)', lat: 6.9271, lng: 79.8612 },
+                { name: 'New York', lat: 40.7128, lng: -74.0060 },
+                { name: 'London', lat: 51.5074, lng: -0.1278 }
+            ];
+            
+            resultDiv.innerHTML = '<div class="info">🔄 Testing API endpoints...</div>';
+            
+            let results = '';
+            
+            for (const test of testCases) {
+                try {
+                    const url = `/api/places/nearby?lat=${test.lat}&lng=${test.lng}&q=restaurants&radius=5000`;
+                    console.log(`Testing: ${url}`);
+                    
+                    const response = await fetch(url);
+                    const data = await response.json();
+                    
+                    results += `
+                        <div class="success">
+                            <h4>✅ ${test.name}</h4>
+                            <p>URL: <code>${url}</code></p>
+                            <p>Results: ${data.length} places</p>
+                            <p>First place: ${data[0]?.name || 'None'}</p>
+                        </div>
+                    `;
+                } catch (error) {
+                    results += `
+                        <div class="error">
+                            <h4>❌ ${test.name}</h4>
+                            <p>Error: ${error.message}</p>
+                        </div>
+                    `;
+                }
+            }
+            
+            resultDiv.innerHTML = results;
+        }
+    </script>
+</body>
+</html>

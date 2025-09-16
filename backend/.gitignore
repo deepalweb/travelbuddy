@@ -1,0 +1,6 @@
+# Sensitive backend files
+.env
+credentials/
+*.key
+*.p12
+service-account*.json

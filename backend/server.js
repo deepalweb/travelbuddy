@@ -1,0 +1,2674 @@
+import express from 'express';
+import compression from 'compression';
+import mongoose from 'mongoose';
+import cors from 'cors';
+import path from 'path';
+import { fileURLToPath } from 'url';
+import dotenv from 'dotenv';
+// Load env from root .env first (won't override already-set vars)
+dotenv.config();
+import fetch from 'node-fetch';
+import fs from 'fs';
+import http from 'http';
+import { Server as SocketIOServer } from 'socket.io';
+import admin from 'firebase-admin';
+
+// In-memory cache for Places results (TTL + SWR)
+const PLACES_CACHE_TTL_MS = parseInt(process.env.BACKEND_PLACES_CACHE_TTL || '3600000', 10); // default 60m
+const PLACES_CACHE_MAX = 500; // simple soft limit
+const placesCache = new Map(); // key -> { data, ts }
+
+function makePlacesKey(lat, lng, q, radius) {
+  const latR = Number(lat).toFixed(3);
+  const lngR = Number(lng).toFixed(3);
+  const query = (q || '').toString().trim().toLowerCase();
+  const DEFAULT_RADIUS = parseInt(process.env.DEFAULT_PLACES_RADIUS_M || '20000', 10);
+  const rBucket = Math.round(Number(radius || DEFAULT_RADIUS) / 500) * 500; // bucket radius to 500m
+  return `${latR}|${lngR}|${query}|${rBucket}`;
+}
+
+function getFromPlacesCache(key) {
+  const entry = placesCache.get(key);
+  if (!entry) return null;
+  return entry;
+}
+
+function setPlacesCache(key, data) {
+  if (placesCache.size >= PLACES_CACHE_MAX) {
+    // simple LRU-ish: delete first inserted
+    const firstKey = placesCache.keys().next().value;
+    if (firstKey) placesCache.delete(firstKey);
+  }
+  placesCache.set(key, { data, ts: Date.now() });
+}
+
+// Compute distance between two lat/lng points in meters (Haversine)
+function haversineMeters(lat1, lon1, lat2, lon2) {
+  const toRad = (v) => (v * Math.PI) / 180;
+  const R = 6371000; // meters
+  const dLat = toRad(lat2 - lat1);
+  const dLon = toRad(lon2 - lon1);
+  const a = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+}
+
+function normalizeAndFilter(results, centerLat, centerLng, radiusMeters, options = { enforceRadius: true, sortByDistance: true }) {
+  const list = (Array.isArray(results) ? results : []).map((r) => {
+    const loc = r.geometry?.location;
+    const d = loc ? haversineMeters(Number(centerLat), Number(centerLng), Number(loc.lat), Number(loc.lng)) : null;
+    return {
+      place_id: r.place_id,
+      name: r.name,
+      formatted_address: r.formatted_address || r.vicinity || '',
+      types: r.types || ['establishment'],
+      geometry: r.geometry,
+      rating: r.rating,
+      user_ratings_total: r.user_ratings_total,
+      business_status: r.business_status || 'OPERATIONAL',
+      photos: Array.isArray(r.photos)
+        ? r.photos.slice(0, 3).map(p => ({
+            photo_reference: p.photo_reference,
+            width: p.width,
+            height: p.height,
+            html_attributions: p.html_attributions
+          }))
+        : [],
+      distance_m: d
+    };
+  });
+
+  let filtered = list;
+  if (options.enforceRadius) {
+    filtered = filtered.filter((p) => (p.distance_m ?? 0) <= Number(radiusMeters));
+  }
+  if (options.sortByDistance) {
+    filtered = filtered.sort((a, b) => (a.distance_m ?? Infinity) - (b.distance_m ?? Infinity));
+  }
+  return filtered.slice(0, 10);
+}
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+// Additionally load env from backend/.env (alongside this file) if present.
+// This is a fallback for local/dev and certain deployment layouts; Azure App Settings still take precedence.
+try {
+  dotenv.config({ path: path.join(__dirname, '.env') });
+} catch {}
+
+const app = express();
+// Enable gzip compression for faster API responses
+app.use(compression({ threshold: 1024 }));
+const PORT = process.env.PORT || 3001;
+
+// Create HTTP server and Socket.io for real-time metrics
+const httpServer = http.createServer(app);
+const allowedSocketOrigins = (
+  process.env.SOCKET_ALLOWED_ORIGINS || ''
+)
+  .split(',')
+  .map((s) => s.trim())
+  .filter(Boolean);
+
+const defaultSocketOrigins = [
+  process.env.CLIENT_URL,
+  'http://localhost:5173',
+  process.env.WEBSITE_HOSTNAME ? `https://${process.env.WEBSITE_HOSTNAME}` : null,
+].filter(Boolean);
+
+const io = new SocketIOServer(httpServer, {
+  cors: {
+    origin: (origin, callback) => {
+      // Allow same-origin/no-origin (e.g., mobile apps, curl)
+      if (!origin) return callback(null, true);
+      const okOrigins = new Set([...allowedSocketOrigins, ...defaultSocketOrigins]);
+      if (okOrigins.has(origin)) return callback(null, true);
+      return callback(new Error('Socket.IO CORS not allowed for origin: ' + origin), false);
+    },
+    methods: ['GET', 'POST']
+  }
+});
+
+io.on('connection', (socket) => {
+  // Simple handshake for metrics channel
+  // No auth required for now; restrict via CORS/origin
+  console.log('📊 Metrics client connected', socket.id);
+  // Send initial cost snapshot to new connections
+  try {
+    socket.emit('api_cost_update', buildCostSnapshot());
+  } catch {}
+  socket.on('disconnect', () => {
+    console.log('📊 Metrics client disconnected', socket.id);
+  });
+});
+
+// In-memory API usage metrics store (resets on server restart)
+const usageState = {
+  totals: {
+    gemini: { count: 0, success: 0, error: 0 },
+    maps: { count: 0, success: 0, error: 0 },
+    places: { count: 0, success: 0, error: 0 },
+  },
+  startTs: Date.now(),
+  // Keep last 100 events for quick timeline rendering
+  // events: array of { id, ts, api: 'gemini'|'maps'|'places', action?, status: 'success'|'error', durationMs?, meta? }
+  events: []
+};
+
+function broadcastUsageUpdate(lastEvent) {
+  try {
+    io.emit('api_usage_update', {
+      totals: usageState.totals,
+      lastEvent,
+      events: usageState.events.slice(-50),
+    });
+  } catch (e) {
+    console.warn('Failed to broadcast usage update:', e?.message || String(e));
+  }
+}
+
+function recordUsage({ api, action, status, durationMs, meta }) {
+  if (!['gemini', 'maps', 'places'].includes(api)) return;
+  const id = `ev-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  const event = { id, ts: Date.now(), api, action, status, durationMs, meta };
+  usageState.events.push(event);
+  if (usageState.events.length > 200) usageState.events.splice(0, usageState.events.length - 200);
+  const bucket = usageState.totals[api];
+  bucket.count += 1;
+  if (status === 'success') bucket.success += 1; else bucket.error += 1;
+  broadcastUsageUpdate(event);
+  // Emit updated cost snapshot as well for listeners
+  try {
+    io.emit('api_cost_update', buildCostSnapshot());
+  } catch {}
+  // Persist to Mongo (best-effort)
+  try {
+    if (ApiEvent && !SKIP_MONGO) {
+      const doc = new ApiEvent({ ts: new Date(event.ts), api, action, status, durationMs, meta });
+      doc.save().catch(() => {});
+    }
+  } catch {}
+}
+
+// --- Cost analytics ---
+// Configurable per-call cost rates (USD). Defaults are placeholders; set via env vars.
+const costConfig = {
+  includeErrors: String(process.env.COST_INCLUDE_ERRORS || 'false').toLowerCase() === 'true',
+  rates: {
+    gemini: parseFloat(process.env.COST_RATE_GEMINI_PER_CALL_USD || '0.01'),
+    maps: parseFloat(process.env.COST_RATE_MAPS_PER_CALL_USD || '0.005'),
+    places: parseFloat(process.env.COST_RATE_PLACES_PER_CALL_USD || '0.002'),
+  }
+};
+
+function buildCostSnapshot(windowMinutes = 60) {
+  const now = Date.now();
+  const windowMs = Math.max(1, windowMinutes) * 60 * 1000;
+  const windowStart = now - windowMs;
+  const within = usageState.events.filter(e => e.ts >= windowStart);
+  const shouldCount = (e) => costConfig.includeErrors ? true : e.status === 'success';
+  const apis = ['gemini','maps','places'];
+
+  const totalsCount = Object.fromEntries(apis.map(api => {
+    const totalCalls = usageState.events.filter(e => e.api === api && shouldCount(e)).length;
+    return [api, totalCalls];
+  }));
+
+  const windowCounts = Object.fromEntries(apis.map(api => {
+    const c = within.filter(e => e.api === api && shouldCount(e)).length;
+    return [api, c];
+  }));
+
+  const perApiSnapshot = Object.fromEntries(apis.map(api => {
+    const calls = totalsCount[api];
+    const rate = (costConfig.rates)[api];
+    return [api, { calls, costUSD: +(calls * rate).toFixed(4), ratePerCallUSD: rate }];
+  }));
+
+  const perApiWindow = Object.fromEntries(apis.map(api => {
+    const calls = windowCounts[api];
+    const rpm = calls / (windowMs / 60000);
+    const rate = (costConfig.rates)[api];
+    const cost = calls * rate;
+    return [api, { calls, ratePerMin: +rpm.toFixed(4), costUSD: +cost.toFixed(4) }];
+  }));
+
+  const projectedDailyUSD = apis.reduce((sum, api) => sum + perApiWindow[api].ratePerMin * 1440 * costConfig.rates[api], 0);
+  const projectedMonthlyUSD = projectedDailyUSD * 30;
+  const totalCostUSD = apis.reduce((sum, api) => sum + perApiSnapshot[api].costUSD, 0);
+
+  return {
+    config: costConfig,
+    sinceTs: usageState.startTs,
+    totals: usageState.totals,
+    snapshot: { perApi: perApiSnapshot, totalCostUSD: +totalCostUSD.toFixed(4) },
+    window: {
+      minutes: windowMinutes,
+      perApi: perApiWindow,
+      projected: {
+        dailyUSD: +projectedDailyUSD.toFixed(4),
+        monthlyUSD: +projectedMonthlyUSD.toFixed(4),
+      }
+    }
+  };
+}
+
+// Whether to enforce admin checks on cost endpoints (set ENFORCE_ADMIN_COST=true to enable)
+const ENFORCE_ADMIN_COST = String(process.env.ENFORCE_ADMIN_COST || 'false').toLowerCase() === 'true';
+
+// Subscription-based quota/rate-limit enforcement
+const ENFORCE_QUOTAS = String(process.env.ENFORCE_QUOTAS || 'false').toLowerCase() === 'true';
+const TIER_POLICY = {
+  free: {
+    places: { daily: 50, perMin: 5 },
+    maps: { daily: 150, perMin: 15 },
+    gemini: { daily: 10, perMin: 2 },
+    features: { dynamicMap: false, resultsPerSearch: 10, photosPerPlace: 1, radiusMaxM: 10000 }
+  },
+  basic: {
+    places: { daily: 200, perMin: 10 },
+    maps: { daily: 500, perMin: 30 },
+    gemini: { daily: 50, perMin: 5 },
+    features: { dynamicMap: true, resultsPerSearch: 15, photosPerPlace: 2, radiusMaxM: 20000 }
+  },
+  premium: {
+    places: { daily: 1000, perMin: 20 },
+    maps: { daily: 2000, perMin: 60 },
+    gemini: { daily: 200, perMin: 15 },
+    features: { dynamicMap: true, resultsPerSearch: 25, photosPerPlace: 3, radiusMaxM: 40000 }
+  },
+  pro: {
+    places: { daily: 5000, perMin: 60 },
+    maps: { daily: 10000, perMin: 120 },
+    gemini: { daily: 1000, perMin: 60 },
+    features: { dynamicMap: true, resultsPerSearch: 30, photosPerPlace: 6, radiusMaxM: 50000 }
+  }
+};
+
+// UsageCounter model (Mongo) for daily quotas
+let UsageCounter;
+try {
+  const usageCounterSchema = new mongoose.Schema({
+    userKey: { type: String, index: true },
+    api: { type: String, index: true },
+    date: { type: String, index: true }, // YYYY-MM-DD
+    tier: { type: String },
+    count: { type: Number, default: 0 },
+    updatedAt: { type: Date, default: Date.now }
+  });
+  usageCounterSchema.index({ userKey: 1, api: 1, date: 1 }, { unique: true });
+  UsageCounter = mongoose.model('UsageCounter', usageCounterSchema);
+} catch (e) {
+  try { UsageCounter = mongoose.model('UsageCounter'); } catch {}
+}
+
+// Persisted API usage event model (for long-term analytics)
+let ApiEvent;
+try {
+  const apiEventSchema = new mongoose.Schema({
+    ts: { type: Date, default: Date.now, index: true },
+    api: { type: String, index: true }, // 'gemini'|'maps'|'places'
+    action: { type: String },
+    status: { type: String, index: true }, // 'success'|'error'
+    durationMs: { type: Number },
+    meta: { type: mongoose.Schema.Types.Mixed },
+  }, { minimize: true });
+  apiEventSchema.index({ api: 1, ts: 1 });
+  ApiEvent = mongoose.model('ApiEvent', apiEventSchema);
+} catch (e) {
+  try { ApiEvent = mongoose.model('ApiEvent'); } catch {}
+}
+
+// In-memory fallbacks for rate limiting and daily quotas
+const minuteBuckets = new Map(); // key: userKey|api -> { windowStart: number, count: number }
+const memoryDaily = new Map(); // key: userKey|api|date -> number
+
+function getDateKey(ts = Date.now()) {
+  const d = new Date(ts);
+  return d.toISOString().slice(0, 10);
+}
+
+function getRequestUserKey(req) {
+  const uid = String(req.headers['x-user-id'] || req.headers['x-firebase-uid'] || '').trim();
+  if (uid) return uid;
+  // Fallback to IP
+  return (req.headers['x-forwarded-for']?.toString().split(',')[0] || req.socket?.remoteAddress || 'anon').toString();
+}
+
+async function getUserTier(req) {
+  // 1) explicit header override for testing
+  const hdr = String(req.headers['x-user-tier'] || '').toLowerCase();
+  if (hdr && TIER_POLICY[hdr]) return hdr;
+  // 2) lookup by user id if present
+  const uid = String(req.headers['x-user-id'] || '').trim();
+  if (uid) {
+    try {
+      const u = await User.findById(uid).select('tier').lean();
+      if (u?.tier && TIER_POLICY[u.tier]) return u.tier;
+    } catch {}
+  }
+  return 'free';
+}
+
+async function getDailyCount(userKey, api) {
+  const date = getDateKey();
+  if (UsageCounter && !SKIP_MONGO) {
+    const doc = await UsageCounter.findOne({ userKey, api, date }).lean();
+    return doc?.count || 0;
+  }
+  return memoryDaily.get(`${userKey}|${api}|${date}`) || 0;
+}
+
+async function incDailyCount(userKey, api, tier) {
+  const date = getDateKey();
+  if (UsageCounter && !SKIP_MONGO) {
+    const doc = await UsageCounter.findOneAndUpdate(
+      { userKey, api, date },
+      { $inc: { count: 1 }, $setOnInsert: { tier }, $set: { updatedAt: new Date() } },
+      { new: true, upsert: true }
+    );
+    return doc.count;
+  }
+  const key = `${userKey}|${api}|${date}`;
+  const v = (memoryDaily.get(key) || 0) + 1;
+  memoryDaily.set(key, v);
+  return v;
+}
+
+async function decDailyCount(userKey, api) {
+  const date = getDateKey();
+  if (UsageCounter && !SKIP_MONGO) {
+    await UsageCounter.updateOne({ userKey, api, date }, { $inc: { count: -1 }, $set: { updatedAt: new Date() } });
+    return;
+  }
+  const key = `${userKey}|${api}|${date}`;
+  const v = (memoryDaily.get(key) || 1) - 1;
+  memoryDaily.set(key, Math.max(0, v));
+}
+
+function checkRateLimit(userKey, api, limitPerMin) {
+  const key = `${userKey}|${api}`;
+  const now = Date.now();
+  const win = Math.floor(now / 60000) * 60000; // current minute window start
+  let b = minuteBuckets.get(key);
+  if (!b || b.windowStart !== win) {
+    b = { windowStart: win, count: 0 };
+    minuteBuckets.set(key, b);
+  }
+  if (b.count >= limitPerMin) {
+    const reset = Math.floor((win + 60000) / 1000);
+    return { allowed: false, remaining: 0, reset };
+  }
+  b.count += 1;
+  const reset = Math.floor((win + 60000) / 1000);
+  return { allowed: true, remaining: Math.max(0, limitPerMin - b.count), reset };
+}
+
+function enforcePolicy(api) {
+  return async (req, res, next) => {
+    if (!ENFORCE_QUOTAS) return next();
+    const userKey = getRequestUserKey(req);
+    const tier = await getUserTier(req);
+    const policy = TIER_POLICY[tier] && TIER_POLICY[tier][api] ? TIER_POLICY[tier][api] : null;
+    if (!policy) return next();
+
+    // Per-minute RL
+    const rl = checkRateLimit(userKey, api, policy.perMin);
+    res.setHeader('X-Quota-Tier', tier);
+    res.setHeader('X-RateLimit-Limit', String(policy.perMin));
+    res.setHeader('X-RateLimit-Remaining', String(rl.remaining));
+    res.setHeader('X-RateLimit-Reset', String(rl.reset));
+    if (!rl.allowed) {
+      return res.status(429).json({ error: 'rate_limited', tier, api, limits: policy, when: 'per_minute' });
+    }
+
+    // Daily quota
+    const used = await incDailyCount(userKey, api, tier);
+    const over = used > policy.daily;
+    const remaining = Math.max(0, policy.daily - used);
+    res.setHeader('X-Quota-Limit-Daily', String(policy.daily));
+    res.setHeader('X-Quota-Used-Daily', String(used));
+    res.setHeader('X-Quota-Remain-Daily', String(remaining));
+    if (over) {
+      await decDailyCount(userKey, api); // revert the increment
+      return res.status(429).json({ error: 'quota_exceeded', tier, api, limits: policy, when: 'daily' });
+    }
+
+    // Attach policy-derived feature caps to request for downstream use (e.g., radius clamp)
+    req._tier = tier;
+    req._policy = TIER_POLICY[tier];
+    return next();
+  };
+}
+
+// Middleware
+app.use(cors());
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ limit: '50mb', extended: true }));
+app.use(express.static(path.join(__dirname, '../dist')));
+
+// Payment routes (Stripe scaffold) - mount only when explicitly enabled to allow
+// running the app without the `stripe` package or Stripe env vars.
+if (String(process.env.ENABLE_STRIPE || '').toLowerCase() === 'true') {
+  import('./routes/stripe.js')
+    .then((mod) => {
+      app.use('/api/payments', mod.default);
+      console.log('[Payments] Stripe routes mounted under /api/payments');
+    })
+    .catch((err) => {
+      console.warn('[Payments] Failed to mount Stripe routes:', err?.message || err);
+    });
+} else {
+  console.log('[Payments] Stripe routes disabled. Set ENABLE_STRIPE=true to enable.');
+}
+
+// --- Firebase Admin initialization (optional, for privileged admin ops) ---
+// Configure one of the following in your environment for initialization:
+// 1) FIREBASE_ADMIN_CREDENTIALS_BASE64: base64-encoded service account JSON
+// 2) FIREBASE_ADMIN_CREDENTIALS_JSON: raw service account JSON string
+// 3) GOOGLE_APPLICATION_CREDENTIALS: path to service account JSON file (application default)
+let adminAuth = null;
+try {
+  if (!admin.apps.length) {
+    const b64 = process.env.FIREBASE_ADMIN_CREDENTIALS_BASE64;
+    const rawJson = process.env.FIREBASE_ADMIN_CREDENTIALS_JSON;
+    if (b64 || rawJson) {
+      const jsonStr = b64 ? Buffer.from(b64, 'base64').toString('utf8') : rawJson;
+      const credObj = JSON.parse(jsonStr);
+      admin.initializeApp({ credential: admin.credential.cert(credObj) });
+    } else {
+      // Attempt application default credentials as a fallback
+      admin.initializeApp({ credential: admin.credential.applicationDefault() });
+    }
+    console.log('[Admin] Firebase Admin initialized');
+  }
+  adminAuth = admin.auth();
+} catch (e) {
+  console.warn('[Admin] Firebase Admin not initialized:', e?.message || String(e));
+}
+
+// Protect admin endpoints either with an API key header or with a Firebase ID token that has admin=true claim
+const ADMIN_API_KEY = process.env.ADMIN_API_KEY || '';
+async function requireAdminAuth(req, res, next) {
+  // Option A: X-Admin-Api-Key header
+  const key = (req.headers['x-admin-api-key'] || req.headers['x-admin-key'] || '').toString();
+  if (ADMIN_API_KEY && key === ADMIN_API_KEY) return next();
+
+  // Option B: Firebase ID token with admin claim
+  try {
+    const authz = (req.headers['authorization'] || '').toString();
+    const m = authz.match(/^Bearer\s+(.+)$/i);
+    if (!m) return res.status(401).json({ error: 'unauthorized' });
+    if (!adminAuth) return res.status(500).json({ error: 'admin_not_configured' });
+    const decoded = await adminAuth.verifyIdToken(m[1]);
+    if (decoded?.admin === true) return next();
+    return res.status(403).json({ error: 'forbidden' });
+  } catch (e) {
+    return res.status(401).json({ error: 'unauthorized', detail: e?.message });
+  }
+}
+
+// Create or promote an admin user using a real email address
+// POST /api/admin/users
+// Body: { email: string, password?: string, displayName?: string }
+// - If user exists, password is optional; user is promoted to admin via custom claims.
+// - If user does not exist, password is required to create the Firebase Auth user.
+app.post('/api/admin/users', requireAdminAuth, async (req, res) => {
+  if (!adminAuth) return res.status(500).json({ error: 'admin_not_configured' });
+  const { email, password, displayName } = req.body || {};
+  if (!email || typeof email !== 'string') return res.status(400).json({ error: 'invalid_email' });
+
+  try {
+    let userRecord;
+    try {
+      userRecord = await adminAuth.getUserByEmail(email);
+    } catch {
+      userRecord = null;
+    }
+
+    if (!userRecord) {
+      if (!password || typeof password !== 'string' || password.length < 6) {
+        return res.status(400).json({ error: 'password_required_to_create_user' });
+      }
+      userRecord = await adminAuth.createUser({ email, password, displayName });
+    } else if (password && typeof password === 'string' && password.length >= 6) {
+      // Optional password reset on existing user
+      userRecord = await adminAuth.updateUser(userRecord.uid, { password, displayName });
+    } else if (displayName && displayName !== userRecord.displayName) {
+      userRecord = await adminAuth.updateUser(userRecord.uid, { displayName });
+    }
+
+    // Set custom claim admin=true
+    await adminAuth.setCustomUserClaims(userRecord.uid, { admin: true });
+
+    // Return minimal info (avoid sensitive fields)
+    return res.json({
+      uid: userRecord.uid,
+      email: userRecord.email,
+      displayName: userRecord.displayName,
+      admin: true
+    });
+  } catch (e) {
+    console.error('[Admin] Failed to create/promote admin:', e);
+    return res.status(500).json({ error: 'admin_user_create_failed', detail: e?.message || String(e) });
+  }
+});
+
+// In-memory enrichment cache keyed by place_id + lang
+const ENRICH_CACHE_TTL_MS = parseInt(process.env.ENRICHMENT_CACHE_TTL || '604800000', 10); // default 7d
+const enrichCache = new Map(); // key -> { data, ts }
+const ENRICH_SCHEMA_VERSION = 'v1';
+
+function makeEnrichKey(placeId, lang = 'en') {
+  return `${ENRICH_SCHEMA_VERSION}|${lang}|${placeId}`;
+}
+
+function getEnrichmentFromCache(ids, lang) {
+  const now = Date.now();
+  const hits = new Map();
+  const misses = [];
+  for (const id of ids) {
+    const key = makeEnrichKey(id, lang);
+    const entry = enrichCache.get(key);
+    if (entry && now - entry.ts < ENRICH_CACHE_TTL_MS) {
+      hits.set(id, entry.data);
+    } else {
+      misses.push(id);
+    }
+  }
+  return { hits, misses };
+}
+
+function setEnrichmentInCache(items, lang) {
+  const now = Date.now();
+  for (const item of items) {
+    if (!item?.id) continue;
+    const key = makeEnrichKey(item.id, lang);
+    enrichCache.set(key, { data: item, ts: now });
+  }
+}
+
+// MongoDB connection (optional)
+const MONGO_URI = process.env.MONGO_URI;
+const SKIP_MONGO = String(process.env.SKIP_MONGO || '').toLowerCase() === 'true';
+if (!SKIP_MONGO && MONGO_URI && MONGO_URI !== 'disabled') {
+  mongoose.connect(MONGO_URI)
+    .then(() => console.log('✅ MongoDB connected'))
+    .catch(err => console.error('❌ MongoDB connection error:', err));
+} else {
+  console.warn('ℹ️ MongoDB connection skipped (set MONGO_URI and SKIP_MONGO=false to enable; set MONGO_URI="disabled" or SKIP_MONGO=true to skip).');
+}
+
+// Generic Config Schema for key/value config
+let Config;
+try {
+  const configSchema = new mongoose.Schema({
+    key: { type: String, unique: true },
+    data: mongoose.Schema.Types.Mixed,
+    updatedAt: { type: Date, default: Date.now }
+  });
+  Config = mongoose.model('Config', configSchema);
+} catch (e) {
+  try { Config = mongoose.model('Config'); } catch {}
+}
+
+// User Schema
+const userSchema = new mongoose.Schema({
+  firebaseUid: { type: String, index: true, sparse: true },
+  username: { type: String, required: true, unique: true },
+  email: { type: String, required: true, unique: true },
+  tier: { type: String, default: 'free', enum: ['free', 'basic', 'premium', 'pro'] },
+  subscriptionStatus: { type: String, default: 'none', enum: ['none', 'trial', 'active', 'expired', 'canceled'] },
+  subscriptionEndDate: Date,
+  trialEndDate: Date,
+  homeCurrency: { type: String, default: 'USD' },
+  language: { type: String, default: 'en' },
+  selectedInterests: [String],
+  hasCompletedWizard: { type: Boolean, default: false },
+  isAdmin: { type: Boolean, default: false },
+  favoritePlaces: [String],
+  profilePicture: { type: String, default: null }, // URL to profile picture
+  // Reputation system
+  reputation: {
+    score: { type: Number, default: 0 },
+    level: { type: String, enum: ['new', 'trusted', 'expert', 'moderator'], default: 'new' },
+    violations: { type: Number, default: 0 },
+    contributions: { type: Number, default: 0 }
+  },
+  createdAt: { type: Date, default: Date.now }
+});
+
+const User = mongoose.model('User', userSchema);
+
+// Load persisted cost config from DB on startup (if DB available)
+(async () => {
+  try {
+    if (Config) {
+      const doc = await Config.findOne({ key: 'api_cost_config' }).lean();
+      if (doc && doc.data) {
+        if (typeof doc.data.includeErrors === 'boolean') costConfig.includeErrors = doc.data.includeErrors;
+        if (doc.data.rates) {
+          for (const k of ['gemini','maps','places']) {
+            if (doc.data.rates[k] != null && !isNaN(doc.data.rates[k])) {
+              costConfig.rates[k] = parseFloat(doc.data.rates[k]);
+            }
+          }
+        }
+      } else {
+        await Config.create({ key: 'api_cost_config', data: costConfig });
+      }
+    }
+  } catch (e) {
+    console.warn('Cost config load failed:', e?.message || String(e));
+  }
+})();
+
+async function persistCostConfig() {
+  try {
+    if (Config) {
+      await Config.updateOne(
+        { key: 'api_cost_config' },
+        { $set: { data: costConfig, updatedAt: new Date() } },
+        { upsert: true }
+      );
+    }
+  } catch (e) {
+    console.warn('Cost config persist failed:', e?.message || String(e));
+  }
+}
+
+// Admin guard: allow if ADMIN_SECRET matches x-admin-secret, or user id header corresponds to isAdmin user
+async function isAdminRequest(req) {
+  const secret = process.env.ADMIN_SECRET;
+  const hdr = req.headers['x-admin-secret'];
+  if (secret && hdr && String(hdr) === String(secret)) return true;
+  const userId = req.headers['x-user-id'];
+  if (userId) {
+    try {
+      const u = await User.findById(String(userId)).select('isAdmin').lean();
+      if (u && u.isAdmin) return true;
+    } catch {}
+  }
+  return false;
+}
+
+// Trip Plan Schema
+const tripPlanSchema = new mongoose.Schema({
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  tripTitle: String,
+  destination: String,
+  duration: String,
+  dailyPlans: [Object],
+  createdAt: { type: Date, default: Date.now }
+});
+
+const TripPlan = mongoose.model('TripPlan', tripPlanSchema);
+
+// Post Schema
+const postSchema = new mongoose.Schema({
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  content: {
+    text: String,
+    images: [String]
+  },
+  author: {
+    name: String,
+    avatar: String,
+    location: String,
+    verified: Boolean
+  },
+  engagement: {
+    likes: { type: Number, default: 0 },
+    comments: { type: Number, default: 0 },
+    shares: { type: Number, default: 0 }
+  },
+  // Track which users liked the post (store userId or username as string)
+  likedBy: { type: [String], default: [] },
+  // Embedded comments for simplicity
+  commentsList: {
+    type: [new mongoose.Schema({
+      userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+      username: { type: String },
+      text: { type: String, required: true },
+      likes: { type: Number, default: 0 },
+      likedBy: { type: [String], default: [] },
+      createdAt: { type: Date, default: Date.now }
+    }, { _id: true })],
+    default: []
+  },
+  tags: [String],
+  category: String,
+  // Moderation fields
+  moderationFlags: { type: [String], default: [] },
+  requiresReview: { type: Boolean, default: false },
+  moderationStatus: { type: String, enum: ['pending', 'approved', 'rejected'], default: 'approved' },
+  createdAt: { type: Date, default: Date.now }
+});
+
+// Indexes for faster queries
+postSchema.index({ createdAt: -1 });
+postSchema.index({ userId: 1, createdAt: -1 });
+postSchema.index({ moderationStatus: 1 });
+
+const Post = mongoose.model('Post', postSchema);
+
+// Review Schema
+const reviewSchema = new mongoose.Schema({
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  placeId: String,
+  rating: Number,
+  text: String,
+  createdAt: { type: Date, default: Date.now }
+});
+
+const Review = mongoose.model('Review', reviewSchema);
+
+// Deal Schema
+const dealSchema = new mongoose.Schema({
+  title: String,
+  description: String,
+  discount: String,
+  placeId: String,
+  placeName: String,
+  price: {
+    amount: Number,
+    currencyCode: String,
+  },
+  isPremium: { type: Boolean, default: false },
+  isActive: { type: Boolean, default: true },
+  startsAt: { type: Date },
+  endsAt: { type: Date },
+  createdAt: { type: Date, default: Date.now }
+});
+
+const Deal = mongoose.model('Deal', dealSchema);
+
+// Event Schema
+const eventSchema = new mongoose.Schema({
+  title: String,
+  description: String,
+  location: String,
+  date: String,
+  time: String,
+  isFeatured: { type: Boolean, default: false },
+  isActive: { type: Boolean, default: true },
+  createdAt: { type: Date, default: Date.now }
+});
+
+const Event = mongoose.model('Event', eventSchema);
+
+// One-Day Itinerary Schema
+const itinerarySchema = new mongoose.Schema({
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  title: String,
+  introduction: String,
+  dailyPlan: [Object], // Array with one element for one-day plans
+  conclusion: String,
+  travelTips: [String],
+  createdAt: { type: Date, default: Date.now }
+});
+
+const Itinerary = mongoose.model('Itinerary', itinerarySchema);
+
+// API Routes
+// Batch enrichment cache endpoint: returns cached enrichment and records new ones from client
+app.post('/api/enrichment/batch', async (req, res) => {
+  try {
+    const { items, lang } = req.body || {};
+    if (!Array.isArray(items)) return res.status(400).json({ error: 'items array required' });
+    const ids = items.map(i => i?.place_id || i?.id).filter(Boolean);
+    const { hits, misses } = getEnrichmentFromCache(ids, lang || 'en');
+    // If client provided enriched data for some items, store them
+    const enrichedProvided = items.filter(i => i && i.id && (i.description || i.localTip || i.type));
+    if (enrichedProvided.length > 0) setEnrichmentInCache(enrichedProvided, lang || 'en');
+    res.json({ cached: Object.fromEntries(hits), missing: misses });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed enrichment batch', details: error?.message || String(error) });
+  }
+});
+
+// API Usage metrics endpoints
+app.post('/api/usage', async (req, res) => {
+  try {
+    const { api, action, status, durationMs, meta } = req.body || {};
+    if (!api || !status) return res.status(400).json({ error: 'api and status are required' });
+    recordUsage({ api, action, status, durationMs, meta });
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(500).json({ error: 'Failed to record usage', details: e?.message || String(e) });
+  }
+});
+
+app.get('/api/usage', async (req, res) => {
+  try {
+    res.json({ totals: usageState.totals, events: usageState.events.slice(-200) });
+  } catch (e) {
+    res.status(500).json({ error: 'Failed to fetch usage', details: e?.message || String(e) });
+  }
+});
+
+// Aggregations: daily and monthly summaries and window stats
+app.get('/api/usage/aggregate/daily', async (req, res) => {
+  try {
+    const days = Math.min(365, Math.max(1, parseInt(String(req.query.days || '30'), 10)));
+    const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+    if (!ApiEvent || SKIP_MONGO) {
+      // Fallback: use in-memory events (limited history)
+      const byDay = new Map();
+      for (const e of usageState.events) {
+        if (e.ts < since.getTime()) continue;
+        const day = new Date(e.ts).toISOString().slice(0,10);
+        const key = `${day}|${e.api}|${e.status}`;
+        byDay.set(key, (byDay.get(key)||0)+1);
+      }
+      const daysOut = [];
+      const dayKeys = new Set([...byDay.keys()].map(k=>k.split('|')[0]));
+      const sortedDays = [...dayKeys].sort();
+      for (const d of sortedDays) {
+        const perApi = { gemini: { success:0, error:0 }, maps:{ success:0, error:0 }, places:{ success:0, error:0 } };
+        for (const api of ['gemini','maps','places']) {
+          for (const status of ['success','error']) {
+            perApi[api][status] = byDay.get(`${d}|${api}|${status}`) || 0;
+          }
+        }
+        const total = Object.values(perApi).reduce((s, v) => s + v.success + v.error, 0);
+        daysOut.push({ day: d, perApi, total });
+      }
+      return res.json({ range: { since: since.toISOString() }, days: daysOut });
+    }
+    const rows = await ApiEvent.aggregate([
+      { $match: { ts: { $gte: since } } },
+      { $group: { _id: { day: { $dateToString: { format: '%Y-%m-%d', date: '$ts' } }, api: '$api', status: '$status' }, count: { $sum: 1 } } },
+      { $sort: { '_id.day': 1 } }
+    ]).exec();
+    const map = new Map();
+    for (const r of rows) {
+      const { day, api, status } = r._id;
+      if (!map.has(day)) map.set(day, { gemini:{success:0,error:0}, maps:{success:0,error:0}, places:{success:0,error:0} });
+      map.get(day)[api][status] = r.count;
+    }
+    const daysOut = [...map.keys()].sort().map(d => {
+      const perApi = map.get(d);
+      const total = Object.values(perApi).reduce((s,v)=> s + v.success + v.error, 0);
+      return { day: d, perApi, total };
+    });
+    res.json({ range: { since: since.toISOString() }, days: daysOut });
+  } catch (e) {
+    res.status(500).json({ error: 'Failed daily aggregate', details: e?.message || String(e) });
+  }
+});
+
+app.get('/api/usage/aggregate/monthly', async (req, res) => {
+  try {
+    const months = Math.min(24, Math.max(1, parseInt(String(req.query.months || '12'), 10)));
+    const since = new Date();
+    since.setUTCMonth(since.getUTCMonth() - months + 1);
+    if (!ApiEvent || SKIP_MONGO) {
+      const byMonth = new Map();
+      for (const e of usageState.events) {
+        const dt = new Date(e.ts);
+        const ym = dt.toISOString().slice(0,7);
+        const key = `${ym}|${e.api}|${e.status}`;
+        byMonth.set(key, (byMonth.get(key)||0)+1);
+      }
+      const ymKeys = new Set([...byMonth.keys()].map(k=>k.split('|')[0]));
+      const out = [...ymKeys].sort().map(ym => {
+        const perApi = { gemini:{success:0,error:0}, maps:{success:0,error:0}, places:{success:0,error:0} };
+        for (const api of ['gemini','maps','places']) {
+          for (const status of ['success','error']) perApi[api][status] = byMonth.get(`${ym}|${api}|${status}`)||0;
+        }
+        const total = Object.values(perApi).reduce((s,v)=> s + v.success + v.error, 0);
+        return { month: ym, perApi, total };
+      });
+      return res.json({ range: { since: since.toISOString() }, months: out });
+    }
+    const rows = await ApiEvent.aggregate([
+      { $match: { ts: { $gte: since } } },
+      { $group: { _id: { month: { $dateToString: { format: '%Y-%m', date: '$ts' } }, api: '$api', status: '$status' }, count: { $sum: 1 } } },
+      { $sort: { '_id.month': 1 } }
+    ]).exec();
+    const map = new Map();
+    for (const r of rows) {
+      const { month, api, status } = r._id;
+      if (!map.has(month)) map.set(month, { gemini:{success:0,error:0}, maps:{success:0,error:0}, places:{success:0,error:0} });
+      map.get(month)[api][status] = r.count;
+    }
+    const monthsOut = [...map.keys()].sort().map(m => {
+      const perApi = map.get(m);
+      const total = Object.values(perApi).reduce((s,v)=> s + v.success + v.error, 0);
+      return { month: m, perApi, total };
+    });
+    res.json({ range: { since: since.toISOString() }, months: monthsOut });
+  } catch (e) {
+    res.status(500).json({ error: 'Failed monthly aggregate', details: e?.message || String(e) });
+  }
+});
+
+app.get('/api/usage/stats', async (req, res) => {
+  try {
+    const windowMinutes = Math.min(1440, Math.max(5, parseInt(String(req.query.window || '60'), 10)));
+    const since = new Date(Date.now() - windowMinutes * 60 * 1000);
+    const apis = ['gemini','maps','places'];
+    const result = {};
+    if (!ApiEvent || SKIP_MONGO) {
+      const recent = usageState.events.filter(e => e.ts >= since.getTime());
+      for (const api of apis) {
+        const rows = recent.filter(e => e.api === api);
+        const calls = rows.length;
+        const success = rows.filter(r=>r.status==='success').length;
+        const error = rows.filter(r=>r.status==='error').length;
+        const durs = rows.map(r=>r.durationMs||0).filter(v=>v>0).sort((a,b)=>a-b);
+        const p = (p) => durs.length ? durs[Math.min(durs.length-1, Math.floor((p/100)*durs.length))] : 0;
+        result[api] = { calls, success, error, p50: p(50), p95: p(95), avgMs: durs.length ? Math.round(durs.reduce((s,v)=>s+v,0)/durs.length) : 0 };
+      }
+      return res.json({ windowMinutes, perApi: result });
+    }
+    const rows = await ApiEvent.find({ ts: { $gte: since } }, { api:1, status:1, durationMs:1 }).limit(50000).lean().exec();
+    for (const api of apis) {
+      const subset = rows.filter(r=>r.api===api);
+      const calls = subset.length;
+      const success = subset.filter(r=>r.status==='success').length;
+      const error = subset.filter(r=>r.status==='error').length;
+      const durs = subset.map(r=>r.durationMs||0).filter(v=>v>0).sort((a,b)=>a-b);
+      const perc = (p) => durs.length ? durs[Math.min(durs.length-1, Math.floor((p/100)*durs.length))] : 0;
+      result[api] = { calls, success, error, p50: perc(50), p95: perc(95), avgMs: durs.length ? Math.round(durs.reduce((s,v)=>s+v,0)/durs.length) : 0 };
+    }
+    res.json({ windowMinutes, perApi: result });
+  } catch (e) {
+    res.status(500).json({ error: 'Failed window stats', details: e?.message || String(e) });
+  }
+});
+
+// Time-series usage counts for charts
+// Query: window (minutes), bucket ('auto'|'minute'|'hour'|'day'), apis=gemini,maps,places, status=all|success|error
+app.get('/api/usage/timeseries', async (req, res) => {
+  try {
+    const CAP_MIN = 60 * 24 * 90; // 90 days cap
+    const qSince = req.query.since ? new Date(String(req.query.since)) : null;
+    const qUntil = req.query.until ? new Date(String(req.query.until)) : null;
+    let since, until;
+    if (qSince) {
+      since = qSince;
+      until = qUntil || new Date();
+    } else {
+      const windowMin = Math.min(CAP_MIN, Math.max(5, parseInt(String(req.query.window || '60'), 10)));
+      since = new Date(Date.now() - windowMin * 60 * 1000);
+      until = new Date();
+    }
+    const apis = String(req.query.apis || 'gemini,maps,places').split(',').map(s=>s.trim()).filter(Boolean);
+    const statusFilter = String(req.query.status || 'all'); // all|success|error
+    let bucket = String(req.query.bucket || 'auto');
+    if (bucket === 'auto') {
+      const windowMin = Math.max(1, Math.round((until - since) / 60000));
+      if (windowMin <= 180) bucket = 'minute';
+      else if (windowMin <= 60*24*7) bucket = 'hour';
+      else bucket = 'day';
+    }
+    const fmt = bucket === 'minute' ? '%Y-%m-%dT%H:%M:00Z' : (bucket === 'hour' ? '%Y-%m-%dT%H:00:00Z' : '%Y-%m-%d');
+
+    if (!ApiEvent || SKIP_MONGO) {
+      // Fallback: bucket in-memory events (limited history)
+      const map = new Map(); // key: tsBucket -> { api: { success, error } }
+      const floorToBucket = (ts) => {
+        const d = new Date(ts);
+        if (bucket === 'minute') d.setUTCSeconds(0,0);
+        else if (bucket === 'hour') d.setUTCMinutes(0,0,0);
+        else { d.setUTCHours(0,0,0,0); }
+        return d.toISOString().replace(/\.\d{3}Z$/, 'Z');
+      };
+      for (const e of usageState.events) {
+        if (e.ts < since.getTime() || e.ts > until.getTime()) continue;
+        if (!apis.includes(e.api)) continue;
+        if (statusFilter !== 'all' && e.status !== statusFilter) continue;
+        const key = floorToBucket(e.ts);
+        if (!map.has(key)) map.set(key, {});
+        const bucketObj = map.get(key);
+        bucketObj[e.api] = bucketObj[e.api] || { success:0, error:0 };
+        bucketObj[e.api][e.status] += 1;
+      }
+      const points = [...map.keys()].sort().map(t => {
+        const perApi = {};
+        for (const a of apis) {
+          const v = (map.get(t) || {})[a] || { success:0, error:0 };
+          perApi[a] = { ...v, total: v.success + v.error };
+        }
+        return { t, perApi };
+      });
+      return res.json({ bucket, points });
+    }
+
+    // Mongo aggregation path
+  const match = { ts: { $gte: since, $lte: until }, api: { $in: apis } };
+    if (statusFilter !== 'all') Object.assign(match, { status: statusFilter });
+    const rows = await ApiEvent.aggregate([
+      { $match: match },
+      { $group: { _id: { t: { $dateToString: { format: fmt, date: '$ts' } }, api: '$api', status: '$status' }, c: { $sum: 1 } } },
+      { $sort: { '_id.t': 1 } }
+    ]).exec();
+    const byT = new Map();
+    for (const r of rows) {
+      const t = r._id.t;
+      if (!byT.has(t)) byT.set(t, {});
+      const obj = byT.get(t);
+      const a = r._id.api;
+      obj[a] = obj[a] || { success:0, error:0 };
+      obj[a][r._id.status] = (obj[a][r._id.status] || 0) + r.c;
+    }
+    const points = [...byT.keys()].sort().map(t => {
+      const perApi = {};
+      for (const a of apis) {
+        const v = (byT.get(t) || {})[a] || { success:0, error:0 };
+        perApi[a] = { ...v, total: v.success + v.error };
+      }
+      return { t, perApi };
+    });
+    res.json({ bucket, points });
+  } catch (e) {
+    res.status(500).json({ error: 'Failed timeseries', details: e?.message || String(e) });
+  }
+});
+
+// Policy endpoint: lets client see current limits and usage
+app.get('/api/usage/policy', async (req, res) => {
+  try {
+    const tier = await getUserTier(req);
+    const userKey = getRequestUserKey(req);
+    const date = getDateKey();
+    const apis = ['places','maps','gemini'];
+    const used = {};
+    for (const api of apis) {
+      used[api] = await getDailyCount(userKey, api);
+    }
+    res.json({ enforce: ENFORCE_QUOTAS, date, tier, policy: TIER_POLICY[tier], usedDaily: used });
+  } catch (e) {
+    res.status(500).json({ error: 'Failed to get policy', details: e?.message || String(e) });
+  }
+});
+
+// Health: DB connectivity status
+app.get('/api/health/db', async (req, res) => {
+  try {
+    const enabled = !SKIP_MONGO;
+    const state = mongoose?.connection?.readyState; // 1 = connected
+    const connected = state === 1;
+    res.json({ mongo: { enabled, connected, state } });
+  } catch (e) {
+    res.status(500).json({ error: 'Failed to read DB health', details: e?.message || String(e) });
+  }
+});
+
+// Cost analytics endpoints
+app.get('/api/usage/cost', async (req, res) => {
+  try {
+    if (ENFORCE_ADMIN_COST && !(await isAdminRequest(req))) {
+      return res.status(403).json({ error: 'Forbidden' });
+    }
+    const windowMinutes = parseInt(String(req.query.window || '60'), 10) || 60;
+    res.json(buildCostSnapshot(windowMinutes));
+  } catch (e) {
+    res.status(500).json({ error: 'Failed to build cost snapshot', details: e?.message || String(e) });
+  }
+});
+
+app.post('/api/usage/cost/config', async (req, res) => {
+  try {
+    if (ENFORCE_ADMIN_COST && !(await isAdminRequest(req))) {
+      return res.status(403).json({ error: 'Forbidden' });
+    }
+    const { includeErrors, rates } = req.body || {};
+    if (typeof includeErrors === 'boolean') costConfig.includeErrors = includeErrors;
+    if (rates && typeof rates === 'object') {
+      for (const k of ['gemini','maps','places']) {
+        if (rates[k] != null && !isNaN(rates[k])) {
+          costConfig.rates[k] = parseFloat(rates[k]);
+        }
+      }
+    }
+    // persist new config
+    await persistCostConfig();
+    const snapshot = buildCostSnapshot();
+    io.emit('api_cost_update', snapshot);
+    res.json({ ok: true, config: costConfig });
+  } catch (e) {
+    res.status(400).json({ error: 'Failed to update cost config', details: e?.message || String(e) });
+  }
+});
+// Places API proxy - fetch factual places from Google Places Text Search
+app.get('/api/places/nearby', enforcePolicy('places'), async (req, res) => {
+  try {
+  const { lat, lng, q, radius, enforceRadius, sort } = req.query;
+    const apiKey = process.env.GOOGLE_PLACES_API_KEY;
+    if (!apiKey) {
+      recordUsage({ api: 'places', action: 'nearby', status: 'error', meta: { reason: 'missing_key' } });
+      return res.status(500).json({ error: 'GOOGLE_PLACES_API_KEY is not configured on the server' });
+    }
+
+    if (!lat || !lng) {
+      return res.status(400).json({ error: 'lat and lng are required' });
+    }
+
+    const query = (q || '').toString().trim() || 'points of interest';
+  const DEFAULT_RADIUS = parseInt(process.env.DEFAULT_PLACES_RADIUS_M || '20000', 10);
+  let searchRadius = parseInt((radius || String(DEFAULT_RADIUS)).toString(), 10);
+  const maxR = req._policy?.features?.radiusMaxM;
+  if (maxR && Number.isFinite(maxR)) searchRadius = Math.min(searchRadius, maxR);
+  const enforce = String(enforceRadius ?? 'true').toLowerCase() !== 'false';
+  const sortByDistance = String(sort || 'distance').toLowerCase() === 'distance';
+
+    const key = makePlacesKey(lat, lng, query, searchRadius);
+    const cached = getFromPlacesCache(key);
+    const isFresh = cached && (Date.now() - cached.ts < PLACES_CACHE_TTL_MS);
+
+    // Serve fresh cache
+    if (isFresh) {
+      recordUsage({ api: 'places', action: 'nearby', status: 'success', meta: { cache: 'hit' } });
+      return res.json(cached.data);
+    }
+
+  const url = new URL('https://maps.googleapis.com/maps/api/place/textsearch/json');
+    url.searchParams.set('query', query);
+    url.searchParams.set('location', `${lat},${lng}`);
+    url.searchParams.set('radius', String(searchRadius));
+    url.searchParams.set('key', apiKey);
+
+    const doFetch = async () => {
+      const response = await fetch(url.toString());
+      if (!response.ok) {
+        const text = await response.text();
+        throw new Error(text);
+      }
+      return await response.json();
+    };
+
+    // If we have stale cache, return it immediately and refresh in background (SWR)
+    if (cached && !isFresh) {
+    res.json(cached.data);
+      // background refresh
+      const started = Date.now();
+      doFetch()
+        .then((data) => {
+          if (data.status && data.status !== 'OK') {
+            if (data.status === 'ZERO_RESULTS') {
+              setPlacesCache(key, []);
+              recordUsage({ api: 'places', action: 'nearby', status: 'success', durationMs: Date.now() - started, meta: { swr: true, zero: true } });
+              return;
+            }
+            console.error('Places API error (bg):', data.status, data.error_message);
+            recordUsage({ api: 'places', action: 'nearby', status: 'error', durationMs: Date.now() - started, meta: { swr: true, status: data.status } });
+            return;
+          }
+      const normalized = normalizeAndFilter(data.results, lat, lng, searchRadius, { enforceRadius: enforce, sortByDistance });
+          setPlacesCache(key, normalized);
+          recordUsage({ api: 'places', action: 'nearby', status: 'success', durationMs: Date.now() - started, meta: { swr: true, cache: 'set' } });
+        })
+        .catch((e) => {
+          console.error('Places SWR refresh failed:', e.message || e);
+          recordUsage({ api: 'places', action: 'nearby', status: 'error', meta: { swr: true, err: e?.message || String(e) } });
+        });
+      return;
+    }
+
+    const start = Date.now();
+    const data = await doFetch();
+
+    if (data.status && data.status !== 'OK') {
+      if (data.status === 'ZERO_RESULTS') {
+        setPlacesCache(key, []);
+        recordUsage({ api: 'places', action: 'nearby', status: 'success', durationMs: Date.now() - start, meta: { zero: true } });
+        return res.json([]);
+      }
+      console.error('Places API error:', data.status, data.error_message);
+      recordUsage({ api: 'places', action: 'nearby', status: 'error', durationMs: Date.now() - start, meta: { status: data.status } });
+      return res.status(502).json({ error: 'Places API status not OK', details: data.status, message: data.error_message });
+    }
+
+  let normalized = normalizeAndFilter(data.results, lat, lng, searchRadius, { enforceRadius: enforce, sortByDistance });
+
+  setPlacesCache(key, normalized);
+  recordUsage({ api: 'places', action: 'nearby', status: 'success', durationMs: Date.now() - start, meta: { cache: 'set' } });
+  const limit = req._policy?.features?.resultsPerSearch;
+  const sendList = (limit && Number.isFinite(limit)) ? normalized.slice(0, limit) : normalized;
+  res.json(sendList);
+  } catch (error) {
+    recordUsage({ api: 'places', action: 'nearby', status: 'error', meta: { err: error?.message || String(error) } });
+    res.status(500).json({ error: 'Failed to fetch places', details: error?.message || String(error) });
+  }
+});
+
+// Users
+app.post('/api/users', async (req, res) => {
+  try {
+  const { username, email, firebaseUid, ...rest } = req.body || {};
+  if (!username && !email) {
+      return res.status(400).json({ error: 'username or email is required' });
+    }
+    // Try find existing by email or username
+    const existing = await User.findOne({
+      $or: [
+    ...(email ? [{ email }] : []),
+    ...(firebaseUid ? [{ firebaseUid }] : []),
+        ...(username ? [{ username }] : [])
+      ]
+    });
+
+    if (existing) {
+      // Optionally update SAFE fields if provided (ignore undefined to avoid accidental resets)
+      const updatable = ['tier','subscriptionStatus','subscriptionEndDate','trialEndDate','homeCurrency','language','selectedInterests','hasCompletedWizard','isAdmin','profilePicture'];
+      let changed = false;
+      for (const key of updatable) {
+        if (Object.prototype.hasOwnProperty.call(rest, key) && rest[key] !== undefined) {
+          if (existing[key] !== rest[key]) {
+            existing[key] = rest[key];
+            changed = true;
+          }
+        }
+      }
+      if (changed) await existing.save();
+      return res.json(existing);
+    }
+
+  const user = new User({ username, email, firebaseUid, ...rest });
+    await user.save();
+    res.json(user);
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
+app.get('/api/users', async (req, res) => {
+  try {
+    const users = await User.find().select('-__v');
+    res.json(users);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Get single user (authoritative read for subscription/tier)
+app.get('/api/users/:id', async (req, res) => {
+  try {
+    // Try to find user by Firebase UID first, then by MongoDB _id
+    let user = await User.findOne({ firebaseUid: req.params.id }).select('-__v');
+    if (!user) {
+      user = await User.findById(req.params.id).select('-__v');
+    }
+    if (!user) return res.status(404).json({ error: 'User not found' });
+    res.json(user);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Return simple subscription status for a user
+app.get('/api/users/:id/subscription-status', async (req, res) => {
+  try {
+    // Try to find user by Firebase UID first, then by MongoDB _id
+    let user = await User.findOne({ firebaseUid: req.params.id }).select('tier subscriptionStatus subscriptionEndDate trialEndDate');
+    if (!user) {
+      user = await User.findById(req.params.id).select('tier subscriptionStatus subscriptionEndDate trialEndDate');
+    }
+    if (!user) return res.status(404).json({ error: 'User not found' });
+    res.json({
+      tier: user.tier,
+      subscriptionStatus: user.subscriptionStatus,
+      subscriptionEndDate: user.subscriptionEndDate,
+      trialEndDate: user.trialEndDate,
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Return invoices for a user (placeholder - integrate with payment provider)
+app.get('/api/users/:id/invoices', async (req, res) => {
+  try {
+    // In a real implementation, query Stripe (or other provider) for invoices by customer id.
+    // For now return an empty list or any stored invoices in DB if available.
+    res.json([]);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.put('/api/users/:id', async (req, res) => {
+  try {
+    // Diagnostic logging: show incoming body for debugging subscription persistence
+    console.log('[PUT /api/users/:id] incoming body:', { id: req.params.id, body: req.body, ip: req.ip || req.headers['x-forwarded-for'] || req.connection?.remoteAddress });
+
+    // Only allow specific fields and ignore undefined to avoid erasing values
+    const allowed = ['username','email','tier','subscriptionStatus','subscriptionEndDate','trialEndDate','homeCurrency','language','selectedInterests','hasCompletedWizard','isAdmin','profilePicture'];
+    const payload = {};
+    for (const k of allowed) {
+      if (Object.prototype.hasOwnProperty.call(req.body || {}, k) && req.body[k] !== undefined) {
+        payload[k] = req.body[k];
+      }
+    }
+
+    console.log('[PUT /api/users/:id] sanitized payload to update:', payload);
+
+    const user = await User.findByIdAndUpdate(req.params.id, { $set: payload }, { new: true });
+    if (!user) {
+      console.warn('[PUT /api/users/:id] user not found for id:', req.params.id);
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    console.log('[PUT /api/users/:id] update saved, result:', { _id: user._id, tier: user.tier, subscriptionStatus: user.subscriptionStatus, subscriptionEndDate: user.subscriptionEndDate, trialEndDate: user.trialEndDate });
+    res.json(user);
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
+// Profile picture upload
+app.put('/api/users/:id/profile-picture', async (req, res) => {
+  try {
+    const { profilePicture } = req.body;
+    if (!profilePicture) {
+      return res.status(400).json({ error: 'Profile picture URL is required' });
+    }
+    
+    const user = await User.findByIdAndUpdate(
+      req.params.id, 
+      { profilePicture }, 
+      { new: true }
+    );
+    
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    
+    res.json({ success: true, profilePicture: user.profilePicture });
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
+// Posts with automated moderation
+app.post('/api/posts', async (req, res) => {
+  try {
+    const body = req.body || {};
+    
+    // Quick validation only
+    const images = body?.content?.images;
+    if (Array.isArray(images) && images.length > 2) {
+      return res.status(400).json({ error: 'Max 2 images allowed' });
+    }
+
+    // Create and save post immediately
+    const post = new Post(body);
+    const saved = await post.save();
+    res.json(saved);
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
+app.get('/api/posts', async (req, res) => {
+  try {
+    const limit = Math.min(20, parseInt(req.query.limit || '20', 10));
+    
+    const posts = await Post.find({}, {
+      userId: 1,
+      content: 1,
+      author: 1,
+      engagement: 1,
+      tags: 1,
+      category: 1,
+      createdAt: 1,
+    })
+      .sort({ createdAt: -1 })
+      .limit(limit)
+      .lean();
+    res.json(posts);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Like/Unlike a post
+app.post('/api/posts/:id/like', async (req, res) => {
+  try {
+    const { userId, username } = req.body || {};
+    const post = await Post.findById(req.params.id);
+    if (!post) return res.status(404).json({ error: 'Post not found' });
+
+    // Identify liker key (prefer userId; fallback to username or 'anon')
+    const likerKey = (userId || username || 'anon').toString();
+    const hasLiked = post.likedBy.includes(likerKey);
+
+    if (hasLiked) {
+      post.likedBy = post.likedBy.filter((k) => k !== likerKey);
+      post.engagement.likes = Math.max(0, (post.engagement.likes || 0) - 1);
+    } else {
+      post.likedBy.push(likerKey);
+      post.engagement.likes = (post.engagement.likes || 0) + 1;
+    }
+    await post.save();
+    return res.json({
+      success: true,
+      liked: !hasLiked,
+      likes: post.engagement.likes,
+      likedByCount: post.likedBy.length,
+    });
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
+// Add a comment to a post
+app.post('/api/posts/:id/comments', async (req, res) => {
+  try {
+    const { userId, username, text } = req.body || {};
+    if (!text || typeof text !== 'string' || !text.trim()) {
+      return res.status(400).json({ error: 'Comment text is required' });
+    }
+    const post = await Post.findById(req.params.id);
+    if (!post) return res.status(404).json({ error: 'Post not found' });
+    post.commentsList.push({ userId, username, text: text.trim() });
+    post.engagement.comments = (post.engagement.comments || 0) + 1;
+    await post.save();
+    return res.json({ success: true, comments: post.commentsList, count: post.engagement.comments });
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
+// Get comments for a post
+app.get('/api/posts/:id/comments', async (req, res) => {
+  try {
+    const post = await Post.findById(req.params.id).select('commentsList engagement');
+    if (!post) return res.status(404).json({ error: 'Post not found' });
+    return res.json({ comments: post.commentsList || [], count: post.engagement?.comments || 0 });
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
+// Like/Unlike a comment
+app.post('/api/posts/:postId/comments/:commentId/like', async (req, res) => {
+  try {
+    const { userId, username } = req.body || {};
+    const post = await Post.findById(req.params.postId);
+    if (!post) return res.status(404).json({ error: 'Post not found' });
+
+    const comment = post.commentsList.id(req.params.commentId);
+    if (!comment) return res.status(404).json({ error: 'Comment not found' });
+
+    const likerKey = (userId || username || 'anon').toString();
+    const hasLiked = comment.likedBy.includes(likerKey);
+
+    if (hasLiked) {
+      comment.likedBy = comment.likedBy.filter((k) => k !== likerKey);
+      comment.likes = Math.max(0, (comment.likes || 0) - 1);
+    } else {
+      comment.likedBy.push(likerKey);
+      comment.likes = (comment.likes || 0) + 1;
+    }
+    
+    await post.save();
+    return res.json({
+      success: true,
+      liked: !hasLiked,
+      likes: comment.likes,
+      commentId: comment._id
+    });
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
+// Update post
+app.put('/api/posts/:id', async (req, res) => {
+  try {
+    const updates = {};
+    if (req.body?.content && typeof req.body.content === 'object') {
+      updates['content.text'] = req.body.content.text;
+    }
+    if (Array.isArray(req.body?.tags)) {
+      updates['tags'] = req.body.tags;
+    }
+    if (typeof req.body?.category === 'string') {
+      updates['category'] = req.body.category;
+    }
+    const post = await Post.findByIdAndUpdate(req.params.id, { $set: updates }, { new: true });
+    if (!post) return res.status(404).json({ error: 'Post not found' });
+    res.json(post);
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
+// Reviews
+app.post('/api/reviews', async (req, res) => {
+  try {
+    const review = new Review(req.body);
+    await review.save();
+    res.json(review);
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
+app.get('/api/reviews/:placeId', async (req, res) => {
+  try {
+    const reviews = await Review.find({ placeId: req.params.placeId }).populate('userId', 'username');
+    res.json(reviews);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Trip Plans
+app.post('/api/trips', async (req, res) => {
+  try {
+    const trip = new TripPlan(req.body);
+    await trip.save();
+    res.json(trip);
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
+app.get('/api/users/:userId/trips', async (req, res) => {
+  try {
+    // Find user first to get MongoDB _id
+    let user = await User.findOne({ firebaseUid: req.params.userId });
+    if (!user) {
+      user = await User.findById(req.params.userId);
+    }
+    if (!user) return res.status(404).json({ error: 'User not found' });
+    
+    const trips = await TripPlan.find({ userId: user._id });
+    res.json(trips);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// One-Day Itineraries
+app.post('/api/itineraries', async (req, res) => {
+  try {
+    const itinerary = new Itinerary(req.body);
+    await itinerary.save();
+    res.json(itinerary);
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
+app.get('/api/users/:userId/itineraries', async (req, res) => {
+  try {
+    const itineraries = await Itinerary.find({ userId: req.params.userId });
+    res.json(itineraries);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Favorites
+app.post('/api/users/:userId/favorites', async (req, res) => {
+  try {
+    let user = await User.findOne({ firebaseUid: req.params.userId });
+    if (!user) {
+      user = await User.findById(req.params.userId);
+    }
+    if (!user) return res.status(404).json({ error: 'User not found' });
+    
+    if (!user.favoritePlaces.includes(req.body.placeId)) {
+      user.favoritePlaces.push(req.body.placeId);
+      await user.save();
+    }
+    res.json({ success: true });
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
+app.get('/api/users/:userId/favorites', async (req, res) => {
+  try {
+    // Try to find user by Firebase UID first, then by MongoDB _id
+    let user = await User.findOne({ firebaseUid: req.params.userId });
+    if (!user) {
+      user = await User.findById(req.params.userId);
+    }
+    if (!user) return res.status(404).json({ error: 'User not found' });
+    res.json(user.favoritePlaces || []);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.delete('/api/users/:userId/favorites/:placeId', async (req, res) => {
+  try {
+    let user = await User.findOne({ firebaseUid: req.params.userId });
+    if (!user) {
+      user = await User.findById(req.params.userId);
+    }
+    if (!user) return res.status(404).json({ error: 'User not found' });
+    
+    user.favoritePlaces = user.favoritePlaces.filter(id => id !== req.params.placeId);
+    await user.save();
+    res.json({ success: true });
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
+// Delete user
+app.delete('/api/users/:id', async (req, res) => {
+  try {
+    await User.findByIdAndDelete(req.params.id);
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Delete post
+app.delete('/api/posts/:id', async (req, res) => {
+  try {
+    await Post.findByIdAndDelete(req.params.id);
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Report Schema
+const reportSchema = new mongoose.Schema({
+  postId: { type: mongoose.Schema.Types.ObjectId, ref: 'Post', required: true },
+  reporterId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  reporterUsername: String,
+  reason: { type: String, required: true },
+  description: String,
+  status: { type: String, enum: ['pending', 'reviewed', 'resolved'], default: 'pending' },
+  createdAt: { type: Date, default: Date.now }
+});
+
+const Report = mongoose.model('Report', reportSchema);
+
+// Report post endpoint
+app.post('/api/reports', async (req, res) => {
+  try {
+    const report = new Report(req.body);
+    await report.save();
+    
+    // Auto-flag post if multiple reports
+    const reportCount = await Report.countDocuments({ postId: req.body.postId });
+    if (reportCount >= 3) {
+      await Post.findByIdAndUpdate(req.body.postId, { 
+        requiresReview: true,
+        moderationStatus: 'pending'
+      });
+    }
+    
+    res.json({ success: true });
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
+// Get all reviews
+app.get('/api/reviews', async (req, res) => {
+  try {
+    const reviews = await Review.find().populate('userId', 'username').sort({ createdAt: -1 });
+    res.json(reviews);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Delete review
+app.delete('/api/reviews/:id', async (req, res) => {
+  try {
+    await Review.findByIdAndDelete(req.params.id);
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Deals
+app.get('/api/deals', async (req, res) => {
+  try {
+  // Return only active deals within optional date window
+  const now = new Date();
+  const deals = await Deal.find({
+    isActive: true,
+    $and: [
+      { $or: [{ startsAt: { $exists: false } }, { startsAt: null }, { startsAt: { $lte: now } }] },
+      { $or: [{ endsAt: { $exists: false } }, { endsAt: null }, { endsAt: { $gte: now } }] }
+    ]
+  }).sort({ createdAt: -1 });
+    res.json(deals);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.post('/api/deals', async (req, res) => {
+  try {
+    const deal = new Deal(req.body);
+    await deal.save();
+    res.json(deal);
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
+app.put('/api/deals/:id', async (req, res) => {
+  try {
+    const deal = await Deal.findByIdAndUpdate(req.params.id, req.body, { new: true });
+    res.json(deal);
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
+app.delete('/api/deals/:id', async (req, res) => {
+  try {
+    await Deal.findByIdAndDelete(req.params.id);
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Events
+app.get('/api/events', async (req, res) => {
+  try {
+    const events = await Event.find().sort({ createdAt: -1 });
+    res.json(events);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.post('/api/events', async (req, res) => {
+  try {
+    const event = new Event(req.body);
+    await event.save();
+    res.json(event);
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
+app.put('/api/events/:id', async (req, res) => {
+  try {
+    const event = await Event.findByIdAndUpdate(req.params.id, req.body, { new: true });
+    res.json(event);
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
+app.delete('/api/events/:id', async (req, res) => {
+  try {
+    await Event.findByIdAndDelete(req.params.id);
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Admin moderation endpoints
+app.get('/api/admin/reports', requireAdminAuth, async (req, res) => {
+  try {
+    const reports = await Report.find({ status: 'pending' })
+      .populate('postId')
+      .sort({ createdAt: -1 })
+      .limit(50);
+    res.json(reports);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.post('/api/admin/moderate/:postId', requireAdminAuth, async (req, res) => {
+  try {
+    const { action } = req.body; // 'approve', 'reject', 'flag'
+    const status = action === 'approve' ? 'approved' : action === 'reject' ? 'rejected' : 'pending';
+    
+    await Post.findByIdAndUpdate(req.params.postId, {
+      moderationStatus: status,
+      requiresReview: action === 'flag'
+    });
+    
+    res.json({ success: true });
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
+// Recommendations API
+app.get('/api/recommendations/planner', async (req, res) => {
+  try {
+    const { lat, lng, interests, duration, budget } = req.query;
+    
+    if (!lat || !lng) {
+      return res.status(400).json({ error: 'lat and lng are required' });
+    }
+
+    // Generate personalized recommendations based on location and preferences
+    const recommendations = {
+      destinations: [
+        {
+          id: 'dest_1',
+          name: 'Historic Downtown',
+          type: 'cultural',
+          distance: 2.5,
+          rating: 4.6,
+          estimatedTime: '2-3 hours',
+          highlights: ['Museums', 'Architecture', 'Local cafes']
+        },
+        {
+          id: 'dest_2', 
+          name: 'Waterfront Park',
+          type: 'nature',
+          distance: 1.8,
+          rating: 4.4,
+          estimatedTime: '1-2 hours',
+          highlights: ['Scenic views', 'Walking trails', 'Photography']
+        }
+      ],
+      activities: [
+        {
+          id: 'act_1',
+          title: 'Food Tour',
+          category: 'culinary',
+          duration: '3 hours',
+          price: budget === 'low' ? 25 : 45,
+          description: 'Explore local cuisine and hidden gems'
+        }
+      ],
+      itinerary: {
+        morning: 'Visit Historic Downtown',
+        afternoon: 'Waterfront Park exploration', 
+        evening: 'Local dining experience'
+      }
+    };
+
+    res.json(recommendations);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to get recommendations', details: error?.message });
+  }
+});
+
+// Health check
+app.get('/health', (req, res) => {
+  const dbState = mongoose.connection?.readyState;
+  const database = (SKIP_MONGO || !MONGO_URI || MONGO_URI === 'disabled') ? 'skipped' : (dbState === 1 ? 'connected' : 'disconnected');
+  res.json({ status: 'OK', database });
+});
+
+// Google Place Photo proxy to avoid exposing API key to the client
+app.get('/api/places/photo', enforcePolicy('places'), async (req, res) => {
+  try {
+    const apiKey = process.env.GOOGLE_PLACES_API_KEY;
+    if (!apiKey) {
+      recordUsage({ api: 'places', action: 'photo', status: 'error', meta: { reason: 'missing_key' } });
+      return res.status(500).json({ error: 'GOOGLE_PLACES_API_KEY not configured' });
+    }
+
+    const ref = (req.query.ref || req.query.photoreference || req.query.photo_reference);
+    const name = req.query.name; // for Places v1 names (optional, not used in Text Search v3)
+    const maxWidth = req.query.w || req.query.maxwidth;
+    const maxHeight = req.query.h || req.query.maxheight;
+
+    if (!ref && !name) return res.status(400).json({ error: 'ref (photo_reference) or name is required' });
+
+    let url;
+    if (ref) {
+      url = new URL('https://maps.googleapis.com/maps/api/place/photo');
+      if (maxWidth) {
+        const reqW = parseInt(String(maxWidth), 10) || 800;
+        const cap = (req._policy?.features?.dynamicMap ? 1600 : 1024);
+        url.searchParams.set('maxwidth', String(Math.min(reqW, cap)));
+      } else if (maxHeight) {
+        url.searchParams.set('maxheight', String(maxHeight));
+      } else url.searchParams.set('maxwidth', '800');
+      url.searchParams.set('photo_reference', String(ref));
+      url.searchParams.set('key', apiKey);
+    } else {
+      // v1 photo download endpoint
+      url = new URL(`https://places.googleapis.com/v1/${String(name)}:download`);
+      if (maxWidth) url.searchParams.set('maxWidthPx', String(maxWidth));
+      if (maxHeight) url.searchParams.set('maxHeightPx', String(maxHeight));
+    }
+
+    const headers = name ? { 'X-Goog-Api-Key': apiKey } : undefined;
+    const start = Date.now();
+    const upstream = await fetch(url.toString(), { redirect: 'follow', headers });
+    if (!upstream.ok) {
+      const text = await upstream.text();
+      recordUsage({ api: 'places', action: 'photo', status: 'error', durationMs: Date.now() - start, meta: { http: upstream.status } });
+      return res.status(upstream.status).send(text);
+    }
+
+    // Cache for a day to reduce repeat downloads
+    res.setHeader('Cache-Control', 'public, max-age=86400, s-maxage=86400');
+    const contentType = upstream.headers.get('content-type') || 'image/jpeg';
+    res.setHeader('Content-Type', contentType);
+    // Stream the image
+    upstream.body.pipe(res);
+  recordUsage({ api: 'places', action: 'photo', status: 'success', durationMs: Date.now() - start });
+  } catch (err) {
+  recordUsage({ api: 'places', action: 'photo', status: 'error', meta: { err: err?.message || String(err) } });
+    res.status(500).json({ error: 'Failed to fetch place photo', details: err?.message || String(err) });
+  }
+});
+
+// Optional Firebase auth verification endpoint
+const ENABLE_FIREBASE_AUTH = String(process.env.ENABLE_FIREBASE_AUTH || '').toLowerCase() === 'true';
+// Note: adminAuth is initialized earlier if credentials are present; reuse it here.
+if (ENABLE_FIREBASE_AUTH && !adminAuth) {
+  console.warn('Firebase Admin not configured. Set FIREBASE_ADMIN_CREDENTIALS_BASE64, FIREBASE_ADMIN_CREDENTIALS_JSON, or GOOGLE_APPLICATION_CREDENTIALS to enable auth verification.');
+}
+
+app.post('/api/auth/login', async (req, res) => {
+  try {
+    const authHeader = req.headers['authorization'] || '';
+    const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
+    if (!token) return res.status(401).json({ error: 'Missing bearer token' });
+
+    if (!ENABLE_FIREBASE_AUTH || !adminAuth) {
+      // Local dev fallback: accept token but do not verify
+      return res.json({ ok: true, mode: 'dev', admin: false, message: 'Auth disabled, token accepted for local dev' });
+    }
+
+    const decoded = await adminAuth.verifyIdToken(token);
+    const isAdmin = decoded?.admin === true;
+    const { uid, email, name, picture } = {
+      uid: decoded.uid,
+      email: decoded.email,
+      name: decoded.name,
+      picture: decoded.picture,
+    };
+
+    // Upsert user by firebaseUid/email
+    let user = await User.findOne({ $or: [{ firebaseUid: uid }, ...(email ? [{ email }] : [])] });
+    if (!user) {
+      user = new User({
+        firebaseUid: uid,
+        username: email || uid,
+        email: email || `${uid}@firebase.local`,
+        profilePicture: picture || null,
+      });
+    } else {
+      // update minimal profile fields
+      if (!user.firebaseUid) user.firebaseUid = uid;
+      if (picture && user.profilePicture !== picture) user.profilePicture = picture;
+      if (email && user.email !== email) user.email = email;
+    }
+    // Reflect admin claim into our user document for convenience
+    if (typeof user.isAdmin === 'boolean') {
+      if (!!user.isAdmin !== !!isAdmin) {
+        user.isAdmin = !!isAdmin;
+      }
+    } else if (isAdmin) {
+      // initialize if field missing
+      user.isAdmin = true;
+    }
+    await user.save();
+
+    res.json({ ok: true, user, admin: isAdmin });
+  } catch (err) {
+    res.status(401).json({ error: 'Invalid token', details: err?.message || String(err) });
+  }
+});
+
+// In-memory cache for Place Details
+const DETAILS_CACHE_TTL_MS = parseInt(process.env.BACKEND_DETAILS_CACHE_TTL || '604800000', 10); // 7 days
+const detailsCache = new Map(); // key: place_id|lang -> { data, ts }
+
+// Google Place Details proxy with caching
+app.get('/api/places/details', enforcePolicy('places'), async (req, res) => {
+  try {
+    const apiKey = process.env.GOOGLE_PLACES_API_KEY;
+    if (!apiKey) {
+      recordUsage({ api: 'places', action: 'details', status: 'error', meta: { reason: 'missing_key' } });
+      return res.status(500).json({ error: 'GOOGLE_PLACES_API_KEY not configured' });
+    }
+    const placeId = String(req.query.place_id || '');
+    const lang = String(req.query.lang || 'en');
+    if (!placeId) return res.status(400).json({ error: 'place_id is required' });
+
+    const key = `${placeId}|${lang}`;
+    const cached = detailsCache.get(key);
+    if (cached && Date.now() - cached.ts < DETAILS_CACHE_TTL_MS) {
+      recordUsage({ api: 'places', action: 'details', status: 'success', meta: { cache: 'hit' } });
+      return res.json(cached.data);
+    }
+
+    const url = new URL('https://maps.googleapis.com/maps/api/place/details/json');
+    url.searchParams.set('place_id', placeId);
+    url.searchParams.set('language', lang);
+    // Only request the fields we need to reduce cost
+    const baseFields = [
+      'place_id',
+      'formatted_phone_number',
+      'international_phone_number',
+      'website',
+      'opening_hours',
+      'editorial_summary',
+      'price_level',
+      'photos'
+    ];
+    const isPremium = ['premium','pro'].includes(req._tier);
+    const fields = isPremium ? baseFields.concat(['rating','user_ratings_total']) : baseFields;
+    url.searchParams.set('fields', fields.join(','));
+    url.searchParams.set('key', apiKey);
+
+    const start = Date.now();
+    const resp = await fetch(url.toString());
+    if (!resp.ok) {
+      const text = await resp.text();
+      recordUsage({ api: 'places', action: 'details', status: 'error', durationMs: Date.now() - start, meta: { http: resp.status } });
+      return res.status(resp.status).send(text);
+    }
+    const data = await resp.json();
+    if (data.status && data.status !== 'OK') {
+      if (data.status === 'ZERO_RESULTS') return res.json({});
+      console.error('Place Details API error:', data.status, data.error_message);
+      recordUsage({ api: 'places', action: 'details', status: 'error', durationMs: Date.now() - start, meta: { status: data.status } });
+      return res.status(502).json({ error: 'Place Details status not OK', details: data.status, message: data.error_message });
+    }
+
+    const r = data.result || {};
+    const normalized = {
+      place_id: r.place_id,
+      formatted_phone_number: r.formatted_phone_number,
+      international_phone_number: r.international_phone_number,
+      website: r.website,
+      opening_hours: r.opening_hours,
+      editorial_summary: r.editorial_summary,
+      price_level: r.price_level,
+      photos: Array.isArray(r.photos)
+        ? r.photos.slice(0, Math.max(1, Math.min(6, req._policy?.features?.photosPerPlace || 6))).map(p => ({
+            photo_reference: p.photo_reference,
+            width: p.width,
+            height: p.height,
+            html_attributions: p.html_attributions
+          }))
+        : []
+    };
+
+    detailsCache.set(key, { data: normalized, ts: Date.now() });
+    // cache-control headers to allow CDN/browser caching
+    res.setHeader('Cache-Control', 'public, max-age=86400, s-maxage=86400');
+  recordUsage({ api: 'places', action: 'details', status: 'success', durationMs: Date.now() - start, meta: { cache: 'set' } });
+    res.json(normalized);
+  } catch (err) {
+  recordUsage({ api: 'places', action: 'details', status: 'error', meta: { err: err?.message || String(err) } });
+    res.status(500).json({ error: 'Failed to fetch place details', details: err?.message || String(err) });
+  }
+});
+
+// Database data check
+app.get('/api/db-check', async (req, res) => {
+  try {
+    const [userCount, postCount, reviewCount, tripCount, dealCount, eventCount] = await Promise.all([
+      User.countDocuments(),
+      Post.countDocuments(),
+      Review.countDocuments(),
+      TripPlan.countDocuments(),
+      Deal.countDocuments(),
+      Event.countDocuments()
+    ]);
+    
+    res.json({
+      users: userCount,
+      posts: postCount,
+      reviews: reviewCount,
+      tripPlans: tripCount,
+      deals: dealCount,
+      events: eventCount,
+      isEmpty: userCount === 0 && postCount === 0 && reviewCount === 0
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Serve React app (only for non-API routes)
+app.use((req, res, next) => {
+  if (req.path.startsWith('/api')) {
+    return res.status(404).json({ error: 'API endpoint not found' });
+  }
+  res.sendFile(path.join(__dirname, '../dist/index.html'));
+});
+
+httpServer.listen(PORT, () => {
+  console.log(`🚀 Server running on port ${PORT}`);
+});
+
+// --- Subscription endpoints (start trial, subscribe, cancel) ---
+app.post('/api/subscriptions/start-trial', async (req, res) => {
+  try {
+    const { userId, tier } = req.body || {};
+    if (!userId || !tier) return res.status(400).json({ error: 'userId and tier are required' });
+    // Only paid tiers support trials
+    if (!['basic','premium','pro'].includes(tier)) return res.status(400).json({ error: 'trial not available for this tier' });
+
+    const trialEnd = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+    const updated = await User.findByIdAndUpdate(
+      userId,
+      { $set: { tier, subscriptionStatus: 'trial', trialEndDate: trialEnd } },
+      { new: true }
+    );
+    if (!updated) return res.status(404).json({ error: 'User not found' });
+    console.log('[POST /api/subscriptions/start-trial] started trial for', userId, tier);
+    res.json(updated);
+  } catch (e) {
+    res.status(500).json({ error: 'Failed to start trial', details: e?.message || String(e) });
+  }
+});
+
+app.post('/api/subscriptions/subscribe', async (req, res) => {
+  try {
+    const { userId, tier } = req.body || {};
+    if (!userId || !tier) return res.status(400).json({ error: 'userId and tier are required' });
+
+    // Subscription: set active for 1 year by default
+    const subscriptionEnd = new Date();
+    subscriptionEnd.setFullYear(subscriptionEnd.getFullYear() + 1);
+
+    const updated = await User.findByIdAndUpdate(
+      userId,
+      { $set: { tier, subscriptionStatus: 'active', subscriptionEndDate: subscriptionEnd.toISOString(), trialEndDate: undefined } },
+      { new: true }
+    );
+    if (!updated) return res.status(404).json({ error: 'User not found' });
+    console.log('[POST /api/subscriptions/subscribe] subscribed', userId, tier);
+    res.json(updated);
+  } catch (e) {
+    res.status(500).json({ error: 'Failed to subscribe user', details: e?.message || String(e) });
+  }
+});
+
+app.post('/api/subscriptions/cancel', async (req, res) => {
+  try {
+    const { userId } = req.body || {};
+    if (!userId) return res.status(400).json({ error: 'userId is required' });
+
+    const updated = await User.findByIdAndUpdate(
+      userId,
+      { $set: { tier: 'free', subscriptionStatus: 'canceled', subscriptionEndDate: undefined, trialEndDate: undefined } },
+      { new: true }
+    );
+    if (!updated) return res.status(404).json({ error: 'User not found' });
+    console.log('[POST /api/subscriptions/cancel] canceled subscription for', userId);
+    res.json(updated);
+  } catch (e) {
+    res.status(500).json({ error: 'Failed to cancel subscription', details: e?.message || String(e) });
+  }
+});
+
+// Admin: basic subscription analytics
+app.get('/api/subscriptions/analytics', async (req, res) => {
+  try {
+    if (!(await isAdminRequest(req))) return res.status(403).json({ error: 'Forbidden' });
+
+    const totalUsers = await User.countDocuments();
+    const byTierRows = await User.aggregate([{ $group: { _id: '$tier', count: { $sum: 1 } } }]);
+    const byStatusRows = await User.aggregate([{ $group: { _id: '$subscriptionStatus', count: { $sum: 1 } } }]);
+
+    const tierDistribution = {};
+    for (const r of byTierRows) tierDistribution[r._id || 'unknown'] = r.count;
+
+    const statusDistribution = {};
+    for (const r of byStatusRows) statusDistribution[r._id || 'unknown'] = r.count;
+
+    const active = statusDistribution['active'] || 0;
+    const trial = statusDistribution['trial'] || 0;
+    const conversionRate = totalUsers ? +(active / Math.max(1, trial + active) * 100).toFixed(2) : 0;
+
+    res.json({ totalUsers, tierDistribution, statusDistribution, conversionRate });
+  } catch (e) {
+    res.status(500).json({ error: 'Failed to fetch analytics', details: e?.message || String(e) });
+  }
+});
+
+// Daily planner recommendations endpoint
+app.get('/api/recommendations/planner', async (req, res) => {
+  try {
+    const { lat, lng, hour } = req.query;
+    if (!lat || !lng) {
+      return res.status(400).json({ error: 'lat and lng are required' });
+    }
+
+    const currentHour = parseInt(hour) || new Date().getHours();
+    const apiKey = process.env.GOOGLE_PLACES_API_KEY;
+    
+    if (!apiKey) {
+      return res.status(500).json({ error: 'Google Places API key not configured' });
+    }
+
+    // Time-based place types
+    let placeTypes;
+    if (currentHour >= 6 && currentHour < 10) {
+      placeTypes = ['cafe', 'bakery', 'park'];
+    } else if (currentHour >= 10 && currentHour < 16) {
+      placeTypes = ['museum', 'tourist_attraction', 'shopping_mall'];
+    } else if (currentHour >= 16 && currentHour < 20) {
+      placeTypes = ['restaurant', 'bar', 'tourist_attraction'];
+    } else {
+      placeTypes = ['night_club', 'bar', 'movie_theater'];
+    }
+
+    const suggestions = [];
+    
+    for (const type of placeTypes.slice(0, 2)) {
+      try {
+        const url = `https://maps.googleapis.com/maps/api/place/nearbysearch/json?location=${lat},${lng}&radius=3000&type=${type}&key=${apiKey}`;
+        const response = await fetch(url);
+        const data = await response.json();
+        
+        if (data.status === 'OK' && data.results.length > 0) {
+          const place = data.results[0];
+          const emoji = type === 'cafe' ? '☕' : type === 'restaurant' ? '🍽️' : type === 'museum' ? '🏛️' : type === 'park' ? '🌳' : '📍';
+          const duration = type === 'restaurant' ? '1-2h' : type === 'museum' ? '2-3h' : type === 'park' ? '1h' : type === 'cafe' ? '30min' : '1h';
+          
+          suggestions.push({
+            emoji,
+            title: place.name,
+            subtitle: `Rating: ${place.rating || 'N/A'}⭐ • ${((Math.random() * 2) + 0.5).toFixed(1)}km`,
+            duration
+          });
+        }
+      } catch (e) {
+        console.error(`Error fetching ${type}:`, e);
+      }
+    }
+
+    res.json(suggestions);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to get planner recommendations', details: error.message });
+  }
+});
+
+// Mood-based recommendations endpoint
+app.get('/api/recommendations/mood', async (req, res) => {
+  try {
+    const { mood, lat, lng } = req.query;
+    if (!mood || !lat || !lng) {
+      return res.status(400).json({ error: 'mood, lat and lng are required' });
+    }
+
+    const apiKey = process.env.GOOGLE_PLACES_API_KEY;
+    if (!apiKey) {
+      return res.status(500).json({ error: 'Google Places API key not configured' });
+    }
+
+    // Mood-based place types
+    let placeTypes;
+    switch (mood.toLowerCase()) {
+      case 'adventure':
+        placeTypes = ['amusement_park', 'tourist_attraction', 'park'];
+        break;
+      case 'relaxing':
+        placeTypes = ['spa', 'park', 'beach'];
+        break;
+      case 'cultural':
+        placeTypes = ['museum', 'art_gallery', 'church', 'library'];
+        break;
+      case 'foodie':
+        placeTypes = ['restaurant', 'cafe', 'bakery', 'meal_takeaway'];
+        break;
+      default:
+        placeTypes = ['tourist_attraction', 'point_of_interest'];
+    }
+
+    for (const type of placeTypes) {
+      try {
+        const url = `https://maps.googleapis.com/maps/api/place/nearbysearch/json?location=${lat},${lng}&radius=3000&type=${type}&key=${apiKey}`;
+        const response = await fetch(url);
+        const data = await response.json();
+        
+        if (data.status === 'OK' && data.results.length > 0) {
+          const place = data.results[0];
+          return res.json({
+            suggestion: `Perfect for ${mood.toLowerCase()}: ${place.name} (${place.rating || 'N/A'}⭐)`
+          });
+        }
+      } catch (e) {
+        console.error(`Error fetching ${type}:`, e);
+        continue;
+      }
+    }
+
+    // Fallback suggestions
+    const fallbacks = {
+      adventure: 'Explore nearby hiking trails and outdoor activities',
+      relaxing: 'Find a peaceful park or café for some downtime',
+      cultural: 'Visit local museums, galleries, or historical sites',
+      foodie: 'Try highly-rated local restaurants and cafés'
+    };
+    
+    res.json({
+      suggestion: fallbacks[mood.toLowerCase()] || 'Discover something amazing nearby'
+    });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to get mood recommendations', details: error.message });
+  }
+});
+
+// Local hotspots endpoint
+app.get('/api/recommendations/hotspots', async (req, res) => {
+  try {
+    const { lat, lng } = req.query;
+    if (!lat || !lng) {
+      return res.status(400).json({ error: 'lat and lng are required' });
+    }
+
+    const apiKey = process.env.GOOGLE_PLACES_API_KEY;
+    if (!apiKey) {
+      return res.status(500).json({ error: 'Google Places API key not configured' });
+    }
+
+    const url = `https://maps.googleapis.com/maps/api/place/nearbysearch/json?location=${lat},${lng}&radius=5000&type=tourist_attraction&key=${apiKey}`;
+    const response = await fetch(url);
+    const data = await response.json();
+    
+    if (data.status === 'OK') {
+      const hotspots = data.results.slice(0, 3).map(place => ({
+        name: place.name || 'Unknown Place',
+        rating: place.rating?.toString() || '4.0',
+        visitors: place.user_ratings_total > 1000 ? Math.round(place.user_ratings_total / 100).toString() : 
+                 place.user_ratings_total > 100 ? Math.round(place.user_ratings_total / 10).toString() : 
+                 (place.user_ratings_total || 0).toString(),
+        tip: place.types?.includes('restaurant') ? 'Check reviews for best dishes and peak hours' :
+             place.types?.includes('tourist_attraction') ? 'Visit early morning or late afternoon for fewer crowds' :
+             place.types?.includes('museum') ? 'Look for guided tours or audio guides for better experience' :
+             'Check opening hours and reviews before visiting',
+        emoji: place.types?.includes('restaurant') ? '🍽️' :
+               place.types?.includes('cafe') ? '☕' :
+               place.types?.includes('museum') ? '🏛️' :
+               place.types?.includes('park') ? '🌳' :
+               place.types?.includes('tourist_attraction') ? '🏰' : '📍',
+        place_id: place.place_id || ''
+      }));
+      
+      res.json(hotspots);
+    } else {
+      res.json([]);
+    }
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to get local hotspots', details: error.message });
+  }
+});
+
+// Nearby events endpoint
+app.get('/api/events/nearby', async (req, res) => {
+  try {
+    const { lat, lng } = req.query;
+    if (!lat || !lng) {
+      return res.status(400).json({ error: 'lat and lng are required' });
+    }
+
+    // Get active events (in real app, filter by location)
+    const events = await Event.find({ isActive: true }).limit(5).sort({ createdAt: -1 });
+    
+    // Add mock distance for demo
+    const nearbyEvents = events.map(event => ({
+      ...event.toObject(),
+      distance: `${(Math.random() * 5 + 0.5).toFixed(1)} km`,
+      isToday: Math.random() > 0.5
+    }));
+    
+    res.json(nearbyEvents);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to get nearby events', details: error.message });
+  }
+});
+
+// Current weather endpoint
+app.get('/api/weather/current', async (req, res) => {
+  try {
+    const { lat, lng } = req.query;
+    if (!lat || !lng) {
+      return res.status(400).json({ error: 'lat and lng are required' });
+    }
+
+    // Mock weather data (in real app, call weather API)
+    const conditions = ['sunny', 'cloudy', 'rainy', 'partly-cloudy'];
+    const condition = conditions[Math.floor(Math.random() * conditions.length)];
+    const temp = Math.floor(Math.random() * 15 + 15); // 15-30°C
+    
+    const weather = {
+      temperature: temp,
+      condition,
+      humidity: Math.floor(Math.random() * 40 + 40), // 40-80%
+      windSpeed: Math.floor(Math.random() * 10 + 5), // 5-15 km/h
+      description: condition === 'sunny' ? 'Perfect for outdoor activities' :
+                  condition === 'cloudy' ? 'Good for sightseeing' :
+                  condition === 'rainy' ? 'Great for indoor attractions' :
+                  'Nice weather for exploring',
+      icon: condition === 'sunny' ? '☀️' :
+            condition === 'cloudy' ? '☁️' :
+            condition === 'rainy' ? '🌧️' : '⛅'
+    };
+    
+    res.json(weather);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to get weather', details: error.message });
+  }
+});
+
+// User travel statistics endpoint
+app.get('/api/users/:id/stats', async (req, res) => {
+  try {
+    const userId = req.params.id;
+    
+    // Find user first
+    let user = await User.findOne({ firebaseUid: userId });
+    if (!user) {
+      user = await User.findById(userId);
+    }
+    if (!user) return res.status(404).json({ error: 'User not found' });
+    
+    // Calculate stats
+    const [tripCount, favoriteCount, postCount] = await Promise.all([
+      TripPlan.countDocuments({ userId: user._id }),
+      Promise.resolve(user.favoritePlaces?.length || 0),
+      Post.countDocuments({ userId: user._id })
+    ]);
+    
+    // Calculate streak (mock for now)
+    const streak = Math.floor(Math.random() * 30 + 1);
+    const level = tripCount < 3 ? 'Explorer' : tripCount < 10 ? 'Adventurer' : 'Travel Master';
+    
+    const stats = {
+      tripsPlanned: tripCount,
+      placesVisited: Math.floor(tripCount * 2.5), // Estimate
+      favoriteCount,
+      postsShared: postCount,
+      travelStreak: streak,
+      level,
+      badges: [
+        ...(tripCount >= 1 ? ['First Trip'] : []),
+        ...(favoriteCount >= 5 ? ['Place Collector'] : []),
+        ...(postCount >= 3 ? ['Storyteller'] : []),
+        ...(streak >= 7 ? ['Weekly Explorer'] : [])
+      ]
+    };
+    
+    res.json(stats);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to get user stats', details: error.message });
+  }
+});
+
+// Community moderation analytics
+app.get('/api/admin/moderation/stats', requireAdminAuth, async (req, res) => {
+  try {
+    const totalPosts = await Post.countDocuments();
+    const flaggedPosts = await Post.countDocuments({ requiresReview: true });
+    const pendingReports = await Report.countDocuments({ status: 'pending' });
+    const rejectedPosts = await Post.countDocuments({ moderationStatus: 'rejected' });
+    
+    res.json({
+      totalPosts,
+      flaggedPosts,
+      pendingReports,
+      rejectedPosts,
+      moderationRate: totalPosts > 0 ? ((flaggedPosts + rejectedPosts) / totalPosts * 100).toFixed(2) : 0
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Emergency Services API endpoints
+app.get('/api/emergency/police', enforcePolicy('places'), async (req, res) => {
+  try {
+    const { lat, lng, radius = 5000 } = req.query;
+    const apiKey = process.env.GOOGLE_PLACES_API_KEY;
+    
+    if (!apiKey) {
+      recordUsage({ api: 'places', action: 'emergency_police', status: 'error', meta: { reason: 'missing_key' } });
+      return res.status(500).json({ error: 'GOOGLE_PLACES_API_KEY not configured' });
+    }
+    
+    if (!lat || !lng) {
+      return res.status(400).json({ error: 'lat and lng are required' });
+    }
+
+    const start = Date.now();
+    const url = `https://maps.googleapis.com/maps/api/place/nearbysearch/json?location=${lat},${lng}&radius=${radius}&type=police&keyword=police%20station&key=${apiKey}`;
+    
+    const response = await fetch(url);
+    if (!response.ok) {
+      recordUsage({ api: 'places', action: 'emergency_police', status: 'error', durationMs: Date.now() - start, meta: { http: response.status } });
+      return res.status(response.status).json({ error: 'Failed to fetch police stations' });
+    }
+    
+    const data = await response.json();
+    if (data.status !== 'OK') {
+      if (data.status === 'ZERO_RESULTS') {
+        recordUsage({ api: 'places', action: 'emergency_police', status: 'success', durationMs: Date.now() - start, meta: { zero: true } });
+        return res.json([]);
+      }
+      recordUsage({ api: 'places', action: 'emergency_police', status: 'error', durationMs: Date.now() - start, meta: { status: data.status } });
+      return res.status(502).json({ error: 'Google Places API error', details: data.status });
+    }
+
+    // Process and enrich police station data
+    const policeStations = await Promise.all(
+      data.results.slice(0, 5).map(async (place) => {
+        let phoneNumber = 'Call 911';
+        
+        // Try to get phone number from place details
+        try {
+          const detailsUrl = `https://maps.googleapis.com/maps/api/place/details/json?place_id=${place.place_id}&fields=formatted_phone_number,international_phone_number&key=${apiKey}`;
+          const detailsResponse = await fetch(detailsUrl);
+          if (detailsResponse.ok) {
+            const detailsData = await detailsResponse.json();
+            if (detailsData.status === 'OK' && detailsData.result) {
+              phoneNumber = detailsData.result.formatted_phone_number || detailsData.result.international_phone_number || 'Call 911';
+            }
+          }
+        } catch (e) {
+          console.warn('Failed to get phone number for police station:', e.message);
+        }
+
+        const distance = haversineMeters(Number(lat), Number(lng), place.geometry.location.lat, place.geometry.location.lng);
+        
+        return {
+          id: place.place_id,
+          name: place.name,
+          address: place.vicinity || place.formatted_address || '',
+          phoneNumber,
+          latitude: place.geometry.location.lat,
+          longitude: place.geometry.location.lng,
+          rating: place.rating || 0,
+          type: 'police',
+          distance: Math.round(distance)
+        };
+      })
+    );
+
+    recordUsage({ api: 'places', action: 'emergency_police', status: 'success', durationMs: Date.now() - start });
+    res.json(policeStations);
+  } catch (error) {
+    recordUsage({ api: 'places', action: 'emergency_police', status: 'error', meta: { err: error?.message } });
+    res.status(500).json({ error: 'Failed to fetch police stations', details: error?.message });
+  }
+});
+
+app.get('/api/emergency/hospitals', enforcePolicy('places'), async (req, res) => {
+  try {
+    const { lat, lng, radius = 5000 } = req.query;
+    const apiKey = process.env.GOOGLE_PLACES_API_KEY;
+    
+    if (!apiKey) {
+      recordUsage({ api: 'places', action: 'emergency_hospital', status: 'error', meta: { reason: 'missing_key' } });
+      return res.status(500).json({ error: 'GOOGLE_PLACES_API_KEY not configured' });
+    }
+    
+    if (!lat || !lng) {
+      return res.status(400).json({ error: 'lat and lng are required' });
+    }
+
+    const start = Date.now();
+    const url = `https://maps.googleapis.com/maps/api/place/nearbysearch/json?location=${lat},${lng}&radius=${radius}&type=hospital&keyword=hospital%20emergency&key=${apiKey}`;
+    
+    const response = await fetch(url);
+    if (!response.ok) {
+      recordUsage({ api: 'places', action: 'emergency_hospital', status: 'error', durationMs: Date.now() - start, meta: { http: response.status } });
+      return res.status(response.status).json({ error: 'Failed to fetch hospitals' });
+    }
+    
+    const data = await response.json();
+    if (data.status !== 'OK') {
+      if (data.status === 'ZERO_RESULTS') {
+        recordUsage({ api: 'places', action: 'emergency_hospital', status: 'success', durationMs: Date.now() - start, meta: { zero: true } });
+        return res.json([]);
+      }
+      recordUsage({ api: 'places', action: 'emergency_hospital', status: 'error', durationMs: Date.now() - start, meta: { status: data.status } });
+      return res.status(502).json({ error: 'Google Places API error', details: data.status });
+    }
+
+    // Process and enrich hospital data
+    const hospitals = await Promise.all(
+      data.results.slice(0, 5).map(async (place) => {
+        let phoneNumber = 'Call 911';
+        
+        // Try to get phone number from place details
+        try {
+          const detailsUrl = `https://maps.googleapis.com/maps/api/place/details/json?place_id=${place.place_id}&fields=formatted_phone_number,international_phone_number&key=${apiKey}`;
+          const detailsResponse = await fetch(detailsUrl);
+          if (detailsResponse.ok) {
+            const detailsData = await detailsResponse.json();
+            if (detailsData.status === 'OK' && detailsData.result) {
+              phoneNumber = detailsData.result.formatted_phone_number || detailsData.result.international_phone_number || 'Call 911';
+            }
+          }
+        } catch (e) {
+          console.warn('Failed to get phone number for hospital:', e.message);
+        }
+
+        const distance = haversineMeters(Number(lat), Number(lng), place.geometry.location.lat, place.geometry.location.lng);
+        
+        return {
+          id: place.place_id,
+          name: place.name,
+          address: place.vicinity || place.formatted_address || '',
+          phoneNumber,
+          latitude: place.geometry.location.lat,
+          longitude: place.geometry.location.lng,
+          rating: place.rating || 0,
+          type: 'hospital',
+          distance: Math.round(distance)
+        };
+      })
+    );
+
+    recordUsage({ api: 'places', action: 'emergency_hospital', status: 'success', durationMs: Date.now() - start });
+    res.json(hospitals);
+  } catch (error) {
+    recordUsage({ api: 'places', action: 'emergency_hospital', status: 'error', meta: { err: error?.message } });
+    res.status(500).json({ error: 'Failed to fetch hospitals', details: error?.message });
+  }
+});
