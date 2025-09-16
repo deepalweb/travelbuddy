@@ -14,21 +14,14 @@ interface LocalDiscovery {
   insiderTip: string;
 }
 
-<<<<<<< HEAD
-const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
-const ai = new GoogleGenAI({ apiKey });
-
-class LocalDiscoveriesService {
-  private static instance: LocalDiscoveriesService;
-=======
 class LocalDiscoveriesService {
   private static instance: LocalDiscoveriesService;
   private ai: GoogleGenAI;
 
   private constructor() {
-    this.ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
+    this.ai = new GoogleGenAI({ apiKey });
   }
->>>>>>> 25dfd0e7057dc9918b9fb42f119370715379fda2
 
   static getInstance(): LocalDiscoveriesService {
     if (!LocalDiscoveriesService.instance) {
@@ -39,11 +32,8 @@ class LocalDiscoveriesService {
 
   async generateLocalDiscoveries(userCity: string): Promise<LocalDiscovery> {
     try {
-<<<<<<< HEAD
-=======
       const model = this.ai.getGenerativeModel({ model: GEMINI_MODEL_TEXT });
       
->>>>>>> 25dfd0e7057dc9918b9fb42f119370715379fda2
       const prompt = `Generate local discoveries for ${userCity}. Return JSON with format:
 {
   "hiddenGem": {
@@ -60,13 +50,8 @@ class LocalDiscoveriesService {
 
 Focus on authentic, lesser-known places and genuine local insights for ${userCity}.`;
 
-<<<<<<< HEAD
-      const result = await ai.models.generateContent({ model: GEMINI_MODEL_TEXT, contents: prompt });
-      const text = result.text;
-=======
       const result = await model.generateContent(prompt);
       const text = result.response.text();
->>>>>>> 25dfd0e7057dc9918b9fb42f119370715379fda2
       
       const jsonMatch = text.match(/\{[\s\S]*\}/);
       if (!jsonMatch) throw new Error('No valid JSON found');
