@@ -2,7 +2,7 @@ name: Deploy to Azure Web App (Linux)
 
 on:
   push:
-    branches: [ "main" ]
+    branches: [ "master" ]
   workflow_dispatch:
 
 permissions:
