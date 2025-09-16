@@ -28,3 +28,8 @@ backend/.env
 
 # Mobile app (separate repository)
 mobile_app/
+# Security - Sensitive files
+azure-env-vars.txt
+*.key
+*.pem
+credentials.json
