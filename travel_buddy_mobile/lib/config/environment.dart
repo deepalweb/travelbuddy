@@ -1,6 +1,9 @@
 class Environment {
-  // Backend Configuration - Production
-  static const String backendUrl = 'https://travelbuddy-b2c6hgbbgeh4esdh.eastus2-01.azurewebsites.net';
+  // Backend Configuration
+  static const bool useLocalBackend = false; // Set to true for local development
+  static const String backendUrl = useLocalBackend 
+    ? 'http://localhost:3001' // Local backend
+    : 'https://travelbuddy-b2c6hgbbgeh4esdh.eastus2-01.azurewebsites.net'; // Azure backend
   
   // API Keys - Load from environment or use placeholders
   static const String googleMapsApiKey = String.fromEnvironment('GOOGLE_MAPS_API_KEY', defaultValue: 'REPLACE_WITH_YOUR_MAPS_KEY');

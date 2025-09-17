@@ -2150,26 +2150,214 @@ app.get('/api/dishes', async (req, res) => {
   }
 });
 
-app.get('/api/dishes/local', async (req, res) => {
+app.get('/api/dishes/local', enforcePolicy('gemini'), async (req, res) => {
   try {
-    const { lat, lng, radius = 50 } = req.query;
+    const { lat, lng, limit = 10 } = req.query;
     
     if (!lat || !lng) {
       return res.status(400).json({ error: 'lat and lng are required' });
     }
     
-    // For now, return dishes without geo-filtering
-    // In production, implement proper geo-spatial queries
-    const dishes = await Dish.find({})
-      .sort({ isPopular: -1, createdAt: -1 })
-      .limit(10)
-      .lean();
-    
+    const dishes = await getAILocalDishes(parseFloat(lat), parseFloat(lng), parseInt(limit, 10));
     res.json(dishes);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error('Error fetching AI local dishes:', error);
+    recordUsage({ api: 'gemini', action: 'local_dishes', status: 'error', meta: { err: error?.message } });
+    res.status(500).json({ error: 'Failed to get local dishes', details: error?.message });
   }
 });
+
+// AI-powered local dishes function
+async function getAILocalDishes(lat, lng, limit = 10) {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) {
+    throw new Error('GEMINI_API_KEY not configured');
+  }
+
+  const prompt = `Based on the location coordinates ${lat}, ${lng}, suggest ${limit} popular local dishes from this area. For each dish, provide:
+
+1. Name of the dish
+2. Brief description (1-2 sentences)
+3. Cuisine type
+4. Price range (budget/mid-range/fine-dining)
+5. Average price in USD
+6. Typical restaurant name where it's found
+7. Dietary tags (vegetarian, vegan, gluten-free, etc.)
+8. Cultural significance or note
+
+Return ONLY a valid JSON array with this exact structure:
+[
+  {
+    "name": "Dish Name",
+    "description": "Description",
+    "cuisine": "Cuisine Type",
+    "priceRange": "mid-range",
+    "averagePrice": "$12-15",
+    "restaurantName": "Restaurant Name",
+    "dietaryTags": ["tag1", "tag2"],
+    "culturalNote": "Cultural note"
+  }
+]`;
+
+  const start = Date.now();
+  try {
+    const response = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=' + apiKey, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: prompt }] }]
+      })
+    });
+
+    if (!response.ok) {
+      throw new Error(`Gemini API error: ${response.status}`);
+    }
+
+    const data = await response.json();
+    const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+    
+    if (!text) {
+      throw new Error('No response from Gemini AI');
+    }
+
+    // Extract JSON from response
+    const jsonMatch = text.match(/\[.*\]/s);
+    if (!jsonMatch) {
+      throw new Error('Invalid JSON response from AI');
+    }
+
+    const aiDishes = JSON.parse(jsonMatch[0]);
+    
+    // Transform to mobile app format
+    const mobileDishes = aiDishes.map(dish => ({
+      id: Math.random().toString(36).substr(2, 9),
+      name: dish.name,
+      description: dish.description,
+      priceRange: dish.priceRange || 'mid-range',
+      averagePrice: dish.averagePrice || '$10-15',
+      cuisine: dish.cuisine || 'Local',
+      restaurantName: dish.restaurantName || 'Local Restaurant',
+      restaurantId: 'ai-' + Math.random().toString(36).substr(2, 9),
+      imageUrl: '', // AI doesn't provide images
+      rating: 4.0 + Math.random() * 1.0,
+      dietaryTags: dish.dietaryTags || [],
+      culturalNote: dish.culturalNote || 'A local specialty'
+    }));
+
+    recordUsage({ api: 'gemini', action: 'local_dishes', status: 'success', durationMs: Date.now() - start });
+    return mobileDishes;
+  } catch (error) {
+    recordUsage({ api: 'gemini', action: 'local_dishes', status: 'error', durationMs: Date.now() - start, meta: { err: error?.message } });
+    throw error;
+  }
+}
+
+// Helper functions for mock data generation
+function generateMockLocalDishes(lat, lng) {
+  console.log('generateMockLocalDishes called with lat:', lat, 'lng:', lng);
+  const dishes = [
+    {
+      name: 'Local Fish Tacos',
+      description: 'Fresh catch of the day with local spices and vegetables',
+      cuisine: 'Fusion',
+      priceRange: 'mid-range',
+      averagePrice: '$12-15',
+      restaurantName: 'Coastal Kitchen',
+      imageUrl: 'https://images.unsplash.com/photo-1565299624946-b28f40a0ca4b?w=400',
+      rating: 4.5,
+      dietaryTags: ['gluten-free-option'],
+      culturalNote: 'A modern twist on traditional coastal cuisine'
+    },
+    {
+      name: 'Artisan Pizza',
+      description: 'Wood-fired pizza with locally sourced ingredients',
+      cuisine: 'Italian',
+      priceRange: 'mid-range',
+      averagePrice: '$16-20',
+      restaurantName: 'Neighborhood Pizzeria',
+      imageUrl: 'https://images.unsplash.com/photo-1513104890138-7c749659a591?w=400',
+      rating: 4.7,
+      dietaryTags: ['vegetarian-option'],
+      culturalNote: 'Made with traditional techniques and local produce'
+    },
+    {
+      name: 'Farm-to-Table Salad',
+      description: 'Seasonal greens and vegetables from local farms',
+      cuisine: 'American',
+      priceRange: 'mid-range',
+      averagePrice: '$14-18',
+      restaurantName: 'Green Garden Cafe',
+      imageUrl: 'https://images.unsplash.com/photo-1512621776951-a57141f2eefd?w=400',
+      rating: 4.3,
+      dietaryTags: ['vegetarian', 'vegan-option', 'gluten-free'],
+      culturalNote: 'Supporting local farmers and sustainable practices'
+    },
+    {
+      name: 'Street Food Burger',
+      description: 'Gourmet burger with unique local flavors',
+      cuisine: 'American',
+      priceRange: 'budget',
+      averagePrice: '$8-12',
+      restaurantName: 'Corner Food Truck',
+      imageUrl: 'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=400',
+      rating: 4.4,
+      dietaryTags: [],
+      culturalNote: 'Popular street food with a gourmet twist'
+    },
+    {
+      name: 'Craft Coffee & Pastry',
+      description: 'Locally roasted coffee with fresh baked goods',
+      cuisine: 'Cafe',
+      priceRange: 'budget',
+      averagePrice: '$5-8',
+      restaurantName: 'Local Roasters',
+      imageUrl: 'https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?w=400',
+      rating: 4.6,
+      dietaryTags: ['vegetarian', 'vegan-option'],
+      culturalNote: 'Supporting local coffee culture and artisan bakers'
+    },
+    {
+      name: 'Seasonal Soup',
+      description: 'Hearty soup made with seasonal local ingredients',
+      cuisine: 'Comfort Food',
+      priceRange: 'budget',
+      averagePrice: '$6-10',
+      restaurantName: 'Comfort Kitchen',
+      imageUrl: 'https://images.unsplash.com/photo-1547592180-85f173990554?w=400',
+      rating: 4.2,
+      dietaryTags: ['vegetarian-option', 'gluten-free-option'],
+      culturalNote: 'Traditional comfort food with local ingredients'
+    }
+  ];
+  
+  return dishes.slice(0, 8); // Return up to 8 dishes
+}
+
+function getPriceRangeFromLocation(lat, lng) {
+  // Simple logic based on coordinates - in production, use actual data
+  const ranges = ['budget', 'mid-range', 'fine-dining'];
+  return ranges[Math.floor(Math.random() * ranges.length)];
+}
+
+function getAveragePriceFromRange(priceRange) {
+  switch (priceRange) {
+    case 'budget': return '$5-12';
+    case 'mid-range': return '$12-25';
+    case 'fine-dining': return '$25-50';
+    default: return '$10-20';
+  }
+}
+
+function generateCulturalNote(dishName, cuisine) {
+  const notes = [
+    'A beloved local favorite',
+    'Traditional recipe passed down through generations',
+    'Popular among locals and visitors alike',
+    'Made with authentic local ingredients',
+    'A must-try when visiting the area'
+  ];
+  return notes[Math.floor(Math.random() * notes.length)];
+}
 
 app.get('/api/dishes/:id', async (req, res) => {
   try {
