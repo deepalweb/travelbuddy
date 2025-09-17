@@ -10,7 +10,7 @@
   "dependencies": {
     "bcryptjs": "^3.0.2",
     "compression": "^1.7.4",
-    "copy-of-travel-buddy-web-explorer": "file:..",
+
     "cors": "^2.8.5",
     "dotenv": "^17.2.1",
     "express": "^5.1.0",
