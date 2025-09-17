@@ -2277,3 +2277,54 @@ app.post('/api/dishes', async (req, res) => {
     res.status(400).json({ error: error.message });
   }
 });
+
+// Emergency Services API endpoints
+app.get('/api/emergency/police', async (req, res) => {
+  try {
+    const { lat, lng, country } = req.query;
+    
+    // Mock emergency services data - in production, integrate with local emergency APIs
+    const emergencyServices = {
+      police: {
+        number: country === 'US' ? '911' : country === 'UK' ? '999' : '112',
+        name: 'Police Emergency',
+        available24h: true
+      },
+      fire: {
+        number: country === 'US' ? '911' : country === 'UK' ? '999' : '112',
+        name: 'Fire Department',
+        available24h: true
+      },
+      medical: {
+        number: country === 'US' ? '911' : country === 'UK' ? '999' : '112',
+        name: 'Medical Emergency',
+        available24h: true
+      }
+    };
+    
+    res.json(emergencyServices);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.get('/api/dishes/local', async (req, res) => {
+  try {
+    const { lat, lng, radius = 50 } = req.query;
+    
+    if (!lat || !lng) {
+      return res.status(400).json({ error: 'lat and lng are required' });
+    }
+    
+    // For now, return dishes without geo-filtering
+    // In production, implement proper geo-spatial queries
+    const dishes = await Dish.find({})
+      .sort({ isPopular: -1, createdAt: -1 })
+      .limit(10)
+      .lean();
+    
+    res.json(dishes);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
