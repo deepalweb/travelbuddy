@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'dart:io';
+import 'dart:convert';
 import '../providers/app_provider.dart';
 import '../services/image_service.dart';
 
@@ -96,11 +98,9 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                                 )
                               : _profileImageUrl != null && _profileImageUrl!.isNotEmpty
                                   ? ClipOval(
-                                      child: _profileImageUrl!.startsWith('file://') || _profileImageUrl!.startsWith('local://')
-                                          ? Image.file(
-                                              File(_profileImageUrl!.startsWith('file://') 
-                                                  ? _profileImageUrl!.replaceFirst('file://', '')
-                                                  : _selectedImage?.path ?? ''),
+                                      child: _profileImageUrl!.startsWith('data:image')
+                                          ? Image.memory(
+                                              base64Decode(_profileImageUrl!.split(',')[1]),
                                               width: 100,
                                               height: 100,
                                               fit: BoxFit.cover,
@@ -321,16 +321,48 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
   Future<void> _pickImage(ImageSource source) async {
     try {
-      final image = await ImagePicker().pickImage(source: source);
+      print('📷 Attempting to pick image from: ${source.name}');
+      
+      // Request permissions if needed
+      if (source == ImageSource.camera) {
+        final cameraStatus = await Permission.camera.request();
+        if (!cameraStatus.isGranted) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Camera permission is required')),
+            );
+          }
+          return;
+        }
+      } else {
+        final storageStatus = await Permission.photos.request();
+        if (!storageStatus.isGranted) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Photo access permission is required')),
+            );
+          }
+          return;
+        }
+      }
+      
+      final image = await _imageService.pickSingleImage(source: source);
+      
       if (image != null) {
+        print('✅ Image selected: ${image.path}');
         setState(() {
           _selectedImage = image;
         });
+      } else {
+        print('⚠️ No image selected');
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to pick image: $e')),
-      );
+      print('❌ Error in _pickImage: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to pick image: $e')),
+        );
+      }
     }
   }
 

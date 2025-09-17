@@ -117,11 +117,12 @@ class AuthService {
     if (firebaseUser == null) return null;
 
     try {
-      // Update Firebase user if needed
+      // Update Firebase user if needed (skip photoURL for base64 images)
       if (username != null && username != firebaseUser.displayName) {
         await firebaseUser.updateDisplayName(username);
       }
-      if (profilePicture != null && profilePicture != firebaseUser.photoURL) {
+      // Skip Firebase photoURL update for base64 images (too long)
+      if (profilePicture != null && !profilePicture.startsWith('data:image') && profilePicture != firebaseUser.photoURL) {
         await firebaseUser.updatePhotoURL(profilePicture);
       }
 

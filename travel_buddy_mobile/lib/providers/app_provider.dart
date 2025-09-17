@@ -28,7 +28,7 @@ import '../services/safety_service.dart';
 import '../models/emergency_service.dart';
 import '../models/dish.dart';
 
-class AppProvider with ChangeNotifier {
+class AppProvider with ChangeNotifier, WidgetsBindingObserver {
   // Services
   final AuthService _authService = AuthService();
   final ApiService _apiService = ApiService();
@@ -41,6 +41,10 @@ class AppProvider with ChangeNotifier {
   final weather_service.WeatherService _weatherService = weather_service.WeatherService();
   final discoveries_service.LocalDiscoveriesService _localDiscoveriesService = discoveries_service.LocalDiscoveriesService();
   final SafetyService _safetyService = SafetyService();
+  
+  // App lifecycle state
+  bool _isAppActive = true;
+  DateTime? _lastActiveTime;
 
   // User State
   CurrentUser? _currentUser;
@@ -153,6 +157,38 @@ class AppProvider with ChangeNotifier {
   
   AiService get aiService => _aiService;
   SafetyService get safetyService => _safetyService;
+  bool get isAppActive => _isAppActive;
+  
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+    
+    switch (state) {
+      case AppLifecycleState.resumed:
+        _isAppActive = true;
+        final now = DateTime.now();
+        final wasInactive = _lastActiveTime != null && 
+            now.difference(_lastActiveTime!).inMinutes > 5; // 5 min threshold
+        _lastActiveTime = now;
+        print('📱 App resumed - API calls enabled');
+        
+        // Refresh data if app was inactive for more than 5 minutes
+        if (wasInactive) {
+          print('🔄 App was inactive for >5min - refreshing data');
+          _refreshDataAfterInactivity();
+        }
+        break;
+      case AppLifecycleState.paused:
+      case AppLifecycleState.inactive:
+      case AppLifecycleState.detached:
+        _isAppActive = false;
+        print('📱 App inactive - API calls disabled');
+        break;
+      case AppLifecycleState.hidden:
+        _isAppActive = false;
+        break;
+    }
+  }
 
 
 
@@ -164,8 +200,15 @@ class AppProvider with ChangeNotifier {
     try {
       print('🚀 Initializing Travel Buddy Mobile...');
       
-      // Test API connection first
-      await DebugService.testApiConnection();
+      // Register app lifecycle observer
+      WidgetsBinding.instance.addObserver(this);
+      _isAppActive = true;
+      _lastActiveTime = DateTime.now();
+      
+      // Test API connection first (only if app is active)
+      if (_isAppActive) {
+        await DebugService.testApiConnection();
+      }
       
       // Initialize services
       _aiService.initialize();
@@ -182,8 +225,10 @@ class AppProvider with ChangeNotifier {
       await _loadUserData();
       print('✅ User data loaded');
       
-      // Load location
-      await getCurrentLocation();
+      // Load location (only if app is active)
+      if (_isAppActive) {
+        await getCurrentLocation();
+      }
       
       // Load cached data
       await _loadCachedData();
@@ -196,6 +241,12 @@ class AppProvider with ChangeNotifier {
       _isLoading = false;
       notifyListeners();
     }
+  }
+  
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
   }
 
   // Settings Methods
@@ -225,6 +276,12 @@ class AppProvider with ChangeNotifier {
 
   // Home Data Methods
   Future<void> loadHomeData() async {
+    // Skip API calls if app is not active
+    if (!_isAppActive) {
+      print('🚫 Skipping home data API calls - app is inactive');
+      return;
+    }
+    
     _isHomeLoading = true;
     notifyListeners();
 
@@ -382,28 +439,91 @@ class AppProvider with ChangeNotifier {
     }
   }
 
-  Future<bool> updateSubscription(SubscriptionTier tier) async {
+  Future<bool> updateSubscription(SubscriptionTier tier, {bool isFreeTrial = true}) async {
     if (_currentUser == null) return false;
     
     try {
+      final now = DateTime.now();
+      final trialEnd = now.add(const Duration(days: 7));
+      
       final updatedUser = _currentUser!.copyWith(
         tier: tier,
-        subscriptionStatus: SubscriptionStatus.active,
+        subscriptionStatus: isFreeTrial ? SubscriptionStatus.trial : SubscriptionStatus.active,
+        trialEndDate: isFreeTrial ? trialEnd.toIso8601String() : null,
+        subscriptionEndDate: isFreeTrial ? null : now.add(const Duration(days: 30)).toIso8601String(),
       );
       
       await _storageService.saveUser(updatedUser);
       _currentUser = updatedUser;
       notifyListeners();
       
+      final message = isFreeTrial 
+          ? '7-day free trial started for ${tier.toString().split('.').last.toUpperCase()}'
+          : 'Welcome to ${tier.toString().split('.').last.toUpperCase()} plan';
+      
       await _notificationService.showLocalNotification(
         'Subscription Updated!',
-        'Welcome to ${tier.toString().split('.').last.toUpperCase()} plan',
+        message,
       );
       
       return true;
     } catch (e) {
       print('Error updating subscription: $e');
       return false;
+    }
+  }
+  
+  bool get isTrialExpired {
+    if (_currentUser?.subscriptionStatus != SubscriptionStatus.trial) return false;
+    if (_currentUser?.trialEndDate == null) return false;
+    
+    final trialEnd = DateTime.tryParse(_currentUser!.trialEndDate!);
+    return trialEnd != null && DateTime.now().isAfter(trialEnd);
+  }
+  
+  bool get hasActiveSubscription {
+    if (_currentUser == null) return false;
+    
+    final status = _currentUser!.subscriptionStatus;
+    if (status == SubscriptionStatus.active) return true;
+    if (status == SubscriptionStatus.trial && !isTrialExpired) return true;
+    
+    return false;
+  }
+  
+  bool canAccessFeature(String feature) {
+    if (_currentUser == null) return false;
+    
+    final tier = _currentUser!.tier;
+    final hasActive = hasActiveSubscription;
+    
+    switch (feature) {
+      case 'unlimited_favorites':
+        return hasActive && tier != SubscriptionTier.free;
+      case 'ai_recommendations':
+        return hasActive && (tier == SubscriptionTier.premium || tier == SubscriptionTier.pro);
+      case 'offline_maps':
+        return hasActive && (tier == SubscriptionTier.premium || tier == SubscriptionTier.pro);
+      case 'advanced_trip_planning':
+        return hasActive && tier != SubscriptionTier.free;
+      case 'business_features':
+        return hasActive && tier == SubscriptionTier.pro;
+      default:
+        return true; // Basic features available to all
+    }
+  }
+  
+  int get maxFavorites {
+    if (!hasActiveSubscription) return 10; // Free tier limit
+    
+    switch (_currentUser!.tier) {
+      case SubscriptionTier.basic:
+        return 50;
+      case SubscriptionTier.premium:
+      case SubscriptionTier.pro:
+        return -1; // Unlimited
+      default:
+        return 10;
     }
   }
 
@@ -460,12 +580,37 @@ class AppProvider with ChangeNotifier {
 
   // Places Methods
   Future<void> loadNearbyPlaces({String searchQuery = '', bool loadMore = false}) async {
+    // Skip API calls if app is not active
+    if (!_isAppActive) {
+      print('🚫 Skipping places API call - app is inactive');
+      return;
+    }
+    
     if (_currentLocation == null) {
       _placesError = 'Location not available. Please enable location services.';
       notifyListeners();
       return;
     }
 
+    // Check if we have valid cached data for current location
+    if (!loadMore && searchQuery.isEmpty) {
+      final cachedData = await _storageService.getCachedPlacesForLocation(
+        _currentLocation!.latitude,
+        _currentLocation!.longitude,
+        _selectedCategory,
+        maxAgeHours: 1, // Cache valid for 1 hour
+        maxDistanceKm: 2.0, // Cache valid within 2km
+      );
+      
+      if (cachedData.isNotEmpty) {
+        print('💾 Using cached places (${cachedData.length}) - within distance/time threshold');
+        _places = cachedData;
+        _placesError = null;
+        notifyListeners();
+        return; // Skip API call - use cache
+      }
+    }
+    
     _isPlacesLoading = true;
     _placesError = null;
     
@@ -675,10 +820,15 @@ class AppProvider with ChangeNotifier {
       }
       _placesError = null;
       
-      // Cache places for offline use only
+      // Smart location-based caching
       if (places.isNotEmpty) {
-        await _storageService.cachePlaces(places);
-        print('💾 Cached ${places.length} places for offline use');
+        await _storageService.cachePlacesWithLocation(
+          places, 
+          _currentLocation!.latitude, 
+          _currentLocation!.longitude,
+          _selectedCategory
+        );
+        print('💾 Cached ${places.length} places for location ${_currentLocation!.latitude.toStringAsFixed(3)}, ${_currentLocation!.longitude.toStringAsFixed(3)}');
       }
       await _updateFavoritePlaces();
       
@@ -686,14 +836,23 @@ class AppProvider with ChangeNotifier {
       print('❌ Error loading places: $e');
       _placesError = 'Failed to load places: ${e.toString()}';
       
-      // Only show cache if explicitly offline or no network
+      // Show relevant cached places only if network fails
       if (_placesError?.contains('network') == true || _placesError?.contains('offline') == true) {
         try {
-          final cachedPlaces = await _storageService.getCachedPlaces();
+          final cachedPlaces = await _storageService.getCachedPlacesForLocation(
+            _currentLocation!.latitude,
+            _currentLocation!.longitude,
+            _selectedCategory,
+            maxAgeHours: 24, // More lenient for offline mode
+            maxDistanceKm: 10.0, // Wider radius for offline
+          );
+          
           if (cachedPlaces.isNotEmpty) {
             _places = cachedPlaces;
-            _placesError = 'No internet connection. Showing cached places.';
-            print('📱 Network error: Loaded ${cachedPlaces.length} cached places');
+            _placesError = 'No internet connection. Showing nearby cached places.';
+            print('📱 Network error: Loaded ${cachedPlaces.length} relevant cached places');
+          } else {
+            print('🚫 No relevant cached places for current location');
           }
         } catch (cacheError) {
           print('❌ Cache error: $cacheError');
@@ -707,7 +866,7 @@ class AppProvider with ChangeNotifier {
     }
   }
 
-  Future<void> toggleFavorite(String placeId) async {
+  Future<bool> toggleFavorite(String placeId) async {
     final place = _places.firstWhere((p) => p.id == placeId, orElse: () => Place(id: '', name: '', address: '', latitude: 0, longitude: 0, rating: 0, type: '', photoUrl: '', description: '', localTip: '', handyPhrase: ''));
     
     if (_favoriteIds.contains(placeId)) {
@@ -718,6 +877,16 @@ class AppProvider with ChangeNotifier {
         await _apiService.removeFavorite(_currentUser!.mongoId!, placeId);
       }
     } else {
+      // Check favorites limit
+      final maxFavs = maxFavorites;
+      if (maxFavs > 0 && _favoriteIds.length >= maxFavs) {
+        await _notificationService.showLocalNotification(
+          'Favorites Limit Reached',
+          'Upgrade to add more favorites (${_favoriteIds.length}/$maxFavs)',
+        );
+        return false;
+      }
+      
       _favoriteIds.add(placeId);
       await _storageService.addFavorite(placeId);
       
@@ -735,6 +904,7 @@ class AppProvider with ChangeNotifier {
     
     await _updateFavoritePlaces();
     notifyListeners();
+    return true;
   }
 
   void setSelectedCategory(String category) {
@@ -1263,6 +1433,12 @@ class AppProvider with ChangeNotifier {
 
   // Safety Methods
   Future<void> loadEmergencyServices() async {
+    // Skip API calls if app is not active
+    if (!_isAppActive) {
+      print('🚫 Skipping emergency services API call - app is inactive');
+      return;
+    }
+    
     if (_currentLocation == null) return;
 
     _isSafetyLoading = true;
@@ -1401,6 +1577,12 @@ class AppProvider with ChangeNotifier {
   Future<void> loadLocalDishes() async {
     print('🍽️ loadLocalDishes() called');
     
+    // Skip API calls if app is not active
+    if (!_isAppActive) {
+      print('🚫 Skipping dishes API call - app is inactive');
+      return;
+    }
+    
     if (_currentLocation == null) {
       print('❌ No location available for dishes');
       return;
@@ -1435,5 +1617,44 @@ class AppProvider with ChangeNotifier {
       print('📊 Dishes loading finished. Count: ${_localDishes.length}');
       notifyListeners();
     }
+  }
+  
+  // Refresh data after app was inactive
+  Future<void> _refreshDataAfterInactivity() async {
+    try {
+      // Only refresh if we have location and app is active
+      if (_currentLocation != null && _isAppActive) {
+        // Check if we need fresh data (cache expired)
+        final needsRefresh = await _checkIfDataNeedsRefresh();
+        if (needsRefresh) {
+          print('🔄 Refreshing stale data after inactivity');
+          await Future.wait([
+            loadNearbyPlaces(),
+            loadLocalDishes(),
+            loadEmergencyServices(),
+          ]);
+        } else {
+          print('💾 Data still fresh - using cache');
+        }
+      }
+    } catch (e) {
+      print('❌ Error refreshing data after inactivity: $e');
+    }
+  }
+  
+  // Check if cached data is stale and needs refresh
+  Future<bool> _checkIfDataNeedsRefresh() async {
+    if (_currentLocation == null) return false;
+    
+    // Check if we have valid cached data
+    final cachedData = await _storageService.getCachedPlacesForLocation(
+      _currentLocation!.latitude,
+      _currentLocation!.longitude,
+      _selectedCategory,
+      maxAgeHours: 2, // More lenient for background refresh
+      maxDistanceKm: 5.0,
+    );
+    
+    return cachedData.isEmpty; // Refresh if no valid cache
   }
 }

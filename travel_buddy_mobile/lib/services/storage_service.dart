@@ -1,3 +1,4 @@
+import 'dart:math';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/user.dart';
@@ -216,6 +217,150 @@ class StorageService {
       }
     }
     return result;
+  }
+
+  // Location-aware caching
+  Future<void> cachePlacesWithLocation(
+    List<Place> places, 
+    double lat, 
+    double lng, 
+    String category
+  ) async {
+    final locationKey = _generateLocationKey(lat, lng, category);
+    final timestamp = DateTime.now().millisecondsSinceEpoch;
+    
+    // Store places with location metadata
+    final Map<String, Place> batch = {};
+    for (final place in places) {
+      batch['${locationKey}_${place.id}'] = place;
+    }
+    await _placesBox.putAll(batch);
+    
+    // Store location metadata
+    await _prefs.setString('${locationKey}_metadata', '$lat,$lng,$category,$timestamp');
+    
+    // Clean old location caches (keep only last 5 locations)
+    await _cleanOldLocationCaches();
+  }
+  
+  Future<List<Place>> getCachedPlacesForLocation(
+    double lat, 
+    double lng, 
+    String category, {
+    required double maxAgeHours,
+    required double maxDistanceKm,
+  }) async {
+    // Find cached locations within distance and time threshold
+    final allKeys = _prefs.getKeys().where((key) => key.endsWith('_metadata')).toList();
+    
+    for (final metaKey in allKeys) {
+      final metadata = _prefs.getString(metaKey);
+      if (metadata == null) continue;
+      
+      final parts = metadata.split(',');
+      if (parts.length != 4) continue;
+      
+      final cachedLat = double.tryParse(parts[0]);
+      final cachedLng = double.tryParse(parts[1]);
+      final cachedCategory = parts[2];
+      final cachedTimestamp = int.tryParse(parts[3]);
+      
+      if (cachedLat == null || cachedLng == null || cachedTimestamp == null) continue;
+      
+      // Check category match
+      if (cachedCategory != category) continue;
+      
+      // Check time threshold
+      final ageHours = (DateTime.now().millisecondsSinceEpoch - cachedTimestamp) / (1000 * 60 * 60);
+      if (ageHours > maxAgeHours) continue;
+      
+      // Check distance threshold
+      final distance = _calculateDistance(lat, lng, cachedLat, cachedLng);
+      if (distance > maxDistanceKm) continue;
+      
+      // Found valid cache - load places
+      final locationKey = metaKey.replaceAll('_metadata', '');
+      return await _loadPlacesForLocationKey(locationKey);
+    }
+    
+    return []; // No valid cache found
+  }
+  
+  String _generateLocationKey(double lat, double lng, String category) {
+    final latRounded = (lat * 100).round() / 100; // Round to ~1km precision
+    final lngRounded = (lng * 100).round() / 100;
+    return 'loc_${latRounded}_${lngRounded}_$category';
+  }
+  
+  Future<List<Place>> _loadPlacesForLocationKey(String locationKey) async {
+    final places = <Place>[];
+    final allKeys = _placesBox.keys.where((key) => key.toString().startsWith('${locationKey}_')).toList();
+    
+    for (final key in allKeys) {
+      final place = _placesBox.get(key);
+      if (place != null) {
+        places.add(place);
+      }
+    }
+    
+    return places;
+  }
+  
+  double _calculateDistance(double lat1, double lng1, double lat2, double lng2) {
+    const double earthRadius = 6371; // km
+    final double dLat = _degreesToRadians(lat2 - lat1);
+    final double dLng = _degreesToRadians(lng2 - lng1);
+    
+    final double a = 
+        sin(dLat / 2) * sin(dLat / 2) +
+        cos(_degreesToRadians(lat1)) * cos(_degreesToRadians(lat2)) *
+        sin(dLng / 2) * sin(dLng / 2);
+    
+    final double c = 2 * asin(sqrt(a));
+    return earthRadius * c;
+  }
+  
+  double _degreesToRadians(double degrees) {
+    return degrees * (pi / 180);
+  }
+  
+  Future<void> _cleanOldLocationCaches() async {
+    final allMetaKeys = _prefs.getKeys().where((key) => key.endsWith('_metadata')).toList();
+    
+    if (allMetaKeys.length <= 5) return; // Keep up to 5 locations
+    
+    // Sort by timestamp and remove oldest
+    final keyTimestamps = <String, int>{};
+    for (final key in allMetaKeys) {
+      final metadata = _prefs.getString(key);
+      if (metadata != null) {
+        final parts = metadata.split(',');
+        if (parts.length == 4) {
+          final timestamp = int.tryParse(parts[3]);
+          if (timestamp != null) {
+            keyTimestamps[key] = timestamp;
+          }
+        }
+      }
+    }
+    
+    final sortedKeys = keyTimestamps.keys.toList()
+      ..sort((a, b) => keyTimestamps[a]!.compareTo(keyTimestamps[b]!));
+    
+    // Remove oldest caches
+    final keysToRemove = sortedKeys.take(sortedKeys.length - 5);
+    for (final metaKey in keysToRemove) {
+      final locationKey = metaKey.replaceAll('_metadata', '');
+      
+      // Remove places for this location
+      final placeKeys = _placesBox.keys.where((key) => key.toString().startsWith('${locationKey}_')).toList();
+      for (final placeKey in placeKeys) {
+        await _placesBox.delete(placeKey);
+      }
+      
+      // Remove metadata
+      await _prefs.remove(metaKey);
+    }
   }
 
   // Clear all data

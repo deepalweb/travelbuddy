@@ -6,6 +6,7 @@ import '../widgets/place_card.dart';
 import '../widgets/search_bar_widget.dart';
 import '../services/places_service.dart';
 import 'place_details_screen.dart';
+import 'subscription_plans_screen.dart';
 
 class PlacesScreen extends StatefulWidget {
   const PlacesScreen({super.key});
@@ -329,7 +330,12 @@ class _PlacesScreenState extends State<PlacesScreen> {
         return PlaceCard(
           place: place,
           isFavorite: appProvider.favoriteIds.contains(place.id),
-          onFavoriteToggle: () => appProvider.toggleFavorite(place.id),
+          onFavoriteToggle: () async {
+            final success = await appProvider.toggleFavorite(place.id);
+            if (!success && mounted) {
+              _showUpgradeDialog(context);
+            }
+          },
           onTap: () {
             Navigator.of(context).push(
               MaterialPageRoute(
@@ -554,6 +560,34 @@ class _PlacesScreenState extends State<PlacesScreen> {
           ),
         );
       },
+    );
+  }
+  
+  void _showUpgradeDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Upgrade Required'),
+        content: const Text('You\'ve reached the favorites limit for free users. Upgrade to add unlimited favorites!'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const SubscriptionPlansScreen(),
+                ),
+              );
+            },
+            child: const Text('Upgrade'),
+          ),
+        ],
+      ),
     );
   }
 }

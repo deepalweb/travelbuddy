@@ -1,5 +1,6 @@
 import 'package:image_picker/image_picker.dart';
 import 'package:dio/dio.dart';
+import 'dart:convert';
 import '../config/environment.dart';
 
 class ImageService {
@@ -9,6 +10,7 @@ class ImageService {
 
   final ImagePicker _picker = ImagePicker();
   Dio? _dio;
+  bool _isPickingImage = false;
 
   void initialize() {
     _dio ??= Dio(BaseOptions(
@@ -38,16 +40,33 @@ class ImageService {
   }
 
   Future<XFile?> pickSingleImage({ImageSource source = ImageSource.gallery}) async {
+    if (_isPickingImage) {
+      print('⚠️ Image picker already active, skipping');
+      return null;
+    }
+    
+    _isPickingImage = true;
     try {
-      return await _picker.pickImage(
+      final image = await _picker.pickImage(
         source: source,
         maxWidth: 1920,
         maxHeight: 1080,
         imageQuality: 85,
+        requestFullMetadata: false,
       );
+      
+      if (image != null) {
+        print('✅ Image picked successfully: ${image.path}');
+        final bytes = await image.readAsBytes();
+        print('📊 Image size: ${bytes.length} bytes');
+      }
+      
+      return image;
     } catch (e) {
-      print('Error picking image: $e');
+      print('❌ Error picking image: $e');
       return null;
+    } finally {
+      _isPickingImage = false;
     }
   }
 
@@ -55,28 +74,18 @@ class ImageService {
     final uploadedUrls = <String>[];
     
     for (final image in images) {
-      // Since backend upload endpoints don't exist, use local storage with proper URL
-      final timestamp = DateTime.now().millisecondsSinceEpoch;
-      final fileName = 'profile_${timestamp}_${image.name}';
+      // Convert image to base64 for database storage
+      final bytes = await image.readAsBytes();
+      final base64String = 'data:image/jpeg;base64,${base64Encode(bytes)}';
       
-      // Create a mock URL that looks like a real upload
-      final mockUrl = 'local://uploads/$fileName';
-      
-      // Store the actual file path for local access
-      await _storeImageLocally(image, fileName);
-      
-      uploadedUrls.add(mockUrl);
-      print('✅ Image "uploaded" locally: $mockUrl');
+      uploadedUrls.add(base64String);
+      print('✅ Image converted to base64 for database storage');
     }
     
     return uploadedUrls;
   }
   
-  Future<void> _storeImageLocally(XFile image, String fileName) async {
-    // For now, just keep reference to original path
-    // In a real app, you'd copy to app documents directory
-    print('📁 Stored image locally: ${image.path} as $fileName');
-  }
+
 
   Future<String?> uploadSingleImage(XFile image) async {
     final urls = await uploadImages([image]);

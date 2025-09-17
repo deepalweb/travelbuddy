@@ -362,9 +362,9 @@ class _SubscriptionPlansScreenState extends State<SubscriptionPlansScreen> {
       
       if (success && mounted) {
         final appProvider = context.read<AppProvider>();
-        await appProvider.updateSubscription(plan['tier']);
-        
         final hasUsedTrial = await _hasUserUsedFreeTrial(appProvider);
+        await appProvider.updateSubscription(plan['tier'], isFreeTrial: !hasUsedTrial);
+        
         final message = hasUsedTrial 
             ? 'Successfully subscribed to ${plan['name']} plan!'
             : 'Started 7-day free trial for ${plan['name']} plan!';

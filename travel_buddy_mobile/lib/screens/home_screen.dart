@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../providers/app_provider.dart';
 import '../widgets/safe_widget.dart';
+import '../widgets/subscription_status_widget.dart';
 import '../models/emergency_service.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -161,6 +162,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    const SubscriptionStatusWidget(),
                     _buildWelcomeCard(appProvider),
                     const SizedBox(height: 16),
                     _buildLocationCard(appProvider),

@@ -1,6 +1,8 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'dart:io';
+import 'dart:convert';
 import '../providers/app_provider.dart';
 import '../providers/community_provider.dart';
 import '../constants/app_constants.dart';
@@ -45,137 +47,83 @@ class ProfileScreen extends StatelessWidget {
             padding: const EdgeInsets.all(16),
             child: Column(
               children: [
-                // Profile Header
+                // Profile Header (Compact)
                 Card(
                   child: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Column(
+                    padding: const EdgeInsets.all(12),
+                    child: Row(
                       children: [
-                        CircleAvatar(
-                          radius: 40,
-                          backgroundColor: Color(AppConstants.colors['primary']!),
-                          child: user?.profilePicture != null && user!.profilePicture!.isNotEmpty
-                              ? ClipOval(
-                                  child: user.profilePicture!.startsWith('file://') || user.profilePicture!.startsWith('local://')
-                                      ? Image.file(
-                                          File(user.profilePicture!.startsWith('file://') 
-                                              ? user.profilePicture!.replaceFirst('file://', '')
-                                              : user.profilePicture!.replaceFirst('local://', '')),
-                                          width: 80,
-                                          height: 80,
-                                          fit: BoxFit.cover,
-                                          errorBuilder: (context, error, stackTrace) {
-                                            return Text(
-                                              (user.username?.substring(0, 1) ?? 'U').toUpperCase(),
-                                              style: const TextStyle(
-                                                fontSize: 32,
-                                                color: Colors.white,
-                                                fontWeight: FontWeight.bold,
-                                              ),
-                                            );
-                                          },
-                                        )
-                                      : Image.network(
-                                          user.profilePicture!,
-                                          width: 80,
-                                          height: 80,
-                                          fit: BoxFit.cover,
-                                          errorBuilder: (context, error, stackTrace) {
-                                            return Text(
-                                              (user.username?.substring(0, 1) ?? 'U').toUpperCase(),
-                                              style: const TextStyle(
-                                                fontSize: 32,
-                                                color: Colors.white,
-                                                fontWeight: FontWeight.bold,
-                                              ),
-                                            );
-                                          },
-                                        ),
-                                )
-                              : Text(
-                                  (user?.username?.substring(0, 1) ?? 'U').toUpperCase(),
-                                  style: const TextStyle(
-                                    fontSize: 32,
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                        ),
-                        const SizedBox(height: 16),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Expanded(
-                              child: Text(
-                                user?.username ?? 'Guest User',
-                                textAlign: TextAlign.center,
-                                style: const TextStyle(
-                                  fontSize: 20,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ),
-                            Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                IconButton(
-                                  icon: const Icon(Icons.share, size: 20),
-                                  onPressed: () => _shareProfile(context, user),
-                                ),
-                                IconButton(
-                                  icon: const Icon(Icons.edit, size: 20),
-                                  onPressed: () {
-                                    Navigator.of(context).push(
-                                      MaterialPageRoute(
-                                        builder: (context) => const EditProfileScreen(),
+                        _ProfilePicture(user: user, radius: 28),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      user?.username ?? 'Guest User',
+                                      style: const TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.bold,
                                       ),
-                                    );
-                                  },
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 8,
+                                      vertical: 2,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: Color(AppConstants.colors['primary']!).withOpacity(0.1),
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    child: Text(
+                                      user?.tier.name.toUpperCase() ?? 'FREE',
+                                      style: TextStyle(
+                                        color: Color(AppConstants.colors['primary']!),
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 10,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              if (user?.email != null)
+                                Text(
+                                  user!.email!,
+                                  style: TextStyle(
+                                    color: Color(AppConstants.colors['textSecondary']!),
+                                    fontSize: 12,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
                                 ),
-                              ],
-                            ),
-                          ],
-                        ),
-                        if (user?.email != null) ...[
-                          const SizedBox(height: 4),
-                          Text(
-                            user!.email!,
-                            style: TextStyle(
-                              color: Color(AppConstants.colors['textSecondary']!),
-                            ),
-                          ),
-                        ],
-                        const SizedBox(height: 8),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 12,
-                                vertical: 4,
-                              ),
-                              decoration: BoxDecoration(
-                                color: Color(AppConstants.colors['primary']!).withOpacity(0.1),
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: Text(
-                                user?.tier.name.toUpperCase() ?? 'FREE',
-                                style: TextStyle(
-                                  color: Color(AppConstants.colors['primary']!),
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 12,
-                                ),
-                              ),
-                            ),
-                            if (user?.tier.name != 'free') ...[
-                              const SizedBox(width: 8),
-                              Icon(
-                                Icons.verified,
-                                size: 16,
-                                color: Color(AppConstants.colors['primary']!),
-                              ),
                             ],
-                          ],
+                          ),
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.share, size: 18),
+                          onPressed: () => _shareProfile(context, user),
+                          style: IconButton.styleFrom(
+                            minimumSize: const Size(32, 32),
+                          ),
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.edit, size: 18),
+                          onPressed: () {
+                            Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (context) => const EditProfileScreen(),
+                              ),
+                            );
+                          },
+                          style: IconButton.styleFrom(
+                            minimumSize: const Size(32, 32),
+                          ),
                         ),
                       ],
                     ),
@@ -187,7 +135,7 @@ class ProfileScreen extends StatelessWidget {
                 // Stats Cards
                 Consumer<CommunityProvider>(
                   builder: (context, communityProvider, child) {
-                    final userPosts = communityProvider.posts.where((post) => post.userId == 'mobile_user').length;
+                    final userPosts = communityProvider.posts.where((post) => post.userId == (user?.mongoId ?? user?.uid ?? 'mobile_user')).length;
                     return Row(
                       children: [
                         Expanded(
@@ -196,27 +144,33 @@ class ProfileScreen extends StatelessWidget {
                             count: userPosts,
                             label: 'Posts',
                             color: Colors.blue[400]!,
-                            onTap: () => _showUserPosts(context),
+                            onTap: () => _showUserPosts(context, user),
                           ),
                         ),
                         const SizedBox(width: 8),
                         Expanded(
-                          child: _buildStatCard(
-                            icon: Icons.people,
-                            count: 0, // TODO: Get real followers count
-                            label: 'Followers',
-                            color: Colors.blue[400]!,
-                            onTap: () => _showFollowers(context),
+                          child: FutureBuilder<int>(
+                            future: _getFollowersCount(context, user),
+                            builder: (context, snapshot) => _buildStatCard(
+                              icon: Icons.people,
+                              count: snapshot.data ?? 0,
+                              label: 'Followers',
+                              color: Colors.blue[400]!,
+                              onTap: () => _showFollowers(context),
+                            ),
                           ),
                         ),
                         const SizedBox(width: 8),
                         Expanded(
-                          child: _buildStatCard(
-                            icon: Icons.person_add,
-                            count: 0, // TODO: Get real following count
-                            label: 'Following',
-                            color: Colors.purple[400]!,
-                            onTap: () => _showFollowing(context),
+                          child: FutureBuilder<int>(
+                            future: _getFollowingCount(context, user),
+                            builder: (context, snapshot) => _buildStatCard(
+                              icon: Icons.person_add,
+                              count: snapshot.data ?? 0,
+                              label: 'Following',
+                              color: Colors.purple[400]!,
+                              onTap: () => _showFollowing(context),
+                            ),
                           ),
                         ),
                         const SizedBox(width: 8),
@@ -276,7 +230,7 @@ class ProfileScreen extends StatelessWidget {
                         title: const Text('My Posts'),
                         subtitle: const Text('View your travel posts'),
                         trailing: const Icon(Icons.chevron_right),
-                        onTap: () => _showUserPosts(context),
+                        onTap: () => _showUserPosts(context, user),
                       ),
                       const Divider(height: 1),
                       ListTile(
@@ -354,34 +308,37 @@ class ProfileScreen extends StatelessWidget {
                           );
                         },
                       ),
-                      const Divider(height: 1),
-                      ListTile(
-                        leading: const Icon(Icons.developer_mode),
-                        title: const Text('Backend Status'),
-                        subtitle: const Text('Check API connectivity'),
-                        trailing: const Icon(Icons.chevron_right),
-                        onTap: () {
-                          Navigator.of(context).push(
-                            MaterialPageRoute(
-                              builder: (context) => const BackendStatusScreen(),
-                            ),
-                          );
-                        },
-                      ),
-                      const Divider(height: 1),
-                      ListTile(
-                        leading: const Icon(Icons.security),
-                        title: const Text('Authorization Status'),
-                        subtitle: const Text('Check auth methods & user data'),
-                        trailing: const Icon(Icons.chevron_right),
-                        onTap: () {
-                          Navigator.of(context).push(
-                            MaterialPageRoute(
-                              builder: (context) => const AuthStatusScreen(),
-                            ),
-                          );
-                        },
-                      ),
+                      // Debug options (only in debug mode)
+                      if (kDebugMode) ...[
+                        const Divider(height: 1),
+                        ListTile(
+                          leading: const Icon(Icons.developer_mode),
+                          title: const Text('Backend Status'),
+                          subtitle: const Text('Check API connectivity'),
+                          trailing: const Icon(Icons.chevron_right),
+                          onTap: () {
+                            Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (context) => const BackendStatusScreen(),
+                              ),
+                            );
+                          },
+                        ),
+                        const Divider(height: 1),
+                        ListTile(
+                          leading: const Icon(Icons.security),
+                          title: const Text('Authorization Status'),
+                          subtitle: const Text('Check auth methods & user data'),
+                          trailing: const Icon(Icons.chevron_right),
+                          onTap: () {
+                            Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (context) => const AuthStatusScreen(),
+                              ),
+                            );
+                          },
+                        ),
+                      ],
                     ],
                   ),
                 ),
@@ -447,9 +404,9 @@ class ProfileScreen extends StatelessWidget {
     );
   }
 
-  void _showUserPosts(BuildContext context) {
+  void _showUserPosts(BuildContext context, user) {
     final communityProvider = context.read<CommunityProvider>();
-    final userPosts = communityProvider.posts.where((post) => post.userId == 'mobile_user').toList();
+    final userPosts = communityProvider.posts.where((post) => post.userId == (user?.mongoId ?? user?.uid ?? 'mobile_user')).toList();
     
     Navigator.of(context).push(
       MaterialPageRoute(
@@ -531,6 +488,26 @@ class ProfileScreen extends StatelessWidget {
     try {
       final bookmarkedPosts = await context.read<ApiService>().getBookmarkedPosts();
       return bookmarkedPosts.length;
+    } catch (e) {
+      return 0;
+    }
+  }
+
+  Future<int> _getFollowersCount(BuildContext context, user) async {
+    if (user?.mongoId == null) return 0;
+    try {
+      final followers = await context.read<ApiService>().getFollowers(user.mongoId);
+      return followers.length;
+    } catch (e) {
+      return 0;
+    }
+  }
+
+  Future<int> _getFollowingCount(BuildContext context, user) async {
+    if (user?.mongoId == null) return 0;
+    try {
+      final following = await context.read<ApiService>().getFollowing(user.mongoId);
+      return following.length;
     } catch (e) {
       return 0;
     }
@@ -633,6 +610,51 @@ Join Travel Buddy and discover amazing places together!
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _ProfilePicture extends StatelessWidget {
+  final dynamic user;
+  final double radius;
+  
+  const _ProfilePicture({required this.user, required this.radius});
+  
+  @override
+  Widget build(BuildContext context) {
+    return CircleAvatar(
+      radius: radius,
+      backgroundColor: Color(AppConstants.colors['primary']!),
+      child: user?.profilePicture != null && user!.profilePicture!.isNotEmpty
+          ? ClipOval(
+              child: user.profilePicture!.startsWith('data:image')
+                  ? Image.memory(
+                      base64Decode(user.profilePicture!.split(',')[1]),
+                      width: radius * 2,
+                      height: radius * 2,
+                      fit: BoxFit.cover,
+                      errorBuilder: (context, error, stackTrace) => _buildInitials(),
+                    )
+                  : Image.network(
+                      user.profilePicture!,
+                      width: radius * 2,
+                      height: radius * 2,
+                      fit: BoxFit.cover,
+                      errorBuilder: (context, error, stackTrace) => _buildInitials(),
+                    ),
+            )
+          : _buildInitials(),
+    );
+  }
+  
+  Widget _buildInitials() {
+    return Text(
+      (user?.username?.substring(0, 1) ?? 'U').toUpperCase(),
+      style: TextStyle(
+        fontSize: radius * 0.8,
+        color: Colors.white,
+        fontWeight: FontWeight.bold,
       ),
     );
   }
