@@ -1282,8 +1282,8 @@ class AppProvider with ChangeNotifier {
         radius: 5000,
       );
 
-      _nearbyPoliceStations = policeStations.take(3).toList();
-      _nearbyHospitals = hospitals.take(3).toList();
+      _nearbyPoliceStations = policeStations.take(2).toList();
+      _nearbyHospitals = hospitals.take(2).toList();
       
       print('✅ Loaded ${_nearbyPoliceStations.length} police stations and ${_nearbyHospitals.length} hospitals');
     } catch (e) {
@@ -1300,17 +1300,83 @@ class AppProvider with ChangeNotifier {
   }
 
   Future<bool> sendSOSAlert() async {
-    if (_currentLocation == null) return false;
+    if (_currentLocation == null) {
+      await _notificationService.showLocalNotification(
+        'SOS Alert Failed',
+        'Location not available. Please enable location services.',
+      );
+      return false;
+    }
     
-    final location = '${_currentLocation!.latitude}, ${_currentLocation!.longitude}';
-    return await _safetyService.sendSOSAlert(location);
+    try {
+      final location = '${_currentLocation!.latitude}, ${_currentLocation!.longitude}';
+      final locationName = 'Current Location'; // Could be enhanced with reverse geocoding
+      
+      // Send SOS to emergency contacts
+      final contacts = _safetyService.emergencyContacts;
+      if (contacts.isEmpty) {
+        await _notificationService.showLocalNotification(
+          'SOS Alert',
+          'No emergency contacts found. Please add emergency contacts first.',
+        );
+        return false;
+      }
+      
+      // Create SOS message
+      final sosMessage = 'EMERGENCY ALERT! I need help. My location: $locationName ($location). Please contact me immediately or call emergency services.';
+      
+      // Send to all emergency contacts
+      bool success = true;
+      for (final contact in contacts) {
+        final result = await _safetyService.sendSOSMessage(contact.phoneNumber, sosMessage);
+        if (!result) success = false;
+      }
+      
+      // Show confirmation
+      await _notificationService.showLocalNotification(
+        'SOS Alert Sent',
+        'Emergency alert sent to ${contacts.length} contacts',
+      );
+      
+      return success;
+    } catch (e) {
+      print('Error sending SOS alert: $e');
+      await _notificationService.showLocalNotification(
+        'SOS Alert Failed',
+        'Failed to send emergency alert. Please try again.',
+      );
+      return false;
+    }
   }
 
   Future<bool> shareCurrentLocation() async {
-    if (_currentLocation == null) return false;
+    if (_currentLocation == null) {
+      await _notificationService.showLocalNotification(
+        'Location Share Failed',
+        'Location not available. Please enable location services.',
+      );
+      return false;
+    }
     
-    final location = '${_currentLocation!.latitude}, ${_currentLocation!.longitude}';
-    return await _safetyService.shareLocation(location);
+    try {
+      final location = '${_currentLocation!.latitude}, ${_currentLocation!.longitude}';
+      final googleMapsUrl = 'https://maps.google.com/maps?q=$location';
+      final message = 'Here is my current location: $googleMapsUrl';
+      
+      final result = await _safetyService.shareLocation(message);
+      
+      if (result) {
+        await _notificationService.showLocalNotification(
+          'Location Shared',
+          'Your location has been shared successfully',
+        );
+      }
+      
+      return result;
+    } catch (e) {
+      print('Error sharing location: $e');
+      return false;
+    }
   }
 
   void addEmergencyContact(String name, String phoneNumber, String relationship) {
@@ -1326,15 +1392,28 @@ class AppProvider with ChangeNotifier {
 
   List<EmergencyContact> get emergencyContacts => _safetyService.emergencyContacts;
 
+  void removeEmergencyContact(String contactId) {
+    _safetyService.removeEmergencyContact(contactId);
+    notifyListeners();
+  }
+
   // Local Dishes Methods
   Future<void> loadLocalDishes() async {
-    if (_currentLocation == null) return;
+    print('🍽️ loadLocalDishes() called');
+    
+    if (_currentLocation == null) {
+      print('❌ No location available for dishes');
+      return;
+    }
 
+    print('📍 Location: ${_currentLocation!.latitude}, ${_currentLocation!.longitude}');
+    
     _isDishesLoading = true;
     _dishesError = null;
     notifyListeners();
 
     try {
+      print('🔄 Calling API service...');
       final dishes = await _apiService.getLocalDishes(
         latitude: _currentLocation!.latitude,
         longitude: _currentLocation!.longitude,
@@ -1344,11 +1423,16 @@ class AppProvider with ChangeNotifier {
 
       _localDishes = dishes;
       print('✅ Loaded ${_localDishes.length} local dishes');
+      
+      if (_localDishes.isNotEmpty) {
+        print('🥘 First dish: ${_localDishes[0].name}');
+      }
     } catch (e) {
       print('❌ Error loading local dishes: $e');
       _dishesError = 'Failed to load local dishes';
     } finally {
       _isDishesLoading = false;
+      print('📊 Dishes loading finished. Count: ${_localDishes.length}');
       notifyListeners();
     }
   }

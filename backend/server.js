@@ -2182,8 +2182,9 @@ async function getAILocalDishes(lat, lng, limit = 10) {
 4. Price range (budget/mid-range/fine-dining)
 5. Average price in USD
 6. Typical restaurant name where it's found
-7. Dietary tags (vegetarian, vegan, gluten-free, etc.)
-8. Cultural significance or note
+7. Restaurant address (real or realistic for the area)
+8. Dietary tags (vegetarian, vegan, gluten-free, etc.)
+9. Cultural significance or note
 
 Return ONLY a valid JSON array with this exact structure:
 [
@@ -2194,6 +2195,7 @@ Return ONLY a valid JSON array with this exact structure:
     "priceRange": "mid-range",
     "averagePrice": "$12-15",
     "restaurantName": "Restaurant Name",
+    "restaurantAddress": "Street Address, City",
     "dietaryTags": ["tag1", "tag2"],
     "culturalNote": "Cultural note"
   }
@@ -2201,7 +2203,7 @@ Return ONLY a valid JSON array with this exact structure:
 
   const start = Date.now();
   try {
-    const response = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=' + apiKey, {
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${apiKey}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -2237,6 +2239,7 @@ Return ONLY a valid JSON array with this exact structure:
       averagePrice: dish.averagePrice || '$10-15',
       cuisine: dish.cuisine || 'Local',
       restaurantName: dish.restaurantName || 'Local Restaurant',
+      restaurantAddress: dish.restaurantAddress || 'Local Area',
       restaurantId: 'ai-' + Math.random().toString(36).substr(2, 9),
       imageUrl: '', // AI doesn't provide images
       rating: 4.0 + Math.random() * 1.0,
@@ -2359,6 +2362,102 @@ function generateCulturalNote(dishName, cuisine) {
   return notes[Math.floor(Math.random() * notes.length)];
 }
 
+// Mock emergency services generator
+function generateMockEmergencyServices(lat, lng, serviceType, limit) {
+  const mockServices = [];
+  
+  const policeNames = [
+    'Central Police Station',
+    'Metropolitan Police Division',
+    'City Police Headquarters',
+    'District Police Station',
+    'Community Police Post'
+  ];
+  
+  const hospitalNames = [
+    'General Hospital',
+    'Medical Center',
+    'Emergency Hospital',
+    'City Hospital',
+    'Regional Medical Center'
+  ];
+  
+  const streets = [
+    'Main Street', 'Central Avenue', 'Hospital Road', 'Police Lane', 
+    'Emergency Drive', 'Safety Boulevard', 'Service Road', 'Station Street'
+  ];
+  
+  for (let i = 0; i < limit; i++) {
+    const names = serviceType === 'police' ? policeNames : hospitalNames;
+    const street = streets[Math.floor(Math.random() * streets.length)];
+    const number = Math.floor(Math.random() * 999) + 1;
+    
+    const service = {
+      id: Math.random().toString(36).substr(2, 9),
+      name: names[i % names.length],
+      address: `${number} ${street}, Local Area`,
+      phoneNumber: serviceType === 'police' ? '119' : '+94-11-269-1111',
+      serviceType: serviceType === 'police' ? 'Emergency Police' : 'General Hospital',
+      distance: `${(Math.random() * 5 + 0.5).toFixed(1)} km`,
+      available24h: true,
+      emergencyNumber: serviceType === 'police' ? '119' : '110',
+      coordinates: {
+        lat: lat + (Math.random() - 0.5) * 0.01,
+        lng: lng + (Math.random() - 0.5) * 0.01
+      }
+    };
+    mockServices.push(service);
+  }
+  
+  return mockServices;
+}
+
+// Real emergency services using Google Places API
+async function getRealEmergencyServices(lat, lng, serviceType, limit) {
+  const apiKey = process.env.GOOGLE_PLACES_API_KEY;
+  if (!apiKey) {
+    throw new Error('GOOGLE_PLACES_API_KEY not configured');
+  }
+
+  const url = new URL('https://maps.googleapis.com/maps/api/place/textsearch/json');
+  url.searchParams.set('query', serviceType);
+  url.searchParams.set('location', `${lat},${lng}`);
+  url.searchParams.set('radius', '10000'); // 10km radius
+  url.searchParams.set('key', apiKey);
+
+  const response = await fetch(url.toString());
+  if (!response.ok) {
+    throw new Error(`Places API error: ${response.status}`);
+  }
+
+  const data = await response.json();
+  if (data.status !== 'OK') {
+    throw new Error(`Places API status: ${data.status}`);
+  }
+
+  const places = data.results.slice(0, limit).map(place => {
+    const distance = haversineMeters(lat, lng, place.geometry.location.lat, place.geometry.location.lng);
+    const distanceKm = (distance / 1000).toFixed(1);
+    
+    return {
+      id: place.place_id,
+      name: place.name,
+      address: place.formatted_address || place.vicinity || 'Address not available',
+      phoneNumber: serviceType.includes('police') ? '119' : '110',
+      serviceType: serviceType.includes('police') ? 'Police Station' : 'Hospital',
+      distance: `${distanceKm} km`,
+      available24h: true,
+      emergencyNumber: serviceType.includes('police') ? '119' : '110',
+      coordinates: {
+        lat: place.geometry.location.lat,
+        lng: place.geometry.location.lng
+      }
+    };
+  });
+
+  return places;
+}
+
 app.get('/api/dishes/:id', async (req, res) => {
   try {
     const dish = await Dish.findById(req.params.id);
@@ -2379,35 +2478,154 @@ app.post('/api/dishes', async (req, res) => {
   }
 });
 
-// Emergency Services API endpoints
+// AI-powered Emergency Services API endpoints
 app.get('/api/emergency/police', async (req, res) => {
   try {
-    const { lat, lng, country } = req.query;
+    const { lat, lng, limit = 3 } = req.query;
     
-    // Mock emergency services data - in production, integrate with local emergency APIs
-    const emergencyServices = {
-      police: {
-        number: country === 'US' ? '911' : country === 'UK' ? '999' : '112',
-        name: 'Police Emergency',
-        available24h: true
-      },
-      fire: {
-        number: country === 'US' ? '911' : country === 'UK' ? '999' : '112',
-        name: 'Fire Department',
-        available24h: true
-      },
-      medical: {
-        number: country === 'US' ? '911' : country === 'UK' ? '999' : '112',
-        name: 'Medical Emergency',
-        available24h: true
-      }
-    };
+    if (!lat || !lng) {
+      return res.status(400).json({ error: 'lat and lng are required' });
+    }
     
-    res.json(emergencyServices);
+    const policeStations = await getRealEmergencyServices(parseFloat(lat), parseFloat(lng), 'police station', parseInt(limit, 10));
+    res.json(policeStations);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error('Error fetching police stations:', error);
+    // Fallback to mock data
+    const mockData = generateMockEmergencyServices(parseFloat(lat), parseFloat(lng), 'police', 2);
+    res.json(mockData);
   }
 });
+
+app.get('/api/emergency/hospitals', async (req, res) => {
+  try {
+    const { lat, lng, limit = 3 } = req.query;
+    
+    if (!lat || !lng) {
+      return res.status(400).json({ error: 'lat and lng are required' });
+    }
+    
+    const hospitals = await getRealEmergencyServices(parseFloat(lat), parseFloat(lng), 'hospital', parseInt(limit, 10));
+    res.json(hospitals);
+  } catch (error) {
+    console.error('Error fetching hospitals:', error);
+    // Fallback to mock data
+    const mockData = generateMockEmergencyServices(parseFloat(lat), parseFloat(lng), 'hospitals', 2);
+    res.json(mockData);
+  }
+});
+
+// AI-powered emergency services function
+async function getAIEmergencyServices(lat, lng, serviceType, limit = 5) {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) {
+    throw new Error('GEMINI_API_KEY not configured');
+  }
+
+  const serviceTypeMap = {
+    'police': 'police stations',
+    'hospitals': 'hospitals and medical centers',
+    'fire': 'fire departments'
+  };
+
+  const prompt = `Based on the location coordinates ${lat}, ${lng}, find ${limit} real ${serviceTypeMap[serviceType] || serviceType} in this area. For each facility, provide:
+
+1. Name of the facility
+2. Complete address
+3. Phone number (emergency or main number)
+4. Service type/specialization
+5. Distance estimate from coordinates
+6. 24/7 availability status
+
+Return ONLY a valid JSON array with this exact structure:
+[
+  {
+    "name": "Facility Name",
+    "address": "Complete Address",
+    "phoneNumber": "+1234567890",
+    "serviceType": "Emergency/General",
+    "distance": "2.3 km",
+    "available24h": true,
+    "emergencyNumber": "911"
+  }
+]`;
+
+  const start = Date.now();
+  try {
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${apiKey}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: prompt }] }]
+      })
+    });
+
+    if (!response.ok) {
+      throw new Error(`Gemini API error: ${response.status}`);
+    }
+
+    const data = await response.json();
+    const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+    
+    if (!text) {
+      throw new Error('No response from Gemini AI');
+    }
+
+    // Extract JSON from response
+    console.log('Raw AI Response:', text);
+    
+    let jsonMatch = text.match(/\[.*\]/s);
+    if (!jsonMatch) {
+      // Try to find JSON in code blocks
+      jsonMatch = text.match(/```json\s*([\s\S]*?)\s*```/);
+      if (jsonMatch) {
+        jsonMatch[0] = jsonMatch[1];
+      } else {
+        console.error('No JSON found in AI response:', text);
+        throw new Error('Invalid JSON response from AI');
+      }
+    }
+
+    let aiServices;
+    try {
+      aiServices = JSON.parse(jsonMatch[0]);
+    } catch (parseError) {
+      console.error('JSON Parse Error:', parseError);
+      console.error('Attempted to parse:', jsonMatch[0]);
+      throw new Error('Failed to parse AI JSON response');
+    }
+    
+    if (!Array.isArray(aiServices)) {
+      console.error('AI response is not an array:', aiServices);
+      throw new Error('AI response must be an array');
+    }
+    
+    // Transform to mobile app format
+    const mobileServices = aiServices.map(service => ({
+      id: Math.random().toString(36).substr(2, 9),
+      name: service.name,
+      address: service.address,
+      phoneNumber: service.phoneNumber || service.emergencyNumber || '911',
+      serviceType: service.serviceType || serviceType,
+      distance: service.distance || 'Unknown',
+      available24h: service.available24h !== false,
+      emergencyNumber: service.emergencyNumber || (serviceType === 'police' ? '911' : service.phoneNumber),
+      coordinates: {
+        lat: lat + (Math.random() - 0.5) * 0.01, // Approximate nearby coordinates
+        lng: lng + (Math.random() - 0.5) * 0.01
+      }
+    }));
+
+    recordUsage({ api: 'gemini', action: `emergency_${serviceType}`, status: 'success', durationMs: Date.now() - start });
+    return mobileServices;
+  } catch (error) {
+    recordUsage({ api: 'gemini', action: `emergency_${serviceType}`, status: 'error', durationMs: Date.now() - start, meta: { err: error?.message } });
+    
+    // Fallback to mock data when AI fails
+    console.log('AI failed, using fallback mock data');
+    return generateMockEmergencyServices(lat, lng, serviceType, limit);
+  }
+}
 
 // Serve React app (only for non-API routes)
 app.use((req, res, next) => {

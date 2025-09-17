@@ -6,6 +6,7 @@ class Dish {
   final String averagePrice;
   final String cuisine;
   final String restaurantName;
+  final String restaurantAddress;
   final String restaurantId;
   final String imageUrl;
   final double rating;
@@ -20,6 +21,7 @@ class Dish {
     required this.averagePrice,
     required this.cuisine,
     required this.restaurantName,
+    required this.restaurantAddress,
     required this.restaurantId,
     this.imageUrl = '',
     this.rating = 0.0,
@@ -36,6 +38,7 @@ class Dish {
       averagePrice: json['averagePrice'] ?? '',
       cuisine: json['cuisine'] ?? '',
       restaurantName: json['restaurantName'] ?? '',
+      restaurantAddress: json['restaurantAddress'] ?? '',
       restaurantId: json['restaurantId'] ?? '',
       imageUrl: json['imageUrl'] ?? '',
       rating: (json['rating'] as num?)?.toDouble() ?? 0.0,
@@ -53,6 +56,7 @@ class Dish {
       'averagePrice': averagePrice,
       'cuisine': cuisine,
       'restaurantName': restaurantName,
+      'restaurantAddress': restaurantAddress,
       'restaurantId': restaurantId,
       'imageUrl': imageUrl,
       'rating': rating,

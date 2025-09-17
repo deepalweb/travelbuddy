@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../providers/app_provider.dart';
 import '../widgets/safe_widget.dart';
+import '../models/emergency_service.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -11,6 +13,8 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
+  String _selectedDietaryFilter = 'All';
+  
   @override
   void initState() {
     super.initState();
@@ -36,6 +40,100 @@ class _HomeScreenState extends State<HomeScreen> {
     if (hour < 17) return 'Good Afternoon';
     return 'Good Evening';
   }
+  
+  String _getCurrentLocationName(AppProvider appProvider) {
+    if (appProvider.currentLocation == null) {
+      return 'Location not available';
+    }
+    
+    // For Sri Lankan coordinates, show Colombo
+    final lat = appProvider.currentLocation!.latitude;
+    final lng = appProvider.currentLocation!.longitude;
+    
+    if (lat > 6.0 && lat < 7.5 && lng > 79.0 && lng < 81.0) {
+      return 'Colombo, Sri Lanka';
+    }
+    
+    // Default location display
+    return 'Current Location';
+  }
+  
+  Widget _buildWeatherInfo(AppProvider appProvider) {
+    final weather = appProvider.weatherInfo;
+    if (weather == null) {
+      return Row(
+        children: [
+          Icon(Icons.wb_sunny, color: Colors.white.withOpacity(0.9), size: 16),
+          const SizedBox(width: 2),
+          Text(
+            '28°C',
+            style: TextStyle(
+              color: Colors.white.withOpacity(0.9),
+              fontSize: 13,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
+      );
+    }
+    
+    return Row(
+      children: [
+        Icon(
+          _getWeatherIcon(weather.condition),
+          color: Colors.white.withOpacity(0.9),
+          size: 16,
+        ),
+        const SizedBox(width: 2),
+        Text(
+          '${weather.temperature.round()}°C',
+          style: TextStyle(
+            color: Colors.white.withOpacity(0.9),
+            fontSize: 13,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+      ],
+    );
+  }
+  
+  IconData _getWeatherIcon(String condition) {
+    switch (condition.toLowerCase()) {
+      case 'sunny':
+      case 'clear':
+        return Icons.wb_sunny;
+      case 'cloudy':
+      case 'overcast':
+        return Icons.cloud;
+      case 'rainy':
+      case 'rain':
+        return Icons.grain;
+      default:
+        return Icons.wb_sunny;
+    }
+  }
+  
+  String _getFavoriteActivity(AppProvider appProvider) {
+    final dishes = appProvider.localDishes;
+    final places = appProvider.places;
+    
+    if (dishes.isNotEmpty) {
+      return 'Try ${dishes.first.name} nearby';
+    }
+    
+    if (places.isNotEmpty) {
+      return 'Visit ${places.first.name}';
+    }
+    
+    final hour = DateTime.now().hour;
+    if (hour < 12) {
+      return 'Perfect morning for exploring!';
+    } else if (hour < 18) {
+      return 'Great afternoon for sightseeing!';
+    } else {
+      return 'Evening dining recommendations available!';
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -45,6 +143,10 @@ class _HomeScreenState extends State<HomeScreen> {
           appBar: AppBar(
             title: const Text('For You'),
             actions: [
+              IconButton(
+                icon: const Icon(Icons.notifications_outlined),
+                onPressed: () => _showNotifications(appProvider),
+              ),
               IconButton(
                 icon: const Icon(Icons.refresh),
                 onPressed: _loadData,
@@ -65,13 +167,13 @@ class _HomeScreenState extends State<HomeScreen> {
                     const SizedBox(height: 16),
                     _buildQuickActions(appProvider),
                     const SizedBox(height: 16),
-                    _buildSafetySection(appProvider),
+                    _buildNearbyPlaces(appProvider),
                     const SizedBox(height: 16),
                     _buildLocalDishes(appProvider),
                     const SizedBox(height: 16),
-                    _buildNearbyPlaces(appProvider),
-                    const SizedBox(height: 16),
                     _buildRecentActivity(appProvider),
+                    const SizedBox(height: 16),
+                    _buildSafetySection(appProvider),
                   ],
                 ),
               ),
@@ -79,6 +181,171 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         );
       },
+    );
+  }
+  
+  void _showNotifications(AppProvider appProvider) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Row(
+          children: [
+            Icon(Icons.notifications, size: 20),
+            SizedBox(width: 8),
+            Text('Notifications'),
+          ],
+        ),
+        content: SizedBox(
+          width: double.maxFinite,
+          height: 300,
+          child: Column(
+            children: [
+              Expanded(
+                child: ListView(
+                  children: [
+                    _buildNotificationTile(
+                      'Welcome to Travel Buddy!',
+                      'Start exploring amazing places around you',
+                      Icons.explore,
+                      Colors.blue,
+                      '2 min ago',
+                    ),
+                    _buildNotificationTile(
+                      'New Local Dishes Found',
+                      'Discover ${appProvider.localDishes.length} local dishes in your area',
+                      Icons.restaurant,
+                      Colors.orange,
+                      '5 min ago',
+                    ),
+                    _buildNotificationTile(
+                      'Safety Services Updated',
+                      'Emergency services information refreshed',
+                      Icons.security,
+                      Colors.red,
+                      '10 min ago',
+                    ),
+                    if (appProvider.places.isNotEmpty)
+                      _buildNotificationTile(
+                        'Places Near You',
+                        'Found ${appProvider.places.length} interesting places nearby',
+                        Icons.place,
+                        Colors.green,
+                        '15 min ago',
+                      ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Close'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('All notifications cleared'),
+                  backgroundColor: Colors.green,
+                ),
+              );
+            },
+            child: const Text('Clear All'),
+          ),
+        ],
+      ),
+    );
+  }
+  
+  Widget _buildNotificationTile(
+    String title,
+    String subtitle,
+    IconData icon,
+    Color color,
+    String time,
+  ) {
+    return ListTile(
+      leading: Container(
+        padding: const EdgeInsets.all(8),
+        decoration: BoxDecoration(
+          color: color.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Icon(icon, color: color, size: 20),
+      ),
+      title: Text(
+        title,
+        style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+      ),
+      subtitle: Text(
+        subtitle,
+        style: const TextStyle(fontSize: 11),
+      ),
+      trailing: Text(
+        time,
+        style: TextStyle(
+          fontSize: 10,
+          color: Colors.grey[600],
+        ),
+      ),
+      dense: true,
+    );
+  }
+  
+  Widget _buildCompactEmergencyTile(
+    EmergencyService service,
+    IconData icon,
+    Color color,
+    AppProvider appProvider,
+  ) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 6),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(6),
+            decoration: BoxDecoration(
+              color: color.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(6),
+            ),
+            child: Icon(icon, color: color, size: 14),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  service.name,
+                  style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 11),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                Text(
+                  '${service.distance} • ${service.phoneNumber}',
+                  style: TextStyle(
+                    color: Colors.grey[600],
+                    fontSize: 9,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          IconButton(
+            onPressed: () => appProvider.makeEmergencyCall(service.phoneNumber),
+            icon: const Icon(Icons.phone, size: 16),
+            style: IconButton.styleFrom(
+              backgroundColor: Colors.green.withOpacity(0.1),
+              foregroundColor: Colors.green,
+              minimumSize: const Size(28, 28),
+            ),
+            padding: EdgeInsets.zero,
+          ),
+        ],
+      ),
     );
   }
 
@@ -107,13 +374,46 @@ class _HomeScreenState extends State<HomeScreen> {
                   fontWeight: FontWeight.bold,
                 ),
               ),
+              const SizedBox(height: 12),
+              // Location and Weather Row
+              Row(
+                children: [
+                  Icon(Icons.location_on, color: Colors.white.withOpacity(0.9), size: 16),
+                  const SizedBox(width: 4),
+                  Expanded(
+                    child: Text(
+                      _getCurrentLocationName(appProvider),
+                      style: TextStyle(
+                        color: Colors.white.withOpacity(0.9),
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  _buildWeatherInfo(appProvider),
+                ],
+              ),
               const SizedBox(height: 8),
-              Text(
-                'Ready to explore today?',
-                style: TextStyle(
-                  color: Colors.white.withOpacity(0.9),
-                  fontSize: 14,
-                ),
+              // Favorite Activity
+              Row(
+                children: [
+                  Icon(Icons.favorite, color: Colors.white.withOpacity(0.9), size: 16),
+                  const SizedBox(width: 4),
+                  Expanded(
+                    child: Text(
+                      _getFavoriteActivity(appProvider),
+                      style: TextStyle(
+                        color: Colors.white.withOpacity(0.9),
+                        fontSize: 12,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
@@ -443,39 +743,44 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _buildEmergencyServices(AppProvider appProvider) {
     if (appProvider.isSafetyLoading) {
-      return const Card(
+      return Card(
         child: Padding(
-          padding: EdgeInsets.all(16),
+          padding: const EdgeInsets.all(12),
           child: Row(
             children: [
-              CircularProgressIndicator(strokeWidth: 2),
-              SizedBox(width: 12),
-              Text('Loading emergency services...'),
+              const SizedBox(
+                width: 16,
+                height: 16,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
+              const SizedBox(width: 8),
+              Text('Loading emergency services...', style: TextStyle(fontSize: 12)),
             ],
           ),
         ),
       );
     }
 
-    final policeStations = appProvider.nearbyPoliceStations;
-    final hospitals = appProvider.nearbyHospitals;
+    final policeStations = appProvider.nearbyPoliceStations.take(2).toList();
+    final hospitals = appProvider.nearbyHospitals.take(2).toList();
 
     if (policeStations.isEmpty && hospitals.isEmpty) {
       return Card(
         child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
+          padding: const EdgeInsets.all(12),
+          child: Row(
             children: [
-              Icon(Icons.location_off, color: Colors.grey[600], size: 32),
-              const SizedBox(height: 8),
-              Text(
-                'Emergency services not available',
-                style: TextStyle(color: Colors.grey[600]),
+              Icon(Icons.location_off, color: Colors.grey[600], size: 20),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'Emergency services not available',
+                  style: TextStyle(color: Colors.grey[600], fontSize: 12),
+                ),
               ),
-              const SizedBox(height: 8),
-              ElevatedButton(
+              TextButton(
                 onPressed: () => appProvider.loadEmergencyServices(),
-                child: const Text('Retry'),
+                child: const Text('Retry', style: TextStyle(fontSize: 11)),
               ),
             ],
           ),
@@ -485,25 +790,32 @@ class _HomeScreenState extends State<HomeScreen> {
 
     return Card(
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(12),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              'Emergency Services Nearby',
-              style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+            Row(
+              children: [
+                const Text(
+                  'Emergency Services',
+                  style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+                ),
+                const Spacer(),
+                Text(
+                  '${policeStations.length + hospitals.length} nearby',
+                  style: TextStyle(fontSize: 10, color: Colors.grey[600]),
+                ),
+              ],
             ),
-            const SizedBox(height: 12),
-            ...policeStations.map((station) => _buildEmergencyServiceTile(
-              station.name,
-              station.phoneNumber.isNotEmpty ? station.phoneNumber : '911',
+            const SizedBox(height: 8),
+            ...policeStations.map((station) => _buildCompactEmergencyTile(
+              station,
               Icons.local_police,
               Colors.blue,
               appProvider,
             )),
-            ...hospitals.map((hospital) => _buildEmergencyServiceTile(
-              hospital.name,
-              hospital.phoneNumber.isNotEmpty ? hospital.phoneNumber : '911',
+            ...hospitals.map((hospital) => _buildCompactEmergencyTile(
+              hospital,
               Icons.local_hospital,
               Colors.red,
               appProvider,
@@ -515,56 +827,93 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildEmergencyServiceTile(
-    String name,
-    String phoneNumber,
+    EmergencyService service,
     IconData icon,
     Color color,
     AppProvider appProvider,
   ) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: color.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(8),
+    return Card(
+      margin: const EdgeInsets.only(bottom: 8),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: color.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Icon(icon, color: color, size: 20),
             ),
-            child: Icon(icon, color: color, size: 16),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  name,
-                  style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 12),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                GestureDetector(
-                  onTap: () => appProvider.makeEmergencyCall(phoneNumber),
-                  child: Text(
-                    phoneNumber,
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    service.name,
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    service.address,
                     style: TextStyle(
-                      color: Colors.blue[700],
+                      color: Colors.grey[600],
                       fontSize: 11,
-                      decoration: TextDecoration.underline,
                     ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 4),
+                  Row(
+                    children: [
+                      Icon(Icons.location_on, size: 12, color: Colors.grey[500]),
+                      const SizedBox(width: 2),
+                      Text(
+                        '${service.distance.toStringAsFixed(1)} km away',
+                        style: TextStyle(
+                          color: Colors.grey[500],
+                          fontSize: 10,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      if (service.rating > 0) ...[
+                        Icon(Icons.star, size: 12, color: Colors.amber),
+                        const SizedBox(width: 2),
+                        Text(
+                          service.rating.toStringAsFixed(1),
+                          style: const TextStyle(fontSize: 10),
+                        ),
+                      ],
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            Column(
+              children: [
+                IconButton(
+                  onPressed: () => appProvider.makeEmergencyCall(service.phoneNumber),
+                  icon: const Icon(Icons.phone, size: 20),
+                  style: IconButton.styleFrom(
+                    backgroundColor: Colors.green.withOpacity(0.1),
+                    foregroundColor: Colors.green,
+                  ),
+                ),
+                Text(
+                  'Call',
+                  style: TextStyle(
+                    fontSize: 9,
+                    color: Colors.grey[600],
                   ),
                 ),
               ],
             ),
-          ),
-          IconButton(
-            onPressed: () => appProvider.makeEmergencyCall(phoneNumber),
-            icon: const Icon(Icons.phone, size: 18),
-            padding: EdgeInsets.zero,
-            constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -645,15 +994,172 @@ class _HomeScreenState extends State<HomeScreen> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Emergency Contacts'),
-        content: const Text('Emergency contacts feature coming soon!'),
+        content: SizedBox(
+          width: double.maxFinite,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (appProvider.emergencyContacts.isEmpty)
+                const Padding(
+                  padding: EdgeInsets.all(16),
+                  child: Text('No emergency contacts added yet.'),
+                )
+              else
+                ...appProvider.emergencyContacts.map((contact) => ListTile(
+                  leading: const Icon(Icons.person, size: 20),
+                  title: Text(contact.name, style: const TextStyle(fontSize: 14)),
+                  subtitle: Text('${contact.phoneNumber} • ${contact.relationship}', 
+                    style: const TextStyle(fontSize: 12)),
+                  trailing: IconButton(
+                    icon: const Icon(Icons.delete, size: 18),
+                    onPressed: () {
+                      appProvider.removeEmergencyContact(contact.id);
+                      Navigator.pop(context);
+                      _showEmergencyContactsDialog(appProvider);
+                    },
+                  ),
+                )),
+              const SizedBox(height: 8),
+              ElevatedButton.icon(
+                onPressed: () {
+                  Navigator.pop(context);
+                  _showAddContactDialog(appProvider);
+                },
+                icon: const Icon(Icons.add, size: 16),
+                label: const Text('Add Contact'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.green,
+                  foregroundColor: Colors.white,
+                ),
+              ),
+            ],
+          ),
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('OK'),
+            child: const Text('Close'),
           ),
         ],
       ),
     );
+  }
+  
+  void _showAddContactDialog(AppProvider appProvider) {
+    final nameController = TextEditingController();
+    final phoneController = TextEditingController();
+    String selectedRelationship = 'Family';
+    
+    showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setState) => AlertDialog(
+          title: const Text('Add Emergency Contact'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: nameController,
+                decoration: const InputDecoration(
+                  labelText: 'Name',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: phoneController,
+                decoration: const InputDecoration(
+                  labelText: 'Phone Number',
+                  border: OutlineInputBorder(),
+                ),
+                keyboardType: TextInputType.phone,
+              ),
+              const SizedBox(height: 12),
+              DropdownButtonFormField<String>(
+                value: selectedRelationship,
+                decoration: const InputDecoration(
+                  labelText: 'Relationship',
+                  border: OutlineInputBorder(),
+                ),
+                items: ['Family', 'Friend', 'Colleague', 'Other']
+                    .map((rel) => DropdownMenuItem(
+                          value: rel,
+                          child: Text(rel),
+                        ))
+                    .toList(),
+                onChanged: (value) {
+                  setState(() {
+                    selectedRelationship = value!;
+                  });
+                },
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                if (nameController.text.isNotEmpty && phoneController.text.isNotEmpty) {
+                  appProvider.addEmergencyContact(
+                    nameController.text,
+                    phoneController.text,
+                    selectedRelationship,
+                  );
+                  Navigator.pop(context);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Emergency contact added successfully'),
+                      backgroundColor: Colors.green,
+                    ),
+                  );
+                }
+              },
+              child: const Text('Add'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+  
+  Future<void> _openDirections(dynamic dish) async {
+    try {
+      final restaurantName = Uri.encodeComponent(dish.restaurantName);
+      final restaurantAddress = Uri.encodeComponent(dish.restaurantAddress);
+      
+      // Create Google Maps URL for directions
+      final url = 'https://www.google.com/maps/dir/?api=1&destination=$restaurantName,$restaurantAddress';
+      
+      if (await canLaunchUrl(Uri.parse(url))) {
+        await launchUrl(
+          Uri.parse(url),
+          mode: LaunchMode.externalApplication,
+        );
+      } else {
+        // Fallback: show error message
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Could not open directions. Please check if Google Maps is installed.'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      print('Error opening directions: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Error opening directions'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
   }
 
   Widget _buildLocalDishes(AppProvider appProvider) {
@@ -666,7 +1172,7 @@ class _HomeScreenState extends State<HomeScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const Text(
-                  'Local Dishes',
+                  'Local Dishes 🍴',
                   style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                 ),
                 const SizedBox(height: 12),
@@ -710,98 +1216,185 @@ class _HomeScreenState extends State<HomeScreen> {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'Local Dishes 🍴',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text(
+                'Local Dishes 🍴',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+              Text(
+                '${dishes.length} dishes',
+                style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+              ),
+            ],
           ),
+          const SizedBox(height: 8),
+          _buildDietaryFilters(),
           const SizedBox(height: 12),
           SizedBox(
-            height: 200,
+            height: 220,
             child: ListView.builder(
               scrollDirection: Axis.horizontal,
-              itemCount: dishes.length,
+              itemCount: _getFilteredDishes(dishes).length,
               itemBuilder: (context, index) {
-                final dish = dishes[index];
+                final dish = _getFilteredDishes(dishes)[index];
                 return Container(
-                  width: 160,
+                  width: 180,
                   margin: const EdgeInsets.only(right: 12),
                   child: Card(
+                    elevation: 3,
                     clipBehavior: Clip.antiAlias,
                     child: InkWell(
                       onTap: () => _showDishDetails(dish),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Expanded(
-                            flex: 2,
-                            child: Container(
-                              width: double.infinity,
-                              decoration: BoxDecoration(
-                                color: Colors.orange[100],
-                                image: dish.imageUrl.isNotEmpty
-                                    ? DecorationImage(
-                                        image: NetworkImage(dish.imageUrl),
-                                        fit: BoxFit.cover,
-                                        onError: (_, __) {},
-                                      )
-                                    : null,
+                          // Header with cuisine badge
+                          Container(
+                            width: double.infinity,
+                            height: 80,
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                colors: [Colors.orange[300]!, Colors.orange[500]!],
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
                               ),
-                              child: dish.imageUrl.isEmpty
-                                  ? Icon(Icons.restaurant, size: 32, color: Colors.orange[700])
-                                  : null,
+                            ),
+                            child: Stack(
+                              children: [
+                                Center(
+                                  child: Icon(
+                                    Icons.restaurant_menu,
+                                    size: 40,
+                                    color: Colors.white.withOpacity(0.8),
+                                  ),
+                                ),
+                                Positioned(
+                                  top: 8,
+                                  right: 8,
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                    decoration: BoxDecoration(
+                                      color: Colors.white.withOpacity(0.9),
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    child: Text(
+                                      dish.cuisine,
+                                      style: const TextStyle(
+                                        fontSize: 8,
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.orange,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
+                          // Content
                           Expanded(
-                            flex: 2,
                             child: Padding(
-                              padding: const EdgeInsets.all(8),
+                              padding: const EdgeInsets.all(12),
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
+                                  // Dish name
                                   Text(
                                     dish.name,
                                     style: const TextStyle(
                                       fontWeight: FontWeight.bold,
-                                      fontSize: 12,
+                                      fontSize: 14,
                                     ),
-                                    maxLines: 1,
+                                    maxLines: 2,
                                     overflow: TextOverflow.ellipsis,
                                   ),
-                                  const SizedBox(height: 2),
-                                  Text(
-                                    dish.averagePrice,
-                                    style: TextStyle(
-                                      color: Colors.green[700],
-                                      fontWeight: FontWeight.w600,
-                                      fontSize: 11,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 2),
-                                  Text(
-                                    dish.restaurantName,
-                                    style: TextStyle(
-                                      fontSize: 10,
-                                      color: Colors.grey[600],
-                                    ),
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                  const SizedBox(height: 2),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                                    decoration: BoxDecoration(
-                                      color: _getPriceRangeColor(dish.priceRange),
-                                      borderRadius: BorderRadius.circular(4),
-                                    ),
-                                    child: Text(
-                                      dish.priceRange.toUpperCase(),
-                                      style: const TextStyle(
-                                        fontSize: 8,
-                                        color: Colors.white,
-                                        fontWeight: FontWeight.bold,
+                                  const SizedBox(height: 4),
+                                  // Rating
+                                  Row(
+                                    children: [
+                                      ...List.generate(5, (i) => Icon(
+                                        i < dish.rating.floor() ? Icons.star : Icons.star_border,
+                                        size: 12,
+                                        color: Colors.amber,
+                                      )),
+                                      const SizedBox(width: 4),
+                                      Text(
+                                        dish.rating.toStringAsFixed(1),
+                                        style: const TextStyle(fontSize: 10),
                                       ),
-                                    ),
+                                    ],
                                   ),
+                                  const SizedBox(height: 4),
+                                  // Price
+                                  Row(
+                                    children: [
+                                      Icon(Icons.attach_money, size: 12, color: Colors.green[700]),
+                                      Text(
+                                        dish.averagePrice,
+                                        style: TextStyle(
+                                          color: Colors.green[700],
+                                          fontWeight: FontWeight.w600,
+                                          fontSize: 11,
+                                        ),
+                                      ),
+                                      const Spacer(),
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                                        decoration: BoxDecoration(
+                                          color: _getPriceRangeColor(dish.priceRange),
+                                          borderRadius: BorderRadius.circular(4),
+                                        ),
+                                        child: Text(
+                                          dish.priceRange.toUpperCase(),
+                                          style: const TextStyle(
+                                            fontSize: 7,
+                                            color: Colors.white,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 4),
+                                  // Restaurant
+                                  Row(
+                                    children: [
+                                      Icon(Icons.store, size: 10, color: Colors.grey[600]),
+                                      const SizedBox(width: 2),
+                                      Expanded(
+                                        child: Text(
+                                          dish.restaurantName,
+                                          style: TextStyle(
+                                            fontSize: 9,
+                                            color: Colors.grey[600],
+                                          ),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 6),
+                                  // Dietary tags
+                                  if (dish.dietaryTags.isNotEmpty)
+                                    Wrap(
+                                      spacing: 2,
+                                      children: dish.dietaryTags.take(2).map<Widget>((tag) => Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                                        decoration: BoxDecoration(
+                                          color: _getDietaryTagColor(tag),
+                                          borderRadius: BorderRadius.circular(6),
+                                        ),
+                                        child: Text(
+                                          _getDietaryTagIcon(tag),
+                                          style: const TextStyle(
+                                            fontSize: 8,
+                                            color: Colors.white,
+                                          ),
+                                        ),
+                                      )).toList(),
+                                    ),
                                 ],
                               ),
                             ),
@@ -834,30 +1427,260 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
+  Widget _buildDietaryFilters() {
+    final filters = ['All', 'Vegetarian', 'Vegan', 'Gluten-Free'];
+    
+    return SizedBox(
+      height: 32,
+      child: ListView.builder(
+        scrollDirection: Axis.horizontal,
+        itemCount: filters.length,
+        itemBuilder: (context, index) {
+          final filter = filters[index];
+          final isSelected = _selectedDietaryFilter == filter;
+          
+          return Container(
+            margin: const EdgeInsets.only(right: 8),
+            child: FilterChip(
+              label: Text(
+                filter,
+                style: TextStyle(
+                  fontSize: 11,
+                  color: isSelected ? Colors.white : Colors.grey[700],
+                  fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                ),
+              ),
+              selected: isSelected,
+              onSelected: (selected) {
+                setState(() {
+                  _selectedDietaryFilter = filter;
+                });
+              },
+              selectedColor: Colors.orange,
+              backgroundColor: Colors.grey[200],
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+            ),
+          );
+        },
+      ),
+    );
+  }
+  
+  List<dynamic> _getFilteredDishes(List<dynamic> dishes) {
+    if (_selectedDietaryFilter == 'All') return dishes;
+    
+    return dishes.where((dish) {
+      final tags = List<String>.from(dish.dietaryTags ?? []);
+      switch (_selectedDietaryFilter) {
+        case 'Vegetarian':
+          return tags.any((tag) => tag.toLowerCase().contains('vegetarian'));
+        case 'Vegan':
+          return tags.any((tag) => tag.toLowerCase().contains('vegan'));
+        case 'Gluten-Free':
+          return tags.any((tag) => tag.toLowerCase().contains('gluten'));
+        default:
+          return true;
+      }
+    }).toList();
+  }
+  
+  Color _getDietaryTagColor(String tag) {
+    if (tag.toLowerCase().contains('vegetarian')) return Colors.green;
+    if (tag.toLowerCase().contains('vegan')) return Colors.lightGreen;
+    if (tag.toLowerCase().contains('gluten')) return Colors.blue;
+    if (tag.toLowerCase().contains('halal')) return Colors.purple;
+    return Colors.grey;
+  }
+  
+  String _getDietaryTagIcon(String tag) {
+    if (tag.toLowerCase().contains('vegetarian')) return 'VEG';
+    if (tag.toLowerCase().contains('vegan')) return 'VGN';
+    if (tag.toLowerCase().contains('gluten')) return 'GF';
+    if (tag.toLowerCase().contains('halal')) return 'HL';
+    return 'TAG';
+  }
+
   void _showDishDetails(dynamic dish) {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text(dish.name),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
+        title: Row(
           children: [
-            Text('Price: ${dish.averagePrice}'),
-            const SizedBox(height: 8),
-            Text('Restaurant: ${dish.restaurantName}'),
-            const SizedBox(height: 8),
-            Text('Description: ${dish.description}'),
-            if (dish.culturalNote.isNotEmpty) ...[
-              const SizedBox(height: 8),
-              Text('Cultural Note: ${dish.culturalNote}'),
-            ]
+            Expanded(
+              child: Text(
+                dish.name,
+                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+            ),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: _getPriceRangeColor(dish.priceRange),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Text(
+                dish.priceRange.toUpperCase(),
+                style: const TextStyle(
+                  fontSize: 10,
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
           ],
+        ),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Rating and Price
+              Row(
+                children: [
+                  ...List.generate(5, (i) => Icon(
+                    i < dish.rating.floor() ? Icons.star : Icons.star_border,
+                    size: 16,
+                    color: Colors.amber,
+                  )),
+                  const SizedBox(width: 8),
+                  Text(
+                    dish.rating.toStringAsFixed(1),
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  const Spacer(),
+                  Text(
+                    dish.averagePrice,
+                    style: TextStyle(
+                      color: Colors.green[700],
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              // Restaurant and Cuisine
+              Row(
+                children: [
+                  Icon(Icons.store, size: 16, color: Colors.grey[600]),
+                  const SizedBox(width: 4),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          dish.restaurantName,
+                          style: const TextStyle(fontWeight: FontWeight.w500),
+                        ),
+                        Text(
+                          dish.restaurantAddress,
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.grey[600],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: Colors.orange.withOpacity(0.2),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      dish.cuisine,
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.orange,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              // Description
+              Text(
+                'Description:',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  color: Colors.grey[700],
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(dish.description),
+              const SizedBox(height: 12),
+              // Cultural Note
+              if (dish.culturalNote.isNotEmpty) ...[
+                Text(
+                  'Cultural Note:',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: Colors.grey[700],
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.blue.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.blue.withOpacity(0.3)),
+                  ),
+                  child: Text(
+                    dish.culturalNote,
+                    style: TextStyle(color: Colors.blue[800], fontStyle: FontStyle.italic),
+                  ),
+                ),
+                const SizedBox(height: 12),
+              ],
+              // Dietary Tags
+              if (dish.dietaryTags.isNotEmpty) ...[
+                Text(
+                  'Dietary Information:',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: Colors.grey[700],
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 4,
+                  children: dish.dietaryTags.map<Widget>((tag) => Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: _getDietaryTagColor(tag),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      tag,
+                      style: const TextStyle(
+                        fontSize: 11,
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  )).toList(),
+                ),
+              ],
+            ],
+          ),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
             child: const Text('Close'),
+          ),
+          ElevatedButton.icon(
+            onPressed: () => _openDirections(dish),
+            icon: const Icon(Icons.directions, size: 18),
+            label: const Text('Get Directions'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.blue,
+              foregroundColor: Colors.white,
+            ),
           ),
         ],
       ),

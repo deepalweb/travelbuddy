@@ -22,16 +22,28 @@ class EmergencyService {
   });
 
   factory EmergencyService.fromJson(Map<String, dynamic> json) {
+    // Handle distance as string (e.g., "2.3 km") or number
+    double distanceValue = 0.0;
+    if (json['distance'] is String) {
+      final distanceStr = json['distance'] as String;
+      final match = RegExp(r'([0-9.]+)').firstMatch(distanceStr);
+      if (match != null) {
+        distanceValue = double.tryParse(match.group(1) ?? '0') ?? 0.0;
+      }
+    } else if (json['distance'] is num) {
+      distanceValue = (json['distance'] as num).toDouble();
+    }
+    
     return EmergencyService(
       id: json['id'] ?? '',
       name: json['name'] ?? '',
       address: json['address'] ?? '',
-      phoneNumber: json['phoneNumber'] ?? 'Call 911',
-      distance: (json['distance'] as num?)?.toDouble() ?? 0.0,
-      type: json['type'] ?? 'emergency',
-      latitude: (json['latitude'] as num?)?.toDouble(),
-      longitude: (json['longitude'] as num?)?.toDouble(),
-      rating: (json['rating'] as num?)?.toDouble() ?? 0.0,
+      phoneNumber: json['phoneNumber'] ?? json['emergencyNumber'] ?? 'Call 911',
+      distance: distanceValue,
+      type: json['type'] ?? json['serviceType'] ?? 'emergency',
+      latitude: json['coordinates']?['lat']?.toDouble() ?? (json['latitude'] as num?)?.toDouble(),
+      longitude: json['coordinates']?['lng']?.toDouble() ?? (json['longitude'] as num?)?.toDouble(),
+      rating: (json['rating'] as num?)?.toDouble() ?? 4.0,
     );
   }
 

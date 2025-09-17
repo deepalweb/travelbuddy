@@ -860,6 +860,9 @@ class ApiService {
     int limit = 10,
   }) async {
     try {
+      print('🍽️ Fetching local dishes from: ${Environment.backendUrl}/api/dishes/local');
+      print('📍 Params: lat=$latitude, lng=$longitude, limit=$limit');
+      
       final response = await _dio.get('/api/dishes/local', queryParameters: {
         'lat': latitude,
         'lng': longitude,
@@ -867,13 +870,39 @@ class ApiService {
         'limit': limit,
       });
 
+      print('📡 Dishes API Response Status: ${response.statusCode}');
+      print('📊 Response Data Type: ${response.data.runtimeType}');
+      
       if (response.statusCode == 200 && response.data != null) {
         final List<dynamic> data = response.data is List ? response.data : [];
-        return data.map((json) => Dish.fromJson(json)).toList();
+        print('🍴 Received ${data.length} dishes from API');
+        
+        if (data.isNotEmpty) {
+          print('🥘 First dish: ${data[0]}');
+        }
+        
+        final dishes = data.map((json) {
+          try {
+            return Dish.fromJson(json);
+          } catch (e) {
+            print('❌ Error parsing dish: $e');
+            print('🔍 Dish data: $json');
+            return null;
+          }
+        }).where((dish) => dish != null).cast<Dish>().toList();
+        
+        print('✅ Successfully parsed ${dishes.length} dishes');
+        return dishes;
+      } else {
+        print('❌ API returned status: ${response.statusCode}');
+        return [];
       }
-      return [];
     } catch (e) {
-      print('Error fetching local dishes: $e');
+      print('❌ Error fetching local dishes: $e');
+      if (e is DioException) {
+        print('🔍 Dio Error Details: ${e.message}');
+        print('🔍 Response: ${e.response?.data}');
+      }
       return [];
     }
   }

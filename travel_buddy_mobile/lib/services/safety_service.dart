@@ -73,10 +73,14 @@ class SafetyService {
     _emergencyContacts.removeWhere((contact) => contact.id == id);
   }
 
+  // Send SOS message to specific contact
+  Future<bool> sendSOSMessage(String phoneNumber, String message) async {
+    return await _sendSMS(phoneNumber, message);
+  }
+
   // Share location
-  Future<bool> shareLocation(String location) async {
+  Future<bool> shareLocation(String message) async {
     try {
-      final message = 'My current location: $location';
       final uri = Uri(
         scheme: 'sms',
         queryParameters: {'body': message},
