@@ -1881,7 +1881,7 @@ app.post('/api/admin/moderate/:postId', requireAdminAuth, async (req, res) => {
 });
 
 
-// Health check
+// Health check - updated for deployment trigger
 app.get('/health', (req, res) => {
   const dbState = mongoose.connection?.readyState;
   const database = (SKIP_MONGO || !MONGO_URI || MONGO_URI === 'disabled') ? 'skipped' : (dbState === 1 ? 'connected' : 'disconnected');
