@@ -810,6 +810,45 @@ const itinerarySchema = new mongoose.Schema({
 
 const Itinerary = mongoose.model('Itinerary', itinerarySchema);
 
+// Local Dish Schema
+const dishSchema = new mongoose.Schema({
+  name: { type: String, required: true },
+  description: String,
+  cuisine: String,
+  location: {
+    city: String,
+    country: String,
+    coordinates: {
+      lat: Number,
+      lng: Number
+    }
+  },
+  ingredients: [String],
+  preparationTime: String,
+  difficulty: { type: String, enum: ['Easy', 'Medium', 'Hard'], default: 'Medium' },
+  servings: Number,
+  image: String,
+  recipe: {
+    instructions: [String],
+    tips: [String]
+  },
+  nutritionalInfo: {
+    calories: Number,
+    protein: String,
+    carbs: String,
+    fat: String
+  },
+  tags: [String],
+  isPopular: { type: Boolean, default: false },
+  createdAt: { type: Date, default: Date.now }
+});
+
+dishSchema.index({ 'location.city': 1, 'location.country': 1 });
+dishSchema.index({ cuisine: 1 });
+dishSchema.index({ tags: 1 });
+
+const Dish = mongoose.model('Dish', dishSchema);
+
 // API Routes
 // Batch enrichment cache endpoint: returns cached enrichment and records new ones from client
 app.post('/api/enrichment/batch', async (req, res) => {
@@ -2195,5 +2234,46 @@ app.get('/api/admin/moderation/stats', requireAdminAuth, async (req, res) => {
     });
   } catch (error) {
     res.status(500).json({ error: error.message });
+  }
+});
+
+// Local Dishes API endpoints
+app.get('/api/dishes', async (req, res) => {
+  try {
+    const { city, country, cuisine, limit = 20 } = req.query;
+    const query = {};
+    
+    if (city) query['location.city'] = new RegExp(city, 'i');
+    if (country) query['location.country'] = new RegExp(country, 'i');
+    if (cuisine) query.cuisine = new RegExp(cuisine, 'i');
+    
+    const dishes = await Dish.find(query)
+      .sort({ isPopular: -1, createdAt: -1 })
+      .limit(Math.min(50, parseInt(limit, 10)))
+      .lean();
+    
+    res.json(dishes);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.get('/api/dishes/:id', async (req, res) => {
+  try {
+    const dish = await Dish.findById(req.params.id);
+    if (!dish) return res.status(404).json({ error: 'Dish not found' });
+    res.json(dish);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.post('/api/dishes', async (req, res) => {
+  try {
+    const dish = new Dish(req.body);
+    await dish.save();
+    res.json(dish);
+  } catch (error) {
+    res.status(400).json({ error: error.message });
   }
 });
