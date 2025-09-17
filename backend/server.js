@@ -1885,7 +1885,19 @@ app.post('/api/admin/moderate/:postId', requireAdminAuth, async (req, res) => {
 app.get('/health', (req, res) => {
   const dbState = mongoose.connection?.readyState;
   const database = (SKIP_MONGO || !MONGO_URI || MONGO_URI === 'disabled') ? 'skipped' : (dbState === 1 ? 'connected' : 'disconnected');
-  res.json({ status: 'OK', database });
+  res.json({ status: 'OK', database, timestamp: new Date().toISOString(), version: '1.1.0' });
+});
+
+// Test endpoint to verify deployment
+app.get('/api/test-deployment', (req, res) => {
+  res.json({ 
+    message: 'Deployment successful', 
+    timestamp: new Date().toISOString(),
+    endpoints: {
+      localDishes: '/api/dishes/local',
+      emergency: '/api/emergency/police'
+    }
+  });
 });
 
 // Google Place Photo proxy to avoid exposing API key to the client
