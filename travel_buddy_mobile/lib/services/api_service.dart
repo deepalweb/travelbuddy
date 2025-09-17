@@ -11,6 +11,7 @@ import '../models/community_post.dart';
 import '../models/user_profile.dart';
 import '../models/travel_enums.dart';
 import '../models/emergency_service.dart';
+import '../models/dish.dart';
 import 'error_handler_service.dart';
 
 class ApiService {
@@ -847,6 +848,32 @@ class ApiService {
       return [];
     } catch (e) {
       print('Error fetching hospitals: $e');
+      return [];
+    }
+  }
+
+  // Local Dishes API
+  Future<List<Dish>> getLocalDishes({
+    required double latitude,
+    required double longitude,
+    String cuisine = 'local',
+    int limit = 10,
+  }) async {
+    try {
+      final response = await _dio.get('/api/dishes/local', queryParameters: {
+        'lat': latitude,
+        'lng': longitude,
+        'cuisine': cuisine,
+        'limit': limit,
+      });
+
+      if (response.statusCode == 200 && response.data != null) {
+        final List<dynamic> data = response.data is List ? response.data : [];
+        return data.map((json) => Dish.fromJson(json)).toList();
+      }
+      return [];
+    } catch (e) {
+      print('Error fetching local dishes: $e');
       return [];
     }
   }

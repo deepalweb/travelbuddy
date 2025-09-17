@@ -26,6 +26,7 @@ import '../services/notification_service.dart';
 import '../services/error_handler_service.dart';
 import '../services/safety_service.dart';
 import '../models/emergency_service.dart';
+import '../models/dish.dart';
 
 class AppProvider with ChangeNotifier {
   // Services
@@ -99,6 +100,11 @@ class AppProvider with ChangeNotifier {
   bool _isSafetyLoading = false;
   String? _safetyError;
 
+  // Local Dishes State
+  List<Dish> _localDishes = [];
+  bool _isDishesLoading = false;
+  String? _dishesError;
+
   // Getters
   CurrentUser? get currentUser => _currentUser;
   bool get isAuthenticated => _isAuthenticated;
@@ -135,6 +141,10 @@ class AppProvider with ChangeNotifier {
   List<EmergencyService> get nearbyHospitals => _nearbyHospitals;
   bool get isSafetyLoading => _isSafetyLoading;
   String? get safetyError => _safetyError;
+  
+  List<Dish> get localDishes => _localDishes;
+  bool get isDishesLoading => _isDishesLoading;
+  String? get dishesError => _dishesError;
   
   int get currentTabIndex => _currentTabIndex;
   bool get isDarkMode => _isDarkMode;
@@ -224,6 +234,7 @@ class AppProvider with ChangeNotifier {
         _loadLocalDiscoveries(),
         _loadWeatherInfo(),
         loadEmergencyServices(),
+        loadLocalDishes(),
       ]);
     } catch (e) {
       print('Error loading home data: $e');
@@ -1314,4 +1325,31 @@ class AppProvider with ChangeNotifier {
   }
 
   List<EmergencyContact> get emergencyContacts => _safetyService.emergencyContacts;
+
+  // Local Dishes Methods
+  Future<void> loadLocalDishes() async {
+    if (_currentLocation == null) return;
+
+    _isDishesLoading = true;
+    _dishesError = null;
+    notifyListeners();
+
+    try {
+      final dishes = await _apiService.getLocalDishes(
+        latitude: _currentLocation!.latitude,
+        longitude: _currentLocation!.longitude,
+        cuisine: 'local',
+        limit: 8,
+      );
+
+      _localDishes = dishes;
+      print('✅ Loaded ${_localDishes.length} local dishes');
+    } catch (e) {
+      print('❌ Error loading local dishes: $e');
+      _dishesError = 'Failed to load local dishes';
+    } finally {
+      _isDishesLoading = false;
+      notifyListeners();
+    }
+  }
 }

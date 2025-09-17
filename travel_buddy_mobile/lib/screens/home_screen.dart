@@ -67,6 +67,8 @@ class _HomeScreenState extends State<HomeScreen> {
                     const SizedBox(height: 16),
                     _buildSafetySection(appProvider),
                     const SizedBox(height: 16),
+                    _buildLocalDishes(appProvider),
+                    const SizedBox(height: 16),
                     _buildNearbyPlaces(appProvider),
                     const SizedBox(height: 16),
                     _buildRecentActivity(appProvider),
@@ -648,6 +650,214 @@ class _HomeScreenState extends State<HomeScreen> {
           TextButton(
             onPressed: () => Navigator.pop(context),
             child: const Text('OK'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLocalDishes(AppProvider appProvider) {
+    try {
+      if (appProvider.isDishesLoading) {
+        return Card(
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Local Dishes',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 12),
+                const Row(
+                  children: [
+                    CircularProgressIndicator(strokeWidth: 2),
+                    SizedBox(width: 12),
+                    Text('Discovering local flavors...'),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        );
+      }
+
+      final dishes = appProvider.localDishes;
+      if (dishes.isEmpty) {
+        return Card(
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              children: [
+                Icon(Icons.restaurant, color: Colors.grey[600], size: 32),
+                const SizedBox(height: 8),
+                Text(
+                  'No local dishes found',
+                  style: TextStyle(color: Colors.grey[600]),
+                ),
+                const SizedBox(height: 8),
+                ElevatedButton(
+                  onPressed: () => appProvider.loadLocalDishes(),
+                  child: const Text('Retry'),
+                ),
+              ],
+            ),
+          ),
+        );
+      }
+
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Local Dishes 🍴',
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 12),
+          SizedBox(
+            height: 200,
+            child: ListView.builder(
+              scrollDirection: Axis.horizontal,
+              itemCount: dishes.length,
+              itemBuilder: (context, index) {
+                final dish = dishes[index];
+                return Container(
+                  width: 160,
+                  margin: const EdgeInsets.only(right: 12),
+                  child: Card(
+                    clipBehavior: Clip.antiAlias,
+                    child: InkWell(
+                      onTap: () => _showDishDetails(dish),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(
+                            flex: 2,
+                            child: Container(
+                              width: double.infinity,
+                              decoration: BoxDecoration(
+                                color: Colors.orange[100],
+                                image: dish.imageUrl.isNotEmpty
+                                    ? DecorationImage(
+                                        image: NetworkImage(dish.imageUrl),
+                                        fit: BoxFit.cover,
+                                        onError: (_, __) {},
+                                      )
+                                    : null,
+                              ),
+                              child: dish.imageUrl.isEmpty
+                                  ? Icon(Icons.restaurant, size: 32, color: Colors.orange[700])
+                                  : null,
+                            ),
+                          ),
+                          Expanded(
+                            flex: 2,
+                            child: Padding(
+                              padding: const EdgeInsets.all(8),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    dish.name,
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 12,
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    dish.averagePrice,
+                                    style: TextStyle(
+                                      color: Colors.green[700],
+                                      fontWeight: FontWeight.w600,
+                                      fontSize: 11,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    dish.restaurantName,
+                                    style: TextStyle(
+                                      fontSize: 10,
+                                      color: Colors.grey[600],
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                                    decoration: BoxDecoration(
+                                      color: _getPriceRangeColor(dish.priceRange),
+                                      borderRadius: BorderRadius.circular(4),
+                                    ),
+                                    child: Text(
+                                      dish.priceRange.toUpperCase(),
+                                      style: const TextStyle(
+                                        fontSize: 8,
+                                        color: Colors.white,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
+      );
+    } catch (e) {
+      return const SizedBox.shrink();
+    }
+  }
+
+  Color _getPriceRangeColor(String priceRange) {
+    switch (priceRange.toLowerCase()) {
+      case 'budget':
+        return Colors.green;
+      case 'mid-range':
+        return Colors.orange;
+      case 'fine-dining':
+        return Colors.red;
+      default:
+        return Colors.blue;
+    }
+  }
+
+  void _showDishDetails(dynamic dish) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(dish.name),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Price: ${dish.averagePrice}'),
+            const SizedBox(height: 8),
+            Text('Restaurant: ${dish.restaurantName}'),
+            const SizedBox(height: 8),
+            Text('Description: ${dish.description}'),
+            if (dish.culturalNote.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Text('Cultural Note: ${dish.culturalNote}'),
+            ]
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Close'),
           ),
         ],
       ),
