@@ -24,7 +24,7 @@
     "deploy:check": "npm run health-check",
   "diagnose": "node scripts/diagnose-azure.js",
   "admin:promote": "node scripts/promote-admin.js",
-  "postinstall": "if [ -d backend ] && [ -f backend/package.json ]; then npm --prefix backend install --production=false; else echo 'backend install skipped'; fi",
+
     "preload-critical": "node scripts/preload-critical-assets.js",
     "compress": "gzip -9 dist/assets/*.js dist/assets/*.css",
     "perf-test": "lighthouse http://localhost:5173 --output json --output-path lighthouse-report.json",
