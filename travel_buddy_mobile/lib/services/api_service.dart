@@ -24,6 +24,7 @@ class ApiService {
     receiveTimeout: const Duration(seconds: 30),
     headers: {
       'Content-Type': 'application/json',
+      'Accept': 'application/json',
     },
   ))..interceptors.add(LogInterceptor(
     requestBody: true,
@@ -860,50 +861,92 @@ class ApiService {
     int limit = 10,
   }) async {
     try {
-      print('🍽️ Fetching local dishes from: ${Environment.backendUrl}/api/dishes/local');
+      print('🍽️ Fetching local dishes from Azure backend: ${Environment.backendUrl}/api/dishes/generate');
+      print('🌐 Backend URL: ${Environment.backendUrl}');
+      print('⚙️ Using local backend: ${Environment.useLocalBackend}');
       print('📍 Params: lat=$latitude, lng=$longitude, limit=$limit');
       
-      final response = await _dio.get('/api/dishes/local', queryParameters: {
-        'lat': latitude,
-        'lng': longitude,
-        'cuisine': cuisine,
-        'limit': limit,
-      });
+      final requestData = {
+        'latitude': latitude,
+        'longitude': longitude,
+        'filters': {},
+        'language': 'en',
+      };
+      
+      print('📤 Sending request data: $requestData');
+      
+      final response = await _dio.post('/api/dishes/generate', data: requestData);
 
-      print('📡 Dishes API Response Status: ${response.statusCode}');
-      print('📊 Response Data Type: ${response.data.runtimeType}');
+      print('📡 Backend Dishes Response: ${response.statusCode}');
       
       if (response.statusCode == 200 && response.data != null) {
-        final List<dynamic> data = response.data is List ? response.data : [];
-        print('🍴 Received ${data.length} dishes from API');
+        final responseData = response.data;
+        print('🔍 Response structure: ${responseData.keys}');
         
-        if (data.isNotEmpty) {
-          print('🥘 First dish: ${data[0]}');
-        }
+        final List<dynamic> dishesData = responseData['dishes'] ?? [];
+        print('🍴 Backend returned ${dishesData.length} dishes');
         
-        final dishes = data.map((json) {
+        final dishes = dishesData.map((dishJson) {
           try {
-            return Dish.fromJson(json);
+            // Transform backend format to mobile format
+            return Dish(
+              id: DateTime.now().millisecondsSinceEpoch.toString() + '_${dishesData.indexOf(dishJson)}',
+              name: dishJson['name'] ?? '',
+              description: dishJson['description'] ?? '',
+              cuisine: dishJson['category'] ?? 'Local',
+              priceRange: _mapCategoryToPriceRange(dishJson['category']),
+              averagePrice: dishJson['average_price'] ?? '\$10-15',
+              restaurantName: dishJson['recommended_places']?.isNotEmpty == true 
+                  ? dishJson['recommended_places'][0]['name'] 
+                  : 'Local Restaurant',
+              restaurantAddress: dishJson['recommended_places']?.isNotEmpty == true 
+                  ? dishJson['recommended_places'][0]['address'] 
+                  : 'Local Area',
+              restaurantId: dishJson['recommended_places']?.isNotEmpty == true 
+                  ? dishJson['recommended_places'][0]['place_id'] ?? 'local_restaurant'
+                  : 'local_restaurant',
+              imageUrl: dishJson['user_photos']?.isNotEmpty == true 
+                  ? dishJson['user_photos'][0] 
+                  : '',
+              rating: dishJson['recommended_places']?.isNotEmpty == true 
+                  ? (dishJson['recommended_places'][0]['rating'] ?? 4.0).toDouble()
+                  : 4.0,
+              dietaryTags: List<String>.from(dishJson['dietary_tags'] ?? []),
+              culturalNote: dishJson['cultural_significance'] ?? 'A local favorite',
+            );
           } catch (e) {
             print('❌ Error parsing dish: $e');
-            print('🔍 Dish data: $json');
             return null;
           }
         }).where((dish) => dish != null).cast<Dish>().toList();
         
-        print('✅ Successfully parsed ${dishes.length} dishes');
+        print('✅ Successfully parsed ${dishes.length} dishes from backend');
         return dishes;
       } else {
-        print('❌ API returned status: ${response.statusCode}');
+        print('❌ Backend returned status: ${response.statusCode}');
         return [];
       }
     } catch (e) {
-      print('❌ Error fetching local dishes: $e');
+      print('❌ Error fetching dishes from backend: $e');
       if (e is DioException) {
-        print('🔍 Dio Error Details: ${e.message}');
+        print('🔍 Dio Error: ${e.message}');
         print('🔍 Response: ${e.response?.data}');
       }
       return [];
+    }
+  }
+  
+  String _mapCategoryToPriceRange(String? category) {
+    switch (category?.toLowerCase()) {
+      case 'street food':
+        return 'budget';
+      case 'breakfast':
+      case 'lunch':
+        return 'mid-range';
+      case 'dinner':
+        return 'fine-dining';
+      default:
+        return 'mid-range';
     }
   }
 

@@ -149,6 +149,10 @@ class _HomeScreenState extends State<HomeScreen> {
                 onPressed: () => _showNotifications(appProvider),
               ),
               IconButton(
+                icon: const Icon(Icons.bug_report),
+                onPressed: () => Navigator.pushNamed(context, '/backend-test'),
+              ),
+              IconButton(
                 icon: const Icon(Icons.refresh),
                 onPressed: _loadData,
               ),
@@ -172,6 +176,8 @@ class _HomeScreenState extends State<HomeScreen> {
                     _buildNearbyPlaces(appProvider),
                     const SizedBox(height: 16),
                     _buildLocalDishes(appProvider),
+                    const SizedBox(height: 16),
+                    _buildTestButton(appProvider),
                     const SizedBox(height: 16),
                     _buildRecentActivity(appProvider),
                     const SizedBox(height: 16),
@@ -1685,6 +1691,40 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildTestButton(AppProvider appProvider) {
+    return Card(
+      color: Colors.red[50],
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          children: [
+            Text(
+              'Backend Test',
+              style: TextStyle(fontWeight: FontWeight.bold, color: Colors.red[700]),
+            ),
+            const SizedBox(height: 8),
+            ElevatedButton(
+              onPressed: () async {
+                print('🚀 Manual test button pressed');
+                try {
+                  await appProvider.loadLocalDishes();
+                  print('✅ Manual dishes load completed');
+                } catch (e) {
+                  print('❌ Manual dishes load failed: $e');
+                }
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.red,
+                foregroundColor: Colors.white,
+              ),
+              child: const Text('Test Dishes API'),
+            ),
+          ],
+        ),
       ),
     );
   }

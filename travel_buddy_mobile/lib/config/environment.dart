@@ -1,8 +1,8 @@
 class Environment {
   // Backend Configuration
-  static const bool useLocalBackend = true; // Set to true for local development
+  static const bool useLocalBackend = false; // Set to true for local development
   static const String backendUrl = useLocalBackend 
-    ? 'http://192.168.1.163:3000' // Local backend - use computer's IP
+    ? 'http://192.168.1.163:3001' // Local backend - use computer's IP
     : 'https://travelbuddy-b2c6hgbbgeh4esdh.eastus2-01.azurewebsites.net'; // Azure backend
   
   // API Keys - Load from environment or use placeholders

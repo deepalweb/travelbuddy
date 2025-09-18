@@ -3,7 +3,7 @@
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import '../models/dish_models.dart';
-import '../services/direct_dishes_service.dart';
+import '../services/backend_dishes_service.dart';
 
 class EnhancedDishesProvider extends ChangeNotifier {
   DishesResponse? _dishesResponse;
@@ -57,21 +57,48 @@ class EnhancedDishesProvider extends ChangeNotifier {
         longitude = position.longitude;
       }
 
-      _loadingMessage = 'AI is discovering local dishes...';
+      _loadingMessage = 'Backend is processing your request...';
       notifyListeners();
 
-      final dishesData = await DirectDishesService.getLocalDishes(
+      // Test backend connection first
+      print('🔍 Testing backend connection...');
+      try {
+        final testResponse = await BackendDishesService.testConnection();
+        print('✅ Backend connection test: $testResponse');
+      } catch (e) {
+        print('❌ Backend connection failed: $e');
+      }
+
+      final dishesData = await BackendDishesService.getLocalDishes(
         lat: latitude!,
         lng: longitude!,
-        limit: 10,
+        filters: _filters,
       );
+      
+      // Transform backend data to Dish objects
+      final dishes = dishesData.map((dishMap) => Dish(
+        name: dishMap['name'] ?? '',
+        description: dishMap['description'] ?? '',
+        averagePrice: dishMap['averagePrice'] ?? '',
+        category: dishMap['cuisine'] ?? '',
+        recommendedPlaces: [RecommendedPlace(
+          name: dishMap['restaurantName'] ?? '',
+          type: 'Restaurant',
+          address: dishMap['restaurantAddress'] ?? '',
+          rating: (dishMap['rating'] ?? 4.0).toDouble(),
+          placeId: dishMap['restaurantId'],
+        )],
+        userPhotos: dishMap['imageUrl']?.isNotEmpty == true ? [dishMap['imageUrl']] : [],
+        dietaryTags: List<String>.from(dishMap['dietaryTags'] ?? []),
+        culturalSignificance: dishMap['culturalNote'] ?? '',
+      )).toList();
       
       _dishesResponse = DishesResponse(
         location: destination ?? 'Current Location',
-        dishes: [],
+        dishes: dishes,
         metadata: Metadata(
-          source: ['Direct API'],
-          filtersApplied: [],
+          source: ['Backend API', 'Gemini AI', 'Google Places'],
+          filtersApplied: _filters.keys.toList(),
         ),
       );
     } catch (e) {
@@ -106,10 +133,10 @@ class EnhancedDishesProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  // Add dish to trip
+  // Add dish to trip (placeholder for now)
   Future<bool> addDishToTrip(String dishName, String tripId, int dayNumber) async {
     try {
-      // Direct API - no backend needed
+      // TODO: Implement backend endpoint for adding dishes to trips
       await Future.delayed(Duration(milliseconds: 500));
       return true;
     } catch (e) {
@@ -128,12 +155,36 @@ class EnhancedDishesProvider extends ChangeNotifier {
   }) async {
     final timeOfDay = _getCurrentTimeOfDay();
     
-    final dishesData = await DirectDishesService.getLocalDishes(
+    final filters = {
+      'timeOfDay': timeOfDay,
+      if (weather != null) 'weather': weather,
+      if (dietaryPrefs != null && dietaryPrefs.isNotEmpty) 'dietary': dietaryPrefs,
+    };
+    
+    final dishesData = await BackendDishesService.getLocalDishes(
       lat: latitude,
       lng: longitude,
       limit: 5,
+      filters: filters,
     );
-    return [];
+    
+    // Transform to Dish objects
+    return dishesData.map((dishMap) => Dish(
+      name: dishMap['name'] ?? '',
+      description: dishMap['description'] ?? '',
+      averagePrice: dishMap['averagePrice'] ?? '',
+      category: dishMap['cuisine'] ?? '',
+      recommendedPlaces: [RecommendedPlace(
+        name: dishMap['restaurantName'] ?? '',
+        type: 'Restaurant',
+        address: dishMap['restaurantAddress'] ?? '',
+        rating: (dishMap['rating'] ?? 4.0).toDouble(),
+        placeId: dishMap['restaurantId'],
+      )],
+      userPhotos: dishMap['imageUrl']?.isNotEmpty == true ? [dishMap['imageUrl']] : [],
+      dietaryTags: List<String>.from(dishMap['dietaryTags'] ?? []),
+      culturalSignificance: dishMap['culturalNote'] ?? '',
+    )).toList();
   }
 
   String _getCurrentTimeOfDay() {
@@ -142,6 +193,29 @@ class EnhancedDishesProvider extends ChangeNotifier {
     if (hour < 15) return 'lunch';
     if (hour < 19) return 'afternoon';
     return 'dinner';
+  }
+
+  // Test backend connection
+  Future<bool> testBackendConnection() async {
+    try {
+      return await BackendDishesService.testConnection();
+    } catch (e) {
+      print('Backend connection test failed: $e');
+      return false;
+    }
+  }
+  
+  // Get backend status
+  Future<Map<String, dynamic>> getBackendStatus() async {
+    try {
+      return await BackendDishesService.getBackendStatus();
+    } catch (e) {
+      return {
+        'connected': false,
+        'error': e.toString(),
+        'url': 'Unknown',
+      };
+    }
   }
 
   // Mock data fallback

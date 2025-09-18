@@ -140,6 +140,25 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ),
               ),
 
+              // Developer Section
+              _buildSectionHeader('Developer'),
+              Card(
+                margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                child: Column(
+                  children: [
+                    ListTile(
+                      leading: const Icon(Icons.bug_report),
+                      title: const Text('Backend Test'),
+                      subtitle: const Text('Test backend connectivity'),
+                      trailing: const Icon(Icons.chevron_right),
+                      onTap: () {
+                        Navigator.of(context).pushNamed('/backend-test');
+                      },
+                    ),
+                  ],
+                ),
+              ),
+
               // About Section
               _buildSectionHeader('About'),
               Card(
