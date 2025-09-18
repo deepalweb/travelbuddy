@@ -78,7 +78,8 @@ Start with morning activity around 9 AM.
   
   static Future<String> _callGeminiAPI(String prompt) async {
     try {
-      // Use your existing backend Gemini endpoint
+      print('🤖 Calling real Gemini API with prompt: ${prompt.substring(0, 100)}...');
+      
       final response = await http.post(
         Uri.parse('${AppConstants.baseUrl}/api/ai/generate-text'),
         headers: {'Content-Type': 'application/json'},
@@ -89,16 +90,24 @@ Start with morning activity around 9 AM.
         }),
       );
       
+      print('📡 Gemini API response status: ${response.statusCode}');
+      print('📡 Gemini API response body: ${response.body}');
+      
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
-        return data['text'] ?? data['response'] ?? response.body;
+        final aiText = data['itinerary'] != null 
+            ? json.encode(data['itinerary']) 
+            : data['text'] ?? data['response'] ?? response.body;
+        
+        print('✅ Got AI response: ${aiText.substring(0, 200)}...');
+        return aiText;
       } else {
-        print('🔴 Gemini API error: ${response.statusCode}');
-        throw Exception('Gemini API failed');
+        print('🔴 Gemini API error: ${response.statusCode} - ${response.body}');
+        throw Exception('Gemini API failed: ${response.statusCode}');
       }
     } catch (e) {
       print('🔴 Gemini call failed: $e');
-      // Return mock AI response for demo
+      print('🎭 Using fallback mock response');
       return _getMockGeminiResponse();
     }
   }
@@ -145,6 +154,28 @@ WEATHER_NOTE: Weather dependent - check forecast
   
   static List<EnhancedActivity> _parseGeminiResponse(String response, String destination) {
     final activities = <EnhancedActivity>[];
+    
+    try {
+      print('🔍 Parsing Gemini response: ${response.substring(0, 200)}...');
+      
+      // Try to parse as JSON first (new format)
+      final jsonData = json.decode(response);
+      if (jsonData['activities'] != null) {
+        final activitiesList = jsonData['activities'] as List;
+        
+        for (int i = 0; i < activitiesList.length; i++) {
+          final activityData = activitiesList[i];
+          activities.add(_createActivityFromJson(activityData, i, destination));
+        }
+        
+        print('✅ Parsed ${activities.length} activities from JSON');
+        return activities;
+      }
+    } catch (e) {
+      print('⚠️ JSON parsing failed, trying text parsing: $e');
+    }
+    
+    // Fallback to text parsing (old format)
     final sections = response.split('ACTIVITY:').where((s) => s.trim().isNotEmpty).toList();
     
     for (int i = 0; i < sections.length; i++) {

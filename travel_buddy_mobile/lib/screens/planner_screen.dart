@@ -8,7 +8,7 @@ import '../constants/app_constants.dart';
 import '../widgets/trip_plan_card.dart';
 import '../widgets/premium_activity_card.dart';
 import '../services/storage_service.dart';
-import '../services/gemini_trip_service.dart';
+import '../services/real_gemini_service.dart';
 
 class PlannerScreen extends StatefulWidget {
   const PlannerScreen({super.key});
@@ -934,7 +934,7 @@ class _PlannerScreenState extends State<PlannerScreen> {
       final weather = await _getCurrentWeather();
       
       // Generate premium plan with enhanced features
-      final activities = await GeminiTripService.generatePremiumDayPlan(
+      final activities = await RealGeminiService.generatePremiumDayPlan(
         destination: _destinationController.text,
         interests: _interestsController.text.isNotEmpty ? _interestsController.text : 'sightseeing',
         pace: _selectedPace,

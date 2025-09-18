@@ -31,36 +31,34 @@ router.post('/generate-text', async (req, res) => {
 
     // Construct enhanced prompt for structured JSON
     const enhancedPrompt = `
-Generate a 1-day itinerary in JSON format for the following user request:
-Prompt: "${prompt}"
-Preferences: travelStyle="${travelStyle}", budgetTier="${budgetTier}", dietaryPreferences=${JSON.stringify(dietaryPreferences)}, accessibility=${accessibility}, location="${location}"
+Create a day itinerary for: ${prompt}
 
-Each activity should include the following fields:
-- name
-- type (landmark, restaurant, museum, park, viewpoint, other)
-- startTime, endTime
-- description
-- cost
-- costCategory (Budget, Mid-range, Premium)
-- crowdLevel (Low, Moderate, High)
-- weatherNote
-- coordinates { lat, lng }
-- imageURL
-- tips (array of strings)
-- badgeEarned (optional, e.g., "Foodie", "Explorer")
-Also include:
-- totalCost
-- estimatedWalkingDistance
-- recommendationLevel
-Return valid JSON only without extra text.
+Preferences:
+- Travel Style: ${travelStyle}
+- Budget: ${budgetTier}
+- Dietary: ${dietaryPreferences.join(', ') || 'None'}
+- Accessibility: ${accessibility ? 'Required' : 'Not required'}
+
+Return ONLY valid JSON with this structure:
+{
+  "activities": [
+    {
+      "name": "Activity Name",
+      "type": "landmark|restaurant|museum|park",
+      "startTime": "09:00",
+      "endTime": "11:00",
+      "description": "Brief description",
+      "cost": "$10" or "Free",
+      "tips": ["tip1", "tip2"]
+    }
+  ],
+  "totalCost": "$50-70",
+  "duration": "8 hours"
+}
 `;
 
     // Generate content
-    const result = await model.generateContent({
-      prompt: enhancedPrompt,
-      maxOutputTokens: maxTokens,
-      temperature
-    });
+    const result = await model.generateContent(enhancedPrompt);
 
     const response = await result.response;
     const text = response.text();
@@ -96,7 +94,7 @@ Return valid JSON only without extra text.
 });
 
 // Friendly fallback response
-function _getFallbackResponse(prompt, travelStyle = 'Relaxed', budgetTier = 'Premium', location = 'your city') {
+function _getFallbackResponse(prompt, travelStyle = 'Relaxed', budgetTier = 'Premium', location = 'your destination') {
   return {
     message: "We're having trouble generating a personalized itinerary at the moment. Please try again in a few minutes or adjust your preferences.",
     suggestion: "Meanwhile, you can explore popular landmarks and restaurants manually or check out our sample itineraries.",
@@ -121,7 +119,7 @@ function _getFallbackResponse(prompt, travelStyle = 'Relaxed', budgetTier = 'Pre
         type: 'restaurant',
         startTime: '12:30',
         endTime: '14:00',
-        description: `Enjoy a typical ${location} meal. Options available for ${dietaryPreferences.join(', ') || 'all diets'}.`,
+        description: `Enjoy a typical ${location} meal. Options available for all diets.`,
         cost: '$15-25',
         costCategory: 'Mid-range',
         crowdLevel: 'Moderate',
