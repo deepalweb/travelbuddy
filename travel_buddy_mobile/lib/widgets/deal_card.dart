@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import '../models/place.dart';
 import '../constants/app_constants.dart';
-import '../services/payment_service.dart';
 
 class DealCard extends StatelessWidget {
   final Deal deal;
@@ -156,7 +155,7 @@ class DealCard extends StatelessWidget {
                           const SizedBox(width: 4),
                         const Text(
                           '\$75',
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontWeight: FontWeight.bold,
                             color: Colors.green,
                             fontSize: 12,

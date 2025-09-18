@@ -5,7 +5,7 @@ import '../models/travel_enums.dart';
 class PostGridTile extends StatelessWidget {
   final CommunityPost post;
 
-  const PostGridTile({Key? key, required this.post}) : super(key: key);
+  const PostGridTile({super.key, required this.post});
 
   @override
   Widget build(BuildContext context) {

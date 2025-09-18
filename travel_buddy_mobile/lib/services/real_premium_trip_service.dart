@@ -167,7 +167,7 @@ Format as JSON array with: title, timeSlot, description, estimatedDuration, cost
       actionableLinks: [
         ActionableLink(
           title: 'Directions',
-          url: 'https://www.google.com/maps/search/?api=1&query=${Uri.encodeComponent(place.name + ' ' + place.address)}',
+          url: 'https://www.google.com/maps/search/?api=1&query=${Uri.encodeComponent('${place.name} ${place.address}')}',
           type: ActionType.map,
         ),
         if (place.type.contains('restaurant'))

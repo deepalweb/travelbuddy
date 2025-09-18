@@ -4,7 +4,6 @@ import 'package:image_picker/image_picker.dart';
 import 'dart:io';
 import '../providers/community_provider.dart';
 import '../services/image_service.dart';
-import '../services/notification_service.dart';
 import '../widgets/location_picker_map.dart';
 
 class CreatePostScreen extends StatefulWidget {
@@ -33,7 +32,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
     {'value': 'question', 'label': 'Question', 'icon': Icons.help_outline, 'color': Colors.indigo},
   ];
   
-  List<String> _hashtags = [];
+  final List<String> _hashtags = [];
   final TextEditingController _hashtagController = TextEditingController();
   bool _allowComments = true;
   String _visibility = 'public'; // public, friends, private

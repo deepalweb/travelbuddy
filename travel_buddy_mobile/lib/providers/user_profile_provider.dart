@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
 import '../models/user_profile.dart';
-import '../models/travel_badge.dart';
-import '../models/travel_stats.dart';
 import '../models/travel_enums.dart';
 import '../services/api_service.dart';
 
@@ -9,7 +7,7 @@ class UserProfileProvider with ChangeNotifier {
   final ApiService _apiService = ApiService();
   
   UserProfile? _currentUserProfile;
-  Map<String, UserProfile> _cachedProfiles = {};
+  final Map<String, UserProfile> _cachedProfiles = {};
   bool _isLoading = false;
   String? _error;
 

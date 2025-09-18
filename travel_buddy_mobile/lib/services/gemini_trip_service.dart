@@ -231,7 +231,7 @@ WEATHER_NOTE: Weather dependent - check forecast
         estimatedDuration: Duration(hours: 2),
         type: _mapStringToActivityType(type),
         location: Location(
-          address: '$destination, ${title}',
+          address: '$destination, $title',
           latitude: 0.0,
           longitude: 0.0,
         ),
@@ -267,7 +267,7 @@ WEATHER_NOTE: Weather dependent - check forecast
         actionableLinks: [
           ActionableLink(
             title: 'Directions',
-            url: 'https://www.google.com/maps/search/?api=1&query=${Uri.encodeComponent(title + ' ' + destination)}',
+            url: 'https://www.google.com/maps/search/?api=1&query=${Uri.encodeComponent('$title $destination')}',
             type: ActionType.map,
           ),
           if (type == 'restaurant')

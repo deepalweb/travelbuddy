@@ -1,13 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
-import 'package:google_maps_flutter/google_maps_flutter.dart';
 import '../models/user.dart';
 import '../models/place.dart';
 import '../models/trip.dart';
 import '../models/weather.dart';
 import '../models/local_discovery.dart';
 import '../models/personalized_suggestion.dart';
-import '../models/deal.dart' as deal_model;
 import '../services/auth_service.dart';
 import '../services/api_service.dart';
 import '../services/storage_service.dart';
@@ -15,7 +13,6 @@ import '../services/location_service.dart';
 import '../services/permission_service.dart';
 import '../services/debug_service.dart';
 import '../services/mock_location_service.dart';
-import '../services/personalized_suggestions_service.dart' as suggestions_service;
 import '../services/local_discoveries_service.dart' as discoveries_service;
 import '../services/weather_service.dart' as weather_service;
 import '../services/places_service.dart';
@@ -26,7 +23,7 @@ import '../services/notification_service.dart';
 import '../services/error_handler_service.dart';
 import '../services/safety_service.dart';
 import '../models/emergency_service.dart';
-import '../models/dish.dart';
+
 
 class AppProvider with ChangeNotifier, WidgetsBindingObserver {
   // Services
@@ -60,10 +57,10 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
   List<Place> _places = [];
 
   // Trip State
-  List<TripPlan> _recentTrips = [];
+  final List<TripPlan> _recentTrips = [];
   List<TripPlan> get recentTrips => _recentTrips;
 
-  List<Deal> _activeDeals = [];
+  final List<Deal> _activeDeals = [];
   List<Deal> get activeDeals => _activeDeals;
   List<Place> _favoritePlaces = [];
   List<String> _favoriteIds = [];
@@ -104,10 +101,7 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
   bool _isSafetyLoading = false;
   String? _safetyError;
 
-  // Local Dishes State
-  List<Dish> _localDishes = [];
-  bool _isDishesLoading = false;
-  String? _dishesError;
+
 
   // Getters
   CurrentUser? get currentUser => _currentUser;
@@ -146,9 +140,7 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
   bool get isSafetyLoading => _isSafetyLoading;
   String? get safetyError => _safetyError;
   
-  List<Dish> get localDishes => _localDishes;
-  bool get isDishesLoading => _isDishesLoading;
-  String? get dishesError => _dishesError;
+
   
   int get currentTabIndex => _currentTabIndex;
   bool get isDarkMode => _isDarkMode;
@@ -291,7 +283,6 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
         _loadLocalDiscoveries(),
         _loadWeatherInfo(),
         loadEmergencyServices(),
-        loadLocalDishes(),
       ]);
     } catch (e) {
       print('Error loading home data: $e');
@@ -316,7 +307,7 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
         latitude: _currentLocation!.latitude,
         longitude: _currentLocation!.longitude,
       );
-      _weatherInfo = weather?.toModelWeatherInfo();
+      _weatherInfo = weather.toModelWeatherInfo();
     }
   }
   static const int _placesPerPage = 12;
@@ -1573,51 +1564,7 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
     notifyListeners();
   }
 
-  // Local Dishes Methods
-  Future<void> loadLocalDishes() async {
-    print('🍽️ loadLocalDishes() called');
-    
-    // Skip API calls if app is not active
-    if (!_isAppActive) {
-      print('🚫 Skipping dishes API call - app is inactive');
-      return;
-    }
-    
-    if (_currentLocation == null) {
-      print('❌ No location available for dishes');
-      return;
-    }
 
-    print('📍 Location: ${_currentLocation!.latitude}, ${_currentLocation!.longitude}');
-    
-    _isDishesLoading = true;
-    _dishesError = null;
-    notifyListeners();
-
-    try {
-      print('🔄 Calling API service...');
-      final dishes = await _apiService.getLocalDishes(
-        latitude: _currentLocation!.latitude,
-        longitude: _currentLocation!.longitude,
-        cuisine: 'local',
-        limit: 8,
-      );
-
-      _localDishes = dishes;
-      print('✅ Loaded ${_localDishes.length} local dishes');
-      
-      if (_localDishes.isNotEmpty) {
-        print('🥘 First dish: ${_localDishes[0].name}');
-      }
-    } catch (e) {
-      print('❌ Error loading local dishes: $e');
-      _dishesError = 'Failed to load local dishes';
-    } finally {
-      _isDishesLoading = false;
-      print('📊 Dishes loading finished. Count: ${_localDishes.length}');
-      notifyListeners();
-    }
-  }
   
   // Refresh data after app was inactive
   Future<void> _refreshDataAfterInactivity() async {
@@ -1630,7 +1577,6 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
           print('🔄 Refreshing stale data after inactivity');
           await Future.wait([
             loadNearbyPlaces(),
-            loadLocalDishes(),
             loadEmergencyServices(),
           ]);
         } else {

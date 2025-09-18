@@ -5,7 +5,7 @@ import 'firebase_options.dart';
 import 'providers/app_provider.dart';
 import 'providers/community_provider.dart';
 import 'screens/splash_screen.dart';
-import 'screens/backend_test_screen.dart';
+
 import 'constants/app_constants.dart';
 import 'services/error_handler_service.dart';
 
@@ -113,7 +113,7 @@ class TravelBuddyApp extends StatelessWidget {
             themeMode: appProvider.isDarkMode ? ThemeMode.dark : ThemeMode.light,
             home: const SplashScreen(),
             routes: {
-              '/backend-test': (context) => BackendTestScreen(),
+
             },
           );
         },

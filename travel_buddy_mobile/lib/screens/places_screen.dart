@@ -4,7 +4,6 @@ import '../providers/app_provider.dart';
 import '../constants/app_constants.dart';
 import '../widgets/place_card.dart';
 import '../widgets/search_bar_widget.dart';
-import '../services/places_service.dart';
 import 'place_details_screen.dart';
 import 'subscription_plans_screen.dart';
 

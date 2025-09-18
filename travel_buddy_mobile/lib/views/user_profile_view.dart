@@ -14,7 +14,7 @@ import 'edit_profile_view.dart';
 class UserProfileView extends StatelessWidget {
   final String? userId; // If null, shows current user's profile
 
-  const UserProfileView({Key? key, this.userId}) : super(key: key);
+  const UserProfileView({super.key, this.userId});
 
   @override
   Widget build(BuildContext context) {

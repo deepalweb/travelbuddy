@@ -52,7 +52,7 @@ class _EnhancedBudgetWidgetState extends State<EnhancedBudgetWidget> {
               children: [
                 Expanded(
                   child: DropdownButtonFormField<String>(
-                    value: _selectedCurrency,
+                    initialValue: _selectedCurrency,
                     decoration: const InputDecoration(
                       labelText: 'Display Currency',
                       border: OutlineInputBorder(),

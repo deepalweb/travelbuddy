@@ -9,7 +9,7 @@ class HomeViewModel extends ChangeNotifier {
   String _currentTime = '';
   String get currentTime => _currentTime;
 
-  String _currentLocationName = 'Getting location...';
+  final String _currentLocationName = 'Getting location...';
   String get currentLocationName => _currentLocationName;
 
   List<String> _selectedActionKeys = ['explore', 'plan', 'nearby', 'safety'];

@@ -5,7 +5,6 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:share_plus/share_plus.dart';
 import '../providers/app_provider.dart';
 import '../constants/app_constants.dart';
-import '../widgets/trip_plan_card.dart';
 import '../widgets/premium_activity_card.dart';
 import '../services/storage_service.dart';
 import '../services/direct_gemini_service.dart';
@@ -433,7 +432,7 @@ class _PlannerScreenState extends State<PlannerScreen> {
                     const SizedBox(width: 16),
                     Expanded(
                       child: DropdownButtonFormField<String>(
-                        value: _selectedBudget,
+                        initialValue: _selectedBudget,
                         decoration: const InputDecoration(
                           labelText: 'Budget Range',
                           prefixIcon: Icon(Icons.attach_money),
@@ -2161,7 +2160,7 @@ ${activities.map((activity) =>
               _buildDetailRow('📅 Days Planned', '${_getDailyPlansCount(tripPlan)} days'),
               _buildDetailRow('🎯 Total Activities', '${_getTotalActivitiesCount(tripPlan)} activities'),
               _buildDetailRow('🗺️ Total Distance', '${_calculateTotalDistance(tripPlan)} km'),
-              _buildDetailRow('🚗 Est. Travel Time', '${_calculateTotalTravelTime(tripPlan)}'),
+              _buildDetailRow('🚗 Est. Travel Time', _calculateTotalTravelTime(tripPlan)),
             ],
           ),
           
@@ -4283,7 +4282,7 @@ Exported on: ${DateTime.now().toString().split('.')[0]}''';
               ],
             ),
             const SizedBox(height: 20),
-            Container(
+            SizedBox(
               height: 200,
               child: ListView.builder(
                 itemCount: appProvider.favoritePlaces.take(5).length,
@@ -5332,7 +5331,7 @@ Exported on: ${DateTime.now().toString().split('.')[0]}''';
           mainAxisSize: MainAxisSize.min,
           children: [
             _buildAnalyticRow('Total Distance', '${_calculateTotalDistance(tripPlan)} km'),
-            _buildAnalyticRow('Walking Time', '${_calculateTotalTravelTime(tripPlan)}'),
+            _buildAnalyticRow('Walking Time', _calculateTotalTravelTime(tripPlan)),
             _buildAnalyticRow('Activities', '${_getTotalActivitiesCount(tripPlan)} planned'),
             _buildAnalyticRow('Estimated Cost', '€${_calculateTotalCost(tripPlan)}'),
             _buildAnalyticRow('Cultural Score', '85% (High)'),
@@ -5532,15 +5531,15 @@ Exported on: ${DateTime.now().toString().split('.')[0]}''';
               const SizedBox(width: 8),
               Text('Current Weather', style: TextStyle(fontWeight: FontWeight.bold, color: weatherColor)),
               const Spacer(),
-              Text('${temp}°C', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: weatherColor)),
+              Text('$temp°C', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: weatherColor)),
             ],
           ),
           const SizedBox(height: 8),
           Row(
             children: [
-              _buildWeatherDetail('💧', 'Humidity', '${humidity}%'),
+              _buildWeatherDetail('💧', 'Humidity', '$humidity%'),
               const SizedBox(width: 16),
-              _buildWeatherDetail('💨', 'Wind', '${windSpeed} km/h'),
+              _buildWeatherDetail('💨', 'Wind', '$windSpeed km/h'),
             ],
           ),
         ],
@@ -5601,7 +5600,7 @@ Exported on: ${DateTime.now().toString().split('.')[0]}''';
           ),
           if (delays > 0) ...[
             const SizedBox(height: 4),
-            Text('Expected delays: ${delays} minutes', style: const TextStyle(fontSize: 11, color: Colors.grey)),
+            Text('Expected delays: $delays minutes', style: const TextStyle(fontSize: 11, color: Colors.grey)),
           ],
           if (traffic['bestRoutes'] != null) ...[
             const SizedBox(height: 8),

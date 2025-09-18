@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
 import 'package:flutter_paypal_payment/flutter_paypal_payment.dart';
 import '../models/user.dart';
-import '../providers/app_provider.dart';
 
 class PaymentService {
   static final PaymentService _instance = PaymentService._internal();

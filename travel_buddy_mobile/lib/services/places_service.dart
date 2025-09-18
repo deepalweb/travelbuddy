@@ -136,8 +136,9 @@ class PlacesService {
     };
     
     String category = 'attraction';
-    if (query.toLowerCase().contains('restaurant')) category = 'restaurant';
-    else if (query.toLowerCase().contains('hotel')) category = 'hotel';
+    if (query.toLowerCase().contains('restaurant')) {
+      category = 'restaurant';
+    } else if (query.toLowerCase().contains('hotel')) category = 'hotel';
     else if (query.toLowerCase().contains('museum')) category = 'museum';
     else if (query.toLowerCase().contains('park')) category = 'park';
     

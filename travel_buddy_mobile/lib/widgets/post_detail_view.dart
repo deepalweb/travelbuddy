@@ -8,7 +8,7 @@ import 'package:timeago/timeago.dart' as timeago;
 class PostDetailView extends StatelessWidget {
   final CommunityPost post;
 
-  const PostDetailView({Key? key, required this.post}) : super(key: key);
+  const PostDetailView({super.key, required this.post});
 
   @override
   Widget build(BuildContext context) {

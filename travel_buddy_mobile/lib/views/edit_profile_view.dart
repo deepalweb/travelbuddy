@@ -9,7 +9,7 @@ import 'dart:io';
 class EditProfileView extends StatefulWidget {
   final UserProfile profile;
 
-  const EditProfileView({Key? key, required this.profile}) : super(key: key);
+  const EditProfileView({super.key, required this.profile});
 
   @override
   State<EditProfileView> createState() => _EditProfileViewState();
@@ -234,7 +234,7 @@ class _EditProfileViewState extends State<EditProfileView> {
         ),
         const SizedBox(height: 8),
         DropdownButtonFormField<TravelerType>(
-          value: _selectedTravelerType,
+          initialValue: _selectedTravelerType,
           decoration: const InputDecoration(
             border: OutlineInputBorder(),
           ),

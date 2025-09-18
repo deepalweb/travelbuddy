@@ -1,24 +1,20 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'dart:io';
 import 'dart:convert';
 import '../providers/app_provider.dart';
 import '../providers/community_provider.dart';
 import '../constants/app_constants.dart';
 import '../widgets/community_post_card.dart';
 import '../services/api_service.dart';
-import 'backend_status_screen.dart';
+
 import 'auth_status_screen.dart';
 import 'app_permissions_screen.dart';
 import 'app_settings_screen.dart';
 import 'subscription_plans_screen.dart';
 import 'auth_screen.dart';
-import 'permissions_screen.dart';
-import 'subscription_screen.dart';
 import 'favorites_screen.dart';
 import 'my_trips_screen.dart';
-import 'settings_screen.dart';
 import 'help_support_screen.dart';
 import 'edit_profile_screen.dart';
 
@@ -311,20 +307,7 @@ class ProfileScreen extends StatelessWidget {
                       // Debug options (only in debug mode)
                       if (kDebugMode) ...[
                         const Divider(height: 1),
-                        ListTile(
-                          leading: const Icon(Icons.developer_mode),
-                          title: const Text('Backend Status'),
-                          subtitle: const Text('Check API connectivity'),
-                          trailing: const Icon(Icons.chevron_right),
-                          onTap: () {
-                            Navigator.of(context).push(
-                              MaterialPageRoute(
-                                builder: (context) => const BackendStatusScreen(),
-                              ),
-                            );
-                          },
-                        ),
-                        const Divider(height: 1),
+
                         ListTile(
                           leading: const Icon(Icons.security),
                           title: const Text('Authorization Status'),

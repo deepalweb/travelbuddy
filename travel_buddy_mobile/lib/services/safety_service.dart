@@ -7,7 +7,7 @@ class SafetyService {
   SafetyService._internal();
 
   // Emergency contacts storage
-  List<EmergencyContact> _emergencyContacts = [];
+  final List<EmergencyContact> _emergencyContacts = [];
   List<EmergencyContact> get emergencyContacts => _emergencyContacts;
 
   // Make phone call

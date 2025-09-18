@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
 import '../models/community_post.dart';
 import '../services/api_service.dart';
 import 'package:timeago/timeago.dart' as timeago;
@@ -7,7 +6,7 @@ import 'package:timeago/timeago.dart' as timeago;
 class CommentList extends StatefulWidget {
   final String postId;
 
-  const CommentList({Key? key, required this.postId}) : super(key: key);
+  const CommentList({super.key, required this.postId});
 
   @override
   State<CommentList> createState() => _CommentListState();
@@ -119,7 +118,7 @@ class _CommentListState extends State<CommentList> {
 class _CommentItem extends StatelessWidget {
   final Comment comment;
 
-  const _CommentItem({Key? key, required this.comment}) : super(key: key);
+  const _CommentItem({required this.comment});
 
   @override
   Widget build(BuildContext context) {

@@ -1,6 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
-import '../providers/app_provider.dart';
 import '../constants/app_constants.dart';
 
 class SafetyHubScreen extends StatefulWidget {
@@ -363,7 +361,7 @@ class _SafetyHubScreenState extends State<SafetyHubScreen> with TickerProviderSt
           const SizedBox(height: 24),
           
           // Panic Button
-          Container(
+          SizedBox(
             width: double.infinity,
             height: 100,
             child: ElevatedButton(

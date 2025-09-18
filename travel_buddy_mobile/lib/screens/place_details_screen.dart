@@ -361,7 +361,7 @@ class _PlaceDetailsScreenState extends State<PlaceDetailsScreen> with TickerProv
                                 )),
                                 const SizedBox(width: 8),
                                 Text(
-                                  '${widget.place.rating.toStringAsFixed(1)}',
+                                  widget.place.rating.toStringAsFixed(1),
                                   style: const TextStyle(
                                     color: Colors.white,
                                     fontWeight: FontWeight.bold,
@@ -774,7 +774,7 @@ class _PlaceDetailsScreenState extends State<PlaceDetailsScreen> with TickerProv
             style: TextStyle(color: Colors.grey, fontStyle: FontStyle.italic),
           )
         else
-          ..._reviews.take(3).map((review) => _buildReviewCard(review)).toList(),
+          ..._reviews.take(3).map((review) => _buildReviewCard(review)),
         if (_reviews.length > 3)
           TextButton(
             onPressed: () => _showAllReviews(),
