@@ -604,6 +604,16 @@ app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 app.use(express.static(path.join(__dirname, '../dist')));
 
+// AI routes for trip planning
+import('./routes/ai.js')
+  .then((mod) => {
+    app.use('/api/ai', mod.default);
+    console.log('[AI] Gemini AI routes mounted under /api/ai');
+  })
+  .catch((err) => {
+    console.warn('[AI] Failed to mount AI routes:', err?.message || err);
+  });
+
 // Payment routes (Stripe scaffold) - mount only when explicitly enabled to allow
 // running the app without the `stripe` package or Stripe env vars.
 if (String(process.env.ENABLE_STRIPE || '').toLowerCase() === 'true') {
