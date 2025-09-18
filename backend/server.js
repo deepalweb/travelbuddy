@@ -408,23 +408,6 @@ async function enhanceDishesWithRealData(dishesData, restaurants) {
     }
   }
   return dishesData;
-}USD * 30;
-  const totalCostUSD = apis.reduce((sum, api) => sum + perApiSnapshot[api].costUSD, 0);
-
-  return {
-    config: costConfig,
-    sinceTs: usageState.startTs,
-    totals: usageState.totals,
-    snapshot: { perApi: perApiSnapshot, totalCostUSD: +totalCostUSD.toFixed(4) },
-    window: {
-      minutes: windowMinutes,
-      perApi: perApiWindow,
-      projected: {
-        dailyUSD: +projectedDailyUSD.toFixed(4),
-        monthlyUSD: +projectedMonthlyUSD.toFixed(4),
-      }
-    }
-  };
 }
 
 // Whether to enforce admin checks on cost endpoints (set ENFORCE_ADMIN_COST=true to enable)
