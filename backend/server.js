@@ -604,15 +604,69 @@ app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 app.use(express.static(path.join(__dirname, '../dist')));
 
-// AI routes for trip planning
-import('./routes/ai.js')
-  .then((mod) => {
-    app.use('/api/ai', mod.default);
-    console.log('[AI] Gemini AI routes mounted under /api/ai');
-  })
-  .catch((err) => {
-    console.warn('[AI] Failed to mount AI routes:', err?.message || err);
-  });
+// Direct AI endpoint for trip planning
+app.post('/api/ai/generate-text', async (req, res) => {
+  const startTime = Date.now();
+  
+  try {
+    const { prompt } = req.body;
+    
+    if (!prompt) {
+      return res.status(400).json({ error: 'Prompt is required' });
+    }
+
+    console.log('🤖 Gemini API request:', prompt.substring(0, 100) + '...');
+
+    // Get Gemini model
+    const model = genAI.getGenerativeModel({ model: "gemini-pro" });
+    
+    // Generate content
+    const result = await model.generateContent(prompt);
+    const response = await result.response;
+    const text = response.text();
+    
+    console.log('✅ Gemini response:', text.substring(0, 200) + '...');
+
+    // Try to extract JSON from response
+    let jsonData = null;
+    try {
+      const jsonMatch = text.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        jsonData = JSON.parse(jsonMatch[0]);
+      }
+    } catch (e) {
+      console.warn('⚠️ JSON parsing failed:', e.message);
+    }
+
+    res.json({
+      text: text,
+      itinerary: jsonData,
+      model: 'gemini-pro',
+      processingTime: Date.now() - startTime
+    });
+
+  } catch (error) {
+    console.error('❌ Gemini AI error:', error);
+    
+    res.status(500).json({
+      error: 'Failed to generate text',
+      message: error.message,
+      text: `{
+  "activities": [
+    {
+      "name": "City Center Exploration",
+      "type": "landmark",
+      "startTime": "09:00",
+      "endTime": "11:00",
+      "description": "Explore the main attractions and historic sites in the city center.",
+      "cost": "Free",
+      "tips": ["Start early to avoid crowds", "Bring comfortable walking shoes"]
+    }
+  ]
+}`
+    });
+  }
+});
 
 // Payment routes (Stripe scaffold) - mount only when explicitly enabled to allow
 // running the app without the `stripe` package or Stripe env vars.
