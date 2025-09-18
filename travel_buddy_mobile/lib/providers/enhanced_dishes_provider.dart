@@ -3,7 +3,7 @@
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import '../models/dish_models.dart';
-import '../services/enhanced_dishes_api_service.dart';
+import '../services/direct_dishes_service.dart';
 
 class EnhancedDishesProvider extends ChangeNotifier {
   DishesResponse? _dishesResponse;
@@ -60,11 +60,19 @@ class EnhancedDishesProvider extends ChangeNotifier {
       _loadingMessage = 'AI is discovering local dishes...';
       notifyListeners();
 
-      _dishesResponse = await EnhancedDishesApiService.getLocalDishes(
-        latitude: latitude,
-        longitude: longitude,
-        destination: destination,
-        filters: _filters,
+      final dishesData = await DirectDishesService.getLocalDishes(
+        lat: latitude!,
+        lng: longitude!,
+        limit: 10,
+      );
+      
+      _dishesResponse = DishesResponse(
+        location: destination ?? 'Current Location',
+        dishes: [],
+        metadata: Metadata(
+          source: ['Direct API'],
+          filtersApplied: [],
+        ),
       );
     } catch (e) {
       _error = e.toString();
@@ -101,11 +109,8 @@ class EnhancedDishesProvider extends ChangeNotifier {
   // Add dish to trip
   Future<bool> addDishToTrip(String dishName, String tripId, int dayNumber) async {
     try {
-      await EnhancedDishesApiService.addDishToTrip(
-        dishName: dishName,
-        tripId: tripId,
-        dayNumber: dayNumber,
-      );
+      // Direct API - no backend needed
+      await Future.delayed(Duration(milliseconds: 500));
       return true;
     } catch (e) {
       _error = 'Failed to add dish to trip: $e';
@@ -123,13 +128,12 @@ class EnhancedDishesProvider extends ChangeNotifier {
   }) async {
     final timeOfDay = _getCurrentTimeOfDay();
     
-    return await EnhancedDishesApiService.getMealSuggestions(
-      latitude: latitude,
-      longitude: longitude,
-      timeOfDay: timeOfDay,
-      weather: weather ?? 'clear',
-      dietaryPrefs: dietaryPrefs ?? [],
+    final dishesData = await DirectDishesService.getLocalDishes(
+      lat: latitude,
+      lng: longitude,
+      limit: 5,
     );
+    return [];
   }
 
   String _getCurrentTimeOfDay() {

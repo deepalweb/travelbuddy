@@ -1,6 +1,8 @@
+import 'dart:convert';
 import 'dart:math';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:http/http.dart' as http;
 import '../models/user.dart';
 import '../models/place.dart';
 import '../models/trip.dart';
@@ -360,6 +362,95 @@ class StorageService {
       
       // Remove metadata
       await _prefs.remove(metaKey);
+    }
+  }
+
+  // Saved Day Plans (Premium) - MongoDB Backend
+  static Future<List<Map<String, dynamic>>> getSavedOneDayItineraries() async {
+    try {
+      // Try to get from backend first
+      final user = await StorageService().getUser();
+      if (user?.uid != null || user?.mongoId != null) {
+        final userId = user!.mongoId ?? user.uid;
+        final response = await http.get(
+          Uri.parse('${AppConstants.baseUrl}/api/users/$userId/itineraries'),
+          headers: {'Content-Type': 'application/json'},
+        );
+        
+        if (response.statusCode == 200) {
+          final List<dynamic> data = json.decode(response.body);
+          return data.cast<Map<String, dynamic>>();
+        }
+      }
+    } catch (e) {
+      print('Failed to load from backend: $e');
+    }
+    
+    // Fallback to local storage
+    final prefs = await SharedPreferences.getInstance();
+    final savedPlansJson = prefs.getStringList('saved_premium_plans') ?? [];
+    
+    return savedPlansJson.map((planJson) {
+      try {
+        return Map<String, dynamic>.from(
+          const JsonDecoder().convert(planJson) as Map
+        );
+      } catch (e) {
+        return <String, dynamic>{};
+      }
+    }).where((plan) => plan.isNotEmpty).toList();
+  }
+  
+  static Future<void> saveSavedOneDayItineraries(List<Map<String, dynamic>> plans) async {
+    // Save to local storage first (immediate)
+    final prefs = await SharedPreferences.getInstance();
+    final plansJson = plans.map((plan) => const JsonEncoder().convert(plan)).toList();
+    await prefs.setStringList('saved_premium_plans', plansJson);
+    
+    // Save to MongoDB backend (async)
+    _syncToBackend(plans);
+  }
+  
+  static Future<void> savePremiumPlanToMongo(Map<String, dynamic> plan) async {
+    try {
+      final user = await StorageService().getUser();
+      if (user?.uid == null && user?.mongoId == null) {
+        throw Exception('User not logged in');
+      }
+      
+      final userId = user!.mongoId ?? user.uid;
+      final response = await http.post(
+        Uri.parse('${AppConstants.baseUrl}/api/itineraries'),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({
+          'userId': userId,
+          'title': plan['title'] ?? 'Premium Day Plan',
+          'introduction': 'AI-generated premium day plan with local insights',
+          'dailyPlan': [plan], // Wrap in array for one-day plan
+          'conclusion': 'Enjoy your premium travel experience!',
+          'travelTips': plan['packingTips'] ?? [],
+          'isPremium': true,
+          'destination': plan['destination'],
+          'totalCost': plan['totalCost'],
+          'activities': plan['activities'],
+        }),
+      );
+      
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        print('✅ Plan saved to MongoDB successfully');
+      } else {
+        print('❌ Failed to save to MongoDB: ${response.statusCode}');
+      }
+    } catch (e) {
+      print('❌ MongoDB save error: $e');
+    }
+  }
+  
+  static Future<void> _syncToBackend(List<Map<String, dynamic>> plans) async {
+    // Sync latest plan to backend (fire and forget)
+    if (plans.isNotEmpty) {
+      final latestPlan = plans.last;
+      savePremiumPlanToMongo(latestPlan);
     }
   }
 

@@ -8,7 +8,8 @@ import '../constants/app_constants.dart';
 import '../widgets/trip_plan_card.dart';
 import '../widgets/premium_activity_card.dart';
 import '../services/storage_service.dart';
-import '../services/real_gemini_service.dart';
+import '../services/direct_gemini_service.dart';
+import '../widgets/location_alert_widget.dart';
 
 class PlannerScreen extends StatefulWidget {
   const PlannerScreen({super.key});
@@ -934,7 +935,7 @@ class _PlannerScreenState extends State<PlannerScreen> {
       final weather = await _getCurrentWeather();
       
       // Generate premium plan with enhanced features
-      final activities = await RealGeminiService.generatePremiumDayPlan(
+      final activities = await DirectGeminiService.generatePremiumDayPlan(
         destination: _destinationController.text,
         interests: _interestsController.text.isNotEmpty ? _interestsController.text : 'sightseeing',
         pace: _selectedPace,
@@ -1076,6 +1077,14 @@ class _PlannerScreenState extends State<PlannerScreen> {
                 ),
               ),
               
+              // Location Alert Widget
+              LocationAlertWidget(
+                dayPlan: [],
+                onAddActivity: (activity) {
+                  // Add discovered activity to itinerary
+                },
+              ),
+              
               // Premium Activities List
               Expanded(
                 child: ListView.builder(
@@ -1100,32 +1109,66 @@ class _PlannerScreenState extends State<PlannerScreen> {
                   color: Colors.grey[50],
                   border: Border(top: BorderSide(color: Colors.grey[200]!)),
                 ),
-                child: Row(
+                child: Column(
                   children: [
-                    Expanded(
-                      child: ElevatedButton.icon(
-                        onPressed: () => _exportPremiumPlan(itinerary),
-                        icon: const Icon(Icons.download, size: 18),
-                        label: const Text('Export PDF'),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.purple,
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(vertical: 12),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: ElevatedButton.icon(
+                            onPressed: () => _savePremiumPlan(itinerary),
+                            icon: const Icon(Icons.bookmark, size: 18),
+                            label: const Text('Save Plan'),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.green,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                            ),
+                          ),
                         ),
-                      ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: ElevatedButton.icon(
+                            onPressed: () => _sharePremiumPlan(itinerary),
+                            icon: const Icon(Icons.share, size: 18),
+                            label: const Text('Share'),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.orange,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: ElevatedButton.icon(
-                        onPressed: () => _addPremiumToCalendar(itinerary),
-                        icon: const Icon(Icons.calendar_today, size: 18),
-                        label: const Text('Add to Calendar'),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.blue,
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(vertical: 12),
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: ElevatedButton.icon(
+                            onPressed: () => _exportPremiumPlan(itinerary),
+                            icon: const Icon(Icons.download, size: 18),
+                            label: const Text('Export PDF'),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.purple,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                            ),
+                          ),
                         ),
-                      ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: ElevatedButton.icon(
+                            onPressed: () => _addPremiumToCalendar(itinerary),
+                            icon: const Icon(Icons.calendar_today, size: 18),
+                            label: const Text('Add to Calendar'),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.blue,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),
@@ -1162,6 +1205,64 @@ class _PlannerScreenState extends State<PlannerScreen> {
       const SnackBar(
         content: Text('📄 Premium PDF with maps and booking links exported!'),
         backgroundColor: Colors.green,
+      ),
+    );
+  }
+  
+  void _savePremiumPlan(dynamic itinerary) async {
+    try {
+      final savedPlans = await StorageService.getSavedOneDayItineraries();
+      
+      final planToSave = {
+        'id': DateTime.now().millisecondsSinceEpoch.toString(),
+        'title': itinerary['title'] ?? 'Premium Day Plan',
+        'destination': _destinationController.text,
+        'activities': itinerary['activities'],
+        'totalCost': itinerary['totalCost'],
+        'createdAt': DateTime.now().toIso8601String(),
+        'isPremium': true,
+        'type': 'premium_concierge',
+      };
+      
+      savedPlans.add(planToSave);
+      await StorageService.saveSavedOneDayItineraries(savedPlans);
+      
+      // Also save directly to MongoDB
+      await StorageService.savePremiumPlanToMongo(planToSave);
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('💾 Premium day plan saved successfully!'),
+          backgroundColor: Colors.green,
+        ),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('❌ Failed to save plan: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+  
+  void _sharePremiumPlan(dynamic itinerary) {
+    final activities = itinerary['activities'] as List;
+    final shareText = '''🌟 My Premium Day Plan for ${_destinationController.text}
+
+${activities.map((activity) => 
+      '${activity['startTime']}-${activity['endTime']} | ${activity['name']}\n'
+      '💰 ${activity['localCost']} (${activity['usdCost']})\n'
+      '🚌 ${activity['transportFromPrevious'] ?? 'Walking distance'}\n'
+    ).join('\n')}
+
+💡 Total Budget: ${itinerary['totalCost']}\n\nGenerated by TravelBuddy Premium 🚀''';
+    
+    // In a real app, you'd use share_plus package
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('📤 Plan copied to share! (Share functionality would open here)'),
+        backgroundColor: Colors.orange,
       ),
     );
   }

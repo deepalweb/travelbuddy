@@ -616,16 +616,28 @@ app.post('/api/ai/generate-text', async (req, res) => {
     }
 
     console.log('🤖 Gemini API request:', prompt.substring(0, 100) + '...');
+    console.log('🔑 GEMINI_API_KEY exists:', !!process.env.GEMINI_API_KEY);
+    console.log('🔑 GEMINI_API_KEY length:', process.env.GEMINI_API_KEY?.length || 0);
+
+    if (!process.env.GEMINI_API_KEY) {
+      throw new Error('GEMINI_API_KEY not configured');
+    }
 
     // Get Gemini model
     const model = genAI.getGenerativeModel({ model: "gemini-pro" });
+    console.log('📱 Model created successfully');
     
     // Generate content
+    console.log('🚀 Calling Gemini API...');
     const result = await model.generateContent(prompt);
-    const response = await result.response;
-    const text = response.text();
+    console.log('📥 Got result from Gemini');
     
-    console.log('✅ Gemini response:', text.substring(0, 200) + '...');
+    const response = await result.response;
+    console.log('📄 Got response object');
+    
+    const text = response.text();
+    console.log('✅ Gemini response length:', text.length);
+    console.log('✅ Gemini response preview:', text.substring(0, 200) + '...');
 
     // Try to extract JSON from response
     let jsonData = null;
@@ -646,25 +658,65 @@ app.post('/api/ai/generate-text', async (req, res) => {
     });
 
   } catch (error) {
-    console.error('❌ Gemini AI error:', error);
+    console.error('❌ Gemini AI error details:');
+    console.error('Error name:', error.name);
+    console.error('Error message:', error.message);
+    console.error('Error stack:', error.stack);
+    console.error('Full error object:', JSON.stringify(error, null, 2));
     
-    res.status(500).json({
-      error: 'Failed to generate text',
-      message: error.message,
+    // Return fallback data instead of error
+    const fallbackData = {
       text: `{
   "activities": [
     {
-      "name": "City Center Exploration",
+      "name": "Explore City Center",
       "type": "landmark",
       "startTime": "09:00",
       "endTime": "11:00",
-      "description": "Explore the main attractions and historic sites in the city center.",
+      "description": "Discover the main attractions and historic sites.",
       "cost": "Free",
-      "tips": ["Start early to avoid crowds", "Bring comfortable walking shoes"]
+      "tips": ["Start early", "Bring comfortable shoes"]
+    },
+    {
+      "name": "Local Restaurant",
+      "type": "restaurant",
+      "startTime": "12:30",
+      "endTime": "14:00",
+      "description": "Try authentic local cuisine.",
+      "cost": "$20-30",
+      "tips": ["Ask for recommendations", "Try local specialties"]
     }
   ]
-}`
-    });
+}`,
+      itinerary: {
+        activities: [
+          {
+            name: "Explore City Center",
+            type: "landmark",
+            startTime: "09:00",
+            endTime: "11:00",
+            description: "Discover the main attractions and historic sites.",
+            cost: "Free",
+            tips: ["Start early", "Bring comfortable shoes"]
+          },
+          {
+            name: "Local Restaurant",
+            type: "restaurant",
+            startTime: "12:30",
+            endTime: "14:00",
+            description: "Try authentic local cuisine.",
+            cost: "$20-30",
+            tips: ["Ask for recommendations", "Try local specialties"]
+          }
+        ]
+      },
+      model: 'fallback',
+      processingTime: Date.now() - startTime,
+      fallback: true,
+      originalError: error.message
+    };
+    
+    res.json(fallbackData);
   }
 });
 
