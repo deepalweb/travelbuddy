@@ -12,6 +12,7 @@ import fs from 'fs';
 import http from 'http';
 import { Server as SocketIOServer } from 'socket.io';
 import admin from 'firebase-admin';
+import { GoogleGenerativeAI } from '@google/generative-ai';
 
 // In-memory cache for Places results (TTL + SWR)
 const PLACES_CACHE_TTL_MS = parseInt(process.env.BACKEND_PLACES_CACHE_TTL || '3600000', 10); // default 60m
@@ -235,6 +236,179 @@ function buildCostSnapshot(windowMinutes = 60) {
 
   const projectedDailyUSD = apis.reduce((sum, api) => sum + perApiWindow[api].ratePerMin * 1440 * costConfig.rates[api], 0);
   const projectedMonthlyUSD = projectedDailyUSD * 30;
+
+  return {
+    totals: perApiSnapshot,
+    window: { minutes: windowMinutes, data: perApiWindow },
+    projections: { dailyUSD: +projectedDailyUSD.toFixed(4), monthlyUSD: +projectedMonthlyUSD.toFixed(4) },
+    config: costConfig,
+    uptime: { startTs: usageState.startTs, uptimeMs: now - usageState.startTs }
+  };
+}
+
+// Initialize Gemini AI
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+
+// Enhanced dishes endpoint with full specification
+app.post('/api/dishes/generate', async (req, res) => {
+  const startTime = Date.now();
+  
+  try {
+    const { 
+      latitude, 
+      longitude, 
+      destination,
+      filters = {},
+      language = 'en'
+    } = req.body;
+
+    // Input validation
+    if (!latitude && !longitude && !destination) {
+      return res.status(400).json({ error: 'Location required (coordinates or destination)' });
+    }
+
+    let locationName, lat, lng;
+
+    // Handle destination search vs GPS coordinates
+    if (destination) {
+      const geocodeResponse = await fetch(
+        `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(destination)}&key=${process.env.GOOGLE_PLACES_API_KEY}`
+      );
+      const geocodeData = await geocodeResponse.json();
+      if (geocodeData.results?.[0]) {
+        const result = geocodeData.results[0];
+        locationName = result.formatted_address;
+        lat = result.geometry.location.lat;
+        lng = result.geometry.location.lng;
+      } else {
+        return res.status(400).json({ error: 'Destination not found' });
+      }
+    } else {
+      lat = latitude;
+      lng = longitude;
+      const reverseGeocodeResponse = await fetch(
+        `https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lng}&key=${process.env.GOOGLE_PLACES_API_KEY}`
+      );
+      const reverseData = await reverseGeocodeResponse.json();
+      locationName = reverseData.results?.[0]?.formatted_address || 'Unknown Location';
+    }
+
+    // Get restaurants from Google Places API
+    const placesResponse = await fetch(
+      `https://maps.googleapis.com/maps/api/place/nearbysearch/json?location=${lat},${lng}&radius=5000&type=restaurant&key=${process.env.GOOGLE_PLACES_API_KEY}`
+    );
+    const placesData = await placesResponse.json();
+    const restaurants = placesData.results?.slice(0, 10) || [];
+
+    // Build enhanced Gemini prompt
+    const filterText = buildDishFilters(filters);
+    const restaurantContext = restaurants.map(r => `${r.name} (${r.rating}/5, ${r.vicinity})`).join(', ');
+    
+    const prompt = `Generate 6 popular local dishes for ${locationName}.
+    ${filterText}
+    Available restaurants: ${restaurantContext}
+    
+    Return ONLY a JSON object:
+    {
+      "location": "${locationName}",
+      "dishes": [
+        {
+          "name": "dish name",
+          "description": "brief description",
+          "average_price": "local currency",
+          "category": "Breakfast|Lunch|Dinner|Street Food",
+          "recommended_places": [
+            {
+              "name": "restaurant name",
+              "type": "Restaurant",
+              "address": "area",
+              "rating": 4.5
+            }
+          ],
+          "user_photos": [],
+          "dietary_tags": ["vegetarian"],
+          "cultural_significance": "cultural note"
+        }
+      ],
+      "metadata": {
+        "source": ["Google Places", "Gemini AI"],
+        "filters_applied": ${JSON.stringify(Object.keys(filters))}
+      }
+    }`;
+
+    // Generate with Gemini AI
+    const model = genAI.getGenerativeModel({ model: "gemini-pro" });
+    const result = await model.generateContent(prompt);
+    const responseText = result.response.text();
+    
+    // Parse response
+    let dishesData;
+    try {
+      dishesData = JSON.parse(responseText);
+    } catch (parseError) {
+      const jsonMatch = responseText.match(/\{[\s\S]*\}/);
+      dishesData = jsonMatch ? JSON.parse(jsonMatch[0]) : { dishes: [] };
+    }
+
+    // Enhance with real restaurant data
+    dishesData = await enhanceDishesWithRealData(dishesData, restaurants);
+
+    // Record API usage
+    recordUsage({
+      api: 'gemini',
+      action: 'generate_enhanced_dishes',
+      status: 'success',
+      durationMs: Date.now() - startTime,
+      meta: { location: locationName, dishCount: dishesData.dishes?.length || 0 }
+    });
+
+    res.json(dishesData);
+
+  } catch (error) {
+    console.error('❌ Error generating dishes:', error);
+    
+    recordUsage({
+      api: 'gemini',
+      action: 'generate_enhanced_dishes',
+      status: 'error',
+      durationMs: Date.now() - startTime,
+      meta: { error: error.message }
+    });
+
+    res.status(500).json({
+      error: 'Failed to generate dishes',
+      message: error.message
+    });
+  }
+});
+
+// Helper functions
+function buildDishFilters(filters) {
+  const parts = [];
+  if (filters.dietary) parts.push(`Dietary: ${filters.dietary.join(', ')}`);
+  if (filters.budget) parts.push(`Budget: ${filters.budget}`);
+  return parts.length > 0 ? `Filters: ${parts.join('. ')}.` : '';
+}
+
+async function enhanceDishesWithRealData(dishesData, restaurants) {
+  if (dishesData.dishes) {
+    for (const dish of dishesData.dishes) {
+      if (dish.recommended_places) {
+        for (const place of dish.recommended_places) {
+          const matched = restaurants.find(r => 
+            r.name.toLowerCase().includes(place.name.toLowerCase())
+          );
+          if (matched) {
+            place.place_id = matched.place_id;
+            place.rating = matched.rating || place.rating;
+            place.address = matched.vicinity || place.address;
+          }
+        }
+      }
+    }
+  }
+  return dishesData;
+}USD * 30;
   const totalCostUSD = apis.reduce((sum, api) => sum + perApiSnapshot[api].costUSD, 0);
 
   return {
