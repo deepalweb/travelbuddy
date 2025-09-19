@@ -460,13 +460,31 @@ class _PlacesScreenState extends State<PlacesScreen> {
   }
 
   String _getTimeBasedSuggestion() {
-    final hour = DateTime.now().hour;
+    final now = DateTime.now();
+    final hour = now.hour;
+    final isWeekend = now.weekday >= 6;
+    final appProvider = context.read<AppProvider>();
+    final weather = appProvider.weatherInfo?.condition?.toLowerCase() ?? 'clear';
+    final isRainy = weather.contains('rain') || weather.contains('storm');
+    
     if (hour >= 18) {
-      return 'Evening: Try restaurants & nightlife';
+      if (isWeekend) {
+        return isRainy ? 'Weekend evening: Indoor dining & entertainment' : 'Weekend evening: Nightlife & outdoor dining';
+      } else {
+        return isRainy ? 'Evening: Cozy indoor restaurants' : 'Evening: Try restaurants & nightlife';
+      }
     } else if (hour >= 12) {
-      return 'Afternoon: Perfect for attractions';
+      if (isRainy) {
+        return isWeekend ? 'Weekend afternoon: Museums & shopping' : 'Afternoon: Indoor attractions & cafes';
+      } else {
+        return isWeekend ? 'Weekend afternoon: Outdoor attractions' : 'Afternoon: Perfect for sightseeing';
+      }
     } else {
-      return 'Morning: Great for museums & cafes';
+      if (isWeekend) {
+        return isRainy ? 'Weekend morning: Museums & indoor culture' : 'Weekend morning: Parks & outdoor attractions';
+      } else {
+        return isRainy ? 'Morning: Cozy cafes & museums' : 'Morning: Great for cafes & culture';
+      }
     }
   }
   

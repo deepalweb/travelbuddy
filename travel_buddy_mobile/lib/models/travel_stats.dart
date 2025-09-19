@@ -1,43 +1,46 @@
 class TravelStats {
-  final int countriesVisited;
-  final int citiesVisited;
-  final int placesVisited;
-  final int totalReviews;
-  final int totalPhotos;
-  final int helpfulVotes;
-  final int postsShared;
+  final int placesVisitedThisMonth;
+  final double totalDistanceKm;
+  final String favoriteCategory;
+  final int currentStreak;
+  final int totalPlacesVisited;
 
   TravelStats({
-    this.countriesVisited = 0,
-    this.citiesVisited = 0,
-    this.placesVisited = 0,
-    this.totalReviews = 0,
-    this.totalPhotos = 0,
-    this.helpfulVotes = 0,
-    this.postsShared = 0,
+    required this.placesVisitedThisMonth,
+    required this.totalDistanceKm,
+    required this.favoriteCategory,
+    required this.currentStreak,
+    required this.totalPlacesVisited,
   });
 
   factory TravelStats.fromJson(Map<String, dynamic> json) {
     return TravelStats(
-      countriesVisited: json['countriesVisited'] ?? 0,
-      citiesVisited: json['citiesVisited'] ?? 0,
-      placesVisited: json['placesVisited'] ?? 0,
-      totalReviews: json['totalReviews'] ?? 0,
-      totalPhotos: json['totalPhotos'] ?? 0,
-      helpfulVotes: json['helpfulVotes'] ?? 0,
-      postsShared: json['postsShared'] ?? 0,
+      placesVisitedThisMonth: json['placesVisitedThisMonth'] ?? 0,
+      totalDistanceKm: (json['totalDistanceKm'] ?? 0.0).toDouble(),
+      favoriteCategory: json['favoriteCategory'] ?? 'Attractions',
+      currentStreak: json['currentStreak'] ?? 0,
+      totalPlacesVisited: json['totalPlacesVisited'] ?? 0,
     );
   }
 
   Map<String, dynamic> toJson() {
     return {
-      'countriesVisited': countriesVisited,
-      'citiesVisited': citiesVisited,
-      'placesVisited': placesVisited,
-      'totalReviews': totalReviews,
-      'totalPhotos': totalPhotos,
-      'helpfulVotes': helpfulVotes,
-      'postsShared': postsShared,
+      'placesVisitedThisMonth': placesVisitedThisMonth,
+      'totalDistanceKm': totalDistanceKm,
+      'favoriteCategory': favoriteCategory,
+      'currentStreak': currentStreak,
+      'totalPlacesVisited': totalPlacesVisited,
     };
+  }
+
+  // Generate mock stats for demo
+  factory TravelStats.mock() {
+    return TravelStats(
+      placesVisitedThisMonth: 12,
+      totalDistanceKm: 245.8,
+      favoriteCategory: 'Restaurants',
+      currentStreak: 7,
+      totalPlacesVisited: 89,
+    );
   }
 }

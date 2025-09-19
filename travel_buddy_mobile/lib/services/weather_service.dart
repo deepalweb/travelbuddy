@@ -1,4 +1,7 @@
+import 'dart:convert';
+import 'package:http/http.dart' as http;
 import '../models/weather.dart' as models;
+import '../constants/app_constants.dart';
 
 class WeatherInfo {
   final double temperature;
@@ -181,15 +184,135 @@ class WeatherService {
     required double latitude,
     required double longitude,
   }) async {
-    await Future.delayed(const Duration(milliseconds: 300)); // Simulate API call
-
-    // Mock weather data - in real app, use weather API
+    try {
+      // Try Google Weather API via backend first
+      final realWeather = await _fetchGoogleWeather(latitude, longitude);
+      if (realWeather != null) {
+        print('✅ Using real Google Weather data');
+        return realWeather;
+      }
+    } catch (e) {
+      print('⚠️ Google Weather API failed: $e');
+    }
+    
+    // Fallback to mock data
+    print('🎭 Using mock weather data');
+    return _getMockWeatherInfo();
+  }
+  
+  Future<WeatherInfo?> _fetchGoogleWeather(double latitude, double longitude) async {
+    try {
+      final url = '${AppConstants.baseUrl}/api/weather/current?lat=$latitude&lng=$longitude';
+      print('🌤️ Fetching weather: $url');
+      
+      final response = await http.get(
+        Uri.parse(url),
+        headers: {'Content-Type': 'application/json'},
+      ).timeout(const Duration(seconds: 10));
+      
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        return _parseGoogleWeatherResponse(data);
+      } else {
+        print('❌ Weather API error: ${response.statusCode}');
+      }
+    } catch (e) {
+      print('❌ Weather fetch error: $e');
+    }
+    return null;
+  }
+  
+  WeatherInfo _parseGoogleWeatherResponse(Map<String, dynamic> data) {
+    final current = data['current'] ?? {};
+    final temp = (current['temperature'] ?? 22.0).toDouble();
+    final condition = current['condition'] ?? 'clear';
+    final humidity = (current['humidity'] ?? 65).toInt();
+    final windSpeed = (current['windSpeed'] ?? 3.5).toDouble();
+    final description = current['description'] ?? 'Current weather conditions';
+    
+    return WeatherInfo(
+      temperature: temp,
+      feelsLike: (current['feelsLike'] ?? temp + 1.5).toDouble(),
+      humidity: humidity,
+      windSpeed: windSpeed,
+      condition: _normalizeCondition(condition),
+      emoji: _getWeatherEmoji(condition),
+      description: description,
+      iconUrl: current['iconUrl'] ?? '',
+      suggestions: _getWeatherBasedSuggestions(condition),
+      timestamp: DateTime.now(),
+      precipitation: (current['precipitation'] ?? 0.0).toDouble(),
+      forecast: _parseForecast(data['forecast'] ?? {}),
+    );
+  }
+  
+  String _normalizeCondition(String condition) {
+    final normalized = condition.toLowerCase();
+    if (normalized.contains('rain') || normalized.contains('drizzle')) return 'rainy';
+    if (normalized.contains('snow')) return 'snow';
+    if (normalized.contains('cloud')) return 'cloudy';
+    if (normalized.contains('clear') || normalized.contains('sunny')) return 'sunny';
+    if (normalized.contains('storm') || normalized.contains('thunder')) return 'stormy';
+    return 'clear';
+  }
+  
+  String _getWeatherEmoji(String condition) {
+    final normalized = _normalizeCondition(condition);
+    switch (normalized) {
+      case 'sunny': return '☀️';
+      case 'cloudy': return '☁️';
+      case 'rainy': return '🌧️';
+      case 'snow': return '❄️';
+      case 'stormy': return '⛈️';
+      default: return '🌤️';
+    }
+  }
+  
+  WeatherForecast _parseForecast(Map<String, dynamic> forecastData) {
+    try {
+      final dailyData = forecastData['daily'] as List? ?? [];
+      final hourlyData = forecastData['hourly'] as List? ?? [];
+      
+      return WeatherForecast(
+        daily: dailyData.map((d) => _parseDailyForecast(d)).toList(),
+        hourly: hourlyData.map((h) => _parseHourlyForecast(h)).toList(),
+      );
+    } catch (e) {
+      print('⚠️ Forecast parsing error: $e');
+      return WeatherForecast(daily: _getMockDailyForecast(), hourly: _getMockHourlyForecast());
+    }
+  }
+  
+  DailyForecast _parseDailyForecast(Map<String, dynamic> data) {
+    return DailyForecast(
+      date: DateTime.tryParse(data['date'] ?? '') ?? DateTime.now(),
+      tempMax: (data['tempMax'] ?? 25.0).toDouble(),
+      tempMin: (data['tempMin'] ?? 15.0).toDouble(),
+      condition: _normalizeCondition(data['condition'] ?? 'clear'),
+      iconUrl: data['iconUrl'] ?? '',
+      precipitation: (data['precipitation'] ?? 0.0).toDouble(),
+      emoji: _getWeatherEmoji(data['condition'] ?? 'clear'),
+    );
+  }
+  
+  HourlyForecast _parseHourlyForecast(Map<String, dynamic> data) {
+    return HourlyForecast(
+      time: DateTime.tryParse(data['time'] ?? '') ?? DateTime.now(),
+      temperature: (data['temperature'] ?? 22.0).toDouble(),
+      condition: _normalizeCondition(data['condition'] ?? 'clear'),
+      iconUrl: data['iconUrl'] ?? '',
+      emoji: _getWeatherEmoji(data['condition'] ?? 'clear'),
+      precipitation: (data['precipitation'] ?? 0.0).toDouble(),
+    );
+  }
+  
+  WeatherInfo _getMockWeatherInfo() {
     return WeatherInfo(
       temperature: 22.0,
       feelsLike: 23.5,
       humidity: 65,
       windSpeed: 3.5,
-      condition: 'Sunny',
+      condition: 'sunny',
       emoji: '☀️',
       description: 'Perfect weather for outdoor activities',
       iconUrl: 'https://example.com/weather/sunny.png',
@@ -207,8 +330,22 @@ class WeatherService {
     required double latitude,
     required double longitude,
   }) async {
-    await Future.delayed(const Duration(milliseconds: 300)); // Simulate API call
-
+    try {
+      final url = '${AppConstants.baseUrl}/api/weather/forecast?lat=$latitude&lng=$longitude';
+      final response = await http.get(
+        Uri.parse(url),
+        headers: {'Content-Type': 'application/json'},
+      ).timeout(const Duration(seconds: 10));
+      
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        return _parseForecast(data);
+      }
+    } catch (e) {
+      print('⚠️ Detailed forecast error: $e');
+    }
+    
+    // Fallback to mock forecast
     return WeatherForecast(
       daily: _getMockDailyForecast(),
       hourly: _getMockHourlyForecast(),
@@ -216,7 +353,8 @@ class WeatherService {
   }
 
   List<String> _getWeatherBasedSuggestions(String condition) {
-    switch (condition.toLowerCase()) {
+    final normalized = _normalizeCondition(condition);
+    switch (normalized) {
       case 'sunny':
         return [
           'Visit outdoor markets',
@@ -224,6 +362,8 @@ class WeatherService {
           'Enjoy rooftop dining',
           'Explore city parks',
           'Visit outdoor attractions',
+          'Try street food',
+          'Visit beaches or waterfronts',
         ];
       case 'rainy':
         return [
@@ -232,6 +372,8 @@ class WeatherService {
           'Try shopping malls',
           'Check out indoor attractions',
           'Visit art galleries',
+          'Go to libraries or bookstores',
+          'Try indoor entertainment',
         ];
       case 'cloudy':
         return [
@@ -240,6 +382,7 @@ class WeatherService {
           'Visit galleries',
           'Explore local shops',
           'Try indoor/outdoor cafes',
+          'Visit historic sites',
         ];
       case 'snow':
         return [
@@ -248,13 +391,23 @@ class WeatherService {
           'Enjoy indoor activities',
           'Visit cozy cafes',
           'Take winter photos',
+          'Try hot springs or spas',
+        ];
+      case 'stormy':
+        return [
+          'Stay indoors - visit museums',
+          'Try indoor shopping',
+          'Visit cafes and restaurants',
+          'Check out indoor entertainment',
+          'Visit libraries or cultural centers',
         ];
       default:
         return [
-          'Check local indoor attractions',
+          'Check local attractions',
           'Visit museums and galleries',
           'Explore local shops',
           'Try local restaurants',
+          'Take a city tour',
         ];
     }
   }

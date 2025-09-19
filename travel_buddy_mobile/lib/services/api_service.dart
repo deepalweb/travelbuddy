@@ -10,7 +10,7 @@ import '../models/trip.dart';
 import '../models/community_post.dart';
 import '../models/user_profile.dart';
 import '../models/travel_enums.dart';
-import '../models/emergency_service.dart';
+
 
 import 'error_handler_service.dart';
 
@@ -462,7 +462,6 @@ class ApiService {
   Future<bool> toggleLike(String postId, {String? userId, String? username}) async {
     try {
       final response = await _dio.post('/api/posts/$postId/like', data: {
-        'userId': userId ?? 'mobile_user',
         'username': username ?? 'Mobile User',
       });
       return response.statusCode == 200 || response.statusCode == 201;
@@ -484,14 +483,14 @@ class ApiService {
     String? username,
   }) async {
     try {
-      final response = await _dio.post('/api/posts', data: {
-        'userId': userId ?? 'mobile_user_${DateTime.now().millisecondsSinceEpoch}',
+      final requestData = {
+        'userId': userId ?? '507f1f77bcf86cd799439011',
         'content': {
           'text': content,
           'images': images,
         },
         'author': {
-          'name': username ?? 'Anonymous',
+          'name': username ?? 'Mobile User',
           'avatar': 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150',
           'location': location,
           'verified': false,
@@ -502,16 +501,32 @@ class ApiService {
         'allowComments': allowComments,
         'visibility': visibility,
         'createdAt': DateTime.now().toIso8601String(),
-      });
+      };
+      
+      print('📤 Sending post data: $requestData');
+      final response = await _dio.post('/api/posts', data: requestData);
       
       if (response.statusCode == 200 || response.statusCode == 201) {
+        print('✅ Post creation API success: ${response.statusCode}');
         final responseData = response.data;
+        print('📝 Response data: $responseData');
         final postData = responseData is Map ? responseData['post'] ?? responseData : responseData;
-        return _convertBackendPostToCommunityPost(postData);
+        print('📝 Post data: $postData');
+        final convertedPost = _convertBackendPostToCommunityPost(postData);
+        print('✅ Converted post: ${convertedPost.id} - ${convertedPost.content}');
+        return convertedPost;
+      } else {
+        print('❌ Post creation failed with status: ${response.statusCode}');
+        print('❌ Response data: ${response.data}');
       }
       return null;
     } catch (e) {
-      print('Error creating post: $e');
+      print('❌ Error creating post: $e');
+      if (e is DioException) {
+        print('❌ Response status: ${e.response?.statusCode}');
+        print('❌ Response data: ${e.response?.data}');
+        print('❌ Request data: ${e.requestOptions.data}');
+      }
       return null;
     }
   }
@@ -638,7 +653,6 @@ class ApiService {
     try {
       final response = await _dio.post('/api/posts/$postId/comments', data: {
         'content': content,
-        'userId': 'mobile_user',
         'username': 'Mobile User',
         'userAvatar': 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150',
         'createdAt': DateTime.now().toIso8601String(),
@@ -649,7 +663,7 @@ class ApiService {
         return Comment(
           id: json['_id'] ?? json['id'] ?? DateTime.now().millisecondsSinceEpoch.toString(),
           postId: postId,
-          userId: 'mobile_user',
+          userId: json['userId'] ?? 'mobile_user',
           userName: 'Mobile User',
           userAvatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150',
           content: content,
@@ -700,7 +714,7 @@ class ApiService {
   Future<bool> toggleBookmark(String postId) async {
     try {
       final response = await _dio.post('/api/posts/$postId/bookmark', data: {
-        'userId': 'mobile_user',
+        'username': 'Mobile User',
       });
       return response.statusCode == 200 || response.statusCode == 201;
     } catch (e) {
@@ -806,52 +820,7 @@ class ApiService {
     }
   }
 
-  // Emergency Services API
-  Future<List<EmergencyService>> getNearbyPoliceStations({
-    required double latitude,
-    required double longitude,
-    int radius = 5000,
-  }) async {
-    try {
-      final response = await _dio.get('/api/emergency/police', queryParameters: {
-        'lat': latitude,
-        'lng': longitude,
-        'radius': radius,
-      });
 
-      if (response.statusCode == 200 && response.data != null) {
-        final List<dynamic> data = response.data is List ? response.data : [];
-        return data.map((json) => EmergencyService.fromJson(json)).toList();
-      }
-      return [];
-    } catch (e) {
-      print('Error fetching police stations: $e');
-      return [];
-    }
-  }
-
-  Future<List<EmergencyService>> getNearbyHospitals({
-    required double latitude,
-    required double longitude,
-    int radius = 5000,
-  }) async {
-    try {
-      final response = await _dio.get('/api/emergency/hospitals', queryParameters: {
-        'lat': latitude,
-        'lng': longitude,
-        'radius': radius,
-      });
-
-      if (response.statusCode == 200 && response.data != null) {
-        final List<dynamic> data = response.data is List ? response.data : [];
-        return data.map((json) => EmergencyService.fromJson(json)).toList();
-      }
-      return [];
-    } catch (e) {
-      print('Error fetching hospitals: $e');
-      return [];
-    }
-  }
 
 
 

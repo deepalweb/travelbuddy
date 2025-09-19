@@ -4,6 +4,7 @@ import '../models/community_post.dart';
 import '../models/travel_enums.dart';
 import '../providers/community_provider.dart';
 import '../widgets/post_detail_view.dart';
+import '../screens/user_profile_screen.dart';
 import 'package:share_plus/share_plus.dart';
 
 class CommunityPostCard extends StatefulWidget {
@@ -408,9 +409,14 @@ class _CommunityPostCardState extends State<CommunityPostCard> with TickerProvid
   }
 
   void _showUserProfile(BuildContext context) {
-    // TODO: Navigate to user profile
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('View ${widget.post.userName}\'s profile')),
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => UserProfileScreen(
+          userId: widget.post.userId,
+          userName: widget.post.userName,
+          userAvatar: widget.post.userAvatar,
+        ),
+      ),
     );
   }
 

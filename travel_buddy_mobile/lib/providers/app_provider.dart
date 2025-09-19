@@ -4,6 +4,8 @@ import '../models/user.dart';
 import '../models/place.dart';
 import '../models/trip.dart';
 import '../models/weather.dart';
+import '../models/weather_forecast.dart';
+import '../models/travel_stats.dart';
 import '../models/local_discovery.dart';
 import '../models/personalized_suggestion.dart';
 import '../services/auth_service.dart';
@@ -21,8 +23,8 @@ import '../services/image_service.dart';
 import '../services/settings_service.dart';
 import '../services/notification_service.dart';
 import '../services/error_handler_service.dart';
-import '../services/safety_service.dart';
-import '../models/emergency_service.dart';
+
+
 
 
 class AppProvider with ChangeNotifier, WidgetsBindingObserver {
@@ -37,7 +39,7 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
   final PermissionService _permissionService = PermissionService();
   final weather_service.WeatherService _weatherService = weather_service.WeatherService();
   final discoveries_service.LocalDiscoveriesService _localDiscoveriesService = discoveries_service.LocalDiscoveriesService();
-  final SafetyService _safetyService = SafetyService();
+
   
   // App lifecycle state
   bool _isAppActive = true;
@@ -93,13 +95,12 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
   List<PersonalizedSuggestion> _suggestions = [];
   LocalDiscovery? _localDiscoveries;
   WeatherInfo? _weatherInfo;
+  WeatherForecast? _weatherForecast;
+  List<String> _dailySuggestions = [];
+  TravelStats? _travelStats;
   bool _isHomeLoading = false;
 
-  // Safety State
-  List<EmergencyService> _nearbyPoliceStations = [];
-  List<EmergencyService> _nearbyHospitals = [];
-  bool _isSafetyLoading = false;
-  String? _safetyError;
+
 
 
 
@@ -133,12 +134,12 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
   List<PersonalizedSuggestion> get suggestions => _suggestions;
   LocalDiscovery? get localDiscoveries => _localDiscoveries;
   WeatherInfo? get weatherInfo => _weatherInfo;
+  WeatherForecast? get weatherForecast => _weatherForecast;
+  List<String> get dailySuggestions => _dailySuggestions;
+  TravelStats? get travelStats => _travelStats;
   bool get isHomeLoading => _isHomeLoading;
   
-  List<EmergencyService> get nearbyPoliceStations => _nearbyPoliceStations;
-  List<EmergencyService> get nearbyHospitals => _nearbyHospitals;
-  bool get isSafetyLoading => _isSafetyLoading;
-  String? get safetyError => _safetyError;
+
   
 
   
@@ -148,7 +149,7 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
   bool get dealAlertsEnabled => _dealAlertsEnabled;
   
   AiService get aiService => _aiService;
-  SafetyService get safetyService => _safetyService;
+
   bool get isAppActive => _isAppActive;
   
   @override
@@ -282,7 +283,9 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
         _loadPersonalizedSuggestions(),
         _loadLocalDiscoveries(),
         _loadWeatherInfo(),
-        loadEmergencyServices(),
+        _loadWeatherForecast(),
+        _loadDailySuggestions(),
+        _loadTravelStats(),
       ]);
     } catch (e) {
       print('Error loading home data: $e');
@@ -308,6 +311,75 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
         longitude: _currentLocation!.longitude,
       );
       _weatherInfo = weather.toModelWeatherInfo();
+    }
+  }
+
+  Future<void> _loadWeatherForecast() async {
+    if (_currentLocation != null) {
+      try {
+        // Mock forecast for now - replace with real API
+        final hour = DateTime.now().hour;
+        final hourlyForecasts = List.generate(3, (index) {
+          final time = DateTime.now().add(Duration(hours: index * 3));
+          return HourlyForecast(
+            time: '${time.hour}:00',
+            temperature: 25.0 + (index * 2),
+            condition: index == 0 ? 'sunny' : index == 1 ? 'cloudy' : 'partly_cloudy',
+          );
+        });
+        
+        _weatherForecast = WeatherForecast(
+          condition: _weatherInfo?.condition ?? 'sunny',
+          temperature: _weatherInfo?.temperature ?? 25.0,
+          humidity: 65.0,
+          windSpeed: 8.5,
+          hourlyForecast: hourlyForecasts,
+        );
+      } catch (e) {
+        print('Error loading weather forecast: $e');
+      }
+    }
+  }
+
+  Future<void> _loadDailySuggestions() async {
+    try {
+      final hour = DateTime.now().hour;
+      final weather = _weatherInfo?.condition ?? 'sunny';
+      
+      List<String> suggestions = [];
+      
+      if (hour < 12) {
+        suggestions.add('Start your day with a coffee at a local café');
+        if (weather == 'sunny') {
+          suggestions.add('Perfect weather for a morning walk in the park');
+        } else {
+          suggestions.add('Visit a museum or indoor attraction');
+        }
+      } else if (hour < 18) {
+        suggestions.add('Explore local markets and shops');
+        if (weather == 'sunny') {
+          suggestions.add('Great time for outdoor sightseeing');
+        } else {
+          suggestions.add('Check out art galleries or cultural sites');
+        }
+      } else {
+        suggestions.add('Discover local dining experiences');
+        suggestions.add('Enjoy evening entertainment or nightlife');
+      }
+      
+      _dailySuggestions = suggestions.take(2).toList();
+    } catch (e) {
+      print('Error loading daily suggestions: $e');
+      _dailySuggestions = ['Explore nearby attractions', 'Try local cuisine'];
+    }
+  }
+
+  Future<void> _loadTravelStats() async {
+    try {
+      // For now, use mock data - replace with real calculation
+      _travelStats = TravelStats.mock();
+    } catch (e) {
+      print('Error loading travel stats: $e');
     }
   }
   static const int _placesPerPage = 12;
@@ -645,102 +717,120 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
         print('📂 Category results for: $_selectedCategory');
       } else {
         // Load diverse, high-quality places with smart distribution
-        final hour = DateTime.now().hour;
+        final now = DateTime.now();
+        final hour = now.hour;
         final isEvening = hour >= 18;
         final isMorning = hour < 12;
+        final isWeekend = now.weekday >= 6; // Saturday = 6, Sunday = 7
+        final dayContext = _getDayContext(isWeekend, hour);
         
         List<Place> allPlaces = [];
         
         if (isEvening) {
-          // Evening: dining + nightlife + attractions
+          // Evening: dining + nightlife + attractions (adjusted for day of week)
+          final restaurantCount = isWeekend ? 7 : 6; // More restaurants on weekends
+          final nightlifeCount = isWeekend ? 4 : 2; // More nightlife on weekends
+          final attractionCount = isWeekend ? 2 : 4; // Fewer attractions on weekend evenings
+          
           final restaurants = await placesService.fetchPlacesPipeline(
             latitude: _currentLocation!.latitude,
             longitude: _currentLocation!.longitude,
             query: _expandKeywords(['restaurants']),
-            topN: 6,
+            topN: restaurantCount,
           );
           
           final bars = await placesService.fetchPlacesPipeline(
             latitude: _currentLocation!.latitude,
             longitude: _currentLocation!.longitude,
             query: _expandKeywords(['bars', 'nightlife']),
-            topN: 3,
+            topN: nightlifeCount,
           );
           
           final attractions = await placesService.fetchPlacesPipeline(
             latitude: _currentLocation!.latitude,
             longitude: _currentLocation!.longitude,
             query: _expandKeywords(['attractions']),
-            topN: 3,
+            topN: attractionCount,
           );
           
           allPlaces = [...restaurants, ...bars, ...attractions];
         } else if (isMorning) {
-          // Morning: cafes + attractions + culture + nature
+          // Morning: cafes + attractions + culture + nature (adjusted for day of week)
+          final cafeCount = isWeekend ? 3 : 5; // Fewer cafes on weekends (people sleep in)
+          final attractionCount = isWeekend ? 5 : 3; // More attractions on weekends
+          final cultureCount = isWeekend ? 3 : 2; // More culture on weekends
+          final natureCount = isWeekend ? 1 : 2; // Slightly less nature focus on weekends
+          
           final cafes = await placesService.fetchPlacesPipeline(
             latitude: _currentLocation!.latitude,
             longitude: _currentLocation!.longitude,
             query: _expandKeywords(['cafes']),
-            topN: 4,
+            topN: cafeCount,
           );
           
           final attractions = await placesService.fetchPlacesPipeline(
             latitude: _currentLocation!.latitude,
             longitude: _currentLocation!.longitude,
             query: _expandKeywords(['attractions']),
-            topN: 4,
+            topN: attractionCount,
           );
           
           final culture = await placesService.fetchPlacesPipeline(
             latitude: _currentLocation!.latitude,
             longitude: _currentLocation!.longitude,
             query: _expandKeywords(['culture']),
-            topN: 2,
+            topN: cultureCount,
           );
           
           final nature = await placesService.fetchPlacesPipeline(
             latitude: _currentLocation!.latitude,
             longitude: _currentLocation!.longitude,
             query: _expandKeywords(['nature']),
-            topN: 2,
+            topN: natureCount,
           );
           
           allPlaces = [...cafes, ...attractions, ...culture, ...nature];
         } else {
-          // Afternoon: balanced mix of everything
+          // Afternoon: balanced mix of everything (adjusted for day of week)
+          final attractionCount = isWeekend ? 5 : 4; // More attractions on weekends
+          final restaurantCount = isWeekend ? 3 : 3; // Same restaurants
+          final cultureCount = isWeekend ? 2 : 2; // Same culture
+          final natureCount = isWeekend ? 1 : 2; // Less nature on weekends
+          final shoppingCount = isWeekend ? 1 : 1; // Same shopping
+          
           final attractions = await placesService.fetchPlacesPipeline(
             latitude: _currentLocation!.latitude,
             longitude: _currentLocation!.longitude,
             query: _expandKeywords(['attractions']),
-            topN: 4,
+            topN: attractionCount,
           );
           
           final restaurants = await placesService.fetchPlacesPipeline(
             latitude: _currentLocation!.latitude,
             longitude: _currentLocation!.longitude,
             query: _expandKeywords(['restaurants']),
-            topN: 3,
+            topN: restaurantCount,
           );
           
           final culture = await placesService.fetchPlacesPipeline(
             latitude: _currentLocation!.latitude,
             longitude: _currentLocation!.longitude,
             query: _expandKeywords(['culture']),
-            topN: 2,
+            topN: cultureCount,
           );
           
           final nature = await placesService.fetchPlacesPipeline(
             latitude: _currentLocation!.latitude,
             longitude: _currentLocation!.longitude,
             query: _expandKeywords(['nature']),
-            topN: 2,
+            topN: natureCount,
           );
           
           final shopping = await placesService.fetchPlacesPipeline(
             latitude: _currentLocation!.latitude,
             longitude: _currentLocation!.longitude,
             query: _expandKeywords(['shopping']),
-            topN: 1,
+            topN: shoppingCount,
           );
           
           allPlaces = [...attractions, ...restaurants, ...culture, ...nature, ...shopping];
@@ -796,8 +886,32 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
       print('✅ Fetched ${places.length} places for category: $_selectedCategory');
       print('📍 Query: $query');
       
+      // Log context info
+      final now = DateTime.now();
+      final isWeekend = now.weekday >= 6;
+      final timeOfDay = now.hour < 12 ? 'morning' : (now.hour < 18 ? 'afternoon' : 'evening');
+      final weather = _weatherInfo?.condition?.toLowerCase() ?? 'clear';
+      print('🌤️ Context: ${isWeekend ? 'weekend' : 'weekday'} $timeOfDay, weather: $weather');
+      
       if (places.isNotEmpty) {
         print('🏛️ Top places: ${places.take(3).map((p) => '${p.name} (${p.rating}⭐)').join(", ")}');
+        
+        // Check if data is real or mock
+        final hasRealIds = places.any((p) => p.id.isNotEmpty && !p.id.startsWith('mock_'));
+        final hasGooglePhotos = places.any((p) => p.photoUrl.contains('googleapis') || p.photoUrl.contains('googleusercontent'));
+        final hasRealAddresses = places.any((p) => p.address.isNotEmpty && p.address != 'Near your location');
+        
+        if (hasRealIds && hasRealAddresses) {
+          print('✅ REAL DATA: Places have Google Place IDs and real addresses');
+        } else {
+          print('🎭 MOCK DATA: Places appear to be generated mock data');
+        }
+        
+        // Log context-aware distribution
+        if (_selectedCategory == 'all') {
+          final distribution = _analyzeDistribution(places);
+          print('📊 Distribution: ${distribution.entries.map((e) => '${e.key}: ${e.value}').join(', ')}');
+        }
       }
       if (loadMore) {
         final existingIds = _places.map((p) => p.id).toSet();
@@ -939,7 +1053,10 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
   String _expandKeywords(List<String> keywords) {
     final expanded = <String>{};
     
-    for (final keyword in keywords) {
+    // Apply weather-aware filtering
+    final weatherAdjustedKeywords = _applyWeatherContext(keywords);
+    
+    for (final keyword in weatherAdjustedKeywords) {
       switch (keyword.toLowerCase()) {
         case 'restaurants':
         case 'restaurant':
@@ -983,6 +1100,85 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
     }
     
     return expanded.join(' ');
+  }
+  
+  // Weather-aware keyword adjustment
+  List<String> _applyWeatherContext(List<String> keywords) {
+    final weather = _weatherInfo?.condition?.toLowerCase() ?? 'clear';
+    final isRainy = weather.contains('rain') || weather.contains('storm') || weather.contains('drizzle');
+    final isSunny = weather.contains('sunny') || weather.contains('clear');
+    
+    final adjustedKeywords = <String>[];
+    
+    for (final keyword in keywords) {
+      if (isRainy) {
+        // Prioritize indoor places when raining
+        switch (keyword.toLowerCase()) {
+          case 'attractions':
+            adjustedKeywords.addAll(['museum', 'shopping mall', 'indoor attraction']);
+            break;
+          case 'nature':
+            adjustedKeywords.addAll(['indoor garden', 'conservatory', 'aquarium']);
+            break;
+          case 'entertainment':
+            adjustedKeywords.addAll(['cinema', 'theater', 'indoor entertainment']);
+            break;
+          default:
+            adjustedKeywords.add(keyword);
+        }
+      } else if (isSunny) {
+        // Prioritize outdoor places when sunny
+        switch (keyword.toLowerCase()) {
+          case 'attractions':
+            adjustedKeywords.addAll(['outdoor attraction', 'viewpoint', 'landmark']);
+            break;
+          case 'nature':
+            adjustedKeywords.addAll(['park', 'garden', 'beach', 'outdoor space']);
+            break;
+          case 'cafes':
+            adjustedKeywords.addAll(['outdoor cafe', 'terrace', 'rooftop']);
+            break;
+          default:
+            adjustedKeywords.add(keyword);
+        }
+      } else {
+        adjustedKeywords.add(keyword);
+      }
+    }
+    
+    return adjustedKeywords.isEmpty ? keywords : adjustedKeywords;
+  }
+  
+  // Get day and time context for place distribution
+  Map<String, dynamic> _getDayContext(bool isWeekend, int hour) {
+    return {
+      'isWeekend': isWeekend,
+      'timeOfDay': hour < 12 ? 'morning' : (hour < 18 ? 'afternoon' : 'evening'),
+      'dayType': isWeekend ? 'weekend' : 'weekday',
+      'weather': _weatherInfo?.condition?.toLowerCase() ?? 'clear',
+    };
+  }
+  
+  // Analyze place distribution for logging
+  Map<String, int> _analyzeDistribution(List<Place> places) {
+    final distribution = <String, int>{};
+    for (final place in places) {
+      final type = place.type.toLowerCase();
+      if (type.contains('restaurant') || type.contains('food')) {
+        distribution['restaurants'] = (distribution['restaurants'] ?? 0) + 1;
+      } else if (type.contains('museum') || type.contains('gallery')) {
+        distribution['culture'] = (distribution['culture'] ?? 0) + 1;
+      } else if (type.contains('park') || type.contains('nature')) {
+        distribution['nature'] = (distribution['nature'] ?? 0) + 1;
+      } else if (type.contains('bar') || type.contains('nightlife')) {
+        distribution['nightlife'] = (distribution['nightlife'] ?? 0) + 1;
+      } else if (type.contains('cafe') || type.contains('coffee')) {
+        distribution['cafes'] = (distribution['cafes'] ?? 0) + 1;
+      } else {
+        distribution['attractions'] = (distribution['attractions'] ?? 0) + 1;
+      }
+    }
+    return distribution;
   }
 
   Future<void> searchPlaces(String query) async {
@@ -1422,147 +1618,9 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
     return 'Hello, thank you!';
   }
 
-  // Safety Methods
-  Future<void> loadEmergencyServices() async {
-    // Skip API calls if app is not active
-    if (!_isAppActive) {
-      print('🚫 Skipping emergency services API call - app is inactive');
-      return;
-    }
-    
-    if (_currentLocation == null) return;
 
-    _isSafetyLoading = true;
-    _safetyError = null;
-    notifyListeners();
 
-    try {
-      final policeStations = await _apiService.getNearbyPoliceStations(
-        latitude: _currentLocation!.latitude,
-        longitude: _currentLocation!.longitude,
-        radius: 5000,
-      );
 
-      final hospitals = await _apiService.getNearbyHospitals(
-        latitude: _currentLocation!.latitude,
-        longitude: _currentLocation!.longitude,
-        radius: 5000,
-      );
-
-      _nearbyPoliceStations = policeStations.take(2).toList();
-      _nearbyHospitals = hospitals.take(2).toList();
-      
-      print('✅ Loaded ${_nearbyPoliceStations.length} police stations and ${_nearbyHospitals.length} hospitals');
-    } catch (e) {
-      print('❌ Error loading emergency services: $e');
-      _safetyError = 'Failed to load emergency services';
-    } finally {
-      _isSafetyLoading = false;
-      notifyListeners();
-    }
-  }
-
-  Future<bool> makeEmergencyCall(String phoneNumber) async {
-    return await _safetyService.makePhoneCall(phoneNumber);
-  }
-
-  Future<bool> sendSOSAlert() async {
-    if (_currentLocation == null) {
-      await _notificationService.showLocalNotification(
-        'SOS Alert Failed',
-        'Location not available. Please enable location services.',
-      );
-      return false;
-    }
-    
-    try {
-      final location = '${_currentLocation!.latitude}, ${_currentLocation!.longitude}';
-      final locationName = 'Current Location'; // Could be enhanced with reverse geocoding
-      
-      // Send SOS to emergency contacts
-      final contacts = _safetyService.emergencyContacts;
-      if (contacts.isEmpty) {
-        await _notificationService.showLocalNotification(
-          'SOS Alert',
-          'No emergency contacts found. Please add emergency contacts first.',
-        );
-        return false;
-      }
-      
-      // Create SOS message
-      final sosMessage = 'EMERGENCY ALERT! I need help. My location: $locationName ($location). Please contact me immediately or call emergency services.';
-      
-      // Send to all emergency contacts
-      bool success = true;
-      for (final contact in contacts) {
-        final result = await _safetyService.sendSOSMessage(contact.phoneNumber, sosMessage);
-        if (!result) success = false;
-      }
-      
-      // Show confirmation
-      await _notificationService.showLocalNotification(
-        'SOS Alert Sent',
-        'Emergency alert sent to ${contacts.length} contacts',
-      );
-      
-      return success;
-    } catch (e) {
-      print('Error sending SOS alert: $e');
-      await _notificationService.showLocalNotification(
-        'SOS Alert Failed',
-        'Failed to send emergency alert. Please try again.',
-      );
-      return false;
-    }
-  }
-
-  Future<bool> shareCurrentLocation() async {
-    if (_currentLocation == null) {
-      await _notificationService.showLocalNotification(
-        'Location Share Failed',
-        'Location not available. Please enable location services.',
-      );
-      return false;
-    }
-    
-    try {
-      final location = '${_currentLocation!.latitude}, ${_currentLocation!.longitude}';
-      final googleMapsUrl = 'https://maps.google.com/maps?q=$location';
-      final message = 'Here is my current location: $googleMapsUrl';
-      
-      final result = await _safetyService.shareLocation(message);
-      
-      if (result) {
-        await _notificationService.showLocalNotification(
-          'Location Shared',
-          'Your location has been shared successfully',
-        );
-      }
-      
-      return result;
-    } catch (e) {
-      print('Error sharing location: $e');
-      return false;
-    }
-  }
-
-  void addEmergencyContact(String name, String phoneNumber, String relationship) {
-    final contact = EmergencyContact(
-      id: DateTime.now().millisecondsSinceEpoch.toString(),
-      name: name,
-      phoneNumber: phoneNumber,
-      relationship: relationship,
-    );
-    _safetyService.addEmergencyContact(contact);
-    notifyListeners();
-  }
-
-  List<EmergencyContact> get emergencyContacts => _safetyService.emergencyContacts;
-
-  void removeEmergencyContact(String contactId) {
-    _safetyService.removeEmergencyContact(contactId);
-    notifyListeners();
-  }
 
 
   
@@ -1577,7 +1635,6 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
           print('🔄 Refreshing stale data after inactivity');
           await Future.wait([
             loadNearbyPlaces(),
-            loadEmergencyServices(),
           ]);
         } else {
           print('💾 Data still fresh - using cache');

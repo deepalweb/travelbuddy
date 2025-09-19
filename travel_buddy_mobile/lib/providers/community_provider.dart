@@ -102,6 +102,7 @@ class CommunityProvider with ChangeNotifier {
     String visibility = 'public',
   }) async {
     try {
+      print('🚀 Creating post with content: $content');
       final newPost = await _apiService.createPost(
         content: content,
         location: location,
@@ -110,16 +111,24 @@ class CommunityProvider with ChangeNotifier {
         hashtags: hashtags,
         allowComments: allowComments,
         visibility: visibility,
+        userId: '507f1f77bcf86cd799439011', // Consistent mobile user ID
         username: 'Mobile User',
       );
 
       if (newPost != null) {
+        print('✅ Post created successfully: ${newPost.id}');
         _posts.insert(0, newPost);
         notifyListeners();
+        
+        // Also refresh the feed to ensure we have the latest data
+        await loadPosts(refresh: true);
         return true;
+      } else {
+        print('❌ Post creation returned null');
       }
       return false;
     } catch (e) {
+      print('❌ Error creating post: $e');
       _error = 'Failed to create post: $e';
       notifyListeners();
       return false;

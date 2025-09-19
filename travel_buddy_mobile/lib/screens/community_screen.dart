@@ -62,12 +62,16 @@ class _CommunityScreenState extends State<CommunityScreen> with TickerProviderSt
           ),
           IconButton(
             icon: const Icon(Icons.add),
-            onPressed: () {
-              Navigator.of(context).push(
+            onPressed: () async {
+              final result = await Navigator.of(context).push(
                 MaterialPageRoute(
                   builder: (context) => const CreatePostScreen(),
                 ),
               );
+              // Refresh feed when returning from create post
+              if (result == true && mounted) {
+                context.read<CommunityProvider>().loadPosts(refresh: true);
+              }
             },
           ),
         ],
@@ -99,12 +103,16 @@ class _CommunityScreenState extends State<CommunityScreen> with TickerProviderSt
         ],
       ),
       floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          Navigator.of(context).push(
+        onPressed: () async {
+          final result = await Navigator.of(context).push(
             MaterialPageRoute(
               builder: (context) => const CreatePostScreen(),
             ),
           );
+          // Refresh feed when returning from create post
+          if (result == true && mounted) {
+            context.read<CommunityProvider>().loadPosts(refresh: true);
+          }
         },
         backgroundColor: Colors.blue[600],
         child: const Icon(Icons.add, color: Colors.white),

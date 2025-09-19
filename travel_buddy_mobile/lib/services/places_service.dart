@@ -47,16 +47,20 @@ class PlacesService {
       headers: {'Content-Type': 'application/json'},
     );
     
-    print('📡 Places response: ${response.statusCode}');
+    print('📡 Places API response: ${response.statusCode}');
     if (response.statusCode == 200) {
       final List<dynamic> data = json.decode(response.body);
-      print('✅ Got ${data.length} places');
+      print('✅ Got ${data.length} real places from API');
+      
+      if (data.isNotEmpty) {
+        print('📍 Sample place from API: ${data.first['name']} - ID: ${data.first['place_id'] ?? data.first['id']}');
+      }
       
       // Enrich places with AI-generated content like web app
       final enrichedPlaces = await _enrichPlaces(data);
       return enrichedPlaces.map((json) => Place.fromJson(json)).toList();
     } else {
-      print('❌ Places error: ${response.body}');
+      print('❌ Places API error (${response.statusCode}): ${response.body}');
     }
     return [];
   }
@@ -124,7 +128,8 @@ class PlacesService {
   
   // Mock places generator as final fallback
   List<Place> _generateMockPlaces(double lat, double lng, String query, int count) {
-    print('🎭 Generating mock places for: $query');
+    print('⚠️ USING MOCK DATA - API failed for: $query');
+    print('🎭 Generating ${count} mock places as fallback');
     
     final mockPlaces = <Place>[];
     final baseNames = {

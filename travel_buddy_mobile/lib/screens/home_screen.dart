@@ -3,7 +3,7 @@ import 'package:provider/provider.dart';
 import '../providers/app_provider.dart';
 import '../widgets/safe_widget.dart';
 import '../widgets/subscription_status_widget.dart';
-import '../models/emergency_service.dart';
+
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -29,7 +29,7 @@ class _HomeScreenState extends State<HomeScreen> {
       appProvider.getCurrentLocation();
       appProvider.loadHomeData();
       appProvider.loadNearbyPlaces();
-      appProvider.loadEmergencyServices();
+
     } catch (e) {
       print('Error loading home data: $e');
     }
@@ -114,21 +114,206 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
   
-  String _getFavoriteActivity(AppProvider appProvider) {
-    final places = appProvider.places;
-    
-    if (places.isNotEmpty) {
-      return 'Visit ${places.first.name}';
+  Widget _buildWeatherForecast(AppProvider appProvider) {
+    final forecast = appProvider.weatherForecast;
+    if (forecast == null || forecast.hourlyForecast.isEmpty) {
+      return const SizedBox.shrink();
     }
-    
-    final hour = DateTime.now().hour;
-    if (hour < 12) {
-      return 'Perfect morning for exploring!';
-    } else if (hour < 18) {
-      return 'Great afternoon for sightseeing!';
-    } else {
-      return 'Evening recommendations available!';
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Today\'s Forecast',
+          style: TextStyle(
+            color: Colors.white.withOpacity(0.9),
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        const SizedBox(height: 6),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceAround,
+          children: forecast.hourlyForecast.take(3).map((hourly) {
+            return Column(
+              children: [
+                Text(
+                  hourly.time,
+                  style: TextStyle(
+                    color: Colors.white.withOpacity(0.8),
+                    fontSize: 10,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Icon(
+                  _getWeatherIcon(hourly.condition),
+                  color: Colors.white.withOpacity(0.9),
+                  size: 16,
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  '${hourly.temperature.round()}°',
+                  style: TextStyle(
+                    color: Colors.white.withOpacity(0.9),
+                    fontSize: 11,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            );
+          }).toList(),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildDailySuggestions(AppProvider appProvider) {
+    final suggestions = appProvider.dailySuggestions;
+    if (suggestions.isEmpty) {
+      return const SizedBox.shrink();
     }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Today\'s Suggestions',
+          style: TextStyle(
+            color: Colors.white.withOpacity(0.9),
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        const SizedBox(height: 6),
+        ...suggestions.map((suggestion) => Padding(
+          padding: const EdgeInsets.only(bottom: 4),
+          child: Row(
+            children: [
+              Icon(
+                Icons.lightbulb_outline,
+                color: Colors.white.withOpacity(0.8),
+                size: 12,
+              ),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  suggestion,
+                  style: TextStyle(
+                    color: Colors.white.withOpacity(0.9),
+                    fontSize: 11,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
+          ),
+        )),
+      ],
+    );
+  }
+
+  Widget _buildTravelStatsCard(AppProvider appProvider) {
+    final stats = appProvider.travelStats;
+    if (stats == null) {
+      return const SizedBox.shrink();
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Your Travel Progress',
+          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+        ),
+        const SizedBox(height: 12),
+        Card(
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: _buildStatItem(
+                        icon: Icons.place,
+                        value: stats.placesVisitedThisMonth.toString(),
+                        label: 'This Month',
+                        color: Colors.blue,
+                      ),
+                    ),
+                    Expanded(
+                      child: _buildStatItem(
+                        icon: Icons.route,
+                        value: '${stats.totalDistanceKm.toStringAsFixed(0)}km',
+                        label: 'Distance',
+                        color: Colors.green,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                Row(
+                  children: [
+                    Expanded(
+                      child: _buildStatItem(
+                        icon: Icons.local_fire_department,
+                        value: '${stats.currentStreak}',
+                        label: 'Day Streak',
+                        color: Colors.orange,
+                      ),
+                    ),
+                    Expanded(
+                      child: _buildStatItem(
+                        icon: Icons.favorite,
+                        value: stats.favoriteCategory,
+                        label: 'Favorite',
+                        color: Colors.red,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildStatItem({
+    required IconData icon,
+    required String value,
+    required String label,
+    required Color color,
+  }) {
+    return Column(
+      children: [
+        Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: color.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Icon(icon, color: color, size: 24),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          value,
+          style: const TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 12,
+            color: Colors.grey[600],
+          ),
+        ),
+      ],
+    );
   }
 
   @override
@@ -163,23 +348,13 @@ class _HomeScreenState extends State<HomeScreen> {
                     const SizedBox(height: 16),
                     _buildLocationCard(appProvider),
                     const SizedBox(height: 16),
+                    _buildTravelStatsCard(appProvider),
+                    const SizedBox(height: 16),
                     _buildQuickActions(appProvider),
                     const SizedBox(height: 16),
                     _buildNearbyPlaces(appProvider),
                     const SizedBox(height: 16),
                     _buildRecentActivity(appProvider),
-                    const SizedBox(height: 16),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          'Emergency Services',
-                          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                        ),
-                        const SizedBox(height: 12),
-                        _buildEmergencyServices(appProvider),
-                      ],
-                    ),
                   ],
                 ),
               ),
@@ -295,59 +470,7 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
   
-  Widget _buildCompactEmergencyTile(
-    EmergencyService service,
-    IconData icon,
-    Color color,
-    AppProvider appProvider,
-  ) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 6),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(6),
-            decoration: BoxDecoration(
-              color: color.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(6),
-            ),
-            child: Icon(icon, color: color, size: 14),
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  service.name,
-                  style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 11),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                Text(
-                  '${service.distance} • ${service.phoneNumber}',
-                  style: TextStyle(
-                    color: Colors.grey[600],
-                    fontSize: 9,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          IconButton(
-            onPressed: () => appProvider.makeEmergencyCall(service.phoneNumber),
-            icon: const Icon(Icons.phone, size: 16),
-            style: IconButton.styleFrom(
-              backgroundColor: Colors.green.withOpacity(0.1),
-              foregroundColor: Colors.green,
-              minimumSize: const Size(28, 28),
-            ),
-            padding: EdgeInsets.zero,
-          ),
-        ],
-      ),
-    );
-  }
+
 
   Widget _buildWelcomeCard(AppProvider appProvider) {
     try {
@@ -366,6 +489,7 @@ class _HomeScreenState extends State<HomeScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              // Greeting
               Text(
                 '${_getGreeting()}, ${appProvider.currentUser?.username ?? 'Traveler'}!',
                 style: const TextStyle(
@@ -375,7 +499,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ),
               const SizedBox(height: 12),
-              // Location and Weather Row
+              // Location and Current Weather
               Row(
                 children: [
                   Icon(Icons.location_on, color: Colors.white.withOpacity(0.9), size: 16),
@@ -396,25 +520,12 @@ class _HomeScreenState extends State<HomeScreen> {
                   _buildWeatherInfo(appProvider),
                 ],
               ),
-              const SizedBox(height: 8),
-              // Favorite Activity
-              Row(
-                children: [
-                  Icon(Icons.favorite, color: Colors.white.withOpacity(0.9), size: 16),
-                  const SizedBox(width: 4),
-                  Expanded(
-                    child: Text(
-                      _getFavoriteActivity(appProvider),
-                      style: TextStyle(
-                        color: Colors.white.withOpacity(0.9),
-                        fontSize: 12,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                ],
-              ),
+              const SizedBox(height: 12),
+              // Weather Forecast
+              _buildWeatherForecast(appProvider),
+              const SizedBox(height: 12),
+              // Daily Suggestions
+              _buildDailySuggestions(appProvider),
             ],
           ),
         ),
@@ -723,182 +834,9 @@ class _HomeScreenState extends State<HomeScreen> {
 
 
 
-  Widget _buildEmergencyServices(AppProvider appProvider) {
-    if (appProvider.isSafetyLoading) {
-      return Card(
-        child: Padding(
-          padding: const EdgeInsets.all(12),
-          child: Row(
-            children: [
-              const SizedBox(
-                width: 16,
-                height: 16,
-                child: CircularProgressIndicator(strokeWidth: 2),
-              ),
-              const SizedBox(width: 8),
-              Text('Loading emergency services...', style: TextStyle(fontSize: 12)),
-            ],
-          ),
-        ),
-      );
-    }
 
-    final policeStations = appProvider.nearbyPoliceStations.take(2).toList();
-    final hospitals = appProvider.nearbyHospitals.take(2).toList();
 
-    if (policeStations.isEmpty && hospitals.isEmpty) {
-      return Card(
-        child: Padding(
-          padding: const EdgeInsets.all(12),
-          child: Row(
-            children: [
-              Icon(Icons.location_off, color: Colors.grey[600], size: 20),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  'Emergency services not available',
-                  style: TextStyle(color: Colors.grey[600], fontSize: 12),
-                ),
-              ),
-              TextButton(
-                onPressed: () => appProvider.loadEmergencyServices(),
-                child: const Text('Retry', style: TextStyle(fontSize: 11)),
-              ),
-            ],
-          ),
-        ),
-      );
-    }
 
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                const Text(
-                  'Emergency Services',
-                  style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
-                ),
-                const Spacer(),
-                Text(
-                  '${policeStations.length + hospitals.length} nearby',
-                  style: TextStyle(fontSize: 10, color: Colors.grey[600]),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            ...policeStations.map((station) => _buildCompactEmergencyTile(
-              station,
-              Icons.local_police,
-              Colors.blue,
-              appProvider,
-            )),
-            ...hospitals.map((hospital) => _buildCompactEmergencyTile(
-              hospital,
-              Icons.local_hospital,
-              Colors.red,
-              appProvider,
-            )),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildEmergencyServiceTile(
-    EmergencyService service,
-    IconData icon,
-    Color color,
-    AppProvider appProvider,
-  ) {
-    return Card(
-      margin: const EdgeInsets.only(bottom: 8),
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: color.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Icon(icon, color: color, size: 20),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    service.name,
-                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    service.address,
-                    style: TextStyle(
-                      color: Colors.grey[600],
-                      fontSize: 11,
-                    ),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  const SizedBox(height: 4),
-                  Row(
-                    children: [
-                      Icon(Icons.location_on, size: 12, color: Colors.grey[500]),
-                      const SizedBox(width: 2),
-                      Text(
-                        '${service.distance.toStringAsFixed(1)} km away',
-                        style: TextStyle(
-                          color: Colors.grey[500],
-                          fontSize: 10,
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      if (service.rating > 0) ...[
-                        Icon(Icons.star, size: 12, color: Colors.amber),
-                        const SizedBox(width: 2),
-                        Text(
-                          service.rating.toStringAsFixed(1),
-                          style: const TextStyle(fontSize: 10),
-                        ),
-                      ],
-                    ],
-                  ),
-                ],
-              ),
-            ),
-            Column(
-              children: [
-                IconButton(
-                  onPressed: () => appProvider.makeEmergencyCall(service.phoneNumber),
-                  icon: const Icon(Icons.phone, size: 20),
-                  style: IconButton.styleFrom(
-                    backgroundColor: Colors.green.withOpacity(0.1),
-                    foregroundColor: Colors.green,
-                  ),
-                ),
-                Text(
-                  'Call',
-                  style: TextStyle(
-                    fontSize: 9,
-                    color: Colors.grey[600],
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 
 
 

@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev:mobile": "vite --host 0.0.0.0",
     "build": "vite build --mode production",
     "build:analyze": "vite build --mode production && npx vite-bundle-analyzer dist/stats.json",
     "build:stats": "vite build --mode production --reporter verbose",

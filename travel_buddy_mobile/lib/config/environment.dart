@@ -6,7 +6,7 @@ class Environment {
     : 'https://travelbuddy-b2c6hgbbgeh4esdh.eastus2-01.azurewebsites.net'; // Azure backend
   
   // API Keys - Load from environment or use placeholders
-  static const String googleMapsApiKey = String.fromEnvironment('GOOGLE_MAPS_API_KEY', defaultValue: 'REPLACE_WITH_YOUR_MAPS_KEY');
+  static const String googleMapsApiKey = String.fromEnvironment('GOOGLE_MAPS_API_KEY', defaultValue: 'AIzaSyA89E6gkU7-nUMYk9JPt6xxYHVV4Yevtio');
   static const String weatherApiKey = String.fromEnvironment('WEATHER_API_KEY', defaultValue: 'REPLACE_WITH_YOUR_WEATHER_KEY');
   
   // API Endpoints (matching your web app)

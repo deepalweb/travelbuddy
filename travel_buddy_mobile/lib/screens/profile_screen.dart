@@ -131,7 +131,7 @@ class ProfileScreen extends StatelessWidget {
                 // Stats Cards
                 Consumer<CommunityProvider>(
                   builder: (context, communityProvider, child) {
-                    final userPosts = communityProvider.posts.where((post) => post.userId == (user?.mongoId ?? user?.uid ?? 'mobile_user')).length;
+                    final userPosts = communityProvider.posts.where((post) => post.userId == '507f1f77bcf86cd799439011').length;
                     return Row(
                       children: [
                         Expanded(
@@ -389,7 +389,7 @@ class ProfileScreen extends StatelessWidget {
 
   void _showUserPosts(BuildContext context, user) {
     final communityProvider = context.read<CommunityProvider>();
-    final userPosts = communityProvider.posts.where((post) => post.userId == (user?.mongoId ?? user?.uid ?? 'mobile_user')).toList();
+    final userPosts = communityProvider.posts.where((post) => post.userId == '507f1f77bcf86cd799439011').toList();
     
     Navigator.of(context).push(
       MaterialPageRoute(
@@ -556,16 +556,25 @@ Join Travel Buddy and discover amazing places together!
             backgroundColor: Colors.blue[600],
             foregroundColor: Colors.white,
           ),
-          body: const Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(Icons.people_outline, size: 64, color: Colors.grey),
-                SizedBox(height: 16),
-                Text('No followers yet', style: TextStyle(fontSize: 18)),
-                Text('Share your profile to get followers!'),
-              ],
-            ),
+          body: FutureBuilder(
+            future: _getFollowersCount(context, context.read<AppProvider>().currentUser),
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const Center(child: CircularProgressIndicator());
+              }
+              
+              return const Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.people_outline, size: 64, color: Colors.grey),
+                    SizedBox(height: 16),
+                    Text('No followers yet', style: TextStyle(fontSize: 18)),
+                    Text('Share your profile to get followers!'),
+                  ],
+                ),
+              );
+            },
           ),
         ),
       ),
@@ -581,16 +590,25 @@ Join Travel Buddy and discover amazing places together!
             backgroundColor: Colors.blue[600],
             foregroundColor: Colors.white,
           ),
-          body: const Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(Icons.person_add_outlined, size: 64, color: Colors.grey),
-                SizedBox(height: 16),
-                Text('Not following anyone yet', style: TextStyle(fontSize: 18)),
-                Text('Discover and follow other travelers!'),
-              ],
-            ),
+          body: FutureBuilder(
+            future: _getFollowingCount(context, context.read<AppProvider>().currentUser),
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const Center(child: CircularProgressIndicator());
+              }
+              
+              return const Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.person_add_outlined, size: 64, color: Colors.grey),
+                    SizedBox(height: 16),
+                    Text('Not following anyone yet', style: TextStyle(fontSize: 18)),
+                    Text('Discover and follow other travelers!'),
+                  ],
+                ),
+              );
+            },
           ),
         ),
       ),
