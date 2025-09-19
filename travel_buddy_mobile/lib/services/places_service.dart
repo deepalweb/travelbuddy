@@ -129,7 +129,7 @@ class PlacesService {
   // Mock places generator as final fallback
   List<Place> _generateMockPlaces(double lat, double lng, String query, int count) {
     print('⚠️ USING MOCK DATA - API failed for: $query');
-    print('🎭 Generating ${count} mock places as fallback');
+    print('🎭 Generating $count mock places as fallback');
     
     final mockPlaces = <Place>[];
     final baseNames = {

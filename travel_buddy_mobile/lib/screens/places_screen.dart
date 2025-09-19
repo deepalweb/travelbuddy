@@ -464,7 +464,7 @@ class _PlacesScreenState extends State<PlacesScreen> {
     final hour = now.hour;
     final isWeekend = now.weekday >= 6;
     final appProvider = context.read<AppProvider>();
-    final weather = appProvider.weatherInfo?.condition?.toLowerCase() ?? 'clear';
+    final weather = appProvider.weatherInfo?.condition.toLowerCase() ?? 'clear';
     final isRainy = weather.contains('rain') || weather.contains('storm');
     
     if (hour >= 18) {

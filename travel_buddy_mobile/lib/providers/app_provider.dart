@@ -890,7 +890,7 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
       final now = DateTime.now();
       final isWeekend = now.weekday >= 6;
       final timeOfDay = now.hour < 12 ? 'morning' : (now.hour < 18 ? 'afternoon' : 'evening');
-      final weather = _weatherInfo?.condition?.toLowerCase() ?? 'clear';
+      final weather = _weatherInfo?.condition.toLowerCase() ?? 'clear';
       print('🌤️ Context: ${isWeekend ? 'weekend' : 'weekday'} $timeOfDay, weather: $weather');
       
       if (places.isNotEmpty) {
@@ -1104,7 +1104,7 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
   
   // Weather-aware keyword adjustment
   List<String> _applyWeatherContext(List<String> keywords) {
-    final weather = _weatherInfo?.condition?.toLowerCase() ?? 'clear';
+    final weather = _weatherInfo?.condition.toLowerCase() ?? 'clear';
     final isRainy = weather.contains('rain') || weather.contains('storm') || weather.contains('drizzle');
     final isSunny = weather.contains('sunny') || weather.contains('clear');
     
@@ -1155,7 +1155,7 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
       'isWeekend': isWeekend,
       'timeOfDay': hour < 12 ? 'morning' : (hour < 18 ? 'afternoon' : 'evening'),
       'dayType': isWeekend ? 'weekend' : 'weekday',
-      'weather': _weatherInfo?.condition?.toLowerCase() ?? 'clear',
+      'weather': _weatherInfo?.condition.toLowerCase() ?? 'clear',
     };
   }
   
