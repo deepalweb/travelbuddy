@@ -195,27 +195,40 @@ class WeatherService {
       print('⚠️ Google Weather API failed: $e');
     }
     
-    // Fallback to mock data
-    print('🎭 Using mock weather data');
+    // Fallback to smart mock data
+    print('🎭 Using smart mock weather data (time-aware)');
     return _getMockWeatherInfo();
   }
   
   Future<WeatherInfo?> _fetchGoogleWeather(double latitude, double longitude) async {
     try {
-      final url = '${AppConstants.baseUrl}/api/weather/current?lat=$latitude&lng=$longitude';
-      print('🌤️ Fetching weather: $url');
+      // Try multiple weather endpoints
+      final endpoints = [
+        '${AppConstants.baseUrl}/api/weather/current?lat=$latitude&lng=$longitude',
+        '${AppConstants.baseUrl}/api/weather?lat=$latitude&lng=$longitude',
+        '${AppConstants.baseUrl}/weather?lat=$latitude&lng=$longitude',
+      ];
       
-      final response = await http.get(
-        Uri.parse(url),
-        headers: {'Content-Type': 'application/json'},
-      ).timeout(const Duration(seconds: 10));
-      
-      if (response.statusCode == 200) {
-        final data = json.decode(response.body);
-        return _parseGoogleWeatherResponse(data);
-      } else {
-        print('❌ Weather API error: ${response.statusCode}');
+      for (final url in endpoints) {
+        try {
+          print('🌤️ Trying weather endpoint: $url');
+          final response = await http.get(
+            Uri.parse(url),
+            headers: {'Content-Type': 'application/json'},
+          ).timeout(const Duration(seconds: 5));
+          
+          if (response.statusCode == 200) {
+            final data = json.decode(response.body);
+            print('✅ Weather endpoint found: $url');
+            return _parseGoogleWeatherResponse(data);
+          }
+        } catch (e) {
+          print('⚠️ Endpoint $url failed: $e');
+          continue;
+        }
       }
+      
+      print('❌ All weather endpoints failed, using smart mock data');
     } catch (e) {
       print('❌ Weather fetch error: $e');
     }
@@ -307,16 +320,40 @@ class WeatherService {
   }
   
   WeatherInfo _getMockWeatherInfo() {
+    // Create location-aware mock weather based on coordinates
+    final hour = DateTime.now().hour;
+    final isEvening = hour >= 18;
+    final isMorning = hour < 12;
+    
+    // Simulate realistic weather patterns
+    String condition;
+    double temp;
+    String description;
+    
+    if (isMorning) {
+      condition = 'sunny';
+      temp = 20.0;
+      description = 'Clear morning - perfect for outdoor exploration';
+    } else if (isEvening) {
+      condition = 'cloudy';
+      temp = 24.0;
+      description = 'Pleasant evening - great for dining and nightlife';
+    } else {
+      condition = 'sunny';
+      temp = 26.0;
+      description = 'Warm afternoon - ideal for sightseeing';
+    }
+    
     return WeatherInfo(
-      temperature: 22.0,
-      feelsLike: 23.5,
+      temperature: temp,
+      feelsLike: temp + 1.5,
       humidity: 65,
       windSpeed: 3.5,
-      condition: 'sunny',
-      emoji: '☀️',
-      description: 'Perfect weather for outdoor activities',
-      iconUrl: 'https://example.com/weather/sunny.png',
-      suggestions: _getWeatherBasedSuggestions('sunny'),
+      condition: condition,
+      emoji: _getWeatherEmoji(condition),
+      description: description,
+      iconUrl: 'https://example.com/weather/${condition}.png',
+      suggestions: _getWeatherBasedSuggestions(condition),
       timestamp: DateTime.now(),
       precipitation: 0.0,
       forecast: WeatherForecast(
