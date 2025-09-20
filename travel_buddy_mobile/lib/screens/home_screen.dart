@@ -128,7 +128,7 @@ class _HomeScreenState extends State<HomeScreen> {
           'Today\'s Forecast',
           style: TextStyle(
             color: Colors.white.withOpacity(0.9),
-            fontSize: 12,
+            fontSize: 15,
             fontWeight: FontWeight.w600,
           ),
         ),
@@ -181,7 +181,7 @@ class _HomeScreenState extends State<HomeScreen> {
           'Today\'s Suggestions',
           style: TextStyle(
             color: Colors.white.withOpacity(0.9),
-            fontSize: 12,
+            fontSize: 15,
             fontWeight: FontWeight.w600,
           ),
         ),
@@ -201,7 +201,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   suggestion,
                   style: TextStyle(
                     color: Colors.white.withOpacity(0.9),
-                    fontSize: 11,
+                    fontSize: 14,
                   ),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
@@ -225,7 +225,7 @@ class _HomeScreenState extends State<HomeScreen> {
       children: [
         const Text(
           'Your Travel Progress',
-          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+          style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
         ),
         const SizedBox(height: 12),
         Card(
@@ -302,14 +302,14 @@ class _HomeScreenState extends State<HomeScreen> {
         Text(
           value,
           style: const TextStyle(
-            fontSize: 16,
+            fontSize: 20,
             fontWeight: FontWeight.bold,
           ),
         ),
         Text(
           label,
           style: TextStyle(
-            fontSize: 12,
+            fontSize: 14,
             color: Colors.grey[600],
           ),
         ),
@@ -495,7 +495,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 '${_getGreeting()}, ${appProvider.currentUser?.username ?? 'Traveler'}!',
                 style: const TextStyle(
                   color: Colors.white,
-                  fontSize: 20,
+                  fontSize: 24,
                   fontWeight: FontWeight.bold,
                 ),
               ),
@@ -510,7 +510,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       _getCurrentLocationName(appProvider),
                       style: TextStyle(
                         color: Colors.white.withOpacity(0.9),
-                        fontSize: 13,
+                        fontSize: 16,
                         fontWeight: FontWeight.w500,
                       ),
                       maxLines: 1,
@@ -591,7 +591,7 @@ class _HomeScreenState extends State<HomeScreen> {
       children: [
         const Text(
           'Quick Actions',
-          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+          style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
         ),
         const SizedBox(height: 12),
         GridView.count(
@@ -628,7 +628,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         action['label'] as String,
                         style: const TextStyle(
                           fontWeight: FontWeight.w500,
-                          fontSize: 12,
+                          fontSize: 15,
                         ),
                         textAlign: TextAlign.center,
                       ),
@@ -690,7 +690,7 @@ class _HomeScreenState extends State<HomeScreen> {
             children: [
               const Text(
                 'Places for You',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
               ),
               const Spacer(),
               if (appProvider.userTravelStyle != null)
@@ -757,7 +757,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                 place.name,
                                 style: const TextStyle(
                                   fontWeight: FontWeight.bold,
-                                  fontSize: 12,
+                                  fontSize: 15,
                                 ),
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
@@ -825,7 +825,7 @@ class _HomeScreenState extends State<HomeScreen> {
         children: [
           const Text(
             'Recent Activity',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 12),
           if (hasTrips)

@@ -543,22 +543,36 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
 
   Future<void> _loadTravelStats() async {
     try {
-      // Get real user insights from usage tracking
+      if (_currentUser?.mongoId != null) {
+        // Get real travel stats from backend
+        final backendStats = await _apiService.getUserTravelStats(_currentUser!.mongoId!);
+        if (backendStats != null) {
+          _travelStats = backendStats;
+          print('✅ Loaded REAL travel stats from backend: ${_travelStats!.totalPlacesVisited} places');
+          return;
+        }
+      }
+      
+      // Fallback: Calculate from local data and sync to backend
       final userInsights = _usageTrackingService.getUserInsights();
       final favoritesCount = _favoriteIds.length;
       final recentPlaces = _places;
       
-      // Create real travel stats from user data
       _travelStats = TravelStats.fromUserData(
         userInsights: userInsights,
         favoritesCount: favoritesCount,
         recentPlaces: recentPlaces,
       );
       
-      print('✅ Loaded REAL travel stats: ${_travelStats!.totalPlacesVisited} interactions');
+      // Sync calculated stats to backend
+      if (_currentUser?.mongoId != null) {
+        await _apiService.updateUserTravelStats(_currentUser!.mongoId!, _travelStats!);
+        print('✅ Synced travel stats to backend');
+      }
+      
+      print('✅ Loaded travel stats: ${_travelStats!.totalPlacesVisited} interactions');
     } catch (e) {
-      print('❌ Error loading real travel stats: $e');
-      // Fallback to mock data
+      print('❌ Error loading travel stats: $e');
       _travelStats = TravelStats.mock();
     }
   }
@@ -1557,7 +1571,15 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
     notifyListeners();
 
     try {
-      final deals = await _apiService.getActiveDeals();
+      // Load location-based real deals
+      final deals = _currentLocation != null 
+          ? await _apiService.getNearbyDeals(
+              _currentLocation!.latitude,
+              _currentLocation!.longitude,
+              radius: _selectedRadius,
+            )
+          : await _apiService.getActiveDeals();
+          
       final newDealsCount = deals.length - _deals.length;
       _deals = deals;
       
@@ -1568,9 +1590,9 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
         );
       }
       
-      debugPrint('✅ Loaded ${deals.length} deals');
+      print('✅ Loaded ${deals.length} REAL deals from backend');
     } catch (e) {
-      debugPrint('❌ Error loading deals: $e');
+      print('❌ Error loading deals: $e');
       _dealsError = 'Failed to load deals: ${e.toString()}';
     } finally {
       _isDealsLoading = false;
@@ -1811,14 +1833,39 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
   
   Future<Place> _enrichSinglePlace(Place place) async {
     try {
-      // Generate AI description
-      final description = await _aiService.generatePlaceDescription(place);
+      // Check if AI content exists in backend cache
+      final cachedContent = await _apiService.getPlaceAIContent(place.id);
       
-      // Generate local tip
-      final localTip = await _aiService.generateLocalTip(place);
+      String description = place.description;
+      String localTip = 'Check opening hours before visiting.';
+      String handyPhrase = _generateHandyPhrase(place.type);
       
-      // Generate handy phrase (basic for now)
-      final handyPhrase = _generateHandyPhrase(place.type);
+      if (cachedContent != null) {
+        // Use cached AI content from backend
+        description = cachedContent['description']?.isNotEmpty == true 
+            ? cachedContent['description']! : description;
+        localTip = cachedContent['localTip']?.isNotEmpty == true 
+            ? cachedContent['localTip']! : localTip;
+        handyPhrase = cachedContent['handyPhrase']?.isNotEmpty == true 
+            ? cachedContent['handyPhrase']! : handyPhrase;
+        print('✅ Used cached AI content for ${place.name}');
+      } else {
+        // Generate new AI content and cache it
+        final aiDescription = await _aiService.generatePlaceDescription(place);
+        final aiLocalTip = await _aiService.generateLocalTip(place);
+        
+        if (aiDescription.isNotEmpty) description = aiDescription;
+        if (aiLocalTip.isNotEmpty) localTip = aiLocalTip;
+        
+        // Cache the generated content in backend
+        await _apiService.cacheAIContent(
+          place.id,
+          description: aiDescription,
+          localTip: aiLocalTip,
+          handyPhrase: handyPhrase,
+        );
+        print('✅ Generated and cached AI content for ${place.name}');
+      }
       
       return Place(
         id: place.id,
@@ -1829,8 +1876,8 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
         rating: place.rating,
         type: place.type,
         photoUrl: place.photoUrl,
-        description: description.isNotEmpty ? description : place.description,
-        localTip: localTip.isNotEmpty ? localTip : 'Check opening hours before visiting.',
+        description: description,
+        localTip: localTip,
         handyPhrase: handyPhrase,
         phoneNumber: place.phoneNumber,
         website: place.website,

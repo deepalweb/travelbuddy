@@ -5,6 +5,7 @@ import '../config/environment.dart';
 import '../models/place.dart';
 import '../models/user.dart';
 import '../models/trip.dart';
+import '../models/travel_stats.dart';
 
 
 import '../models/community_post.dart';
@@ -404,12 +405,20 @@ class ApiService {
     ));
   }
 
-  // Deals API - Combined method that returns strongly typed Deal objects
-  Future<List<Deal>> getActiveDeals() async {
+  // Deals API - Real deals from backend
+  Future<List<Deal>> getActiveDeals({double? latitude, double? longitude, int radius = 10000}) async {
     try {
-      final response = await _dio.get('/api/deals');
+      final queryParams = <String, dynamic>{};
+      if (latitude != null && longitude != null) {
+        queryParams['lat'] = latitude;
+        queryParams['lng'] = longitude;
+        queryParams['radius'] = radius;
+      }
+      
+      final response = await _dio.get('/api/deals/active', queryParameters: queryParams);
       if (response.statusCode == 200) {
-        final List<dynamic> data = response.data;
+        final responseData = response.data;
+        final List<dynamic> data = responseData is Map ? responseData['deals'] ?? responseData['data'] ?? [] : responseData;
         return data.map((json) => Deal.fromJson(json)).toList();
       }
       return [];
@@ -417,6 +426,10 @@ class ApiService {
       print('Error fetching active deals: $e');
       return [];
     }
+  }
+  
+  Future<List<Deal>> getNearbyDeals(double latitude, double longitude, {int radius = 5000}) async {
+    return getActiveDeals(latitude: latitude, longitude: longitude, radius: radius);
   }
 
 
@@ -820,6 +833,75 @@ class ApiService {
     }
   }
   
+  // AI Content Caching API
+  Future<Map<String, String>?> getPlaceAIContent(String placeId) async {
+    try {
+      final response = await _dio.get('/api/places/$placeId/ai-content');
+      if (response.statusCode == 200) {
+        final data = response.data;
+        return {
+          'description': data['description'] ?? '',
+          'localTip': data['localTip'] ?? '',
+          'handyPhrase': data['handyPhrase'] ?? '',
+        };
+      }
+      return null;
+    } catch (e) {
+      print('Error fetching AI content: $e');
+      return null;
+    }
+  }
+  
+  Future<bool> cacheAIContent(String placeId, {
+    String? description,
+    String? localTip, 
+    String? handyPhrase,
+  }) async {
+    try {
+      final response = await _dio.post('/api/places/$placeId/ai-content', data: {
+        'description': description,
+        'localTip': localTip,
+        'handyPhrase': handyPhrase,
+        'generatedAt': DateTime.now().toIso8601String(),
+      });
+      return response.statusCode == 200 || response.statusCode == 201;
+    } catch (e) {
+      print('Error caching AI content: $e');
+      return false;
+    }
+  }
+  
+  // Usage Analytics API
+  Future<bool> trackUserAction(String userId, Map<String, dynamic> actionData) async {
+    try {
+      final response = await _dio.post('/api/analytics/track', data: {
+        'userId': userId,
+        'action': actionData['action'],
+        'category': actionData['category'],
+        'placeId': actionData['placeId'],
+        'timestamp': DateTime.now().toIso8601String(),
+        'metadata': actionData,
+      });
+      return response.statusCode == 200 || response.statusCode == 201;
+    } catch (e) {
+      print('Error tracking user action: $e');
+      return false;
+    }
+  }
+  
+  Future<Map<String, dynamic>> getUserAnalytics(String userId) async {
+    try {
+      final response = await _dio.get('/api/analytics/insights/$userId');
+      if (response.statusCode == 200) {
+        return Map<String, dynamic>.from(response.data);
+      }
+      return {};
+    } catch (e) {
+      print('Error fetching user analytics: $e');
+      return {};
+    }
+  }
+  
   // Subscription Management API
   Future<Map<String, dynamic>?> updateUserSubscription(String userId, Map<String, dynamic> subscriptionData) async {
     try {
@@ -859,6 +941,30 @@ class ApiService {
     } catch (e) {
       print('Error fetching payment history: $e');
       return [];
+    }
+  }
+  
+  // Travel Statistics API
+  Future<TravelStats?> getUserTravelStats(String userId) async {
+    try {
+      final response = await _dio.get('/api/users/$userId/travel-stats');
+      if (response.statusCode == 200) {
+        return TravelStats.fromJson(response.data);
+      }
+      return null;
+    } catch (e) {
+      print('Error fetching travel stats: $e');
+      return null;
+    }
+  }
+  
+  Future<bool> updateUserTravelStats(String userId, TravelStats stats) async {
+    try {
+      final response = await _dio.put('/api/users/$userId/travel-stats', data: stats.toJson());
+      return response.statusCode == 200;
+    } catch (e) {
+      print('Error updating travel stats: $e');
+      return false;
     }
   }
 

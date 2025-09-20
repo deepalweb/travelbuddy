@@ -112,10 +112,27 @@ class RealLocalDiscoveriesService {
     }
   }
 
-  // Get trending places from Google Places API
+  // Get trending places from backend API
   Future<List<String>> _getTrendingPlaces(double lat, double lng) async {
     try {
-      final url = '${AppConstants.baseUrl}/api/places/trending?lat=$lat&lng=$lng';
+      final url = '${AppConstants.baseUrl}/api/discoveries/trending?lat=$lat&lng=$lng&radius=10000';
+      final response = await http.get(
+        Uri.parse(url),
+        headers: {'Content-Type': 'application/json'},
+      ).timeout(const Duration(seconds: 10));
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        final places = data['places'] as List? ?? [];
+        return places.map((place) => place['name'] as String).take(5).toList();
+      }
+    } catch (e) {
+      print('⚠️ Trending places API failed: $e');
+    }
+
+    // Fallback: Get from places API with high ratings
+    try {
+      final url = '${AppConstants.baseUrl}/api/places/nearby?lat=$lat&lng=$lng&minRating=4.5&limit=5';
       final response = await http.get(
         Uri.parse(url),
         headers: {'Content-Type': 'application/json'},
@@ -126,16 +143,10 @@ class RealLocalDiscoveriesService {
         return data.map((place) => place['name'] as String).take(5).toList();
       }
     } catch (e) {
-      print('⚠️ Trending places API failed: $e');
+      print('⚠️ Fallback places API failed: $e');
     }
 
-    // Fallback trending places based on high ratings
-    return [
-      'Highly rated local restaurant',
-      'Popular coffee shop',
-      'Trending attraction',
-      'Local favorite spot',
-    ];
+    return ['Local attractions', 'Popular restaurants', 'Trending spots'];
   }
 
   // Get recently opened places
@@ -245,10 +256,26 @@ class RealLocalDiscoveriesService {
     }
   }
 
-  // Get local events (simplified - would integrate with events APIs)
+  // Get local events from real events APIs
   Future<List<String>> _getLocalEvents(double lat, double lng) async {
-    // This would integrate with Eventbrite, Facebook Events, or local tourism APIs
-    // For now, return contextual events based on day/time
+    try {
+      // Try to get real events from backend
+      final url = '${AppConstants.baseUrl}/api/events/local?lat=$lat&lng=$lng&radius=15000&limit=5';
+      final response = await http.get(
+        Uri.parse(url),
+        headers: {'Content-Type': 'application/json'},
+      ).timeout(const Duration(seconds: 10));
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        final events = data['events'] as List? ?? [];
+        return events.map((event) => event['name'] as String).take(3).toList();
+      }
+    } catch (e) {
+      print('⚠️ Local events API failed: $e');
+    }
+
+    // Fallback: Contextual events based on day/time
     final now = DateTime.now();
     final isWeekend = now.weekday >= 6;
     final hour = now.hour;
@@ -258,8 +285,8 @@ class RealLocalDiscoveriesService {
     if (isWeekend) {
       events.addAll([
         'Weekend farmers market',
-        'Local art fair',
-        'Live music at local venue',
+        'Local art fair', 
+        'Live music venues',
       ]);
     } else {
       events.addAll([
@@ -270,11 +297,11 @@ class RealLocalDiscoveriesService {
     }
 
     if (hour >= 18) {
-      events.add('Evening entertainment shows');
+      events.add('Evening entertainment');
     } else if (hour >= 12) {
-      events.add('Afternoon workshops');
+      events.add('Afternoon activities');
     } else {
-      events.add('Morning yoga classes');
+      events.add('Morning events');
     }
 
     return events.take(3).toList();
