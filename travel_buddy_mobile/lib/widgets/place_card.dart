@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import '../models/place.dart';
 import '../constants/app_constants.dart';
+import '../services/usage_tracking_service.dart';
 import 'add_to_trip_dialog.dart';
+import 'package:provider/provider.dart';
+import '../providers/app_provider.dart';
 
 class PlaceCard extends StatelessWidget {
   final Place place;
@@ -193,7 +196,7 @@ class PlaceCard extends StatelessWidget {
               Text(
                 place.name,
                 style: const TextStyle(
-                  fontSize: 18,
+                  fontSize: 22,
                   fontWeight: FontWeight.bold,
                 ),
                 maxLines: 2,
@@ -201,9 +204,12 @@ class PlaceCard extends StatelessWidget {
               ),
               const SizedBox(height: 8),
               
-              // Rating, Distance, and Quick Info
-              Row(
+              // Enhanced Rating, Distance, and Context Info
+              Wrap(
+                spacing: 6,
+                runSpacing: 4,
                 children: [
+                  // Rating
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                     decoration: BoxDecoration(
@@ -220,13 +226,13 @@ class PlaceCard extends StatelessWidget {
                           place.rating.toStringAsFixed(1),
                           style: const TextStyle(
                             fontWeight: FontWeight.w600,
-                            fontSize: 12,
+                            fontSize: 14,
                           ),
                         ),
                       ],
                     ),
                   ),
-                  const SizedBox(width: 8),
+                  // Distance
                   if (place.description.contains('km away'))
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
@@ -250,6 +256,10 @@ class PlaceCard extends StatelessWidget {
                         ],
                       ),
                     ),
+                  // Estimated Time
+                  _buildEstimatedTime(),
+                  // Price Range (if available)
+                  _buildPriceRange(),
                 ],
               ),
               
@@ -269,7 +279,7 @@ class PlaceCard extends StatelessWidget {
                       place.address,
                       style: TextStyle(
                         color: Color(AppConstants.colors['textSecondary']!),
-                        fontSize: 12,
+                        fontSize: 14,
                       ),
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -285,7 +295,7 @@ class PlaceCard extends StatelessWidget {
                   place.description.split('•').first.trim(),
                   style: TextStyle(
                     color: Color(AppConstants.colors['textSecondary']!),
-                    fontSize: 13,
+                    fontSize: 15,
                     height: 1.3,
                   ),
                   maxLines: 2,
@@ -294,94 +304,145 @@ class PlaceCard extends StatelessWidget {
               
               const SizedBox(height: 8),
               
-              // Type and Local Tip
-              Row(
+              // Type, Local Tip, and AI Context
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: Color(AppConstants.colors['primary']!).withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Text(
-                      place.type,
-                      style: TextStyle(
-                        color: Color(AppConstants.colors['primary']!),
-                        fontSize: 11,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ),
-                  if (place.localTip.isNotEmpty) ...[
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                         decoration: BoxDecoration(
-                          color: Colors.green[50],
-                          borderRadius: BorderRadius.circular(8),
+                          color: Color(AppConstants.colors['primary']!).withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(12),
                         ),
-                        child: Row(
-                          children: [
-                            Icon(Icons.lightbulb_outline, size: 12, color: Colors.green[600]),
-                            const SizedBox(width: 4),
-                            Expanded(
-                              child: Text(
-                                place.localTip,
-                                style: TextStyle(
-                                  fontSize: 10,
-                                  color: Colors.green[700],
-                                ),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                          ],
+                        child: Text(
+                          place.type,
+                          style: TextStyle(
+                            color: Color(AppConstants.colors['primary']!),
+                            fontSize: 11,
+                            fontWeight: FontWeight.w500,
+                          ),
                         ),
                       ),
-                    ),
-                  ]
+                      if (place.localTip.isNotEmpty) ...[
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: Colors.green[50],
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Row(
+                              children: [
+                                Icon(Icons.lightbulb_outline, size: 12, color: Colors.green[600]),
+                                const SizedBox(width: 4),
+                                Expanded(
+                                  child: Text(
+                                    place.localTip,
+                                    style: TextStyle(
+                                      fontSize: 10,
+                                      color: Colors.green[700],
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ]
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  // AI-Enhanced Context
+                  _buildAIContext(),
                 ],
               ),
               
               const SizedBox(height: 12),
               
-              // Action Buttons with icons
-              Row(
+              // Enhanced Action Buttons
+              Column(
                 children: [
-                  Expanded(
-                    child: ElevatedButton.icon(
-                      onPressed: onTap,
-                      icon: const Icon(Icons.info_outline, size: 16),
-                      label: const Text('Details'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Color(AppConstants.colors['primary']!),
-                        foregroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
+                  // Primary Actions
+                  Row(
+                    children: [
+                      Expanded(
+                        child: ElevatedButton.icon(
+                          onPressed: onTap,
+                          icon: const Icon(Icons.info_outline, size: 16),
+                          label: const Text('Details', style: TextStyle(fontSize: 16)),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Color(AppConstants.colors['primary']!),
+                            foregroundColor: Colors.white,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            padding: const EdgeInsets.symmetric(vertical: 8),
+                          ),
                         ),
-                        padding: const EdgeInsets.symmetric(vertical: 8),
                       ),
-                    ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: () {
+                            showDialog(
+                              context: context,
+                              builder: (dialogContext) => AddToTripDialog(place: place),
+                            );
+                          },
+                          icon: const Icon(Icons.add_location, size: 16),
+                          label: const Text('Add Trip', style: TextStyle(fontSize: 16)),
+                          style: OutlinedButton.styleFrom(
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            padding: const EdgeInsets.symmetric(vertical: 8),
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: OutlinedButton.icon(
-                      onPressed: () {
-                        showDialog(
-                          context: context,
-                          builder: (dialogContext) => AddToTripDialog(place: place),
-                        );
-                      },
-                      icon: const Icon(Icons.add_location, size: 16),
-                      label: const Text('Add Trip'),
-                      style: OutlinedButton.styleFrom(
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
+                  const SizedBox(height: 8),
+                  // Quick Action Buttons
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _buildQuickAction(
+                          context,
+                          Icons.thumb_down_outlined,
+                          'Not Interested',
+                          Colors.red[100]!,
+                          Colors.red[700]!,
+                          () => _handleNotInterested(context),
                         ),
-                        padding: const EdgeInsets.symmetric(vertical: 8),
                       ),
-                    ),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: _buildQuickAction(
+                          context,
+                          Icons.bookmark_outline,
+                          'Save Later',
+                          Colors.blue[100]!,
+                          Colors.blue[700]!,
+                          () => _handleSaveForLater(context),
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: _buildQuickAction(
+                          context,
+                          Icons.check_circle_outline,
+                          'Been Here',
+                          Colors.green[100]!,
+                          Colors.green[700]!,
+                          () => _handleBeenHere(context),
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
@@ -403,5 +464,230 @@ class PlaceCard extends StatelessWidget {
         color: Colors.grey,
       ),
     );
+  }
+  
+  Widget _buildQuickAction(
+    BuildContext context,
+    IconData icon,
+    String label,
+    Color backgroundColor,
+    Color textColor,
+    VoidCallback onPressed,
+  ) {
+    return InkWell(
+      onTap: onPressed,
+      borderRadius: BorderRadius.circular(6),
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
+        decoration: BoxDecoration(
+          color: backgroundColor,
+          borderRadius: BorderRadius.circular(6),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 14, color: textColor),
+            const SizedBox(width: 4),
+            Expanded(
+              child: Text(
+                label,
+                style: TextStyle(
+                  fontSize: 11,
+                  color: textColor,
+                  fontWeight: FontWeight.w500,
+                ),
+                textAlign: TextAlign.center,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+  
+  void _handleNotInterested(BuildContext context) {
+    // Track user feedback
+    UsageTrackingService().trackCategorySelected('not_interested_${place.type}');
+    
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('We\'ll show fewer ${place.type} places'),
+        backgroundColor: Colors.orange,
+        duration: const Duration(seconds: 2),
+      ),
+    );
+  }
+  
+  void _handleSaveForLater(BuildContext context) {
+    // Track save for later
+    UsageTrackingService().trackPlaceFavorited(place);
+    
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Saved for later!'),
+        backgroundColor: Colors.blue,
+        duration: Duration(seconds: 2),
+      ),
+    );
+  }
+  
+  void _handleBeenHere(BuildContext context) {
+    // Track been here
+    UsageTrackingService().trackCategorySelected('been_here_${place.type}');
+    
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Thanks for the feedback on ${place.name}!'),
+        backgroundColor: Colors.green,
+        duration: const Duration(seconds: 2),
+      ),
+    );
+  }
+  
+  Widget _buildEstimatedTime() {
+    String timeEstimate = _getEstimatedTime(place.type);
+    
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: Colors.purple[50],
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.access_time, size: 12, color: Colors.purple[600]),
+          const SizedBox(width: 2),
+          Text(
+            timeEstimate,
+            style: TextStyle(
+              fontSize: 11,
+              color: Colors.purple[700],
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+  
+  Widget _buildPriceRange() {
+    String priceRange = _getPriceRange(place.type);
+    
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: Colors.green[50],
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.attach_money, size: 12, color: Colors.green[600]),
+          const SizedBox(width: 2),
+          Text(
+            priceRange,
+            style: TextStyle(
+              fontSize: 11,
+              color: Colors.green[700],
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+  
+  String _getEstimatedTime(String placeType) {
+    final type = placeType.toLowerCase();
+    if (type.contains('museum') || type.contains('gallery')) return '2-3h';
+    if (type.contains('restaurant') || type.contains('cafe')) return '1-2h';
+    if (type.contains('park') || type.contains('nature')) return '1-3h';
+    if (type.contains('bar') || type.contains('nightlife')) return '2-4h';
+    if (type.contains('shop') || type.contains('mall')) return '1-2h';
+    return '1-2h';
+  }
+  
+  String _getPriceRange(String placeType) {
+    final type = placeType.toLowerCase();
+    if (type.contains('museum') || type.contains('park')) return 'Free-\$';
+    if (type.contains('restaurant')) return '\$\$-\$\$\$';
+    if (type.contains('cafe')) return '\$-\$\$';
+    if (type.contains('bar') || type.contains('nightlife')) return '\$\$-\$\$\$';
+    if (type.contains('shop') || type.contains('mall')) return '\$-\$\$\$\$';
+    return '\$-\$\$';
+  }
+  
+  Widget _buildAIContext() {
+    final context = _getAIEnhancedContext();
+    if (context.isEmpty) return const SizedBox.shrink();
+    
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: Colors.orange[50],
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.orange[200]!),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.auto_awesome, size: 12, color: Colors.orange[600]),
+          const SizedBox(width: 4),
+          Expanded(
+            child: Text(
+              context,
+              style: TextStyle(
+                fontSize: 10,
+                color: Colors.orange[700],
+                fontWeight: FontWeight.w500,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+  
+  String _getAIEnhancedContext() {
+    final hour = DateTime.now().hour;
+    final isWeekend = DateTime.now().weekday >= 6;
+    final type = place.type.toLowerCase();
+    
+    // Weather-based context
+    if (type.contains('park') || type.contains('outdoor')) {
+      return 'Perfect for sunny weather ☀️';
+    }
+    
+    // Time-based context
+    if (type.contains('restaurant')) {
+      if (hour >= 18) return 'Great for dinner 🍽️';
+      if (hour >= 12) return 'Perfect for lunch 🥗';
+      return 'Good for breakfast ☕';
+    }
+    
+    if (type.contains('bar') || type.contains('nightlife')) {
+      if (isWeekend) return 'Popular weekend spot 🎉';
+      return 'Great for evening drinks 🍸';
+    }
+    
+    if (type.contains('museum') || type.contains('gallery')) {
+      if (hour < 12) return 'Less crowded in morning 🌅';
+      return 'Rich cultural experience 🎨';
+    }
+    
+    if (type.contains('cafe')) {
+      if (hour < 10) return 'Perfect for morning coffee ☕';
+      return 'Great workspace atmosphere 💻';
+    }
+    
+    // Rating-based context
+    if (place.rating >= 4.5) return 'Highly rated by visitors ⭐';
+    if (place.rating >= 4.0) return 'Popular local spot 👍';
+    
+    return '';
   }
 }

@@ -819,6 +819,48 @@ class ApiService {
       return [];
     }
   }
+  
+  // Subscription Management API
+  Future<Map<String, dynamic>?> updateUserSubscription(String userId, Map<String, dynamic> subscriptionData) async {
+    try {
+      final response = await _dio.put('/api/users/$userId/subscription', data: subscriptionData);
+      if (response.statusCode == 200) {
+        return Map<String, dynamic>.from(response.data);
+      }
+      return null;
+    } catch (e) {
+      print('Error updating user subscription: $e');
+      return null;
+    }
+  }
+  
+  Future<Map<String, dynamic>?> getUserSubscriptionStatus(String userId) async {
+    try {
+      final response = await _dio.get('/api/users/$userId/subscription');
+      if (response.statusCode == 200) {
+        return Map<String, dynamic>.from(response.data);
+      }
+      return null;
+    } catch (e) {
+      print('Error fetching subscription status: $e');
+      return null;
+    }
+  }
+  
+  Future<List<Map<String, dynamic>>> getUserPaymentHistory(String userId) async {
+    try {
+      final response = await _dio.get('/api/users/$userId/payments');
+      if (response.statusCode == 200) {
+        final responseData = response.data;
+        final List<dynamic> data = responseData is Map ? responseData['payments'] ?? responseData['data'] ?? [] : responseData;
+        return List<Map<String, dynamic>>.from(data);
+      }
+      return [];
+    } catch (e) {
+      print('Error fetching payment history: $e');
+      return [];
+    }
+  }
 
 
 

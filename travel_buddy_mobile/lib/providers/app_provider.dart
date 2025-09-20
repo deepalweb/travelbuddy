@@ -23,6 +23,10 @@ import '../services/image_service.dart';
 import '../services/settings_service.dart';
 import '../services/notification_service.dart';
 import '../services/error_handler_service.dart';
+import '../services/usage_tracking_service.dart';
+import '../services/recommendation_engine.dart';
+import '../services/real_local_discoveries_service.dart';
+import '../models/travel_style.dart';
 
 
 
@@ -39,6 +43,9 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
   final PermissionService _permissionService = PermissionService();
   final weather_service.WeatherService _weatherService = weather_service.WeatherService();
   final discoveries_service.LocalDiscoveriesService _localDiscoveriesService = discoveries_service.LocalDiscoveriesService();
+  final UsageTrackingService _usageTrackingService = UsageTrackingService();
+  final RecommendationEngine _recommendationEngine = RecommendationEngine();
+  final RealLocalDiscoveriesService _realLocalDiscoveriesService = RealLocalDiscoveriesService();
 
   
   // App lifecycle state
@@ -209,6 +216,7 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
       await _notificationService.initialize();
       await SettingsService.initialize();
       await _storageService.initialize();
+      await _usageTrackingService.initialize();
       
       // Load settings
       _loadSettings();
@@ -296,12 +304,74 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
   }
 
   Future<void> _loadPersonalizedSuggestions() async {
-    // Suggestions are now handled by API service
+    try {
+      if (_places.isNotEmpty) {
+        // Generate real personalized suggestions using ML engine
+        final suggestions = await _recommendationEngine.generateContextualSuggestions(
+          nearbyPlaces: _places.take(10).toList(),
+          userStyle: _currentUser?.travelStyle,
+          weather: _weatherInfo?.condition,
+          hour: DateTime.now().hour,
+        );
+        
+        // Convert to PersonalizedSuggestion objects
+        _suggestions = suggestions.map((text) => PersonalizedSuggestion(
+          id: DateTime.now().millisecondsSinceEpoch.toString(),
+          title: 'For You',
+          description: text,
+          category: 'personalized',
+          rating: 0.0,
+          imageUrl: '',
+          details: {},
+          relevanceScore: 1.0,
+          tags: ['personalized'],
+        )).toList();
+        
+        print('✅ Generated ${_suggestions.length} ML-based personalized suggestions');
+      }
+    } catch (e) {
+      print('❌ Error generating personalized suggestions: $e');
+    }
   }
 
   Future<void> _loadLocalDiscoveries() async {
-    final discoveries = await _localDiscoveriesService.generateLocalDiscoveries('Current City');
-    _localDiscoveries = discoveries.isNotEmpty ? discoveries.first.toModelLocalDiscovery() : null;
+    try {
+      if (_currentLocation != null) {
+        // Generate real local discoveries from multiple sources
+        final realDiscoveries = await _realLocalDiscoveriesService.generateRealDiscoveries(
+          latitude: _currentLocation!.latitude,
+          longitude: _currentLocation!.longitude,
+          userStyle: _currentUser?.travelStyle,
+          weather: _weatherInfo?.condition,
+        );
+        
+        // Convert to model format (use first discovery)
+        if (realDiscoveries.isNotEmpty) {
+          final discovery = realDiscoveries.first;
+          _localDiscoveries = LocalDiscovery(
+            title: discovery.title,
+            description: discovery.description,
+            hiddenGem: {'name': discovery.items.isNotEmpty ? discovery.items.first : 'Local spot'},
+            localFoodCulture: {'highlights': discovery.items.take(2).toList()},
+            insiderTips: discovery.items,
+            events: [],
+            traditions: [],
+            seasonalHighlights: [],
+);
+          
+          print('✅ Loaded REAL local discoveries: ${discovery.title}');
+        }
+      } else {
+        // Fallback to mock service
+        final discoveries = await _localDiscoveriesService.generateLocalDiscoveries('Current City');
+        _localDiscoveries = discoveries.isNotEmpty ? discoveries.first.toModelLocalDiscovery() : null;
+      }
+    } catch (e) {
+      print('❌ Error loading real local discoveries: $e');
+      // Fallback to mock service
+      final discoveries = await _localDiscoveriesService.generateLocalDiscoveries('Current City');
+      _localDiscoveries = discoveries.isNotEmpty ? discoveries.first.toModelLocalDiscovery() : null;
+    }
   }
 
   Future<void> _loadWeatherInfo() async {
@@ -317,8 +387,33 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
   Future<void> _loadWeatherForecast() async {
     if (_currentLocation != null) {
       try {
-        // Mock forecast for now - replace with real API
-        final hour = DateTime.now().hour;
+        // Get real weather forecast from weather service
+        final realForecast = await _weatherService.getDetailedForecast(
+          latitude: _currentLocation!.latitude,
+          longitude: _currentLocation!.longitude,
+        );
+        
+        // Convert to app model format
+        final hourlyForecasts = realForecast.hourly.take(3).map((hourly) {
+          return HourlyForecast(
+            time: '${hourly.time.hour}:00',
+            temperature: hourly.temperature,
+            condition: hourly.condition,
+          );
+        }).toList();
+        
+        _weatherForecast = WeatherForecast(
+          condition: _weatherInfo?.condition ?? 'sunny',
+          temperature: _weatherInfo?.temperature ?? 25.0,
+          humidity: _weatherInfo?.humidity?.toDouble() ?? 65.0,
+          windSpeed: _weatherInfo?.windSpeed ?? 8.5,
+          hourlyForecast: hourlyForecasts,
+        );
+        
+        print('✅ Loaded REAL weather forecast with ${hourlyForecasts.length} hours');
+      } catch (e) {
+        print('❌ Error loading real weather forecast: $e');
+        // Fallback to mock forecast
         final hourlyForecasts = List.generate(3, (index) {
           final time = DateTime.now().add(Duration(hours: index * 3));
           return HourlyForecast(
@@ -335,51 +430,136 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
           windSpeed: 8.5,
           hourlyForecast: hourlyForecasts,
         );
-      } catch (e) {
-        print('Error loading weather forecast: $e');
       }
     }
   }
 
   Future<void> _loadDailySuggestions() async {
     try {
-      final hour = DateTime.now().hour;
-      final weather = _weatherInfo?.condition ?? 'sunny';
-      
-      List<String> suggestions = [];
-      
-      if (hour < 12) {
-        suggestions.add('Start your day with a coffee at a local café');
-        if (weather == 'sunny') {
-          suggestions.add('Perfect weather for a morning walk in the park');
-        } else {
-          suggestions.add('Visit a museum or indoor attraction');
-        }
-      } else if (hour < 18) {
-        suggestions.add('Explore local markets and shops');
-        if (weather == 'sunny') {
-          suggestions.add('Great time for outdoor sightseeing');
-        } else {
-          suggestions.add('Check out art galleries or cultural sites');
-        }
-      } else {
-        suggestions.add('Discover local dining experiences');
-        suggestions.add('Enjoy evening entertainment or nightlife');
-      }
-      
-      _dailySuggestions = suggestions.take(2).toList();
+      // Generate personalized suggestions based on real user data
+      _dailySuggestions = await _generatePersonalizedSuggestions();
+      print('✅ Loaded REAL personalized suggestions: ${_dailySuggestions.length} items');
     } catch (e) {
-      print('Error loading daily suggestions: $e');
+      print('❌ Error loading personalized suggestions: $e');
       _dailySuggestions = ['Explore nearby attractions', 'Try local cuisine'];
+    }
+  }
+  
+  Future<List<String>> _generatePersonalizedSuggestions() async {
+    final hour = DateTime.now().hour;
+    final isWeekend = DateTime.now().weekday >= 6;
+    final weather = _weatherInfo?.condition?.toLowerCase() ?? 'clear';
+    final userStyle = _currentUser?.travelStyle;
+    final userInsights = _usageTrackingService.getUserInsights();
+    final topCategory = userInsights['topCategory'] as String?;
+    
+    List<String> suggestions = [];
+    
+    // Time-based personalized suggestions
+    if (hour < 12) {
+      if (userStyle == TravelStyle.foodie || topCategory == 'restaurants') {
+        suggestions.add('Discover amazing breakfast spots and local coffee roasters');
+      } else if (userStyle == TravelStyle.culture || topCategory == 'culture') {
+        suggestions.add('Visit museums early - they\'re less crowded in the morning');
+      } else if (userStyle == TravelStyle.nature || topCategory == 'nature') {
+        suggestions.add('Perfect morning for parks and nature walks');
+      } else {
+        suggestions.add('Start your day exploring local morning markets');
+      }
+    } else if (hour < 18) {
+      if (userStyle == TravelStyle.explorer || topCategory == 'attractions') {
+        suggestions.add('Prime time for sightseeing and tourist attractions');
+      } else if (userStyle == TravelStyle.foodie || topCategory == 'restaurants') {
+        suggestions.add('Lunch time! Try highly-rated local restaurants');
+      } else {
+        suggestions.add('Great afternoon for exploring local neighborhoods');
+      }
+    } else {
+      if (userStyle == TravelStyle.nightOwl || topCategory == 'nightlife') {
+        suggestions.add('Evening is perfect for bars and nightlife experiences');
+      } else if (userStyle == TravelStyle.foodie || topCategory == 'restaurants') {
+        suggestions.add('Dinner time! Discover amazing evening dining spots');
+      } else {
+        suggestions.add('Enjoy evening entertainment and cultural events');
+      }
+    }
+    
+    // Weather-based personalized suggestions
+    if (weather.contains('rain')) {
+      if (userStyle == TravelStyle.culture) {
+        suggestions.add('Rainy day is perfect for museums and galleries');
+      } else if (userStyle == TravelStyle.foodie) {
+        suggestions.add('Cozy indoor dining and food halls await you');
+      } else {
+        suggestions.add('Great weather for indoor shopping and cafes');
+      }
+    } else if (weather.contains('sunny')) {
+      if (userStyle == TravelStyle.nature) {
+        suggestions.add('Beautiful weather for parks and outdoor activities');
+      } else if (userStyle == TravelStyle.foodie) {
+        suggestions.add('Perfect for outdoor dining and food markets');
+      } else {
+        suggestions.add('Sunny weather is ideal for outdoor sightseeing');
+      }
+    }
+    
+    // Weekend-specific suggestions
+    if (isWeekend && userStyle == TravelStyle.nightOwl) {
+      suggestions.add('Weekend nightlife scene is buzzing - explore bars and clubs');
+    } else if (isWeekend && userStyle == TravelStyle.relaxer) {
+      suggestions.add('Perfect weekend for peaceful parks and quiet cafes');
+    }
+    
+    // Add nearby place-specific suggestions
+    if (_places.isNotEmpty) {
+      final topPlace = _places.first;
+      if (userStyle != null) {
+        final styleMatch = _getPlaceStyleMatch(topPlace, userStyle);
+        if (styleMatch) {
+          suggestions.add('${topPlace.name} nearby matches your ${userStyle.displayName} style perfectly');
+        }
+      }
+    }
+    
+    // Return top 2-3 most relevant suggestions
+    return suggestions.take(3).toList();
+  }
+  
+  bool _getPlaceStyleMatch(dynamic place, TravelStyle style) {
+    final type = place.type.toLowerCase();
+    switch (style) {
+      case TravelStyle.foodie:
+        return type.contains('restaurant') || type.contains('cafe');
+      case TravelStyle.culture:
+        return type.contains('museum') || type.contains('gallery');
+      case TravelStyle.nature:
+        return type.contains('park') || type.contains('nature');
+      case TravelStyle.nightOwl:
+        return type.contains('bar') || type.contains('nightlife');
+      default:
+        return false;
     }
   }
 
   Future<void> _loadTravelStats() async {
     try {
-      // For now, use mock data - replace with real calculation
-      _travelStats = TravelStats.mock();
+      // Get real user insights from usage tracking
+      final userInsights = _usageTrackingService.getUserInsights();
+      final favoritesCount = _favoriteIds.length;
+      final recentPlaces = _places;
+      
+      // Create real travel stats from user data
+      _travelStats = TravelStats.fromUserData(
+        userInsights: userInsights,
+        favoritesCount: favoritesCount,
+        recentPlaces: recentPlaces,
+      );
+      
+      print('✅ Loaded REAL travel stats: ${_travelStats!.totalPlacesVisited} interactions');
     } catch (e) {
-      print('Error loading travel stats: $e');
+      print('❌ Error loading real travel stats: $e');
+      // Fallback to mock data
+      _travelStats = TravelStats.mock();
     }
   }
   static const int _placesPerPage = 12;
@@ -509,6 +689,12 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
       final now = DateTime.now();
       final trialEnd = now.add(const Duration(days: 7));
       
+      // Update backend first
+      final backendSuccess = await _syncSubscriptionWithBackend(tier, isFreeTrial);
+      if (!backendSuccess) {
+        print('⚠️ Backend sync failed, updating locally only');
+      }
+      
       final updatedUser = _currentUser!.copyWith(
         tier: tier,
         subscriptionStatus: isFreeTrial ? SubscriptionStatus.trial : SubscriptionStatus.active,
@@ -532,6 +718,27 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
       return true;
     } catch (e) {
       print('Error updating subscription: $e');
+      return false;
+    }
+  }
+  
+  Future<bool> _syncSubscriptionWithBackend(SubscriptionTier tier, bool isFreeTrial) async {
+    try {
+      if (_currentUser?.mongoId == null) return false;
+      
+      final response = await _apiService.updateUserSubscription(
+        _currentUser!.mongoId!,
+        {
+          'tier': tier.name,
+          'status': isFreeTrial ? 'trial' : 'active',
+          'trialEndDate': isFreeTrial ? DateTime.now().add(const Duration(days: 7)).toIso8601String() : null,
+          'subscriptionEndDate': !isFreeTrial ? DateTime.now().add(const Duration(days: 30)).toIso8601String() : null,
+        },
+      );
+      
+      return response != null;
+    } catch (e) {
+      print('❌ Backend subscription sync failed: $e');
       return false;
     }
   }
@@ -847,8 +1054,19 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
             })
             .toList();
             
-        // Sort by rating
-        places.sort((a, b) => b.rating.compareTo(a.rating));
+        // Apply ML-based personalized ranking
+        if (_currentUser?.travelStyle != null && places.isNotEmpty) {
+          places = await _recommendationEngine.getPersonalizedRecommendations(
+            availablePlaces: places,
+            userStyle: _currentUser!.travelStyle,
+            currentWeather: _weatherInfo?.condition,
+            hour: DateTime.now().hour,
+          );
+          print('✅ Applied ML-based personalized ranking to ${places.length} places');
+        } else {
+          // Fallback to rating-based sorting
+          places.sort((a, b) => b.rating.compareTo(a.rating));
+        }
       }
 
       // AI Enrichment and distance calculation
@@ -1180,6 +1398,29 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
     }
     return distribution;
   }
+  
+  // Travel Style Methods
+  Future<bool> updateTravelStyle(TravelStyle style) async {
+    if (_currentUser == null) return false;
+    
+    try {
+      final updatedUser = _currentUser!.copyWith(travelStyle: style);
+      await _storageService.saveUser(updatedUser);
+      _currentUser = updatedUser;
+      
+      // Track the style selection
+      await _usageTrackingService.trackCategorySelected('travel_style_${style.name}');
+      
+      print('✅ Travel style updated to: ${style.displayName}');
+      notifyListeners();
+      return true;
+    } catch (e) {
+      print('❌ Error updating travel style: $e');
+      return false;
+    }
+  }
+  
+  TravelStyle? get userTravelStyle => _currentUser?.travelStyle;
 
   Future<void> searchPlaces(String query) async {
     print('🔍 searchPlaces called with: "$query"');

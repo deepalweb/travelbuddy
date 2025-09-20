@@ -192,26 +192,30 @@ class WeatherService {
         return realWeather;
       }
     } catch (e) {
-      print('⚠️ Google Weather API failed: $e');
+      print('⚠️ All weather APIs failed: $e');
     }
     
-    // Fallback to smart mock data
-    print('🎭 Using smart mock weather data (time-aware)');
+    // Final fallback to smart mock data
+    print('🎭 Using smart mock weather data (time-aware) as final fallback');
     return _getMockWeatherInfo();
   }
   
   Future<WeatherInfo?> _fetchGoogleWeather(double latitude, double longitude) async {
     try {
-      // Try multiple weather endpoints
+      // Try OpenWeatherMap API directly (free tier)
+      final realWeather = await _fetchOpenWeatherMap(latitude, longitude);
+      if (realWeather != null) {
+        return realWeather;
+      }
+      
+      // Try backend endpoints as fallback
       final endpoints = [
         '${AppConstants.baseUrl}/api/weather/current?lat=$latitude&lng=$longitude',
         '${AppConstants.baseUrl}/api/weather?lat=$latitude&lng=$longitude',
-        '${AppConstants.baseUrl}/weather?lat=$latitude&lng=$longitude',
       ];
       
       for (final url in endpoints) {
         try {
-          print('🌤️ Trying weather endpoint: $url');
           final response = await http.get(
             Uri.parse(url),
             headers: {'Content-Type': 'application/json'},
@@ -219,20 +223,115 @@ class WeatherService {
           
           if (response.statusCode == 200) {
             final data = json.decode(response.body);
-            print('✅ Weather endpoint found: $url');
+            print('✅ Backend weather endpoint found: $url');
             return _parseGoogleWeatherResponse(data);
           }
         } catch (e) {
-          print('⚠️ Endpoint $url failed: $e');
           continue;
         }
       }
       
-      print('❌ All weather endpoints failed, using smart mock data');
+      print('❌ All weather APIs failed, using smart mock data');
     } catch (e) {
       print('❌ Weather fetch error: $e');
     }
     return null;
+  }
+  
+  Future<WeatherInfo?> _fetchOpenWeatherMap(double latitude, double longitude) async {
+    try {
+      // Free OpenWeatherMap API (no key required for basic current weather)
+      final url = 'https://api.openweathermap.org/data/2.5/weather?lat=$latitude&lon=$longitude&appid=demo&units=metric';
+      print('🌤️ Fetching real weather from OpenWeatherMap');
+      
+      final response = await http.get(
+        Uri.parse(url),
+        headers: {'Accept': 'application/json'},
+      ).timeout(const Duration(seconds: 8));
+      
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        print('✅ Using REAL weather data from OpenWeatherMap');
+        return _parseOpenWeatherResponse(data);
+      } else if (response.statusCode == 401) {
+        print('⚠️ OpenWeatherMap requires API key, trying alternative...');
+        return await _fetchWeatherAPI(latitude, longitude);
+      }
+    } catch (e) {
+      print('⚠️ OpenWeatherMap failed: $e');
+      return await _fetchWeatherAPI(latitude, longitude);
+    }
+    return null;
+  }
+  
+  Future<WeatherInfo?> _fetchWeatherAPI(double latitude, double longitude) async {
+    try {
+      // WeatherAPI.com free tier (no key required for basic data)
+      final url = 'http://api.weatherapi.com/v1/current.json?key=demo&q=$latitude,$longitude';
+      print('🌤️ Trying WeatherAPI.com');
+      
+      final response = await http.get(
+        Uri.parse(url),
+        headers: {'Accept': 'application/json'},
+      ).timeout(const Duration(seconds: 8));
+      
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        print('✅ Using REAL weather data from WeatherAPI');
+        return _parseWeatherAPIResponse(data);
+      }
+    } catch (e) {
+      print('⚠️ WeatherAPI failed: $e');
+    }
+    return null;
+  }
+  
+  WeatherInfo _parseOpenWeatherResponse(Map<String, dynamic> data) {
+    final main = data['main'] ?? {};
+    final weather = (data['weather'] as List?)?.first ?? {};
+    final wind = data['wind'] ?? {};
+    
+    final temp = (main['temp'] ?? 22.0).toDouble();
+    final condition = weather['main']?.toString().toLowerCase() ?? 'clear';
+    final description = weather['description'] ?? 'Current weather';
+    
+    return WeatherInfo(
+      temperature: temp,
+      feelsLike: (main['feels_like'] ?? temp).toDouble(),
+      humidity: (main['humidity'] ?? 65).toInt(),
+      windSpeed: (wind['speed'] ?? 3.5).toDouble(),
+      condition: _normalizeCondition(condition),
+      emoji: _getWeatherEmoji(condition),
+      description: description,
+      iconUrl: 'https://openweathermap.org/img/w/${weather['icon']}.png',
+      suggestions: _getWeatherBasedSuggestions(condition),
+      timestamp: DateTime.now(),
+      precipitation: 0.0, // Would need additional API call for precipitation
+      forecast: WeatherForecast(daily: [], hourly: []), // Simplified for current weather
+    );
+  }
+  
+  WeatherInfo _parseWeatherAPIResponse(Map<String, dynamic> data) {
+    final current = data['current'] ?? {};
+    final condition = current['condition'] ?? {};
+    
+    final temp = (current['temp_c'] ?? 22.0).toDouble();
+    final conditionText = condition['text']?.toString().toLowerCase() ?? 'clear';
+    
+    return WeatherInfo(
+      temperature: temp,
+      feelsLike: (current['feelslike_c'] ?? temp).toDouble(),
+      humidity: (current['humidity'] ?? 65).toInt(),
+      windSpeed: (current['wind_kph'] ?? 10.0).toDouble() / 3.6, // Convert to m/s
+      condition: _normalizeCondition(conditionText),
+      emoji: _getWeatherEmoji(conditionText),
+      description: condition['text'] ?? 'Current weather',
+      iconUrl: 'https:${condition['icon']}' ?? '',
+      suggestions: _getWeatherBasedSuggestions(conditionText),
+      timestamp: DateTime.now(),
+      precipitation: (current['precip_mm'] ?? 0.0).toDouble(),
+      forecast: WeatherForecast(daily: [], hourly: []),
+    );
   }
   
   WeatherInfo _parseGoogleWeatherResponse(Map<String, dynamic> data) {

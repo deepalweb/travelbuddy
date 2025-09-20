@@ -17,6 +17,9 @@ import 'favorites_screen.dart';
 import 'my_trips_screen.dart';
 import 'help_support_screen.dart';
 import 'edit_profile_screen.dart';
+import 'travel_style_selection_screen.dart';
+import '../models/travel_style.dart';
+import '../services/usage_tracking_service.dart';
 
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
@@ -172,13 +175,11 @@ class ProfileScreen extends StatelessWidget {
                         const SizedBox(width: 8),
                         Expanded(
                           child: _buildStatCard(
-                            icon: Icons.favorite,
-                            count: appProvider.favoritePlaces.length,
-                            label: 'Favorites',
-                            color: Colors.red[400]!,
-                            onTap: () => Navigator.of(context).push(
-                              MaterialPageRoute(builder: (context) => const FavoritesScreen()),
-                            ),
+                            icon: Icons.place,
+                            count: appProvider.travelStats?.totalPlacesVisited ?? 0,
+                            label: 'Visited',
+                            color: Colors.green[400]!,
+                            onTap: () => _showTravelInsights(context, appProvider),
                           ),
                         ),
 
@@ -235,6 +236,31 @@ class ProfileScreen extends StatelessWidget {
                         subtitle: const Text('Your bookmarked content'),
                         trailing: const Icon(Icons.chevron_right),
                         onTap: () => _showBookmarkedPosts(context),
+                      ),
+                      const Divider(height: 1),
+                      ListTile(
+                        leading: const Icon(Icons.explore),
+                        title: const Text('Travel Style'),
+                        subtitle: Text(appProvider.userTravelStyle?.displayName ?? 'Not set - tap to choose'),
+                        trailing: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            if (appProvider.userTravelStyle != null)
+                              Text(
+                                appProvider.userTravelStyle!.emoji,
+                                style: const TextStyle(fontSize: 16),
+                              ),
+                            const SizedBox(width: 8),
+                            const Icon(Icons.chevron_right),
+                          ],
+                        ),
+                        onTap: () {
+                          Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (context) => const TravelStyleSelectionScreen(),
+                            ),
+                          );
+                        },
                       ),
                       const Divider(height: 1),
                       ListTile(
@@ -611,6 +637,153 @@ Join Travel Buddy and discover amazing places together!
             },
           ),
         ),
+      ),
+    );
+  }
+  
+  void _showTravelInsights(BuildContext context, AppProvider appProvider) {
+    final travelStats = appProvider.travelStats;
+    final userInsights = UsageTrackingService().getUserInsights();
+    
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => Scaffold(
+          appBar: AppBar(
+            title: const Text('Travel Insights'),
+            backgroundColor: Colors.blue[600],
+            foregroundColor: Colors.white,
+          ),
+          body: SingleChildScrollView(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Travel Statistics
+                Card(
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Your Travel Statistics',
+                          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                        ),
+                        const SizedBox(height: 16),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: _buildInsightCard(
+                                'Places Visited',
+                                '${travelStats?.totalPlacesVisited ?? 0}',
+                                Icons.place,
+                                Colors.green,
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: _buildInsightCard(
+                                'This Month',
+                                '${travelStats?.placesVisitedThisMonth ?? 0}',
+                                Icons.calendar_today,
+                                Colors.blue,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: _buildInsightCard(
+                                'Distance',
+                                '${travelStats?.totalDistanceKm.toStringAsFixed(1) ?? '0.0'}km',
+                                Icons.route,
+                                Colors.orange,
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: _buildInsightCard(
+                                'Streak',
+                                '${travelStats?.currentStreak ?? 0} days',
+                                Icons.local_fire_department,
+                                Colors.red,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                // Preferences
+                Card(
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Your Preferences',
+                          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                        ),
+                        const SizedBox(height: 16),
+                        ListTile(
+                          leading: Icon(Icons.explore, color: Colors.blue[600]),
+                          title: const Text('Travel Style'),
+                          subtitle: Text(appProvider.userTravelStyle?.displayName ?? 'Not set'),
+                          trailing: Text(appProvider.userTravelStyle?.emoji ?? '🗺️'),
+                        ),
+                        ListTile(
+                          leading: Icon(Icons.category, color: Colors.purple[600]),
+                          title: const Text('Favorite Category'),
+                          subtitle: Text(travelStats?.favoriteCategory ?? 'Exploring'),
+                          trailing: const Icon(Icons.star),
+                        ),
+                        ListTile(
+                          leading: Icon(Icons.favorite, color: Colors.red[600]),
+                          title: const Text('Saved Places'),
+                          subtitle: Text('${appProvider.favoritePlaces.length} favorites'),
+                          trailing: const Icon(Icons.bookmark),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+  
+  Widget _buildInsightCard(String title, String value, IconData icon, Color color) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Column(
+        children: [
+          Icon(icon, color: color, size: 24),
+          const SizedBox(height: 8),
+          Text(
+            value,
+            style: const TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          Text(
+            title,
+            style: const TextStyle(fontSize: 12),
+            textAlign: TextAlign.center,
+          ),
+        ],
       ),
     );
   }

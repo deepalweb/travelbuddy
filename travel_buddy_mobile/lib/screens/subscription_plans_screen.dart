@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
 import '../providers/app_provider.dart';
 import '../models/user.dart';
 import '../services/payment_service.dart';
+import '../constants/app_constants.dart';
 
 class SubscriptionPlansScreen extends StatefulWidget {
   const SubscriptionPlansScreen({super.key});
@@ -185,20 +188,40 @@ class _SubscriptionPlansScreenState extends State<SubscriptionPlansScreen> {
                       ],
                     ),
                     const SizedBox(height: 8),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                      decoration: BoxDecoration(
-                        color: Colors.green[100],
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: const Text(
-                        '7 Days FREE Trial',
-                        style: TextStyle(
-                          color: Colors.green,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 12,
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: Colors.green[100],
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: const Text(
+                            '7 Days FREE Trial',
+                            style: TextStyle(
+                              color: Colors.green,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 12,
+                            ),
+                          ),
                         ),
-                      ),
+                        const SizedBox(width: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: Colors.blue[100],
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: const Text(
+                            'or Upgrade Now',
+                            style: TextStyle(
+                              color: Colors.blue,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                     const SizedBox(height: 16),
                     ...plan['features'].map<Widget>((feature) => Padding(
@@ -212,32 +235,71 @@ class _SubscriptionPlansScreenState extends State<SubscriptionPlansScreen> {
                       ),
                     )),
                     const SizedBox(height: 20),
-                    SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton(
-                        onPressed: isCurrentPlan || _isLoading 
-                            ? null 
-                            : () => _subscribeToPlan(plan),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: isCurrentPlan ? Colors.grey : plan['color'],
-                          padding: const EdgeInsets.symmetric(vertical: 12),
+                    if (isCurrentPlan)
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        decoration: BoxDecoration(
+                          color: Colors.grey[300],
+                          borderRadius: BorderRadius.circular(8),
                         ),
-                        child: _isLoading
-                            ? const SizedBox(
-                                height: 20,
-                                width: 20,
-                                child: CircularProgressIndicator(strokeWidth: 2),
-                              )
-                            : Text(
-                                isCurrentPlan ? 'Current Plan' : 'Start 7-Day Free Trial',
-                                style: const TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.white,
+                        child: const Text(
+                          'Current Plan',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.grey,
+                          ),
+                        ),
+                      )
+                    else ...[
+                      // Free Trial Button
+                      SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton(
+                          onPressed: _isLoading ? null : () => _subscribeToPlan(plan, isFreeTrial: true),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: plan['color'],
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                          ),
+                          child: _isLoading
+                              ? const SizedBox(
+                                  height: 20,
+                                  width: 20,
+                                  child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                                )
+                              : const Text(
+                                  'Start 7-Day Free Trial',
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.white,
+                                  ),
                                 ),
-                              ),
+                        ),
                       ),
-                    ),
+                      const SizedBox(height: 8),
+                      // Upgrade Now Button
+                      SizedBox(
+                        width: double.infinity,
+                        child: OutlinedButton(
+                          onPressed: _isLoading ? null : () => _subscribeToPlan(plan, isFreeTrial: false),
+                          style: OutlinedButton.styleFrom(
+                            side: BorderSide(color: plan['color'], width: 2),
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                          ),
+                          child: Text(
+                            'Upgrade Now - \$${plan['price']}/month',
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.bold,
+                              color: plan['color'],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
                   ],
                 ),
               ),
@@ -344,35 +406,47 @@ class _SubscriptionPlansScreenState extends State<SubscriptionPlansScreen> {
     );
   }
 
-  Future<void> _subscribeToPlan(Map<String, dynamic> plan) async {
+  Future<void> _subscribeToPlan(Map<String, dynamic> plan, {required bool isFreeTrial}) async {
     setState(() => _isLoading = true);
     
     try {
-      // Check if user has used free trial before
       final appProvider = context.read<AppProvider>();
-      final hasUsedTrial = await _hasUserUsedFreeTrial(appProvider);
+      
+      // For free trial, check if user has used it before
+      if (isFreeTrial) {
+        final hasUsedTrial = await _hasUserUsedFreeTrial(appProvider);
+        if (hasUsedTrial) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('You have already used your free trial. Please choose "Upgrade Now" for immediate access.'),
+              backgroundColor: Colors.orange,
+              duration: Duration(seconds: 4),
+            ),
+          );
+          return;
+        }
+      }
       
       final success = await _paymentService.processPayment(
         amount: plan['price'],
         planName: plan['name'],
         tier: plan['tier'],
         context: context,
-        isFreeTrial: !hasUsedTrial, // Free trial only for first-time users
+        isFreeTrial: isFreeTrial,
       );
       
       if (success && mounted) {
-        final appProvider = context.read<AppProvider>();
-        final hasUsedTrial = await _hasUserUsedFreeTrial(appProvider);
-        await appProvider.updateSubscription(plan['tier'], isFreeTrial: !hasUsedTrial);
+        await appProvider.updateSubscription(plan['tier'], isFreeTrial: isFreeTrial);
         
-        final message = hasUsedTrial 
-            ? 'Successfully subscribed to ${plan['name']} plan!'
-            : 'Started 7-day free trial for ${plan['name']} plan!';
+        final message = isFreeTrial 
+            ? 'Started 7-day free trial for ${plan['name']} plan!'
+            : 'Successfully upgraded to ${plan['name']} plan!';
             
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(message),
             backgroundColor: Colors.green,
+            duration: const Duration(seconds: 3),
           ),
         );
         Navigator.pop(context);
@@ -381,8 +455,9 @@ class _SubscriptionPlansScreenState extends State<SubscriptionPlansScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Payment failed: $e'),
+            content: Text(isFreeTrial ? 'Free trial setup failed: $e' : 'Payment failed: $e'),
             backgroundColor: Colors.red,
+            duration: const Duration(seconds: 4),
           ),
         );
       }
@@ -394,9 +469,25 @@ class _SubscriptionPlansScreenState extends State<SubscriptionPlansScreen> {
   }
 
   Future<bool> _hasUserUsedFreeTrial(AppProvider appProvider) async {
-    // Check if user has previously used free trial
-    // In production, this would check your backend database
-    // For now, we'll assume all users are eligible for trial
-    return false; // Always allow free trial for demo
+    try {
+      final user = appProvider.currentUser;
+      if (user?.mongoId == null) return false;
+      
+      // Check backend for trial usage
+      final response = await http.get(
+        Uri.parse('${AppConstants.baseUrl}/api/users/${user!.mongoId}/trial-status'),
+        headers: {'Content-Type': 'application/json'},
+      ).timeout(const Duration(seconds: 10));
+      
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        return data['hasUsedTrial'] ?? false;
+      }
+      
+      return false; // Default to allowing trial if API fails
+    } catch (e) {
+      print('❌ Error checking trial status: $e');
+      return false; // Allow trial on error
+    }
   }
 }

@@ -1,4 +1,5 @@
 import 'package:hive/hive.dart';
+import 'travel_style.dart';
 
 part 'user.g.dart';
 
@@ -92,6 +93,9 @@ class CurrentUser extends HiveObject {
   @HiveField(13)
   final String? uid;
 
+  // @HiveField(14)
+  final TravelStyle? travelStyle;
+
   CurrentUser({
     this.username,
     this.uid,
@@ -107,6 +111,7 @@ class CurrentUser extends HiveObject {
     this.hasCompletedWizard = false,
     this.mongoId,
     this.profilePicture,
+    this.travelStyle,
   });
 
   factory CurrentUser.fromJson(Map<String, dynamic> json) {
@@ -137,6 +142,12 @@ class CurrentUser extends HiveObject {
       hasCompletedWizard: json['hasCompletedWizard'] ?? false,
       mongoId: json['mongoId'],
       profilePicture: json['profilePicture'],
+      travelStyle: json['travelStyle'] != null 
+          ? TravelStyle.values.firstWhere(
+              (e) => e.name == json['travelStyle'],
+              orElse: () => TravelStyle.explorer,
+            )
+          : null,
     );
   }
 
@@ -156,6 +167,7 @@ class CurrentUser extends HiveObject {
       'mongoId': mongoId,
       'profilePicture': profilePicture,
       'uid': uid,
+      'travelStyle': travelStyle?.name,
     };
   }
 
@@ -174,6 +186,7 @@ class CurrentUser extends HiveObject {
     String? mongoId,
     String? profilePicture,
     String? uid,
+    TravelStyle? travelStyle,
   }) {
     return CurrentUser(
       username: username ?? this.username,
@@ -190,6 +203,7 @@ class CurrentUser extends HiveObject {
       mongoId: mongoId ?? this.mongoId,
       profilePicture: profilePicture ?? this.profilePicture,
       uid: uid ?? this.uid,
+      travelStyle: travelStyle ?? this.travelStyle,
     );
   }
 }

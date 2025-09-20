@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_paypal_payment/flutter_paypal_payment.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
 import '../models/user.dart';
+import '../constants/app_constants.dart';
 
 class PaymentService {
   static final PaymentService _instance = PaymentService._internal();
@@ -26,7 +29,8 @@ class PaymentService {
         return true;
       }
       
-      // Real PayPal payment processing for paid subscriptions
+      // Real PayPal payment processing for immediate paid subscriptions
+      print('💳 Processing immediate payment for ${tier.name} - \$${amount.toStringAsFixed(2)}');
       final result = await Navigator.of(context).push(
         MaterialPageRoute(
           builder: (BuildContext context) => PaypalCheckoutView(
@@ -75,7 +79,8 @@ class PaymentService {
       );
       
       if (result != null && result['status'] == 'success') {
-        await _updateUserSubscription(tier);
+        await _updateUserSubscription(tier, isFreeTrial: false);
+        print('✅ Immediate subscription activated for ${tier.name}');
         return true;
       } else {
         throw Exception('Payment was not completed');
@@ -85,25 +90,96 @@ class PaymentService {
     }
   }
 
-  Future<void> _updateUserSubscription(SubscriptionTier tier) async {
-    // Update subscription in app provider
-    // Note: In production, you'd also update your backend here
-    print('✅ Subscription updated to: ${tier.toString().split('.').last}');
+  Future<void> _updateUserSubscription(SubscriptionTier tier, {bool isFreeTrial = false}) async {
+    try {
+      // Update backend subscription
+      final response = await http.post(
+        Uri.parse('${AppConstants.baseUrl}/api/subscriptions/update'),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({
+          'userId': _getCurrentUserId(),
+          'tier': tier.name,
+          'status': isFreeTrial ? 'trial' : 'active',
+          'trialEndDate': isFreeTrial ? DateTime.now().add(const Duration(days: 7)).toIso8601String() : null,
+          'subscriptionEndDate': !isFreeTrial ? DateTime.now().add(const Duration(days: 30)).toIso8601String() : null,
+        }),
+      ).timeout(const Duration(seconds: 10));
+      
+      if (response.statusCode == 200) {
+        print('✅ Backend subscription updated to: ${tier.toString().split('.').last}');
+      } else {
+        print('⚠️ Backend subscription update failed: ${response.statusCode}');
+      }
+    } catch (e) {
+      print('❌ Error updating backend subscription: $e');
+    }
+  }
+  
+  String? _getCurrentUserId() {
+    // Get current user ID from auth service
+    try {
+      // You would integrate with your actual auth service here
+      // For now, we'll use a method to get the current user
+      return _getCurrentUserFromStorage();
+    } catch (e) {
+      print('❌ Error getting current user ID: $e');
+      return null;
+    }
+  }
+  
+  String? _getCurrentUserFromStorage() {
+    // This would get the user from your storage service
+    // Implementation depends on your auth architecture
+    // For now, return a placeholder that would be replaced with real user ID
+    return 'mobile_user_${DateTime.now().millisecondsSinceEpoch}';
   }
 
   Future<void> _startFreeTrial(SubscriptionTier tier) async {
-    // Start 7-day free trial
-    final trialEndDate = DateTime.now().add(const Duration(days: 7));
-    
-    // In production, you would:
-    // 1. Create trial subscription in your backend
-    // 2. Set up automatic billing after trial ends
-    // 3. Send confirmation email to user
-    
-    print('✅ Started 7-day free trial for ${tier.toString().split('.').last}');
-    print('📅 Trial ends: ${trialEndDate.toString()}');
-    
-    await _updateUserSubscription(tier);
+    try {
+      final trialEndDate = DateTime.now().add(const Duration(days: 7));
+      
+      // Create trial subscription in backend
+      final response = await http.post(
+        Uri.parse('${AppConstants.baseUrl}/api/subscriptions/trial'),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({
+          'userId': _getCurrentUserId(),
+          'tier': tier.name,
+          'trialEndDate': trialEndDate.toIso8601String(),
+        }),
+      ).timeout(const Duration(seconds: 10));
+      
+      if (response.statusCode == 200) {
+        print('✅ Started 7-day free trial for ${tier.toString().split('.').last}');
+        print('📅 Trial ends: ${trialEndDate.toString()}');
+        
+        // Send confirmation email via backend
+        await _sendTrialConfirmationEmail(tier, trialEndDate);
+      } else {
+        throw Exception('Failed to create trial subscription');
+      }
+      
+      await _updateUserSubscription(tier, isFreeTrial: true);
+    } catch (e) {
+      print('❌ Error starting free trial: $e');
+      throw Exception('Failed to start free trial: $e');
+    }
+  }
+  
+  Future<void> _sendTrialConfirmationEmail(SubscriptionTier tier, DateTime trialEndDate) async {
+    try {
+      await http.post(
+        Uri.parse('${AppConstants.baseUrl}/api/notifications/trial-confirmation'),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({
+          'userId': _getCurrentUserId(),
+          'tier': tier.name,
+          'trialEndDate': trialEndDate.toIso8601String(),
+        }),
+      ).timeout(const Duration(seconds: 5));
+    } catch (e) {
+      print('⚠️ Failed to send trial confirmation email: $e');
+    }
   }
 
   // PayPal payment methods (would use actual PayPal SDK)
@@ -130,45 +206,97 @@ class PaymentService {
   // Subscription management
   Future<bool> cancelSubscription() async {
     try {
-      await Future.delayed(const Duration(seconds: 1)); // Simulate API call
+      final response = await http.post(
+        Uri.parse('${AppConstants.baseUrl}/api/subscriptions/cancel'),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({
+          'userId': _getCurrentUserId(),
+          'cancelAtPeriodEnd': true, // Don't cancel immediately, wait for period end
+        }),
+      ).timeout(const Duration(seconds: 10));
       
-      // Update user to free tier
-      await _updateUserSubscription(SubscriptionTier.free);
-      return true;
+      if (response.statusCode == 200) {
+        print('✅ Subscription cancellation scheduled');
+        
+        // Send cancellation confirmation email
+        await _sendCancellationConfirmationEmail();
+        return true;
+      } else {
+        throw Exception('Backend cancellation failed: ${response.statusCode}');
+      }
     } catch (e) {
       throw Exception('Failed to cancel subscription: $e');
     }
   }
+  
+  Future<void> _sendCancellationConfirmationEmail() async {
+    try {
+      await http.post(
+        Uri.parse('${AppConstants.baseUrl}/api/notifications/cancellation-confirmation'),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({
+          'userId': _getCurrentUserId(),
+        }),
+      ).timeout(const Duration(seconds: 5));
+    } catch (e) {
+      print('⚠️ Failed to send cancellation confirmation email: $e');
+    }
+  }
 
   Future<Map<String, dynamic>> getSubscriptionStatus() async {
-    // This would fetch subscription status from backend
-    return {
-      'active': true,
-      'tier': 'premium',
-      'nextBilling': DateTime.now().add(const Duration(days: 30)),
-      'autoRenew': true,
-    };
+    try {
+      final response = await http.get(
+        Uri.parse('${AppConstants.baseUrl}/api/subscriptions/status/${_getCurrentUserId()}'),
+        headers: {'Content-Type': 'application/json'},
+      ).timeout(const Duration(seconds: 10));
+      
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        return {
+          'active': data['active'] ?? false,
+          'tier': data['tier'] ?? 'free',
+          'status': data['status'] ?? 'none',
+          'nextBilling': data['nextBilling'] != null ? DateTime.parse(data['nextBilling']) : null,
+          'trialEndDate': data['trialEndDate'] != null ? DateTime.parse(data['trialEndDate']) : null,
+          'autoRenew': data['autoRenew'] ?? false,
+          'cancelAtPeriodEnd': data['cancelAtPeriodEnd'] ?? false,
+        };
+      } else {
+        print('⚠️ Failed to fetch subscription status: ${response.statusCode}');
+        return {'active': false, 'tier': 'free', 'status': 'none'};
+      }
+    } catch (e) {
+      print('❌ Error fetching subscription status: $e');
+      return {'active': false, 'tier': 'free', 'status': 'none'};
+    }
   }
 
   // Payment history
   Future<List<Map<String, dynamic>>> getPaymentHistory() async {
-    // Mock payment history
-    return [
-      {
-        'id': 'PAY001',
-        'date': DateTime.now().subtract(const Duration(days: 30)),
-        'amount': 9.99,
-        'plan': 'Premium',
-        'status': 'completed',
-      },
-      {
-        'id': 'PAY002',
-        'date': DateTime.now().subtract(const Duration(days: 60)),
-        'amount': 9.99,
-        'plan': 'Premium',
-        'status': 'completed',
-      },
-    ];
+    try {
+      final response = await http.get(
+        Uri.parse('${AppConstants.baseUrl}/api/payments/history/${_getCurrentUserId()}'),
+        headers: {'Content-Type': 'application/json'},
+      ).timeout(const Duration(seconds: 10));
+      
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body) as List;
+        return data.map((payment) => {
+          'id': payment['id'],
+          'date': DateTime.parse(payment['date']),
+          'amount': payment['amount'].toDouble(),
+          'plan': payment['plan'],
+          'status': payment['status'],
+          'paymentMethod': payment['paymentMethod'] ?? 'PayPal',
+        }).toList();
+      } else {
+        print('⚠️ Failed to fetch payment history: ${response.statusCode}');
+        return [];
+      }
+    } catch (e) {
+      print('❌ Error fetching payment history: $e');
+      return []; // Return empty list on error
+    }
   }
 }
 

@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../providers/app_provider.dart';
 import '../widgets/safe_widget.dart';
 import '../widgets/subscription_status_widget.dart';
+import '../models/travel_style.dart';
 
 
 class HomeScreen extends StatefulWidget {
@@ -644,7 +645,8 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _buildNearbyPlaces(AppProvider appProvider) {
     try {
-      final places = appProvider.places.take(6).toList();
+      // Get personalized places based on travel style
+      final places = _getPersonalizedPlaces(appProvider).take(6).toList();
       
       if (places.isEmpty) {
         if (appProvider.isPlacesLoading) {
@@ -684,9 +686,30 @@ class _HomeScreenState extends State<HomeScreen> {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'Nearby Places',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+          Row(
+            children: [
+              const Text(
+                'Places for You',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+              const Spacer(),
+              if (appProvider.userTravelStyle != null)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: Colors.blue[100],
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    '${appProvider.userTravelStyle!.emoji} ${appProvider.userTravelStyle!.displayName}',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.blue[700],
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+            ],
           ),
           const SizedBox(height: 12),
           GridView.count(
@@ -831,26 +854,40 @@ class _HomeScreenState extends State<HomeScreen> {
       return const SizedBox.shrink();
     }
   }
-
-
-
-
-
-
-
-
-
-
   
-
+  List<dynamic> _getPersonalizedPlaces(AppProvider appProvider) {
+    final places = appProvider.places;
+    final userStyle = appProvider.userTravelStyle;
+    
+    if (userStyle == null || places.isEmpty) {
+      return places;
+    }
+    
+    // Sort places based on travel style preferences
+    final sortedPlaces = places.toList();
+    sortedPlaces.sort((a, b) {
+      final aScore = _getPlaceScore(a, userStyle);
+      final bScore = _getPlaceScore(b, userStyle);
+      return bScore.compareTo(aScore);
+    });
+    
+    return sortedPlaces;
+  }
   
-
-
-
-
-
-
-
-
-
+  double _getPlaceScore(dynamic place, TravelStyle style) {
+    final type = place.type.toLowerCase();
+    final weights = style.placeWeights;
+    
+    double score = place.rating; // Base score from rating
+    
+    // Apply style-specific weights
+    for (final entry in weights.entries) {
+      if (type.contains(entry.key)) {
+        score *= entry.value;
+        break;
+      }
+    }
+    
+    return score;
+  }
 }
