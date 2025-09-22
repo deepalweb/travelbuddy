@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:http/http.dart' as http;
 import '../providers/app_provider.dart';
 import '../constants/app_constants.dart';
 import '../widgets/place_card.dart';
@@ -680,7 +681,7 @@ class _PlacesScreenState extends State<PlacesScreen> {
     
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
-        content: Text('🔍 Testing API connection...'),
+        content: Text('🔍 Testing API connections...'),
         backgroundColor: Colors.orange,
       ),
     );
@@ -691,11 +692,47 @@ class _PlacesScreenState extends State<PlacesScreen> {
     // Test API key
     await placesService.testApiKey();
     
+    // Test Gemini AI
+    await _testGeminiAI();
+    
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(isConnected ? '✅ API connection successful!' : '❌ API connection failed - check console'),
+        content: Text(isConnected ? '✅ API tests completed - check console' : '❌ API connection failed - check console'),
         backgroundColor: isConnected ? Colors.green : Colors.red,
       ),
     );
+  }
+  
+  Future<void> _testGeminiAI() async {
+    try {
+      // Test Azure backend URL first
+      print('🌐 Testing Azure backend: ${AppConstants.baseUrl}');
+      final healthResponse = await http.get(
+        Uri.parse('${AppConstants.baseUrl}/health'),
+        headers: {'Content-Type': 'application/json'},
+      ).timeout(const Duration(seconds: 10));
+      print('🌐 Azure health check: ${healthResponse.statusCode}');
+      print('🌐 Health response: ${healthResponse.body}');
+      
+      final response = await http.get(
+        Uri.parse('${AppConstants.baseUrl}/api/ai/test-key'),
+        headers: {'Content-Type': 'application/json'},
+      ).timeout(const Duration(seconds: 10));
+      print('🤖 Gemini Key test: ${response.statusCode}');
+      print('🤖 Response: ${response.body}');
+      
+      // Test actual generation
+      final genResponse = await http.get(
+        Uri.parse('${AppConstants.baseUrl}/api/ai/test-generate'),
+        headers: {'Content-Type': 'application/json'},
+      ).timeout(const Duration(seconds: 15));
+      print('🤖 Gemini Generate test: ${genResponse.statusCode}');
+      print('🤖 Generate Response: ${genResponse.body}');
+    } catch (e) {
+      print('❌ Backend/Gemini AI test failed: $e');
+      if (e.toString().contains('TimeoutException')) {
+        print('❌ Azure backend is not responding - check if server is running');
+      }
+    }
   }
 }

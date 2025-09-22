@@ -2173,6 +2173,68 @@ app.get('/api/test-deployment', (req, res) => {
   });
 });
 
+// Test API key endpoint
+app.get('/api/places/test-key', (req, res) => {
+  const apiKey = process.env.GOOGLE_PLACES_API_KEY;
+  res.json({
+    hasApiKey: !!apiKey,
+    keyLength: apiKey?.length || 0,
+    keyPreview: apiKey ? `${apiKey.substring(0, 10)}...` : 'Not set',
+    timestamp: new Date().toISOString()
+  });
+});
+
+// Test Gemini AI configuration
+app.get('/api/ai/test-key', (req, res) => {
+  const geminiKey = process.env.GEMINI_API_KEY;
+  res.json({
+    hasGeminiKey: !!geminiKey,
+    keyLength: geminiKey?.length || 0,
+    keyPreview: geminiKey ? `${geminiKey.substring(0, 10)}...` : 'Not set',
+    timestamp: new Date().toISOString()
+  });
+});
+
+// Test Gemini AI with simple request
+app.get('/api/ai/test-generate', async (req, res) => {
+  try {
+    const geminiKey = process.env.GEMINI_API_KEY;
+    if (!geminiKey) {
+      return res.status(500).json({ error: 'GEMINI_API_KEY not configured' });
+    }
+
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${geminiKey}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: 'Say hello in JSON format: {"message": "your response"}' }] }]
+      })
+    });
+
+    if (!response.ok) {
+      return res.status(response.status).json({ 
+        error: 'Gemini API error', 
+        status: response.status,
+        statusText: response.statusText 
+      });
+    }
+
+    const data = await response.json();
+    const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+    
+    res.json({
+      success: true,
+      response: text,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    res.status(500).json({ 
+      error: 'Gemini test failed', 
+      details: error.message 
+    });
+  }
+});
+
 // Google Place Photo proxy to avoid exposing API key to the client
 app.get('/api/places/photo', enforcePolicy('places'), async (req, res) => {
   try {
