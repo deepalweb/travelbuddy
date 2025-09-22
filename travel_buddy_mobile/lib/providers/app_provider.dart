@@ -27,6 +27,7 @@ import '../services/usage_tracking_service.dart';
 import '../services/recommendation_engine.dart';
 import '../services/real_local_discoveries_service.dart';
 import '../models/travel_style.dart';
+import '../models/place_section.dart';
 
 
 
@@ -64,6 +65,8 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
 
   // Places State
   List<Place> _places = [];
+  List<PlaceSection> _placeSections = [];
+  bool _isSectionsLoading = false;
 
   // Trip State
   final List<TripPlan> _recentTrips = [];
@@ -121,6 +124,8 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
   String? get locationError => _locationError;
   
   List<Place> get places => _places;
+  List<PlaceSection> get placeSections => _placeSections;
+  bool get isSectionsLoading => _isSectionsLoading;
   List<Place> get favoritePlaces => _favoritePlaces;
   List<String> get favoriteIds => _favoriteIds;
   bool get isPlacesLoading => _isPlacesLoading;
@@ -876,14 +881,17 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
       return;
     }
 
-    // Check if we have valid cached data for current location
-    if (!loadMore && searchQuery.isEmpty) {
+    // Check if location changed significantly - force refresh if moved >1km
+    final locationChanged = await _hasLocationChangedSignificantly();
+    
+    // Check if we have valid cached data for current location (only if location hasn't changed much)
+    if (!loadMore && searchQuery.isEmpty && !locationChanged) {
       final cachedData = await _storageService.getCachedPlacesForLocation(
         _currentLocation!.latitude,
         _currentLocation!.longitude,
         _selectedCategory,
-        maxAgeHours: 1, // Cache valid for 1 hour
-        maxDistanceKm: 2.0, // Cache valid within 2km
+        maxAgeHours: 0.5, // Shorter cache time - 30 minutes
+        maxDistanceKm: 1.0, // Tighter distance threshold - 1km
       );
       
       if (cachedData.isNotEmpty) {
@@ -893,6 +901,10 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
         notifyListeners();
         return; // Skip API call - use cache
       }
+    }
+    
+    if (locationChanged) {
+      print('📍 Location changed significantly - forcing fresh places load');
     }
     
     _isPlacesLoading = true;
@@ -1436,12 +1448,223 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
   
   TravelStyle? get userTravelStyle => _currentUser?.travelStyle;
 
+  // Load places in sections
+  Future<void> loadPlaceSections() async {
+    if (!_isAppActive || _currentLocation == null) {
+      print('🚫 Skipping sections load - app inactive or no location');
+      return;
+    }
+    
+    _isSectionsLoading = true;
+    notifyListeners();
+    
+    try {
+      final sections = await Future.wait([
+        _loadMustSeeLandmarks(),
+        _loadTopRestaurants(),
+        _loadUserInterestPlaces(),
+        _loadLocalFavorites(),
+        _loadNearbyConveniences(),
+        _loadContextualPlaces(),
+      ]);
+      
+      _placeSections = sections.where((s) => s.places.isNotEmpty).toList();
+      print('✅ Loaded ${_placeSections.length} place sections');
+    } catch (e) {
+      print('❌ Error loading place sections: $e');
+    } finally {
+      _isSectionsLoading = false;
+      notifyListeners();
+    }
+  }
+  
+  Future<PlaceSection> _loadMustSeeLandmarks() async {
+    final places = await _fetchPlacesForSection('landmarks attractions monuments', 5);
+    return PlaceSection(
+      id: 'landmarks',
+      title: 'Must-See Landmarks',
+      subtitle: 'Top attractions near you',
+      emoji: '🏛️',
+      places: places,
+      category: 'landmarks',
+      query: 'landmarks attractions monuments',
+    );
+  }
+  
+  Future<PlaceSection> _loadTopRestaurants() async {
+    final places = await _fetchPlacesForSection('restaurants cafes dining', 5);
+    return PlaceSection(
+      id: 'restaurants',
+      title: 'Top Restaurants',
+      subtitle: 'Highly rated dining spots',
+      emoji: '🍽️',
+      places: places,
+      category: 'food',
+      query: 'restaurants cafes dining',
+    );
+  }
+  
+  Future<PlaceSection> _loadUserInterestPlaces() async {
+    final userStyle = _currentUser?.travelStyle;
+    String query = 'attractions';
+    String title = 'Recommended for You';
+    String emoji = '🎯';
+    
+    if (userStyle != null) {
+      switch (userStyle) {
+        case TravelStyle.foodie:
+          query = 'restaurants food markets';
+          title = 'For Food Lovers';
+          emoji = '🍴';
+          break;
+        case TravelStyle.culture:
+          query = 'museums galleries cultural sites';
+          title = 'For Culture Lovers';
+          emoji = '🎨';
+          break;
+        case TravelStyle.nature:
+          query = 'parks gardens nature trails';
+          title = 'For Nature Lovers';
+          emoji = '🌳';
+          break;
+        case TravelStyle.nightOwl:
+          query = 'bars nightlife entertainment';
+          title = 'For Night Owls';
+          emoji = '🌙';
+          break;
+        default:
+          break;
+      }
+    }
+    
+    final places = await _fetchPlacesForSection(query, 5);
+    return PlaceSection(
+      id: 'interests',
+      title: title,
+      subtitle: 'Based on your preferences',
+      emoji: emoji,
+      places: places,
+      category: 'interests',
+      query: query,
+    );
+  }
+  
+  Future<PlaceSection> _loadLocalFavorites() async {
+    final places = await _fetchPlacesForSection('local favorites hidden gems', 5);
+    return PlaceSection(
+      id: 'local',
+      title: 'Local Favorites',
+      subtitle: 'Hidden gems locals love',
+      emoji: '⭐',
+      places: places,
+      category: 'local',
+      query: 'local favorites hidden gems',
+    );
+  }
+  
+  Future<PlaceSection> _loadNearbyConveniences() async {
+    final places = await _fetchPlacesForSection('pharmacy atm gas station convenience', 5);
+    return PlaceSection(
+      id: 'convenience',
+      title: 'Nearby Conveniences',
+      subtitle: 'Essential services around you',
+      emoji: '🏪',
+      places: places,
+      category: 'convenience',
+      query: 'pharmacy atm gas station convenience',
+    );
+  }
+  
+  Future<PlaceSection> _loadContextualPlaces() async {
+    final hour = DateTime.now().hour;
+    String query = 'attractions';
+    String title = 'Around Here';
+    String subtitle = 'Places nearby';
+    
+    if (hour < 12) {
+      query = 'cafes breakfast morning';
+      title = 'Morning Spots';
+      subtitle = 'Perfect for breakfast';
+    } else if (hour >= 18) {
+      query = 'restaurants bars evening dining';
+      title = 'Evening Spots';
+      subtitle = 'Great for dinner';
+    }
+    
+    final places = await _fetchPlacesForSection(query, 5);
+    return PlaceSection(
+      id: 'contextual',
+      title: title,
+      subtitle: subtitle,
+      emoji: '📍',
+      places: places,
+      category: 'contextual',
+      query: query,
+    );
+  }
+  
+  Future<List<Place>> _fetchPlacesForSection(String query, int count) async {
+    try {
+      final placesService = PlacesService();
+      final places = await placesService.fetchPlacesPipeline(
+        latitude: _currentLocation!.latitude,
+        longitude: _currentLocation!.longitude,
+        query: query,
+        radius: _selectedRadius,
+        topN: count,
+      );
+      
+      // Filter by rating and add distance
+      final filteredPlaces = places.where((p) => p.rating >= 3.5).toList();
+      
+      // Add distance info
+      for (int i = 0; i < filteredPlaces.length; i++) {
+        final place = filteredPlaces[i];
+        final distance = Geolocator.distanceBetween(
+          _currentLocation!.latitude,
+          _currentLocation!.longitude,
+          place.latitude ?? 0.0,
+          place.longitude ?? 0.0,
+        );
+        final distanceKm = (distance / 1000).toStringAsFixed(1);
+        
+        filteredPlaces[i] = Place(
+          id: place.id,
+          name: place.name,
+          address: place.address,
+          latitude: place.latitude,
+          longitude: place.longitude,
+          rating: place.rating,
+          type: place.type,
+          photoUrl: place.photoUrl,
+          description: '${place.description} • ${distanceKm}km away',
+          localTip: place.localTip,
+          handyPhrase: place.handyPhrase,
+          phoneNumber: place.phoneNumber,
+          website: place.website,
+        );
+      }
+      
+      return filteredPlaces.take(count).toList();
+    } catch (e) {
+      print('❌ Error fetching places for section: $e');
+      return [];
+    }
+  }
+  
+  // Load more places for a specific section
+  Future<List<Place>> loadMoreForSection(String sectionId, int page) async {
+    final section = _placeSections.firstWhere((s) => s.id == sectionId);
+    final places = await _fetchPlacesForSection(section.query, 10);
+    return places;
+  }
+
   Future<void> searchPlaces(String query) async {
     print('🔍 searchPlaces called with: "$query"');
     
     if (query.isEmpty) {
-      // Empty search - reload default places
-      await loadNearbyPlaces();
+      // Empty search - reload sections
+      await loadPlaceSections();
       return;
     }
     
@@ -1470,22 +1693,38 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
 
   // Trip Methods
   Future<void> loadTripPlans() async {
-    if (_currentUser?.mongoId == null) return;
-
     _isTripsLoading = true;
     notifyListeners();
 
     try {
-      final tripPlans = await _apiService.getUserTripPlans(_currentUser!.mongoId!);
-      _tripPlans = tripPlans;
+      // Always load from cache first
+      final cachedPlans = await _storageService.getTripPlans();
+      _tripPlans = cachedPlans;
+      print('💾 Loaded ${cachedPlans.length} trip plans from cache');
       
-      // Cache locally
-      for (final trip in tripPlans) {
-        await _storageService.saveTripPlan(trip);
+      // Try to sync with backend if user is logged in (but don't overwrite cache on failure)
+      if (_currentUser?.mongoId != null) {
+        try {
+          final backendPlans = await _apiService.getUserTripPlans(_currentUser!.mongoId!);
+          if (backendPlans.isNotEmpty) {
+            _tripPlans = backendPlans;
+            
+            // Cache the backend plans
+            for (final trip in backendPlans) {
+              await _storageService.saveTripPlan(trip);
+            }
+            print('🌍 Synced ${backendPlans.length} trip plans from backend');
+          } else {
+            print('🌍 Backend returned 0 plans, keeping cache');
+          }
+        } catch (e) {
+          print('⚠️ Backend sync failed, using cached plans: $e');
+          // Keep cached plans, don't overwrite
+        }
       }
     } catch (e) {
-      // Load from cache if API fails
-      _tripPlans = await _storageService.getTripPlans();
+      print('❌ Error loading trip plans: $e');
+      // Don't clear plans on error, try to keep what we have
     } finally {
       _isTripsLoading = false;
       notifyListeners();
@@ -1714,10 +1953,20 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
   }
 
   Future<void> forceRefreshPlaces() async {
-    debugPrint('🔄 Force refresh places - bypassing cache');
+    debugPrint('🔄 Force refresh places - bypassing cache and updating location');
+    
+    // Clear current places
     _places.clear();
     _currentPage = 1;
     _hasMorePlaces = true;
+    
+    // Force location update first
+    await getCurrentLocation();
+    
+    // Reset last known location to force fresh load
+    _lastKnownLocation = null;
+    
+    // Load fresh places
     await loadNearbyPlaces();
   }
 
@@ -1751,12 +2000,11 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
 
   Future<void> _loadCachedData() async {
     try {
-      // Only load cached trips and itineraries, NOT places
-      // Places should always be fresh from API
-      _tripPlans = await _storageService.getTripPlans() ?? [];
+      // Load trip plans and itineraries
+      await loadTripPlans();
       _itineraries = await _storageService.getItineraries() ?? [];
       
-      print('📱 Loaded cached trips and itineraries only (no places)');
+      print('📱 Loaded ${_tripPlans.length} trip plans and ${_itineraries.length} itineraries');
     } catch (e) {
       print('Error loading cached data: $e');
       _tripPlans = [];
@@ -1947,5 +2195,33 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
     );
     
     return cachedData.isEmpty; // Refresh if no valid cache
+  }
+  
+  // Track last location for change detection
+  Position? _lastKnownLocation;
+  
+  // Check if user has moved significantly since last places load
+  Future<bool> _hasLocationChangedSignificantly() async {
+    if (_currentLocation == null || _lastKnownLocation == null) {
+      _lastKnownLocation = _currentLocation;
+      return false;
+    }
+    
+    final distance = Geolocator.distanceBetween(
+      _lastKnownLocation!.latitude,
+      _lastKnownLocation!.longitude,
+      _currentLocation!.latitude,
+      _currentLocation!.longitude,
+    );
+    
+    // Consider significant if moved >1km
+    final hasChanged = distance > 1000;
+    
+    if (hasChanged) {
+      print('📍 Location changed: ${(distance/1000).toStringAsFixed(1)}km from last position');
+      _lastKnownLocation = _currentLocation; // Update last known position
+    }
+    
+    return hasChanged;
   }
 }

@@ -176,10 +176,25 @@ class PlacesService {
         headers: {'Content-Type': 'application/json'},
       );
       print('📡 Backend connection test: ${response.statusCode}');
+      print('📡 Response body: ${response.body}');
       return response.statusCode == 200;
     } catch (e) {
       print('❌ Backend connection failed: $e');
       return false;
+    }
+  }
+  
+  // Test API key specifically
+  Future<void> testApiKey() async {
+    try {
+      final response = await http.get(
+        Uri.parse('${AppConstants.baseUrl}/api/places/test-key'),
+        headers: {'Content-Type': 'application/json'},
+      );
+      print('🔑 API Key test: ${response.statusCode}');
+      print('🔑 Response: ${response.body}');
+    } catch (e) {
+      print('❌ API Key test failed: $e');
     }
   }
 

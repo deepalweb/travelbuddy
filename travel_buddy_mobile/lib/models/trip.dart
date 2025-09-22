@@ -33,6 +33,22 @@ class TripPlan extends HiveObject {
 
   @HiveField(9)
   final String? budgetConsiderations;
+  
+  // Enhanced fields
+  @HiveField(10)
+  final int durationDays;
+  
+  @HiveField(11)
+  final String totalEstimatedCost;
+  
+  @HiveField(12)
+  final String estimatedWalkingDistance;
+  
+  @HiveField(13)
+  final String? mapPolyline;
+  
+  @HiveField(14)
+  final Map<String, dynamic>? metadata;
 
   TripPlan({
     required this.id,
@@ -45,6 +61,11 @@ class TripPlan extends HiveObject {
     this.accommodationSuggestions,
     this.transportationTips,
     this.budgetConsiderations,
+    this.durationDays = 1,
+    this.totalEstimatedCost = '€0',
+    this.estimatedWalkingDistance = '0 km',
+    this.mapPolyline,
+    this.metadata,
   });
 
   factory TripPlan.fromJson(Map<String, dynamic> json) {
@@ -100,6 +121,13 @@ class DailyTripPlan extends HiveObject {
 
   @HiveField(4)
   final String? photoUrl;
+  
+  // Enhanced fields
+  @HiveField(5)
+  final String dayEstimatedCost;
+  
+  @HiveField(6)
+  final String dayWalkingDistance;
 
   DailyTripPlan({
     required this.day,
@@ -107,6 +135,8 @@ class DailyTripPlan extends HiveObject {
     this.theme,
     required this.activities,
     this.photoUrl,
+    this.dayEstimatedCost = '€0',
+    this.dayWalkingDistance = '0 km',
   });
 
   factory DailyTripPlan.fromJson(Map<String, dynamic> json) {
@@ -158,6 +188,46 @@ class ActivityDetail extends HiveObject {
 
   @HiveField(7)
   final String? category;
+  
+  // Enhanced fields
+  @HiveField(8)
+  final String startTime;
+  
+  @HiveField(9)
+  final String endTime;
+  
+  @HiveField(10)
+  final String duration;
+  
+  @HiveField(11)
+  final PlaceInfo? place;
+  
+  @HiveField(12)
+  final String type;
+  
+  @HiveField(13)
+  final String estimatedCost;
+  
+  @HiveField(14)
+  final Map<String, String>? costBreakdown;
+  
+  @HiveField(15)
+  final TransportInfo? transportFromPrev;
+  
+  @HiveField(16)
+  final List<String>? tips;
+  
+  @HiveField(17)
+  final WeatherBackup? weatherBackup;
+  
+  @HiveField(18)
+  final String crowdLevel;
+  
+  @HiveField(19)
+  final String? imageURL;
+  
+  @HiveField(20)
+  final Map<String, String>? bookingLinks;
 
   ActivityDetail({
     required this.timeOfDay,
@@ -168,6 +238,19 @@ class ActivityDetail extends HiveObject {
     this.notes,
     this.icon,
     this.category,
+    this.startTime = '09:00',
+    this.endTime = '10:00',
+    this.duration = '1h',
+    this.place,
+    this.type = 'other',
+    this.estimatedCost = '€0',
+    this.costBreakdown,
+    this.transportFromPrev,
+    this.tips,
+    this.weatherBackup,
+    this.crowdLevel = 'Moderate',
+    this.imageURL,
+    this.bookingLinks,
   });
 
   factory ActivityDetail.fromJson(Map<String, dynamic> json) {
@@ -249,6 +332,148 @@ class OneDayItinerary extends HiveObject {
       'dailyPlan': dailyPlan.map((e) => e.toJson()).toList(),
       'conclusion': conclusion,
       'travelTips': travelTips,
+    };
+  }
+}
+
+@HiveType(typeId: 7)
+class PlaceInfo extends HiveObject {
+  @HiveField(0)
+  final String? placeId;
+  
+  @HiveField(1)
+  final String name;
+  
+  @HiveField(2)
+  final String address;
+  
+  @HiveField(3)
+  final Coordinates coords;
+  
+  PlaceInfo({
+    this.placeId,
+    required this.name,
+    required this.address,
+    required this.coords,
+  });
+  
+  factory PlaceInfo.fromJson(Map<String, dynamic> json) {
+    return PlaceInfo(
+      placeId: json['place_id'],
+      name: json['name'] ?? '',
+      address: json['address'] ?? '',
+      coords: Coordinates.fromJson(json['coords'] ?? {}),
+    );
+  }
+  
+  Map<String, dynamic> toJson() {
+    return {
+      'place_id': placeId,
+      'name': name,
+      'address': address,
+      'coords': coords.toJson(),
+    };
+  }
+}
+
+@HiveType(typeId: 8)
+class Coordinates extends HiveObject {
+  @HiveField(0)
+  final double lat;
+  
+  @HiveField(1)
+  final double lng;
+  
+  Coordinates({
+    required this.lat,
+    required this.lng,
+  });
+  
+  factory Coordinates.fromJson(Map<String, dynamic> json) {
+    return Coordinates(
+      lat: (json['lat'] ?? 0.0).toDouble(),
+      lng: (json['lng'] ?? 0.0).toDouble(),
+    );
+  }
+  
+  Map<String, dynamic> toJson() {
+    return {
+      'lat': lat,
+      'lng': lng,
+    };
+  }
+}
+
+@HiveType(typeId: 9)
+class TransportInfo extends HiveObject {
+  @HiveField(0)
+  final String mode;
+  
+  @HiveField(1)
+  final String duration;
+  
+  @HiveField(2)
+  final String distance;
+  
+  @HiveField(3)
+  final String cost;
+  
+  @HiveField(4)
+  final String instructions;
+  
+  TransportInfo({
+    required this.mode,
+    required this.duration,
+    required this.distance,
+    required this.cost,
+    required this.instructions,
+  });
+  
+  factory TransportInfo.fromJson(Map<String, dynamic> json) {
+    return TransportInfo(
+      mode: json['mode'] ?? 'walk',
+      duration: json['duration'] ?? '0 min',
+      distance: json['distance'] ?? '0 km',
+      cost: json['cost'] ?? '€0',
+      instructions: json['instructions'] ?? '',
+    );
+  }
+  
+  Map<String, dynamic> toJson() {
+    return {
+      'mode': mode,
+      'duration': duration,
+      'distance': distance,
+      'cost': cost,
+      'instructions': instructions,
+    };
+  }
+}
+
+@HiveType(typeId: 10)
+class WeatherBackup extends HiveObject {
+  @HiveField(0)
+  final String title;
+  
+  @HiveField(1)
+  final String reason;
+  
+  WeatherBackup({
+    required this.title,
+    required this.reason,
+  });
+  
+  factory WeatherBackup.fromJson(Map<String, dynamic> json) {
+    return WeatherBackup(
+      title: json['title'] ?? '',
+      reason: json['reason'] ?? '',
+    );
+  }
+  
+  Map<String, dynamic> toJson() {
+    return {
+      'title': title,
+      'reason': reason,
     };
   }
 }

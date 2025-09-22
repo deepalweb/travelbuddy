@@ -4,6 +4,8 @@ import '../providers/app_provider.dart';
 import '../constants/app_constants.dart';
 import '../widgets/place_card.dart';
 import '../widgets/search_bar_widget.dart';
+import '../widgets/place_section_widget.dart';
+import '../services/places_service.dart';
 import 'place_details_screen.dart';
 import 'subscription_plans_screen.dart';
 
@@ -26,24 +28,24 @@ class _PlacesScreenState extends State<PlacesScreen> {
   @override
   void initState() {
     super.initState();
-    // Load places when screen initializes
+    // Load sectioned places when screen initializes
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final appProvider = Provider.of<AppProvider>(context, listen: false);
-      _loadPlacesWithLocation(appProvider);
+      _loadSectionedPlaces(appProvider);
     });
   }
   
-  Future<void> _loadPlacesWithLocation(AppProvider appProvider) async {
+  Future<void> _loadSectionedPlaces(AppProvider appProvider) async {
     // Ensure location is available first
     if (appProvider.currentLocation == null) {
       print('🔄 Getting location first...');
       await appProvider.getCurrentLocation();
     }
     
-    // Then load places
-    if (appProvider.places.isEmpty && !appProvider.isPlacesLoading) {
-      print('🔄 Loading places...');
-      await appProvider.loadNearbyPlaces();
+    // Load sectioned places
+    if (appProvider.placeSections.isEmpty && !appProvider.isSectionsLoading) {
+      print('🔄 Loading sectioned places...');
+      await appProvider.loadPlaceSections();
     }
   }
 
@@ -143,7 +145,7 @@ class _PlacesScreenState extends State<PlacesScreen> {
               const SizedBox(height: 16),
               
               // User guidance and helpful info
-              if (appProvider.places.isEmpty && !appProvider.isPlacesLoading)
+              if (appProvider.placeSections.isEmpty && !appProvider.isSectionsLoading)
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 16),
                   child: Column(
@@ -169,7 +171,7 @@ class _PlacesScreenState extends State<PlacesScreen> {
                             ),
                             const SizedBox(height: 8),
                             Text(
-                              'We\'ll show you the best attractions, restaurants, and experiences based on your location and time of day.',
+                              'We\'ll show you personalized sections of places based on your interests and location.',
                               textAlign: TextAlign.center,
                               style: TextStyle(color: Colors.blue[700]),
                             ),
@@ -177,15 +179,31 @@ class _PlacesScreenState extends State<PlacesScreen> {
                         ),
                       ),
                       const SizedBox(height: 16),
-                      ElevatedButton.icon(
-                        onPressed: () => _loadPlacesWithLocation(appProvider),
-                        icon: const Icon(Icons.explore),
-                        label: const Text('Find Places Near Me'),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Color(AppConstants.colors['primary']!),
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                        ),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: ElevatedButton.icon(
+                              onPressed: () => _loadSectionedPlaces(appProvider),
+                              icon: const Icon(Icons.explore),
+                              label: const Text('Find Places'),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Color(AppConstants.colors['primary']!),
+                                foregroundColor: Colors.white,
+                                padding: const EdgeInsets.symmetric(vertical: 12),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          ElevatedButton(
+                            onPressed: () => _testApiConnection(),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.orange,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                            ),
+                            child: const Text('Test API'),
+                          ),
+                        ],
                       ),
                     ],
                   ),
@@ -193,11 +211,11 @@ class _PlacesScreenState extends State<PlacesScreen> {
               
               const SizedBox(height: 16),
               
-              // Places List with Pull-to-Refresh
+              // Sectioned Places List with Pull-to-Refresh
               Expanded(
                 child: RefreshIndicator(
-                  onRefresh: () => appProvider.loadNearbyPlaces(),
-                  child: _buildPlacesListWithLoadMore(appProvider),
+                  onRefresh: () => appProvider.loadPlaceSections(),
+                  child: _buildSectionedPlacesList(appProvider),
                 ),
               ),
             ],
@@ -580,6 +598,55 @@ class _PlacesScreenState extends State<PlacesScreen> {
     );
   }
   
+  Widget _buildSectionedPlacesList(AppProvider appProvider) {
+    if (appProvider.isSectionsLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    
+    if (appProvider.placeSections.isEmpty) {
+      return ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        children: [
+          SizedBox(height: MediaQuery.of(context).size.height * 0.3),
+          Center(
+            child: Column(
+              children: [
+                const Icon(Icons.explore_off, size: 64, color: Colors.grey),
+                const SizedBox(height: 16),
+                const Text('No places found nearby', style: TextStyle(fontSize: 18, color: Colors.grey)),
+                const SizedBox(height: 8),
+                const Text('Pull down to refresh or try different location'),
+                const SizedBox(height: 16),
+                ElevatedButton.icon(
+                  onPressed: () => _loadSectionedPlaces(appProvider),
+                  icon: const Icon(Icons.refresh),
+                  label: const Text('Try Again'),
+                ),
+              ],
+            ),
+          ),
+        ],
+      );
+    }
+    
+    return ListView.builder(
+      physics: const AlwaysScrollableScrollPhysics(),
+      itemCount: appProvider.placeSections.length,
+      itemBuilder: (context, index) {
+        final section = appProvider.placeSections[index];
+        return PlaceSectionWidget(
+          section: section,
+          onFavoriteToggle: (placeId) async {
+            final success = await appProvider.toggleFavorite(placeId);
+            if (!success && mounted) {
+              _showUpgradeDialog(context);
+            }
+          },
+        );
+      },
+    );
+  }
+  
   void _showUpgradeDialog(BuildContext context) {
     showDialog(
       context: context,
@@ -604,6 +671,30 @@ class _PlacesScreenState extends State<PlacesScreen> {
             child: const Text('Upgrade'),
           ),
         ],
+      ),
+    );
+  }
+  
+  Future<void> _testApiConnection() async {
+    final placesService = PlacesService();
+    
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('🔍 Testing API connection...'),
+        backgroundColor: Colors.orange,
+      ),
+    );
+    
+    // Test backend connection
+    final isConnected = await placesService.testConnection();
+    
+    // Test API key
+    await placesService.testApiKey();
+    
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(isConnected ? '✅ API connection successful!' : '❌ API connection failed - check console'),
+        backgroundColor: isConnected ? Colors.green : Colors.red,
       ),
     );
   }

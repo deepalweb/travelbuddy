@@ -65,6 +65,10 @@ import OneDayItineraryView from './components/OneDayItineraryView.tsx';
 import PlannerHomeView from './components/PlannerHomeView.tsx';
 import LocalAgencyPlannerView from './components/LocalAgencyPlannerView.tsx';
 import SmartTripPlannerView from './components/SmartTripPlannerView.tsx';
+import EnhancedTripPlannerView from './components/EnhancedTripPlannerView.tsx';
+import SimpleTripPlannerView from './components/SimpleTripPlannerView.tsx';
+import SmartHomeDashboard from './components/SmartHomeDashboard.tsx';
+import NearbyPlacesWidget from './components/NearbyPlacesWidget.tsx';
 
 
 import ShareModal from './components/ShareModal.tsx';
@@ -2341,19 +2345,15 @@ const App: React.FC = () => {
     switch (activeTab) {
     case 'forYou':
     content = (
-      <HomeView 
-        currentUser={currentUser}
-        userLocation={userLocation}
-        userCity={userCity}
-        localInfo={localInfo}
-        isLoading={isLoadingHomeData}
-        supportLocations={supportLocations}
-        onShowSOSModal={() => setShowSOSModal(true)}
-        onTabChange={handleTabChange}
-        onSurpriseMeClick={handleSurpriseMeClick}
-        favoritePlacesCount={favoritePlaceIds.length}
-        favoritePlaces={favoritePlaces}
-      />
+      <div className="space-y-6">
+        <SmartHomeDashboard />
+        {userLocation && (
+          <NearbyPlacesWidget
+            userLocation={userLocation}
+            onSelectPlace={handleSelectPlaceDetail}
+          />
+        )}
+      </div>
     );
     break;
       case 'placeExplorer':
@@ -2523,6 +2523,18 @@ const App: React.FC = () => {
                                 <button onClick={() => setPlannerView('multiDay')} className="btn btn-primary">Create Trip Plan</button>
                             </div>
                         );
+                    }
+                    break;
+                case 'enhanced':
+                    if (!hasAccess('premium')) {
+                        plannerContent = <SubscriptionRequiredOverlay currentUser={currentUser} onStartTrial={startTrial} onSubscribe={subscribe} onUpgradeDowngradeTier={upgradeDowngradeTier} featureName="Enhanced Planner" requiredTier="premium" onNavigateToProfile={() => handleTabChange('profile')} />;
+                    } else {
+                        plannerContent = <EnhancedTripPlannerView 
+                            activities={[]} 
+                            onActivitiesChange={() => {}}
+                            destination={tripDestination || userCity || 'Your Location'}
+                            budget={1000}
+                        />;
                     }
                     break;
                 case 'localAgency':

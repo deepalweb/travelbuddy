@@ -34,6 +34,7 @@ class StorageService {
     if (!Hive.isAdapterRegistered(8)) Hive.registerAdapter(SubscriptionTierAdapter());
     if (!Hive.isAdapterRegistered(9)) Hive.registerAdapter(UserInterestAdapter());
 
+
     // Open boxes
     _userBox = await Hive.openBox<CurrentUser>('users');
     _placesBox = await Hive.openBox<Place>('places');

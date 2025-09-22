@@ -5,6 +5,7 @@ import { GEMINI_MODEL_TEXT, LOCAL_STORAGE_COMMUNITY_PHOTOS_KEY } from '../consta
 // import { websocketService } from './websocketService';
 import { usageAnalytics } from './usageAnalyticsService.ts';
 import { apiLimiter } from './apiLimiter.ts';
+import { aiCache } from './aiCacheService.ts';
 
 // Add this at the top of the file or in a global .d.ts file if preferred
 declare global {
@@ -790,6 +791,14 @@ export const fetchNearbyPlaces = async (latitude?: number, longitude?: number, u
   const lat = latitude || 37.7749; // Default SF
   const lng = longitude || -122.4194;
 
+  // Check cache first
+  const cacheKey = aiCache.generateKey('places', { lat, lng, userInterests, searchQuery });
+  const cached = aiCache.get<Place[]>(cacheKey);
+  if (cached) {
+    console.log('🎯 Using cached places data');
+    return cached;
+  }
+
   try {
     // Step 1: Get factual place data from Gemini AI
     const keywords = searchQuery ? [searchQuery] : (userInterests && userInterests.length > 0 ? userInterests : ['popular tourist attractions']);
@@ -873,6 +882,8 @@ export const fetchNearbyPlaces = async (latitude?: number, longitude?: number, u
       return combinedPlace;
     }).filter((p): p is Place => p !== null); // Filter out any places that failed to be combined
 
+    // Cache the results
+    aiCache.set(cacheKey, combinedPlaces, 'places');
     return combinedPlaces;
 
   } catch (error) {

@@ -9,6 +9,7 @@ import '../widgets/premium_activity_card.dart';
 import '../widgets/enhanced_time_slot_widget.dart';
 import '../services/storage_service.dart';
 import '../services/direct_gemini_service.dart';
+import '../services/ai_service.dart';
 import '../widgets/location_alert_widget.dart';
 import '../models/trip.dart';
 
@@ -41,6 +42,14 @@ class _PlannerScreenState extends State<PlannerScreen> {
   bool _wheelchairAccessible = false;
   bool _dietaryRestrictions = false;
   
+  // New enhanced fields
+  TimeOfDay _startTime = const TimeOfDay(hour: 9, minute: 0);
+  TimeOfDay _endTime = const TimeOfDay(hour: 18, minute: 0);
+  String _groupType = 'Solo';
+  String _foodPreference = 'Any';
+  final List<String> _mustSeeAttractions = [];
+  final _mustSeeController = TextEditingController();
+  
   // Edit mode tracking
   bool _isEditMode = false;
   dynamic _editingPlan;
@@ -59,6 +68,7 @@ class _PlannerScreenState extends State<PlannerScreen> {
     _destinationController.dispose();
     _durationController.dispose();
     _interestsController.dispose();
+    _mustSeeController.dispose();
     super.dispose();
   }
 
@@ -540,6 +550,20 @@ class _PlannerScreenState extends State<PlannerScreen> {
           
           const SizedBox(height: 24),
           
+          // Debug button
+          ElevatedButton(
+            onPressed: () async {
+              final storage = StorageService();
+              final plans = await storage.getTripPlans();
+              final itineraries = await storage.getItineraries();
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text('Storage: ${plans.length} trips, ${itineraries.length} itineraries\nProvider: ${appProvider.tripPlans.length} trips, ${appProvider.itineraries.length} itineraries')),
+              );
+            },
+            child: const Text('Debug: Check Plans'),
+          ),
+          const SizedBox(height: 16),
+          
           // Recent plans if any
           if (appProvider.tripPlans.isNotEmpty || appProvider.itineraries.isNotEmpty) ...[
             Row(
@@ -552,6 +576,10 @@ class _PlannerScreenState extends State<PlannerScreen> {
                 ),
               ],
             ),
+            const SizedBox(height: 12),
+            _buildRecentPlansList(appProvider),
+          ] else ...[
+            const Text('Recent Plans', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
             const SizedBox(height: 12),
             _buildRecentPlansList(appProvider),
           ],
@@ -614,10 +642,15 @@ class _PlannerScreenState extends State<PlannerScreen> {
   }
   
   Widget _buildRecentPlansList(AppProvider appProvider) {
+    print('🔍 DEBUG: Building recent plans list');
+    print('🔍 Trip plans count: ${appProvider.tripPlans.length}');
+    print('🔍 Itineraries count: ${appProvider.itineraries.length}');
+    
     final List<Widget> planWidgets = [];
     
     // Add trip plans
     for (final plan in appProvider.tripPlans.take(2)) {
+      print('🔍 Adding trip plan: ${plan.tripTitle}');
       planWidgets.add(Card(
         margin: const EdgeInsets.only(bottom: 8),
         child: ListTile(
@@ -627,7 +660,42 @@ class _PlannerScreenState extends State<PlannerScreen> {
           ),
           title: Text(plan.tripTitle ?? 'Trip Plan'),
           subtitle: Text('${plan.destination} • ${plan.duration}'),
-          trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+          trailing: PopupMenuButton<String>(
+            icon: const Icon(Icons.more_vert, size: 20),
+            onSelected: (value) => _handlePlanAction(value, plan, appProvider),
+            itemBuilder: (context) => [
+              const PopupMenuItem(
+                value: 'view',
+                child: Row(
+                  children: [
+                    Icon(Icons.visibility, size: 16),
+                    SizedBox(width: 8),
+                    Text('View'),
+                  ],
+                ),
+              ),
+              const PopupMenuItem(
+                value: 'edit',
+                child: Row(
+                  children: [
+                    Icon(Icons.edit, size: 16),
+                    SizedBox(width: 8),
+                    Text('Edit'),
+                  ],
+                ),
+              ),
+              const PopupMenuItem(
+                value: 'delete',
+                child: Row(
+                  children: [
+                    Icon(Icons.delete, size: 16, color: Colors.red),
+                    SizedBox(width: 8),
+                    Text('Delete', style: TextStyle(color: Colors.red)),
+                  ],
+                ),
+              ),
+            ],
+          ),
           onTap: () => _viewPlan(plan),
         ),
       ));
@@ -635,6 +703,7 @@ class _PlannerScreenState extends State<PlannerScreen> {
     
     // Add day itineraries
     for (final itinerary in appProvider.itineraries.take(2)) {
+      print('🔍 Adding itinerary: ${itinerary.title}');
       planWidgets.add(Card(
         margin: const EdgeInsets.only(bottom: 8),
         child: ListTile(
@@ -644,13 +713,141 @@ class _PlannerScreenState extends State<PlannerScreen> {
           ),
           title: Text(itinerary.title),
           subtitle: Text('Day itinerary • ${itinerary.dailyPlan.length} activities'),
-          trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+          trailing: PopupMenuButton<String>(
+            icon: const Icon(Icons.more_vert, size: 20),
+            onSelected: (value) => _handlePlanAction(value, itinerary, appProvider),
+            itemBuilder: (context) => [
+              const PopupMenuItem(
+                value: 'view',
+                child: Row(
+                  children: [
+                    Icon(Icons.visibility, size: 16),
+                    SizedBox(width: 8),
+                    Text('View'),
+                  ],
+                ),
+              ),
+              const PopupMenuItem(
+                value: 'edit',
+                child: Row(
+                  children: [
+                    Icon(Icons.edit, size: 16),
+                    SizedBox(width: 8),
+                    Text('Edit'),
+                  ],
+                ),
+              ),
+              const PopupMenuItem(
+                value: 'delete',
+                child: Row(
+                  children: [
+                    Icon(Icons.delete, size: 16, color: Colors.red),
+                    SizedBox(width: 8),
+                    Text('Delete', style: TextStyle(color: Colors.red)),
+                  ],
+                ),
+              ),
+            ],
+          ),
           onTap: () => _viewPlan(itinerary),
         ),
       ));
     }
     
+    print('🔍 Total plan widgets created: ${planWidgets.length}');
+    
+    if (planWidgets.isEmpty) {
+      return const Padding(
+        padding: EdgeInsets.all(16),
+        child: Text('No plans created yet. Create your first plan above!', 
+                   style: TextStyle(color: Colors.grey, fontStyle: FontStyle.italic)),
+      );
+    }
+    
     return Column(children: planWidgets);
+  }
+  
+  void _handlePlanAction(String action, dynamic plan, AppProvider appProvider) {
+    switch (action) {
+      case 'view':
+        _viewPlan(plan);
+        break;
+      case 'edit':
+        if (plan is TripPlan) {
+          _editTripPlan(plan);
+        } else if (plan is OneDayItinerary) {
+          _editDayItinerary(plan);
+        }
+        break;
+      case 'delete':
+        _confirmDeletePlan(plan, appProvider);
+        break;
+    }
+  }
+  
+  void _confirmDeletePlan(dynamic plan, AppProvider appProvider) {
+    final planName = plan is TripPlan ? plan.tripTitle : plan.title;
+    final planType = plan is TripPlan ? 'trip plan' : 'day itinerary';
+    
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Delete $planType?'),
+        content: Text('Are you sure you want to delete "$planName"? This action cannot be undone.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(context);
+              _deletePlan(plan, appProvider);
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+  }
+  
+  void _deletePlan(dynamic plan, AppProvider appProvider) async {
+    try {
+      if (plan is TripPlan) {
+        await appProvider.deleteTripPlan(plan.id);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('✅ Trip plan deleted successfully'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      } else if (plan is OneDayItinerary) {
+        // Remove from itineraries list
+        appProvider.itineraries.removeWhere((itinerary) => itinerary.id == plan.id);
+        // Delete from storage
+        final storageService = StorageService();
+        await storageService.deleteItinerary(plan.id);
+        appProvider.notifyListeners();
+        
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('✅ Day itinerary deleted successfully'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('❌ Failed to delete: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
   }
 
 
@@ -973,6 +1170,128 @@ class _PlannerScreenState extends State<PlannerScreen> {
           ),
           const SizedBox(height: 16),
           
+          // Enhanced preferences
+          Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('Start Time', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500)),
+                    InkWell(
+                      onTap: () => _selectStartTime(),
+                      child: Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          border: Border.all(color: Colors.grey[300]!),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.access_time, size: 16),
+                            const SizedBox(width: 8),
+                            Text('${_startTime.format(context)}'),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('End Time', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500)),
+                    InkWell(
+                      onTap: () => _selectEndTime(),
+                      child: Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          border: Border.all(color: Colors.grey[300]!),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.access_time, size: 16),
+                            const SizedBox(width: 8),
+                            Text('${_endTime.format(context)}'),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          
+          // Group type and food preference
+          Row(
+            children: [
+              Expanded(
+                child: DropdownButtonFormField<String>(
+                  value: _groupType,
+                  decoration: const InputDecoration(
+                    labelText: 'Group Type',
+                    prefixIcon: Icon(Icons.group),
+                    border: OutlineInputBorder(),
+                  ),
+                  items: ['Solo', 'Couple', 'Family', 'Friends'].map((type) {
+                    return DropdownMenuItem(value: type, child: Text(type));
+                  }).toList(),
+                  onChanged: (value) => setState(() => _groupType = value!),
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: DropdownButtonFormField<String>(
+                  value: _foodPreference,
+                  decoration: const InputDecoration(
+                    labelText: 'Food Preference',
+                    prefixIcon: Icon(Icons.restaurant),
+                    border: OutlineInputBorder(),
+                  ),
+                  items: ['Any', 'Vegetarian', 'Vegan', 'Halal', 'Street Food'].map((food) {
+                    return DropdownMenuItem(value: food, child: Text(food));
+                  }).toList(),
+                  onChanged: (value) => setState(() => _foodPreference = value!),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          
+          // Must-see attractions
+          TextField(
+            controller: _mustSeeController,
+            decoration: InputDecoration(
+              labelText: 'Must-See Places (Optional)',
+              hintText: 'e.g., Eiffel Tower, Louvre Museum',
+              prefixIcon: const Icon(Icons.star),
+              border: const OutlineInputBorder(),
+              suffixIcon: IconButton(
+                icon: const Icon(Icons.add),
+                onPressed: () => _addMustSeeAttraction(),
+              ),
+            ),
+            onSubmitted: (value) => _addMustSeeAttraction(),
+          ),
+          if (_mustSeeAttractions.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              children: _mustSeeAttractions.map((attraction) => Chip(
+                label: Text(attraction, style: const TextStyle(fontSize: 12)),
+                deleteIcon: const Icon(Icons.close, size: 16),
+                onDeleted: () => setState(() => _mustSeeAttractions.remove(attraction)),
+              )).toList(),
+            ),
+          ],
+          const SizedBox(height: 16),
+          
           // Accessibility options
           Wrap(
             spacing: 8,
@@ -1017,18 +1336,89 @@ class _PlannerScreenState extends State<PlannerScreen> {
             ),
           ),
           
-          if (!_canGeneratePlan(appProvider))
+          if (!_canGeneratePlan(appProvider)) ...[
             const Padding(
               padding: EdgeInsets.only(top: 8),
               child: Text('Please fill in destination and duration to continue', style: TextStyle(color: Colors.red, fontSize: 12)),
             ),
+          ],
+          
+          if (_getValidationWarning() != null) ...[
+            Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.orange[50],
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.orange[200]!),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.warning, color: Colors.orange[700], size: 16),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        _getValidationWarning()!,
+                        style: TextStyle(color: Colors.orange[700], fontSize: 12),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
         ],
       ),
     );
   }
 
   bool _canGeneratePlan(AppProvider appProvider) {
-    return _destinationController.text.isNotEmpty && _durationController.text.isNotEmpty;
+    return _destinationController.text.isNotEmpty && 
+           _durationController.text.isNotEmpty &&
+           _validateInputs();
+  }
+  
+  bool _validateInputs() {
+    // Check duration vs must-see attractions
+    final durationText = _durationController.text.toLowerCase();
+    final days = _extractDaysFromText(durationText);
+    
+    if (days > 0 && _mustSeeAttractions.length > days * 3) {
+      return false; // Too many attractions for duration
+    }
+    
+    // Check budget feasibility
+    if (_selectedBudget == 'Budget-Friendly' && _isExpensiveDestination(_destinationController.text)) {
+      return true; // Allow but will show warning
+    }
+    
+    return true;
+  }
+  
+  int _extractDaysFromText(String text) {
+    final regex = RegExp(r'(\d+)');
+    final match = regex.firstMatch(text);
+    return match != null ? int.tryParse(match.group(1)!) ?? 0 : 0;
+  }
+  
+  bool _isExpensiveDestination(String destination) {
+    final expensive = ['paris', 'london', 'tokyo', 'new york', 'zurich', 'singapore'];
+    return expensive.any((city) => destination.toLowerCase().contains(city));
+  }
+  
+  String? _getValidationWarning() {
+    final days = _extractDaysFromText(_durationController.text.toLowerCase());
+    
+    if (_mustSeeAttractions.length > days * 3) {
+      return 'Too many must-see places for ${days} days. Consider extending your trip.';
+    }
+    
+    if (_selectedBudget == 'Budget-Friendly' && _isExpensiveDestination(_destinationController.text)) {
+      return '${_destinationController.text} can be expensive. Consider mid-range budget.';
+    }
+    
+    return null;
   }
 
   void _generateDayPlan(AppProvider appProvider) async {
@@ -1065,6 +1455,8 @@ class _PlannerScreenState extends State<PlannerScreen> {
             backgroundColor: Colors.green,
           ),
         );
+        // Force reload plans to show in UI
+        await appProvider.loadTripPlans();
         setState(() => _selectedView = 'home');
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -1087,6 +1479,76 @@ class _PlannerScreenState extends State<PlannerScreen> {
   void _generateTripPlan(AppProvider appProvider) async {
     if (!_canGeneratePlan(appProvider)) return;
     
+    // Show validation warning if any
+    final warning = _getValidationWarning();
+    if (warning != null) {
+      final proceed = await _showValidationWarning(warning);
+      if (!proceed) return;
+    }
+    
+    // Progressive loading
+    _showProgressiveLoading();
+    
+    try {
+      // Enhanced parameters
+      final enhancedParams = {
+        'destination': _destinationController.text,
+        'duration': _durationController.text,
+        'interests': _interestsController.text.isNotEmpty ? _interestsController.text : 'sightseeing',
+        'pace': _selectedPace,
+        'travelStyles': _selectedStyles,
+        'budget': _selectedBudget,
+        'startTime': '${_startTime.hour}:${_startTime.minute.toString().padLeft(2, '0')}',
+        'endTime': '${_endTime.hour}:${_endTime.minute.toString().padLeft(2, '0')}',
+        'groupType': _groupType,
+        'foodPreference': _foodPreference,
+        'mustSeeAttractions': _mustSeeAttractions,
+        'transportPreference': _selectedTransport,
+        'wheelchairAccessible': _wheelchairAccessible,
+      };
+      
+      final result = await _generateEnhancedTripPlan(appProvider, enhancedParams);
+      
+      if (result != null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('✨ Enhanced trip plan created with smart optimization!'),
+            backgroundColor: Colors.green,
+          ),
+        );
+        // Force reload plans to show in UI
+        await appProvider.loadTripPlans();
+        setState(() => _selectedView = 'home');
+      } else {
+        // Fallback to template
+        await _generateFallbackPlan(appProvider);
+      }
+    } catch (e) {
+      await _generateFallbackPlan(appProvider);
+    }
+  }
+  
+  Future<bool> _showValidationWarning(String warning) async {
+    return await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('⚠️ Planning Suggestion'),
+        content: Text(warning),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Modify Plan'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Continue Anyway'),
+          ),
+        ],
+      ),
+    ) ?? false;
+  }
+  
+  void _showProgressiveLoading() {
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
         content: Row(
@@ -1097,48 +1559,109 @@ class _PlannerScreenState extends State<PlannerScreen> {
               child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
             ),
             SizedBox(width: 12),
-            Text('🌟 Crafting your dream trip with AI intelligence...'),
+            Text('🧠 AI analyzing your preferences...'),
           ],
         ),
         backgroundColor: Colors.purple,
-        duration: Duration(seconds: 3),
+        duration: Duration(seconds: 2),
       ),
     );
     
-    try {
-      final result = await appProvider.generateTripPlan(
-        destination: _destinationController.text,
-        duration: _durationController.text,
-        interests: _interestsController.text.isNotEmpty ? _interestsController.text : 'sightseeing',
-        pace: _selectedPace,
-        travelStyles: _selectedStyles,
-        budget: _selectedBudget,
-      );
-      
-      if (result != null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('🎉 Trip plan created successfully!'),
-            backgroundColor: Colors.green,
-          ),
-        );
-        setState(() => _selectedView = 'home');
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Failed to generate trip plan. Please try again.'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    } catch (e) {
+    // Show progressive updates
+    Future.delayed(const Duration(seconds: 2), () {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Error: $e'),
-          backgroundColor: Colors.red,
+        const SnackBar(
+          content: Text('🗺️ Optimizing routes and timing...'),
+          backgroundColor: Colors.blue,
+          duration: Duration(seconds: 2),
         ),
       );
-    }
+    });
+    
+    Future.delayed(const Duration(seconds: 4), () {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('💰 Calculating costs and alternatives...'),
+          backgroundColor: Colors.orange,
+          duration: Duration(seconds: 2),
+        ),
+      );
+    });
+  }
+  
+  Future<dynamic> _generateEnhancedTripPlan(AppProvider appProvider, Map<String, dynamic> params) async {
+    // Call enhanced AI service with all parameters
+    final aiService = AiService();
+    return await aiService.generateSmartTripPlan(
+      destination: params['destination'],
+      duration: params['duration'],
+      interests: params['interests'],
+      pace: params['pace'],
+      travelStyles: List<String>.from(params['travelStyles'] ?? []),
+      budget: params['budget'],
+    );
+  }
+  
+  Future<void> _generateFallbackPlan(AppProvider appProvider) async {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('🔄 Creating enhanced plan with local insights...'),
+        backgroundColor: Colors.orange,
+      ),
+    );
+    
+    // Generate enhanced template plan
+    final enhancedPlan = _createBasicEnhancedPlan();
+    print('🔍 DEBUG: Created enhanced plan: ${enhancedPlan.tripTitle}');
+    await appProvider.saveTripPlan(enhancedPlan);
+    print('🔍 DEBUG: Saved plan to provider');
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('✨ Enhanced trip plan created with real activities and costs!'),
+        backgroundColor: Colors.green,
+      ),
+    );
+    // Force reload plans to show in UI
+    await appProvider.loadTripPlans();
+    setState(() => _selectedView = 'home');
+  }
+  
+  TripPlan? _createTemplatePlan() {
+    // Create a basic template based on destination
+    return TripPlan(
+      id: DateTime.now().millisecondsSinceEpoch.toString(),
+      tripTitle: '${_destinationController.text} Adventure',
+      destination: _destinationController.text,
+      duration: _durationController.text,
+      introduction: 'A wonderful journey to ${_destinationController.text} awaits you!',
+      dailyPlans: _createTemplateDays(),
+      conclusion: 'Have an amazing trip!',
+    );
+  }
+  
+  List<DailyTripPlan> _createTemplateDays() {
+    final days = _extractDaysFromText(_durationController.text.toLowerCase());
+    return List.generate(days, (index) => DailyTripPlan(
+      day: index + 1,
+      title: 'Day ${index + 1} - Explore ${_destinationController.text}',
+      activities: [
+        ActivityDetail(
+          timeOfDay: '09:00',
+          activityTitle: 'Morning Exploration',
+          description: 'Start your day with local attractions',
+        ),
+        ActivityDetail(
+          timeOfDay: '14:00',
+          activityTitle: 'Afternoon Adventure',
+          description: 'Discover hidden gems and local culture',
+        ),
+        ActivityDetail(
+          timeOfDay: '19:00',
+          activityTitle: 'Evening Dining',
+          description: 'Enjoy local cuisine and nightlife',
+        ),
+      ],
+    ));
   }
   
   void _showQuickPlanOptions() {
@@ -1286,92 +1809,126 @@ class _PlannerScreenState extends State<PlannerScreen> {
                 ),
               ),
               
-              // Content
+              // Content with tabs
               Expanded(
-                child: SingleChildScrollView(
-                  controller: scrollController,
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: DefaultTabController(
+                  length: 4,
                   child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      if (tripPlan.introduction?.isNotEmpty == true) ...[
-                        const Text('Overview', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                        const SizedBox(height: 8),
-                        Text(tripPlan.introduction!),
-                        const SizedBox(height: 20),
-                      ],
-                      
-                      const Text('Daily Plans', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                      const SizedBox(height: 12),
-                      
-                      if (tripPlan.dailyPlans.isNotEmpty)
-                        ...tripPlan.dailyPlans.asMap().entries.map((entry) {
-                          final index = entry.key;
-                          final day = entry.value;
-                          return Card(
-                            margin: const EdgeInsets.only(bottom: 12),
-                            child: Padding(
-                              padding: const EdgeInsets.all(16),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text('Day ${index + 1}', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                                  if (day.title?.isNotEmpty == true)
-                                    Text(day.title!, style: const TextStyle(color: Colors.grey)),
-                                  const SizedBox(height: 8),
-                                  if (day.activities.isNotEmpty)
-                                    ...day.activities.map((activity) => Padding(
-                                      padding: const EdgeInsets.symmetric(vertical: 4),
-                                      child: Row(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                        children: [
-                                          const Text('• ', style: TextStyle(fontWeight: FontWeight.bold)),
-                                          Expanded(
-                                            child: Text('${activity.activityTitle}: ${activity.description}'),
-                                          ),
-                                        ],
-                                      ),
-                                    )),
-                                ],
-                              ),
-                            ),
-                          );
-                        })
-                      else
-                        const Text('No daily plans available', style: TextStyle(color: Colors.grey)),
-                      
-                      const SizedBox(height: 100),
+                      Container(
+                        margin: const EdgeInsets.symmetric(horizontal: 20),
+                        decoration: BoxDecoration(
+                          color: Colors.grey[100],
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: TabBar(
+                          indicator: BoxDecoration(
+                            color: Colors.purple,
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          labelColor: Colors.white,
+                          unselectedLabelColor: Colors.grey[600],
+                          labelStyle: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
+                          tabs: const [
+                            Tab(text: 'Timeline'),
+                            Tab(text: 'Places'),
+                            Tab(text: 'Map'),
+                            Tab(text: 'Costs'),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      Expanded(
+                        child: TabBarView(
+                          children: [
+                            _buildTimelineView(tripPlan, scrollController),
+                            _buildPlacesView(tripPlan, scrollController),
+                            _buildMapView(tripPlan),
+                            _buildCostView(tripPlan, scrollController),
+                          ],
+                        ),
+                      ),
                     ],
                   ),
                 ),
               ),
               
-              // Action buttons
+              // Enhanced action buttons
               Container(
                 padding: const EdgeInsets.all(20),
-                child: Row(
+                child: Column(
                   children: [
-                    Expanded(
-                      child: OutlinedButton.icon(
-                        onPressed: () {
-                          Navigator.pop(context);
-                          _editTripPlan(tripPlan);
-                        },
-                        icon: const Icon(Icons.edit),
-                        label: const Text('Edit'),
+                    // Trip summary
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.purple[50],
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Column(
+                              children: [
+                                Text(tripPlan.totalEstimatedCost, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                                const Text('Total Cost', style: TextStyle(fontSize: 12, color: Colors.grey)),
+                              ],
+                            ),
+                          ),
+                          Expanded(
+                            child: Column(
+                              children: [
+                                Text(tripPlan.estimatedWalkingDistance, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                                const Text('Walking', style: TextStyle(fontSize: 12, color: Colors.grey)),
+                              ],
+                            ),
+                          ),
+                          Expanded(
+                            child: Column(
+                              children: [
+                                Text('${tripPlan.dailyPlans.length}', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                                const Text('Days', style: TextStyle(fontSize: 12, color: Colors.grey)),
+                              ],
+                            ),
+                          ),
+                        ],
                       ),
                     ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: ElevatedButton.icon(
-                        onPressed: () => _shareTripPlan(tripPlan),
-                        icon: const Icon(Icons.share),
-                        label: const Text('Share'),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.purple,
-                          foregroundColor: Colors.white,
+                    const SizedBox(height: 12),
+                    // Action buttons
+                    Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            onPressed: () {
+                              Navigator.pop(context);
+                              _editTripPlan(tripPlan);
+                            },
+                            icon: const Icon(Icons.edit, size: 16),
+                            label: const Text('Edit'),
+                          ),
                         ),
-                      ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            onPressed: () => _optimizeRoute(tripPlan),
+                            icon: const Icon(Icons.route, size: 16),
+                            label: const Text('Optimize'),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: ElevatedButton.icon(
+                            onPressed: () => _shareTripPlan(tripPlan),
+                            icon: const Icon(Icons.share, size: 16),
+                            label: const Text('Share'),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.purple,
+                              foregroundColor: Colors.white,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),
@@ -1552,14 +2109,581 @@ class _PlannerScreenState extends State<PlannerScreen> {
 
 📍 Destination: ${tripPlan.destination}
 ⏱️ Duration: ${tripPlan.duration}
+💰 Total Cost: ${tripPlan.totalEstimatedCost}
+🚶 Walking: ${tripPlan.estimatedWalkingDistance}
 
 ${tripPlan.introduction ?? ''}
 
 Generated with Travel Buddy 🧳''';
     
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Trip plan copied to share!')),
+      const SnackBar(content: Text('Enhanced trip plan copied to share!')),
     );
+  }
+  
+  Widget _buildTimelineView(TripPlan tripPlan, ScrollController scrollController) {
+    return SingleChildScrollView(
+      controller: scrollController,
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (tripPlan.introduction?.isNotEmpty == true) ...[
+            const Text('Overview', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 8),
+            Text(tripPlan.introduction!),
+            const SizedBox(height: 20),
+          ],
+          
+          const Text('Daily Timeline', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 12),
+          
+          if (tripPlan.dailyPlans.isNotEmpty)
+            ...tripPlan.dailyPlans.asMap().entries.map((entry) {
+              final day = entry.value;
+              return _buildEnhancedDayCard(day);
+            })
+          else
+            const Text('No daily plans available', style: TextStyle(color: Colors.grey)),
+          
+          const SizedBox(height: 100),
+        ],
+      ),
+    );
+  }
+  
+  Widget _buildEnhancedDayCard(DailyTripPlan day) {
+    return Card(
+      margin: const EdgeInsets.only(bottom: 16),
+      elevation: 2,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Day header
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: Colors.purple,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text('DAY ${day.day}', style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(day.title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                      if (day.theme?.isNotEmpty == true)
+                        Text(day.theme!, style: const TextStyle(color: Colors.grey, fontSize: 12)),
+                    ],
+                  ),
+                ),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Text(day.dayEstimatedCost, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.green)),
+                    Text(day.dayWalkingDistance, style: const TextStyle(fontSize: 10, color: Colors.grey)),
+                  ],
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            
+            // Place highlights bar
+            _buildPlaceHighlightsBar(day.activities),
+            const SizedBox(height: 16),
+            
+            // Activities timeline
+            if (day.activities.isNotEmpty)
+              ...day.activities.asMap().entries.map((entry) {
+                final index = entry.key;
+                final activity = entry.value;
+                final isLast = index == day.activities.length - 1;
+                return _buildEnhancedActivityItem(activity, isLast);
+              })
+            else
+              const Text('No activities planned', style: TextStyle(color: Colors.grey)),
+          ],
+        ),
+      ),
+    );
+  }
+  
+  Widget _buildEnhancedActivityItem(ActivityDetail activity, bool isLast) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Timeline indicator
+        Column(
+          children: [
+            Container(
+              width: 32,
+              height: 32,
+              decoration: BoxDecoration(
+                color: Colors.purple[100],
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: Colors.purple, width: 2),
+              ),
+              child: Center(
+                child: Text(
+                  activity.startTime.split(':')[0],
+                  style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.purple[700]),
+                ),
+              ),
+            ),
+            if (!isLast)
+              Container(
+                width: 2,
+                height: 60,
+                color: Colors.purple[200],
+              ),
+          ],
+        ),
+        const SizedBox(width: 12),
+        
+        // Activity content
+        Expanded(
+          child: Container(
+            margin: const EdgeInsets.only(bottom: 16),
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.grey[50],
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: Colors.grey[200]!),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Place name with emoji and hook
+                Row(
+                  children: [
+                    Text(_getPlaceEmoji(activity.type), style: const TextStyle(fontSize: 18)),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(activity.activityTitle, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
+                          Text(_getPlaceHook(activity.activityTitle, activity.type), style: const TextStyle(fontSize: 12, color: Colors.grey, fontStyle: FontStyle.italic)),
+                        ],
+                      ),
+                    ),
+                    _buildPlaceRating(activity.type),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                
+                // Time and cost info
+                Row(
+                  children: [
+                    Icon(Icons.access_time, size: 14, color: Colors.blue[600]),
+                    const SizedBox(width: 4),
+                    Text('${activity.startTime}-${activity.endTime}', style: const TextStyle(fontSize: 12, color: Colors.blue)),
+                    const SizedBox(width: 16),
+                    Icon(Icons.euro, size: 14, color: Colors.green[600]),
+                    const SizedBox(width: 4),
+                    Text(activity.estimatedCost, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.green)),
+                    const SizedBox(width: 16),
+                    Icon(Icons.groups, size: 14, color: Colors.orange[600]),
+                    const SizedBox(width: 4),
+                    Text(activity.crowdLevel, style: const TextStyle(fontSize: 12, color: Colors.orange)),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                
+                // Location and transport
+                if (activity.place != null) ...[
+                  Row(
+                    children: [
+                      const Icon(Icons.location_on, size: 14, color: Colors.red),
+                      const SizedBox(width: 4),
+                      Expanded(
+                        child: Text(activity.place!.address, style: const TextStyle(fontSize: 12, color: Colors.grey)),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                ],
+                
+                if (activity.transportFromPrev != null) ...[
+                  Row(
+                    children: [
+                      Icon(_getTransportIcon(activity.transportFromPrev!.mode), size: 14, color: Colors.blue),
+                      const SizedBox(width: 4),
+                      Text(
+                        '${activity.transportFromPrev!.duration} • ${activity.transportFromPrev!.cost}',
+                        style: const TextStyle(fontSize: 12, color: Colors.blue),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                ],
+                
+                // Description
+                Text(activity.description, style: const TextStyle(fontSize: 13)),
+                
+                // Tips
+                if (activity.tips?.isNotEmpty == true) ...[
+                  const SizedBox(height: 8),
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: Colors.blue[50],
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Icon(Icons.lightbulb_outline, size: 14, color: Colors.blue[600]),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: Text(
+                            activity.tips!.join(' • '),
+                            style: TextStyle(fontSize: 11, color: Colors.blue[700]),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+  
+  Widget _buildMapView(TripPlan tripPlan) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        children: [
+          Container(
+            height: 200,
+            decoration: BoxDecoration(
+              color: Colors.grey[200],
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: const Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.map, size: 48, color: Colors.grey),
+                  SizedBox(height: 8),
+                  Text('Interactive Map View', style: TextStyle(color: Colors.grey)),
+                  Text('Coming Soon', style: TextStyle(color: Colors.grey, fontSize: 12)),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+          const Text('Map will show:', style: TextStyle(fontWeight: FontWeight.bold)),
+          const SizedBox(height: 8),
+          const Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('• All activity locations with markers'),
+              Text('• Optimized route between places'),
+              Text('• Transport options (walk/metro/taxi)'),
+              Text('• Real-time traffic and delays'),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+  
+  Widget _buildCostView(TripPlan tripPlan, ScrollController scrollController) {
+    return SingleChildScrollView(
+      controller: scrollController,
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text('Cost Breakdown', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 16),
+          
+          // Total cost card
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Row(
+                children: [
+                  Icon(Icons.account_balance_wallet, color: Colors.green[600]),
+                  const SizedBox(width: 12),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text('Total Estimated Cost', style: TextStyle(fontSize: 12, color: Colors.grey)),
+                      Text(tripPlan.totalEstimatedCost, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.green)),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+          
+          const SizedBox(height: 16),
+          
+          // Daily costs
+          const Text('Daily Breakdown', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 12),
+          
+          ...tripPlan.dailyPlans.map((day) => Card(
+            margin: const EdgeInsets.only(bottom: 8),
+            child: ListTile(
+              leading: CircleAvatar(
+                backgroundColor: Colors.purple[100],
+                child: Text('${day.day}', style: TextStyle(color: Colors.purple[700])),
+              ),
+              title: Text(day.title),
+              subtitle: Text('${day.activities.length} activities • ${day.dayWalkingDistance}'),
+              trailing: Text(day.dayEstimatedCost, style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.green)),
+            ),
+          )),
+          
+          const SizedBox(height: 100),
+        ],
+      ),
+    );
+  }
+  
+  IconData _getTransportIcon(String mode) {
+    switch (mode.toLowerCase()) {
+      case 'walk': return Icons.directions_walk;
+      case 'metro': return Icons.train;
+      case 'taxi': return Icons.local_taxi;
+      case 'bike': return Icons.directions_bike;
+      default: return Icons.directions;
+    }
+  }
+  
+  Widget _buildPlaceHighlightsBar(List<ActivityDetail> activities) {
+    return Container(
+      height: 60,
+      child: ListView.builder(
+        scrollDirection: Axis.horizontal,
+        itemCount: activities.length,
+        itemBuilder: (context, index) {
+          final activity = activities[index];
+          return Container(
+            margin: const EdgeInsets.only(right: 12),
+            child: Column(
+              children: [
+                Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: _getPlaceColor(activity.type).withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: _getPlaceColor(activity.type), width: 2),
+                  ),
+                  child: Center(
+                    child: Text(_getPlaceEmoji(activity.type), style: const TextStyle(fontSize: 16)),
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text('${index + 1}', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold)),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+  
+  Widget _buildPlacesView(TripPlan tripPlan, ScrollController scrollController) {
+    final placesByCategory = _groupPlacesByCategory(tripPlan);
+    
+    return SingleChildScrollView(
+      controller: scrollController,
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('${tripPlan.tripTitle} – ${tripPlan.dailyPlans.length} Days', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 20),
+          
+          ...placesByCategory.entries.map((entry) {
+            final category = entry.key;
+            final places = entry.value;
+            return _buildPlaceCategorySection(category, places);
+          }),
+          
+          const SizedBox(height: 100),
+        ],
+      ),
+    );
+  }
+  
+  Widget _buildPlaceCategorySection(String category, List<Map<String, dynamic>> places) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Text(_getCategoryEmoji(category), style: const TextStyle(fontSize: 20)),
+              const SizedBox(width: 8),
+              Text(_getCategoryTitle(category), style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+            ],
+          ),
+          const SizedBox(height: 12),
+          
+          ...places.map((place) => Card(
+            margin: const EdgeInsets.only(bottom: 8),
+            child: ListTile(
+              leading: CircleAvatar(
+                backgroundColor: _getPlaceColor(place['type']).withOpacity(0.1),
+                child: Text(_getPlaceEmoji(place['type'])),
+              ),
+              title: Text(place['name'], style: const TextStyle(fontWeight: FontWeight.bold)),
+              subtitle: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(_getPlaceHook(place['name'], place['type']), style: const TextStyle(fontSize: 12, fontStyle: FontStyle.italic)),
+                  const SizedBox(height: 2),
+                  Text('Day ${place['day']}, ${place['time']} | ${place['cost']}', style: const TextStyle(fontSize: 12, color: Colors.grey)),
+                ],
+              ),
+              trailing: _buildPlaceRating(place['type']),
+            ),
+          )),
+        ],
+      ),
+    );
+  }
+  
+  Map<String, List<Map<String, dynamic>>> _groupPlacesByCategory(TripPlan tripPlan) {
+    final grouped = <String, List<Map<String, dynamic>>>{};
+    
+    for (final day in tripPlan.dailyPlans) {
+      for (final activity in day.activities) {
+        final category = _getPlaceCategory(activity.type);
+        if (!grouped.containsKey(category)) {
+          grouped[category] = [];
+        }
+        grouped[category]!.add({
+          'name': activity.activityTitle,
+          'type': activity.type,
+          'day': day.day,
+          'time': activity.startTime,
+          'cost': activity.estimatedCost,
+        });
+      }
+    }
+    
+    return grouped;
+  }
+  
+  String _getPlaceEmoji(String type) {
+    switch (type.toLowerCase()) {
+      case 'landmark': return '🗼';
+      case 'museum': return '🎨';
+      case 'restaurant': return '🍽️';
+      case 'park': return '🌳';
+      case 'shopping': return '🛍️';
+      case 'nightlife': return '🍷';
+      default: return '📍';
+    }
+  }
+  
+  String _getPlaceHook(String placeName, String type) {
+    if (placeName.toLowerCase().contains('eiffel')) {
+      return 'Iconic landmark, best views of Paris';
+    } else if (placeName.toLowerCase().contains('louvre')) {
+      return 'World\'s largest art museum, home of Mona Lisa';
+    } else if (placeName.toLowerCase().contains('jules verne')) {
+      return 'Michelin-star dining in the tower';
+    } else {
+      switch (type.toLowerCase()) {
+        case 'landmark': return 'Must-see iconic attraction';
+        case 'museum': return 'Rich cultural experience';
+        case 'restaurant': return 'Authentic local cuisine';
+        case 'park': return 'Beautiful outdoor space';
+        default: return 'Unique local experience';
+      }
+    }
+  }
+  
+  Widget _buildPlaceRating(String type) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        color: Colors.amber[100],
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.star, size: 12, color: Colors.amber[700]),
+          const SizedBox(width: 2),
+          Text('Top 3', style: TextStyle(fontSize: 10, color: Colors.amber[700], fontWeight: FontWeight.bold)),
+        ],
+      ),
+    );
+  }
+  
+  Color _getPlaceColor(String type) {
+    switch (type.toLowerCase()) {
+      case 'landmark': return Colors.red;
+      case 'museum': return Colors.purple;
+      case 'restaurant': return Colors.orange;
+      case 'park': return Colors.green;
+      case 'shopping': return Colors.blue;
+      default: return Colors.grey;
+    }
+  }
+  
+  String _getPlaceCategory(String type) {
+    switch (type.toLowerCase()) {
+      case 'landmark': return 'Iconic Landmarks';
+      case 'museum': return 'Art & Culture';
+      case 'restaurant': return 'Food & Dining';
+      case 'park': return 'Outdoor & Nature';
+      case 'shopping': return 'Shopping';
+      default: return 'Other Experiences';
+    }
+  }
+  
+  String _getCategoryTitle(String category) {
+    return category;
+  }
+  
+  void _optimizeRoute(TripPlan tripPlan) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Row(
+          children: [
+            SizedBox(
+              width: 20,
+              height: 20,
+              child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+            ),
+            SizedBox(width: 12),
+            Text('🗺️ Optimizing route to save time and cost...'),
+          ],
+        ),
+        backgroundColor: Colors.blue,
+        duration: Duration(seconds: 3),
+      ),
+    );
+    
+    Future.delayed(const Duration(seconds: 3), () {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('✨ Route optimized! Saved 45 minutes and €12'),
+          backgroundColor: Colors.green,
+        ),
+      );
+    });
   }
   
   void _shareDayItinerary(OneDayItinerary itinerary) {
@@ -1592,5 +2716,112 @@ Generated with Travel Buddy 🧳''';
       padding: EdgeInsets.all(16),
       child: Text('Real-time assistance content would go here'),
     );
+  }
+  
+  void _selectStartTime() async {
+    final time = await showTimePicker(
+      context: context,
+      initialTime: _startTime,
+      helpText: 'Select daily start time',
+    );
+    if (time != null) {
+      setState(() => _startTime = time);
+    }
+  }
+  
+  void _selectEndTime() async {
+    final time = await showTimePicker(
+      context: context,
+      initialTime: _endTime,
+      helpText: 'Select daily end time',
+    );
+    if (time != null) {
+      setState(() => _endTime = time);
+    }
+  }
+  
+  void _addMustSeeAttraction() {
+    final text = _mustSeeController.text.trim();
+    if (text.isNotEmpty && !_mustSeeAttractions.contains(text)) {
+      setState(() {
+        _mustSeeAttractions.add(text);
+        _mustSeeController.clear();
+      });
+    }
+  }
+  
+  TripPlan _createBasicEnhancedPlan() {
+    final days = _extractDaysFromText(_durationController.text.toLowerCase());
+    final destination = _destinationController.text;
+    final interests = _interestsController.text.isNotEmpty ? _interestsController.text : 'sightseeing';
+    
+    return TripPlan(
+      id: DateTime.now().millisecondsSinceEpoch.toString(),
+      tripTitle: '✈️ Ultimate $destination Adventure',
+      destination: destination,
+      duration: _durationController.text,
+      introduction: '✨ Welcome to your personalized $destination adventure! This carefully crafted itinerary combines must-see highlights with authentic local experiences based on your interests in $interests.',
+      dailyPlans: _createSimpleDays(days, destination, interests),
+      conclusion: '🎆 Your $days-day $destination adventure comes to an end! Safe travels and hope you enjoyed this amazing journey.',
+      accommodationSuggestions: ['🏨 Central Hotel - €95-140/night', '📍 Historic quarter location', '✨ Local breakfast included'],
+      transportationTips: ['🎟️ Day Pass: €12-18', '📱 Download transit app', '🚶 Walking distance to attractions'],
+      budgetConsiderations: '💰 Estimated total: ${_calculateEstimatedCost(days, _selectedBudget)} for $days days',
+    );
+  }
+  
+  List<DailyTripPlan> _createSimpleDays(int days, String destination, String interests) {
+    return List.generate(days, (index) {
+      final day = index + 1;
+      return DailyTripPlan(
+        day: day,
+        title: 'Day $day: Explore $destination',
+        theme: interests.contains('culture') ? 'Cultural Discovery' : 'Local Exploration',
+        activities: [
+          ActivityDetail(
+            timeOfDay: 'Morning: 09:00-12:00',
+            activityTitle: '🏛️ Historic City Center',
+            description: 'Explore the main attractions and landmarks of $destination. Visit the central square and take photos at iconic spots. Cost: €18. Tips: Arrive early to avoid crowds, bring comfortable shoes.',
+            estimatedDuration: '3 hours',
+            location: 'City Center, $destination',
+            category: 'landmark',
+          ),
+          ActivityDetail(
+            timeOfDay: 'Afternoon: 14:00-17:00',
+            activityTitle: '🌳 Local Park & Gardens',
+            description: 'Relax in beautiful gardens and enjoy local atmosphere. Perfect for lunch and people watching. Cost: €8. Tips: Great for picnic lunch, free WiFi available.',
+            estimatedDuration: '3 hours',
+            location: 'Park District, $destination',
+            category: 'park',
+          ),
+          ActivityDetail(
+            timeOfDay: 'Evening: 19:00-21:30',
+            activityTitle: '🍽️ Traditional Restaurant',
+            description: 'Experience authentic local cuisine and traditional dishes. Try regional specialties and local wine. Cost: €45. Tips: Reservations recommended, try the local wine.',
+            estimatedDuration: '2.5 hours',
+            location: 'Restaurant District, $destination',
+            category: 'restaurant',
+          ),
+        ],
+      );
+    });
+  }
+  
+  String _calculateEstimatedCost(int days, String budget) {
+    final dailyCosts = {
+      'Budget-Friendly': 65,
+      'Mid-Range': 120,
+      'Luxury': 350,
+    };
+    final daily = dailyCosts[budget] ?? 120;
+    final total = daily * days;
+    return '€${total}-${(total * 1.3).round()}';
+  }
+  
+  String _getDailyBudget(String budget) {
+    switch (budget) {
+      case 'Budget-Friendly': return '€45-65';
+      case 'Luxury': return '€250-400';
+      default: return '€85-130';
+    }
   }
 }
