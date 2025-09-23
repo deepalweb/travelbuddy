@@ -100,7 +100,7 @@ try {
 const app = express();
 // Enable gzip compression for faster API responses
 app.use(compression({ threshold: 1024 }));
-const PORT = process.env.PORT || 3001;
+const PORT = process.env.PORT || 8080;
 
 // Create HTTP server and Socket.io for real-time metrics
 const httpServer = http.createServer(app);
