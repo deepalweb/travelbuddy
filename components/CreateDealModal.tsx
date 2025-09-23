@@ -12,6 +12,8 @@ const CreateDealModal: React.FC<CreateDealModalProps> = ({ onClose, onSubmit }) 
     title: '',
     description: '',
     discount: '',
+    originalPrice: '',
+    discountedPrice: '',
     validUntil: '',
     businessName: '',
     businessType: 'restaurant',
@@ -128,6 +130,36 @@ const CreateDealModal: React.FC<CreateDealModalProps> = ({ onClose, onSubmit }) 
                   placeholder="e.g., 20% OFF, Buy 1 Get 1 Free"
                   required
                 />
+              </div>
+
+              {/* Pricing Section */}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Original Price (Optional)
+                  </label>
+                  <input
+                    type="text"
+                    name="originalPrice"
+                    value={formData.originalPrice}
+                    onChange={handleChange}
+                    className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="$25.00"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Discounted Price (Optional)
+                  </label>
+                  <input
+                    type="text"
+                    name="discountedPrice"
+                    value={formData.discountedPrice}
+                    onChange={handleChange}
+                    className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="$20.00"
+                  />
+                </div>
               </div>
 
               <div>

@@ -1060,6 +1060,8 @@ const dealSchema = new mongoose.Schema({
   businessAddress: String,
   businessPhone: String,
   businessWebsite: String,
+  originalPrice: String,
+  discountedPrice: String,
   location: {
     lat: Number,
     lng: Number,

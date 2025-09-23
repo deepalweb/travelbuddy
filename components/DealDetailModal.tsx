@@ -4,6 +4,8 @@ interface Deal {
   _id: string;
   title: string;
   discount: string;
+  originalPrice?: string;
+  discountedPrice?: string;
   description: string;
   businessName: string;
   businessType: string;
@@ -61,6 +63,25 @@ const DealDetailModal: React.FC<DealDetailModalProps> = ({ deal, onClose, onClai
           <div className="bg-green-100 text-green-800 px-3 py-2 rounded-lg text-center font-bold text-lg mb-4">
             {deal.discount}
           </div>
+          
+          {/* Pricing Section */}
+          {(deal.originalPrice || deal.discountedPrice) && (
+            <div className="bg-gray-50 rounded-lg p-3 mb-4">
+              <h4 className="text-sm font-medium text-gray-700 mb-2">Pricing</h4>
+              <div className="flex items-center gap-3">
+                {deal.originalPrice && (
+                  <span className="text-lg text-gray-500 line-through">
+                    {deal.originalPrice}
+                  </span>
+                )}
+                {deal.discountedPrice && (
+                  <span className="text-xl font-bold text-green-600">
+                    {deal.discountedPrice}
+                  </span>
+                )}
+              </div>
+            </div>
+          )}
 
           {/* Description */}
           <p className="text-gray-700 mb-4">{deal.description}</p>

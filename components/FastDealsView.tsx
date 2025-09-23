@@ -6,6 +6,8 @@ interface Deal {
   _id: string;
   title: string;
   discount: string;
+  originalPrice?: string;
+  discountedPrice?: string;
   description: string;
   businessName: string;
   businessType: string;
@@ -115,6 +117,22 @@ const FastDealsView: React.FC<FastDealsViewProps> = ({ currentUser }) => {
             {deal.discount}
           </span>
         </div>
+        
+        {/* Pricing Display */}
+        {(deal.originalPrice || deal.discountedPrice) && (
+          <div className="flex items-center gap-2 mb-2">
+            {deal.originalPrice && (
+              <span className="text-xs text-gray-500 line-through">
+                {deal.originalPrice}
+              </span>
+            )}
+            {deal.discountedPrice && (
+              <span className="text-sm font-semibold text-green-600">
+                {deal.discountedPrice}
+              </span>
+            )}
+          </div>
+        )}
         <p className="text-gray-600 text-xs mb-2 line-clamp-2">{deal.description}</p>
         <div className="flex justify-between items-center text-xs text-gray-500 mb-2">
           <span>{deal.businessName}</span>
