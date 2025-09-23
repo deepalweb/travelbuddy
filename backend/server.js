@@ -2074,7 +2074,7 @@ app.get('/api/deals', async (req, res) => {
     const { businessType, isActive, limit = '50', merchantId } = req.query;
     
     // Build query
-    const query: any = {};
+    const query = {};
     
     if (isActive === 'true') {
       query.isActive = true;
