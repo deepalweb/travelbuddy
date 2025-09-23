@@ -26,6 +26,7 @@ import '../services/error_handler_service.dart';
 import '../services/usage_tracking_service.dart';
 import '../services/recommendation_engine.dart';
 import '../services/real_local_discoveries_service.dart';
+import '../services/mock_deals_service.dart';
 import '../models/travel_style.dart';
 import '../models/place_section.dart';
 
@@ -1810,14 +1811,31 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
     notifyListeners();
 
     try {
-      // Load location-based real deals
-      final deals = _currentLocation != null 
-          ? await _apiService.getNearbyDeals(
-              _currentLocation!.latitude,
-              _currentLocation!.longitude,
-              radius: _selectedRadius,
-            )
-          : await _apiService.getActiveDeals();
+      // Try to load real deals from backend first
+      List<Deal> deals = [];
+      
+      try {
+        deals = _currentLocation != null 
+            ? await _apiService.getNearbyDeals(
+                _currentLocation!.latitude,
+                _currentLocation!.longitude,
+                radius: _selectedRadius,
+              )
+            : await _apiService.getActiveDeals();
+        
+        if (deals.isNotEmpty) {
+          print('✅ Loaded ${deals.length} REAL deals from backend');
+        }
+      } catch (apiError) {
+        print('⚠️ Backend deals API not available: $apiError');
+        print('🎭 Using mock deals as fallback');
+      }
+      
+      // If no real deals, use mock deals
+      if (deals.isEmpty) {
+        deals = MockDealsService.generateMockDeals();
+        print('🎭 Loaded ${deals.length} mock deals for demonstration');
+      }
           
       final newDealsCount = deals.length - _deals.length;
       _deals = deals;
@@ -1829,7 +1847,6 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
         );
       }
       
-      print('✅ Loaded ${deals.length} REAL deals from backend');
     } catch (e) {
       print('❌ Error loading deals: $e');
       _dealsError = 'Failed to load deals: ${e.toString()}';

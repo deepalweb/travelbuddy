@@ -899,6 +899,14 @@ const userSchema = new mongoose.Schema({
   selectedInterests: [String],
   hasCompletedWizard: { type: Boolean, default: false },
   isAdmin: { type: Boolean, default: false },
+  isMerchant: { type: Boolean, default: false },
+  merchantInfo: {
+    businessName: String,
+    businessType: { type: String, enum: ['restaurant', 'hotel', 'cafe', 'shop', 'attraction'] },
+    businessAddress: String,
+    businessPhone: String,
+    verificationStatus: { type: String, enum: ['pending', 'approved', 'rejected'], default: 'pending' }
+  },
   favoritePlaces: [String],
   profilePicture: { type: String, default: null }, // URL to profile picture
   // Reputation system
@@ -1047,10 +1055,19 @@ const dealSchema = new mongoose.Schema({
     amount: Number,
     currencyCode: String,
   },
+  businessName: String,
+  businessType: String,
+  businessAddress: String,
+  businessPhone: String,
+  images: [String],
+  views: { type: Number, default: 0 },
+  claims: { type: Number, default: 0 },
   isPremium: { type: Boolean, default: false },
   isActive: { type: Boolean, default: true },
+  validUntil: Date,
   startsAt: { type: Date },
   endsAt: { type: Date },
+  merchantId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   createdAt: { type: Date, default: Date.now }
 });
 
@@ -1648,12 +1665,17 @@ app.put('/api/users/:id', async (req, res) => {
     console.log('[PUT /api/users/:id] incoming body:', { id: req.params.id, body: req.body, ip: req.ip || req.headers['x-forwarded-for'] || req.connection?.remoteAddress });
 
     // Only allow specific fields and ignore undefined to avoid erasing values
-    const allowed = ['username','email','tier','subscriptionStatus','subscriptionEndDate','trialEndDate','homeCurrency','language','selectedInterests','hasCompletedWizard','isAdmin','profilePicture'];
+    const allowed = ['username','email','tier','subscriptionStatus','subscriptionEndDate','trialEndDate','homeCurrency','language','selectedInterests','hasCompletedWizard','isAdmin','isMerchant','merchantInfo','profilePicture'];
     const payload = {};
     for (const k of allowed) {
       if (Object.prototype.hasOwnProperty.call(req.body || {}, k) && req.body[k] !== undefined) {
         payload[k] = req.body[k];
       }
+    }
+
+    // Handle merchant info updates
+    if (payload.merchantInfo) {
+      payload.merchantInfo.verificationStatus = payload.merchantInfo.verificationStatus || 'approved';
     }
 
     console.log('[PUT /api/users/:id] sanitized payload to update:', payload);
@@ -2961,6 +2983,9 @@ Return ONLY a valid JSON array with this exact structure:
     return generateMockEmergencyServices(lat, lng, serviceType, limit);
   }
 }
+
+// Merchant routes
+app.use('/api/merchants', (await import('./routes/merchants.js')).default);
 
 // Serve React app (only for non-API routes)
 app.use((req, res, next) => {

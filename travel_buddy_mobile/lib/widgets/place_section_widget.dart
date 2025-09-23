@@ -48,7 +48,7 @@ class PlaceSectionWidget extends StatelessWidget {
                     ],
                   ),
                 ),
-                if (section.places.length >= 5)
+                if (section.places.length > 3)
                   TextButton(
                     onPressed: () => _showMorePlaces(context),
                     child: const Row(

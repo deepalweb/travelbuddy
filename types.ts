@@ -378,7 +378,15 @@ export enum UserInterest {
 export interface CurrentUser {
   username: string;
   email?: string;
-  isAdmin?: boolean; 
+  isAdmin?: boolean;
+  isMerchant?: boolean;
+  merchantInfo?: {
+    businessName?: string;
+    businessType?: 'restaurant' | 'hotel' | 'cafe' | 'shop' | 'attraction';
+    businessAddress?: string;
+    businessPhone?: string;
+    verificationStatus?: 'pending' | 'approved' | 'rejected';
+  }; 
   subscriptionStatus: SubscriptionStatus;
   tier: SubscriptionTier; 
   trialEndDate?: string; 

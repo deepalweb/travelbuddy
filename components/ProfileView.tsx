@@ -7,13 +7,14 @@ import { SUBSCRIPTION_TIERS, SUPPORTED_LANGUAGES } from '../constants.ts';
 import {
     User, Heart, Calendar, Crown, Settings, Edit3, Camera, Share, Download, Bell, Sun, Moon, Lock, MapPin
 } from './Icons.tsx';
+import MerchantDealManager from './MerchantDealManager.tsx';
 import ProfilePictureUpload from './ProfilePictureUpload.tsx';
 import { uploadProfilePicture } from '../services/profilePictureService.ts';
 import SubscriptionPlans from './SubscriptionPlans.tsx';
 import { apiService } from '../services/apiService.ts';
 
 
-type ProfileTab = 'profile' | 'favorites' | 'trips' | 'subscription' | 'settings';
+type ProfileTab = 'profile' | 'favorites' | 'trips' | 'merchant' | 'subscription' | 'settings';
 
 interface ProfileViewProps {
   user: CurrentUser;
@@ -150,6 +151,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({
     { id: 'profile', labelKey: 'profileView.tabs.profile', icon: <User size={18} /> },
     { id: 'favorites', labelKey: 'profileView.tabs.favorites', icon: <Heart size={18} /> },
     { id: 'trips', labelKey: 'profileView.tabs.trips', icon: <Calendar size={18} /> },
+    { id: 'merchant', labelKey: 'Merchant', icon: <span>🏪</span> },
     { id: 'subscription', labelKey: 'profileView.tabs.subscription', icon: <Crown size={18} /> },
     { id: 'settings', labelKey: 'profileView.tabs.settings', icon: <Settings size={18} /> },
   ];
@@ -185,6 +187,8 @@ const ProfileView: React.FC<ProfileViewProps> = ({
                         onViewSavedTripPlan={onViewSavedTripPlan}
                     />
                 );
+            case 'merchant':
+                return <MerchantTabContent user={user} />;
             case 'subscription':
                 return (
                     <SubscriptionTabContent
@@ -506,6 +510,14 @@ const SettingsTabContent: React.FC<SettingsTabProps> = ({ onLanguageChange, them
                 </div>
             </Card>
         </div>
+    );
+};
+
+const MerchantTabContent: React.FC<{ user: CurrentUser }> = ({ user }) => {
+    return (
+        <Card title="Merchant Dashboard" icon={<span>🏪</span>}>
+            <MerchantDealManager currentUser={user} />
+        </Card>
     );
 };
 

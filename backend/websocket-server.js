@@ -1,148 +1,123 @@
-import { Server } from 'socket.io';
-import http from 'http';
+const WebSocket = require('ws');
+const http = require('http');
 
-class WebSocketServer {
-  constructor(httpServer) {
-    this.io = new Server(httpServer, {
-      cors: {
-        origin: process.env.CLIENT_URL || "http://localhost:5173",
-        methods: ["GET", "POST"]
-      }
-    });
+const server = http.createServer();
+const wss = new WebSocket.Server({ server });
 
-    this.connectedUsers = new Map();
-    this.activeRooms = new Map();
-    this.sharedLocations = new Map();
+const rooms = new Map();
+const users = new Map();
 
-    this.setupEventHandlers();
-  }
+wss.on('connection', (ws) => {
+  console.log('New WebSocket connection');
 
-  setupEventHandlers() {
-    this.io.on('connection', (socket) => {
-      console.log('User connected:', socket.id);
-
-      // Handle user authentication
-      socket.on('authenticate', (userId) => {
-        this.connectedUsers.set(socket.id, userId);
-        socket.userId = userId;
-        console.log(`User ${userId} authenticated`);
-      });
-
-      // Handle joining rooms
-      socket.on('join_room', (roomId) => {
-        socket.join(roomId);
-        if (!this.activeRooms.has(roomId)) {
-          this.activeRooms.set(roomId, new Set());
-        }
-        this.activeRooms.get(roomId).add(socket.id);
-        console.log(`User ${socket.userId} joined room ${roomId}`);
-      });
-
-      // Handle leaving rooms
-      socket.on('leave_room', (roomId) => {
-        socket.leave(roomId);
-        if (this.activeRooms.has(roomId)) {
-          this.activeRooms.get(roomId).delete(socket.id);
-        }
-      });
-
-      // Handle chat messages
-      socket.on('chat_message', (data) => {
-        const message = {
-          id: `msg-${Date.now()}-${Math.random()}`,
-          type: 'chat',
-          userId: socket.userId,
-          content: data.message,
-          timestamp: new Date()
-        };
-
-        socket.to(data.roomId).emit('chat_message', message);
-      });
-
-      // Handle location sharing
-      socket.on('location_share', (locationData) => {
-        this.sharedLocations.set(socket.userId, {
-          ...locationData,
-          socketId: socket.id,
-          timestamp: new Date()
-        });
-
-        // Broadcast to nearby users (simplified - in production, use geospatial queries)
-        socket.broadcast.emit('location_update', locationData);
-      });
-
-      // Handle deal alerts
-      socket.on('deal_alert', (dealData) => {
-        // Broadcast deal to all connected users
-        this.io.emit('deal_alert', {
-          id: `deal-${Date.now()}`,
-          type: 'deal_alert',
-          content: dealData,
-          timestamp: new Date()
-        });
-      });
-
-      // Handle disconnection
-      socket.on('disconnect', () => {
-        console.log('User disconnected:', socket.id);
-        
-        // Clean up user data
-        this.connectedUsers.delete(socket.id);
-        if (socket.userId) {
-          this.sharedLocations.delete(socket.userId);
-        }
-
-        // Clean up room memberships
-        this.activeRooms.forEach((members, roomId) => {
-          members.delete(socket.id);
-          if (members.size === 0) {
-            this.activeRooms.delete(roomId);
-          }
-        });
-      });
-    });
-  }
-
-  // Method to send notifications to specific users
-  sendNotificationToUser(userId, notification) {
-    const userSocket = Array.from(this.connectedUsers.entries())
-      .find(([socketId, uId]) => uId === userId);
-    
-    if (userSocket) {
-      this.io.to(userSocket[0]).emit('notification', notification);
-    }
-  }
-
-  // Method to broadcast to all users in a geographic area
-  broadcastToArea(latitude, longitude, radius, message) {
-    // Simplified implementation - in production, use proper geospatial calculations
-    this.sharedLocations.forEach((location, userId) => {
-      const distance = this.calculateDistance(
-        latitude, longitude,
-        location.latitude, location.longitude
-      );
+  ws.on('message', (message) => {
+    try {
+      const data = JSON.parse(message);
       
-      if (distance <= radius) {
-        this.io.to(location.socketId).emit('area_broadcast', message);
+      switch (data.type) {
+        case 'join_room':
+          handleJoinRoom(ws, data);
+          break;
+        case 'chat_message':
+          handleChatMessage(ws, data);
+          break;
+        case 'location_share':
+          handleLocationShare(ws, data);
+          break;
+        default:
+          console.log('Unknown message type:', data.type);
       }
-    });
-  }
+    } catch (error) {
+      console.error('Error parsing message:', error);
+    }
+  });
 
-  // Simple distance calculation (Haversine formula)
-  calculateDistance(lat1, lon1, lat2, lon2) {
-    const R = 6371; // Earth's radius in kilometers
-    const dLat = this.toRad(lat2 - lat1);
-    const dLon = this.toRad(lon2 - lon1);
-    const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
-              Math.cos(this.toRad(lat1)) * Math.cos(this.toRad(lat2)) *
-              Math.sin(dLon/2) * Math.sin(dLon/2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-    return R * c;
-  }
+  ws.on('close', () => {
+    console.log('WebSocket connection closed');
+    // Clean up user from rooms
+    for (const [roomId, room] of rooms.entries()) {
+      room.users = room.users.filter(user => user.ws !== ws);
+      if (room.users.length === 0) {
+        rooms.delete(roomId);
+      }
+    }
+  });
+});
 
-  toRad(value) {
-    return value * Math.PI / 180;
+function handleJoinRoom(ws, data) {
+  const { roomId, userId } = data;
+  
+  if (!rooms.has(roomId)) {
+    rooms.set(roomId, { users: [], messages: [] });
   }
+  
+  const room = rooms.get(roomId);
+  room.users.push({ ws, userId, username: data.username || 'Anonymous' });
+  
+  // Notify other users
+  broadcastToRoom(roomId, {
+    type: 'user_joined',
+    userId,
+    username: data.username || 'Anonymous'
+  }, ws);
+  
+  console.log(`User ${userId} joined room ${roomId}`);
 }
 
-export default WebSocketServer;
+function handleChatMessage(ws, data) {
+  const { roomId, message, userId, username } = data;
+  
+  const messageData = {
+    type: 'chat_message',
+    roomId,
+    message,
+    userId,
+    username,
+    timestamp: Date.now()
+  };
+  
+  // Store message
+  if (rooms.has(roomId)) {
+    rooms.get(roomId).messages.push(messageData);
+  }
+  
+  // Broadcast to all users in room
+  broadcastToRoom(roomId, messageData);
+  
+  console.log(`Message in room ${roomId}: ${message}`);
+}
+
+function handleLocationShare(ws, data) {
+  const { roomId, userId, location } = data;
+  
+  const locationData = {
+    type: 'location_update',
+    roomId,
+    userId,
+    location,
+    timestamp: Date.now()
+  };
+  
+  // Broadcast location to all users in room
+  broadcastToRoom(roomId, locationData);
+  
+  console.log(`Location shared in room ${roomId}: ${location.latitude}, ${location.longitude}`);
+}
+
+function broadcastToRoom(roomId, data, excludeWs = null) {
+  if (!rooms.has(roomId)) return;
+  
+  const room = rooms.get(roomId);
+  room.users.forEach(user => {
+    if (user.ws !== excludeWs && user.ws.readyState === WebSocket.OPEN) {
+      user.ws.send(JSON.stringify(data));
+    }
+  });
+}
+
+const PORT = process.env.WS_PORT || 3002;
+server.listen(PORT, () => {
+  console.log(`WebSocket server running on port ${PORT}`);
+});
+
+module.exports = { server, wss };

@@ -1,7 +1,7 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../models/place.dart';
-import '../constants/app_constants.dart';
+import '../config/environment.dart';
 
 class PlacesService {
   static final PlacesService _instance = PlacesService._internal();
@@ -39,7 +39,7 @@ class PlacesService {
   }
   
   Future<List<Place>> _fetchRealPlaces(double lat, double lng, String query, int radius) async {
-    final url = '${AppConstants.baseUrl}/api/places/nearby?lat=$lat&lng=$lng&q=$query&radius=$radius';
+    final url = '${Environment.backendUrl}/api/places/nearby?lat=$lat&lng=$lng&q=$query&radius=$radius';
     print('🔍 Fetching places: $url');
     
     final response = await http.get(
@@ -69,7 +69,7 @@ class PlacesService {
     try {
       // Check enrichment cache first
       final enrichResponse = await http.post(
-        Uri.parse('${AppConstants.baseUrl}/api/enrichment/batch'),
+        Uri.parse('${Environment.backendUrl}/api/enrichment/batch'),
         headers: {'Content-Type': 'application/json'},
         body: json.encode({'items': places, 'lang': 'en'}),
       );
@@ -102,7 +102,7 @@ class PlacesService {
   
   Future<List<Place>> _fetchOptimizedPlaces(double lat, double lng, String query) async {
     final response = await http.get(
-      Uri.parse('${AppConstants.baseUrl}/api/places/search?lat=$lat&lng=$lng&q=$query'),
+      Uri.parse('${Environment.backendUrl}/api/places/search?lat=$lat&lng=$lng&q=$query'),
       headers: {'Content-Type': 'application/json'},
     );
     
@@ -115,7 +115,7 @@ class PlacesService {
   
   Future<List<Place>> _fetchBasicSearch(double lat, double lng, String query, int radius) async {
     final response = await http.get(
-      Uri.parse('${AppConstants.baseUrl}/api/places/search?lat=$lat&lng=$lng&q=$query&radius=$radius'),
+      Uri.parse('${Environment.backendUrl}/api/places/search?lat=$lat&lng=$lng&q=$query&radius=$radius'),
       headers: {'Content-Type': 'application/json'},
     );
     
@@ -172,7 +172,7 @@ class PlacesService {
   Future<bool> testConnection() async {
     try {
       final response = await http.get(
-        Uri.parse('${AppConstants.baseUrl}/api/places/nearby?lat=40.7128&lng=-74.0060&q=test&radius=1000'),
+        Uri.parse('${Environment.backendUrl}/api/places/nearby?lat=40.7128&lng=-74.0060&q=test&radius=1000'),
         headers: {'Content-Type': 'application/json'},
       );
       print('📡 Backend connection test: ${response.statusCode}');
@@ -188,7 +188,7 @@ class PlacesService {
   Future<void> testApiKey() async {
     try {
       final response = await http.get(
-        Uri.parse('${AppConstants.baseUrl}/api/places/test-key'),
+        Uri.parse('${Environment.backendUrl}/api/places/test-key'),
         headers: {'Content-Type': 'application/json'},
       );
       print('🔑 API Key test: ${response.statusCode}');

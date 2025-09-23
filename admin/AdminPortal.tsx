@@ -13,6 +13,7 @@ import AdminContentModerationView from './views/AdminContentModerationView.tsx';
 import AdminApiAnalyticsView from './views/AdminApiAnalyticsView.tsx';
 import AdminApiCostView from './views/AdminApiCostView.tsx';
 import AdminApiInsightsView from './views/AdminApiInsightsView.tsx';
+import MerchantManagement from '../components/MerchantManagement.tsx';
 
 type AdminView = 
   | 'dashboard' 
@@ -24,14 +25,15 @@ type AdminView =
   | 'contentModeration'
   | 'apiAnalytics'
   | 'apiCost'
-  | 'apiInsights';
+  | 'apiInsights'
+  | 'merchants';
 
 interface AdminPortalProps {
   currentUser: CurrentUser | null;
   onExitAdminPortal: () => void;
 }
 
-const AdminPortal: React.FC<AdminPortalProps> = ({ currentUser: _currentUser, onExitAdminPortal }) => {
+const AdminPortal: React.FC<AdminPortalProps> = ({ currentUser, onExitAdminPortal }) => {
   const [activeView, setActiveView] = useState<AdminView>('dashboard');
   const [isSidebarOpen, setIsSidebarOpen] = useState(window.innerWidth >= 768); // Default open on desktop
 
@@ -57,6 +59,8 @@ const AdminPortal: React.FC<AdminPortalProps> = ({ currentUser: _currentUser, on
         return <AdminApiCostView />;
       case 'apiInsights':
         return <AdminApiInsightsView />;
+      case 'merchants':
+        return <MerchantManagement currentUser={currentUser!} />;
       default:
         return <AdminDashboardView />;
     }

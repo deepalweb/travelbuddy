@@ -74,8 +74,11 @@ import NearbyPlacesWidget from './components/NearbyPlacesWidget.tsx';
 import ShareModal from './components/ShareModal.tsx';
 import LoadingSpinner from './components/LoadingSpinner.tsx';
 import RealTimeChatView from './components/RealTimeChatView.tsx';
+import { websocketService } from './services/websocketService.ts';
 import LandmarkRecognitionModal from './components/LandmarkRecognitionModal.tsx';
 import LocationSharingModal from './components/LocationSharingModal.tsx';
+import GoogleMapView from './components/GoogleMapView.tsx';
+import PaymentModal from './components/PaymentModal.tsx';
 import APIUsageMonitor from './components/APIUsageMonitor.tsx';
 import DatabaseConnectivityTest from './components/DatabaseConnectivityTest.tsx';
 import PlacesPerformanceMonitor from './components/PlacesPerformanceMonitor.tsx';
@@ -88,6 +91,9 @@ import { withApiBase } from './services/config';
 import { subscriptionService, SubscriptionData } from './services/subscriptionService.ts';
 import SubscriptionManagement from './components/SubscriptionManagement.tsx';
 import SubscriptionAnalytics from './components/SubscriptionAnalytics.tsx';
+import AnalyticsDashboard from './components/AnalyticsDashboard.tsx';
+import { analyticsService } from './services/analyticsService.ts';
+import MerchantDealManager from './components/MerchantDealManager.tsx';
 
 // Use centralized API base helper for direct fetches
 
@@ -258,6 +264,9 @@ const App: React.FC = () => {
   const [showRealTimeChat, setShowRealTimeChat] = useState<boolean>(false);
   const [showLandmarkRecognition, setShowLandmarkRecognition] = useState<boolean>(false);
   const [showLocationSharing, setShowLocationSharing] = useState<boolean>(false);
+  const [showPaymentModal, setShowPaymentModal] = useState<boolean>(false);
+  const [selectedPlan, setSelectedPlan] = useState<{id: string, name: string, price: number} | null>(null);
+  const [showMerchantPortal, setShowMerchantPortal] = useState<boolean>(false);
   const [chatRoomId, setChatRoomId] = useState<string>('general');
 
   const [userReviews, setUserReviews] = useState<UserReview[]>(() => {
@@ -750,6 +759,9 @@ const App: React.FC = () => {
               subscriptionStatus: u.subscriptionStatus || prev.subscriptionStatus,
               trialEndDate: u.trialEndDate || prev.trialEndDate,
               subscriptionEndDate: u.subscriptionEndDate || prev.subscriptionEndDate,
+              // merchant
+              isMerchant: !!u.isMerchant,
+              merchantInfo: u.merchantInfo || prev.merchantInfo,
               // preferences
               homeCurrency: u.homeCurrency || prev.homeCurrency,
               language: u.language || prev.language,
@@ -1828,6 +1840,7 @@ const App: React.FC = () => {
 
   const handleSelectPlaceDetail = (place: Place) => {
     setSelectedPlaceDetail(place);
+    analyticsService.trackPlaceView(place.id, place.name, currentUser?.mongoId);
   };
 
   const handleToggleSelectForItinerary = (placeId: string) => {
@@ -2341,6 +2354,21 @@ const App: React.FC = () => {
       </React.Suspense>
     );
   }
+  
+  if (showMerchantPortal) {
+    return (
+      <div className="min-h-screen">
+        <button
+          onClick={() => setShowMerchantPortal(false)}
+          className="fixed top-4 right-4 bg-gray-600 text-white px-3 py-1 rounded z-50 hover:bg-gray-700"
+          title="Back to App"
+        >
+          ← Back
+        </button>
+        <MerchantDealManager currentUser={currentUser!} />
+      </div>
+    );
+  }
     let content;
     switch (activeTab) {
     case 'forYou':
@@ -2818,13 +2846,29 @@ const App: React.FC = () => {
               onClose={() => setShowAPIStatusChecker(false)}
           />
       )}
+      {showPaymentModal && selectedPlan && (
+          <PaymentModal
+              isOpen={showPaymentModal}
+              onClose={() => setShowPaymentModal(false)}
+              planId={selectedPlan.id}
+              planName={selectedPlan.name}
+              amount={selectedPlan.price}
+              onSuccess={() => {
+                subscribe(selectedPlan.id as any);
+                setShowPaymentModal(false);
+              }}
+          />
+      )}
       {renderMainContent()}
+      
+
+      
       {process.env.NODE_ENV === 'development' && (
         <>
           <APIUsageMonitor />
           <DatabaseConnectivityTest />
           <PlacesPerformanceMonitor />
-
+          <AnalyticsDashboard />
         </>
       )}
     </div>

@@ -1,79 +1,115 @@
-export interface PushNotificationOptions {
-  title: string;
-  body: string;
-  icon?: string;
-  tag?: string;
-  requireInteraction?: boolean;
-}
-
 class PushNotificationService {
-  private static instance: PushNotificationService;
-  private isSupported: boolean = false;
-  private permission: NotificationPermission = 'default';
-
-  private constructor() {
-    this.isSupported = 'Notification' in window && 'serviceWorker' in navigator;
-    this.permission = this.isSupported ? Notification.permission : 'denied';
-  }
-
-  static getInstance(): PushNotificationService {
-    if (!PushNotificationService.instance) {
-      PushNotificationService.instance = new PushNotificationService();
-    }
-    return PushNotificationService.instance;
-  }
+  private registration: ServiceWorkerRegistration | null = null;
 
   async initialize(): Promise<boolean> {
-    if (!this.isSupported) return false;
+    if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+      console.warn('Push notifications not supported');
+      return false;
+    }
 
     try {
       // Register service worker
-      await navigator.serviceWorker.register('/sw.js');
-      
-      // Request permission if not granted
-      if (this.permission === 'default') {
-        this.permission = await Notification.requestPermission();
+      this.registration = await navigator.serviceWorker.register('/sw.js');
+      console.log('Service Worker registered');
+
+      // Request notification permission
+      const permission = await Notification.requestPermission();
+      if (permission !== 'granted') {
+        console.warn('Notification permission denied');
+        return false;
       }
 
-      return this.permission === 'granted';
+      return true;
     } catch (error) {
       console.error('Failed to initialize push notifications:', error);
       return false;
     }
   }
 
-  async sendNotification(options: PushNotificationOptions): Promise<boolean> {
-    if (!this.isSupported || this.permission !== 'granted') {
-      return false;
+  async subscribe(): Promise<PushSubscription | null> {
+    if (!this.registration) {
+      console.error('Service worker not registered');
+      return null;
     }
 
     try {
-      const notification = new Notification(options.title, {
-        body: options.body,
-        icon: options.icon || '/favicon.ico',
-        tag: options.tag,
-        requireInteraction: options.requireInteraction || false
+      const subscription = await this.registration.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: this.urlBase64ToUint8Array(
+          'BEl62iUYgUivxIkv69yViEuiBIa40HI80NqIHSUHVi358b4MjrLsGmJIGEqaVmOiNjwPlq6fnUBJaM0GSJBWBvY'
+        )
       });
 
-      // Auto close after 5 seconds unless requireInteraction is true
-      if (!options.requireInteraction) {
-        setTimeout(() => notification.close(), 5000);
-      }
-
-      return true;
+      console.log('Push subscription created');
+      return subscription;
     } catch (error) {
-      console.error('Failed to send notification:', error);
-      return false;
+      console.error('Failed to subscribe to push notifications:', error);
+      return null;
     }
   }
 
-  isPermissionGranted(): boolean {
-    return this.permission === 'granted';
+  async sendNotification(title: string, options: NotificationOptions = {}) {
+    if (Notification.permission !== 'granted') {
+      console.warn('Notification permission not granted');
+      return;
+    }
+
+    try {
+      new Notification(title, {
+        icon: '/favicon.ico',
+        badge: '/favicon.ico',
+        ...options
+      });
+    } catch (error) {
+      console.error('Failed to send notification:', error);
+    }
   }
 
-  isNotificationSupported(): boolean {
-    return this.isSupported;
+  // Travel-specific notifications
+  async notifyNearbyDeal(placeName: string, discount: string) {
+    await this.sendNotification('🎉 Deal Alert!', {
+      body: `${discount} off at ${placeName} nearby!`,
+      tag: 'deal-alert',
+      requireInteraction: true
+    });
+  }
+
+  async notifyTripReminder(destination: string, daysLeft: number) {
+    await this.sendNotification('✈️ Trip Reminder', {
+      body: `Your trip to ${destination} is in ${daysLeft} days!`,
+      tag: 'trip-reminder'
+    });
+  }
+
+  async notifyWeatherAlert(city: string, condition: string) {
+    await this.sendNotification('🌤️ Weather Update', {
+      body: `${condition} expected in ${city} today`,
+      tag: 'weather-alert'
+    });
+  }
+
+  isPermissionGranted(): boolean {
+    return Notification.permission === 'granted';
+  }
+
+  getPermissionStatus(): NotificationPermission {
+    return Notification.permission;
+  }
+
+  private urlBase64ToUint8Array(base64String: string): Uint8Array {
+    const padding = '='.repeat((4 - base64String.length % 4) % 4);
+    const base64 = (base64String + padding)
+      .replace(/-/g, '+')
+      .replace(/_/g, '/');
+
+    const rawData = window.atob(base64);
+    const outputArray = new Uint8Array(rawData.length);
+
+    for (let i = 0; i < rawData.length; ++i) {
+      outputArray[i] = rawData.charCodeAt(i);
+    }
+    return outputArray;
   }
 }
 
-export const pushNotificationService = PushNotificationService.getInstance();
+export const pushNotificationService = new PushNotificationService();

@@ -1,7 +1,36 @@
-// Service Worker for Push Notifications
-self.addEventListener('push', function(event) {
+const CACHE_NAME = 'travelbuddy-v1';
+const urlsToCache = [
+  '/',
+  '/static/js/bundle.js',
+  '/static/css/main.css',
+  '/favicon.ico'
+];
+
+// Install event
+self.addEventListener('install', (event) => {
+  event.waitUntil(
+    caches.open(CACHE_NAME)
+      .then((cache) => cache.addAll(urlsToCache))
+  );
+});
+
+// Fetch event
+self.addEventListener('fetch', (event) => {
+  event.respondWith(
+    caches.match(event.request)
+      .then((response) => {
+        if (response) {
+          return response;
+        }
+        return fetch(event.request);
+      })
+  );
+});
+
+// Push event
+self.addEventListener('push', (event) => {
   const options = {
-    body: event.data ? event.data.text() : 'New notification',
+    body: event.data ? event.data.text() : 'New notification from TravelBuddy',
     icon: '/favicon.ico',
     badge: '/favicon.ico',
     vibrate: [100, 50, 100],
@@ -12,7 +41,7 @@ self.addEventListener('push', function(event) {
     actions: [
       {
         action: 'explore',
-        title: 'View Details',
+        title: 'Explore',
         icon: '/favicon.ico'
       },
       {
@@ -28,7 +57,8 @@ self.addEventListener('push', function(event) {
   );
 });
 
-self.addEventListener('notificationclick', function(event) {
+// Notification click event
+self.addEventListener('notificationclick', (event) => {
   event.notification.close();
 
   if (event.action === 'explore') {

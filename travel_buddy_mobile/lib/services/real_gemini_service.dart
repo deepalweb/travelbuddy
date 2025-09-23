@@ -1,7 +1,7 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../models/enhanced_activity.dart';
-import '../constants/app_constants.dart';
+import '../config/environment.dart';
 
 class RealGeminiService {
   static Future<List<EnhancedActivity>> generatePremiumDayPlan({
@@ -74,7 +74,7 @@ Return ONLY valid JSON:
     print('📡 Calling REAL Gemini API...');
     
     final response = await http.post(
-      Uri.parse('${AppConstants.baseUrl}/api/ai/generate-text'),
+      Uri.parse('${Environment.backendUrl}/api/ai/generate-text'),
       headers: {'Content-Type': 'application/json'},
       body: json.encode({'prompt': prompt}),
     );

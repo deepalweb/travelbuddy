@@ -1,88 +1,126 @@
-import React, { useEffect, useRef } from 'react';
-import { Place } from '../types.ts';
-import { Colors } from '../constants.ts';
-import { loadGoogleMaps } from '../utils/loadGoogleMaps.ts';
+import React, { useEffect, useRef, useState } from 'react';
+import { Place } from '../types';
 
 interface GoogleMapViewProps {
   places: Place[];
-  userLocation: { latitude: number; longitude: number } | null;
-  onSelectPlaceDetail: (place: Place) => void;
-  apiKey?: string; // If not provided, component renders fallback
+  userLocation?: { latitude: number; longitude: number };
+  onPlaceSelect?: (place: Place) => void;
+  height?: string;
 }
 
-const GoogleMapView: React.FC<GoogleMapViewProps> = ({ places, userLocation, onSelectPlaceDetail, apiKey }) => {
-  const ref = useRef<HTMLDivElement>(null);
-  const mapRef = useRef<any>(null);
-  const markersRef = useRef<any[]>([]);
-  // Allow falling back to env var when prop isn't provided
-  const effectiveApiKey = apiKey || (import.meta as any).env?.VITE_GOOGLE_MAPS_API_KEY;
+const GoogleMapView: React.FC<GoogleMapViewProps> = ({
+  places,
+  userLocation,
+  onPlaceSelect,
+  height = '400px'
+}) => {
+  const mapRef = useRef<HTMLDivElement>(null);
+  const [map, setMap] = useState<google.maps.Map | null>(null);
+  const [isLoaded, setIsLoaded] = useState(false);
 
   useEffect(() => {
-    if (!effectiveApiKey) return; // no api key => don't init
-    let cancelled = false;
-    loadGoogleMaps(effectiveApiKey).then((google) => {
-      if (cancelled) return;
-      if (!ref.current) return;
-      const center = userLocation ? { lat: userLocation.latitude, lng: userLocation.longitude } : { lat: 37.7749, lng: -122.4194 };
-      mapRef.current = new google.maps.Map(ref.current, {
-        center,
-        zoom: 13,
-        mapTypeControl: false,
-        fullscreenControl: false,
-        streetViewControl: false,
-      });
-      // add markers initially
-      markersRef.current.forEach(m => m.setMap(null));
-      markersRef.current = [];
-      places.forEach(p => {
-        if (p.geometry?.location) {
-          const m = new google.maps.Marker({
-            position: { lat: p.geometry.location.lat, lng: p.geometry.location.lng },
-            map: mapRef.current,
-            title: p.name,
-          });
-          m.addListener('click', () => onSelectPlaceDetail(p));
-          markersRef.current.push(m);
+    const loadGoogleMaps = async () => {
+      if (window.google?.maps) {
+        setIsLoaded(true);
+        return;
+      }
+
+      const script = document.createElement('script');
+      script.src = `https://maps.googleapis.com/maps/api/js?key=${import.meta.env.VITE_GOOGLE_MAPS_API_KEY}&libraries=places`;
+      script.async = true;
+      script.onload = () => setIsLoaded(true);
+      document.head.appendChild(script);
+    };
+
+    loadGoogleMaps();
+  }, []);
+
+  useEffect(() => {
+    if (!isLoaded || !mapRef.current) return;
+
+    const center = userLocation || { latitude: 37.7749, longitude: -122.4194 };
+    
+    const mapInstance = new google.maps.Map(mapRef.current, {
+      center: { lat: center.latitude, lng: center.longitude },
+      zoom: 13,
+      styles: [
+        {
+          featureType: 'poi',
+          elementType: 'labels',
+          stylers: [{ visibility: 'off' }]
+        }
+      ]
+    });
+
+    setMap(mapInstance);
+
+    // Add user location marker
+    if (userLocation) {
+      new google.maps.Marker({
+        position: { lat: userLocation.latitude, lng: userLocation.longitude },
+        map: mapInstance,
+        title: 'Your Location',
+        icon: {
+          url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(`
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <circle cx="12" cy="12" r="8" fill="#4285F4" stroke="white" stroke-width="2"/>
+              <circle cx="12" cy="12" r="3" fill="white"/>
+            </svg>
+          `),
+          scaledSize: new google.maps.Size(24, 24)
         }
       });
-    }).catch(() => {
-      // ignore load error
-    });
-    return () => { cancelled = true };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [effectiveApiKey]);
+    }
+  }, [isLoaded, userLocation]);
 
   useEffect(() => {
-    const map = mapRef.current;
-    if (!map) return;
-    // refresh markers when places change
-    markersRef.current.forEach(m => m.setMap(null));
-    markersRef.current = [];
-    // compute bounds
-    const google = (window as any).google;
-    const bounds = new google.maps.LatLngBounds();
-    if (userLocation) bounds.extend({ lat: userLocation.latitude, lng: userLocation.longitude });
-    places.forEach(p => {
-      if (p.geometry?.location) {
-        const pos = { lat: p.geometry.location.lat, lng: p.geometry.location.lng };
-        const m = new google.maps.Marker({ position: pos, map, title: p.name });
-        m.addListener('click', () => onSelectPlaceDetail(p));
-        markersRef.current.push(m);
-        bounds.extend(pos);
-      }
-    });
-    if (!bounds.isEmpty()) map.fitBounds(bounds);
-  }, [places, userLocation, onSelectPlaceDetail]);
+    if (!map || !places.length) return;
 
-  if (!effectiveApiKey) {
+    // Clear existing markers
+    const markers: google.maps.Marker[] = [];
+
+    places.forEach((place) => {
+      const lat = place.geometry?.location?.lat || place.latitude;
+      const lng = place.geometry?.location?.lng || place.longitude;
+      
+      if (!lat || !lng) return;
+
+      const marker = new google.maps.Marker({
+        position: { lat, lng },
+        map,
+        title: place.name,
+        icon: {
+          url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(`
+            <svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M16 2C10.48 2 6 6.48 6 12C6 20 16 30 16 30S26 20 26 12C26 6.48 21.52 2 16 2Z" fill="#EA4335"/>
+              <circle cx="16" cy="12" r="4" fill="white"/>
+            </svg>
+          `),
+          scaledSize: new google.maps.Size(32, 32)
+        }
+      });
+
+      marker.addListener('click', () => {
+        onPlaceSelect?.(place);
+      });
+
+      markers.push(marker);
+    });
+
+    return () => {
+      markers.forEach(marker => marker.setMap(null));
+    };
+  }, [map, places, onPlaceSelect]);
+
+  if (!isLoaded) {
     return (
-      <div className="h-[60vh] md:h-[70vh] w-full mb-6 flex items-center justify-center rounded-xl" style={{ backgroundColor: Colors.inputBackground, border: `1px solid ${Colors.cardBorder}` }}>
-        <p style={{ color: Colors.text_secondary }}>Google Maps API key not set.</p>
+      <div className="flex items-center justify-center bg-gray-100 rounded-lg" style={{ height }}>
+        <div className="text-gray-500">Loading map...</div>
       </div>
     );
   }
 
-  return <div ref={ref} className="h-[60vh] md:h-[70vh] w-full mb-6 rounded-xl" style={{ border: `1px solid ${Colors.cardBorder}` }} />;
+  return <div ref={mapRef} style={{ height }} className="w-full rounded-lg" />;
 };
 
 export default GoogleMapView;

@@ -1,95 +1,89 @@
-import { io, Socket } from 'socket.io-client';
-import { getWebSocketBase } from './config';
-
-export interface RealTimeMessage {
-  id: string;
-  type: 'chat' | 'location' | 'deal_alert' | 'trip_update';
-  userId: string;
-  content: any;
-  timestamp: Date;
-}
-
-export interface LocationShare {
-  userId: string;
-  username: string;
-  latitude: number;
-  longitude: number;
-  timestamp: Date;
-  tripId?: string;
-}
-
 class WebSocketService {
-  private socket: Socket | null = null;
-  private isConnected = false;
+  private ws: WebSocket | null = null;
+  private reconnectAttempts = 0;
+  private maxReconnectAttempts = 5;
+  private reconnectInterval = 3000;
+  private messageHandlers: Map<string, (data: any) => void> = new Map();
 
-  connect(userId: string) {
-    if (this.socket) return;
+  connect(url: string = 'ws://localhost:3001') {
+    try {
+      this.ws = new WebSocket(url);
+      
+      this.ws.onopen = () => {
+        console.log('WebSocket connected');
+        this.reconnectAttempts = 0;
+      };
 
-  this.socket = io(getWebSocketBase(), {
-      auth: { userId },
-      transports: ['websocket']
-    });
+      this.ws.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          const handler = this.messageHandlers.get(data.type);
+          if (handler) {
+            handler(data);
+          }
+        } catch (error) {
+          console.error('Error parsing WebSocket message:', error);
+        }
+      };
 
-    this.socket.on('connect', () => {
-      this.isConnected = true;
-      console.log('WebSocket connected');
-    });
+      this.ws.onclose = () => {
+        console.log('WebSocket disconnected');
+        this.attemptReconnect();
+      };
 
-    this.socket.on('disconnect', () => {
-      this.isConnected = false;
-      console.log('WebSocket disconnected');
-    });
-  }
-
-  disconnect() {
-    if (this.socket) {
-      this.socket.disconnect();
-      this.socket = null;
-      this.isConnected = false;
+      this.ws.onerror = (error) => {
+        console.error('WebSocket error:', error);
+      };
+    } catch (error) {
+      console.error('Failed to connect to WebSocket:', error);
     }
   }
 
-  // Real-time chat
-  sendMessage(roomId: string, message: string) {
-    if (!this.socket) return;
-    this.socket.emit('chat_message', { roomId, message });
+  private attemptReconnect() {
+    if (this.reconnectAttempts < this.maxReconnectAttempts) {
+      this.reconnectAttempts++;
+      setTimeout(() => {
+        console.log(`Attempting to reconnect... (${this.reconnectAttempts}/${this.maxReconnectAttempts})`);
+        this.connect();
+      }, this.reconnectInterval);
+    }
   }
 
-  onMessage(callback: (data: RealTimeMessage) => void) {
-    if (!this.socket) return;
-    this.socket.on('chat_message', callback);
+  send(type: string, data: any) {
+    if (this.ws?.readyState === WebSocket.OPEN) {
+      this.ws.send(JSON.stringify({ type, ...data }));
+    } else {
+      console.warn('WebSocket not connected');
+    }
   }
 
-  // Live location sharing
-  shareLocation(location: LocationShare) {
-    if (!this.socket) return;
-    this.socket.emit('location_share', location);
+  subscribe(type: string, handler: (data: any) => void) {
+    this.messageHandlers.set(type, handler);
   }
 
-  onLocationUpdate(callback: (location: LocationShare) => void) {
-    if (!this.socket) return;
-    this.socket.on('location_update', callback);
+  unsubscribe(type: string) {
+    this.messageHandlers.delete(type);
   }
 
-  // Deal alerts
-  onDealAlert(callback: (deal: any) => void) {
-    if (!this.socket) return;
-    this.socket.on('deal_alert', callback);
+  disconnect() {
+    if (this.ws) {
+      this.ws.close();
+      this.ws = null;
+    }
   }
 
-  // Join/leave rooms
-  joinRoom(roomId: string) {
-    if (!this.socket) return;
-    this.socket.emit('join_room', roomId);
+  // Chat specific methods
+  joinRoom(roomId: string, userId: string) {
+    this.send('join_room', { roomId, userId });
   }
 
-  leaveRoom(roomId: string) {
-    if (!this.socket) return;
-    this.socket.emit('leave_room', roomId);
+  sendMessage(roomId: string, message: string, userId: string, username: string) {
+    this.send('chat_message', { roomId, message, userId, username, timestamp: Date.now() });
   }
 
-  get connected() {
-    return this.isConnected;
+  // Location sharing
+  shareLocation(roomId: string, userId: string, location: { latitude: number; longitude: number }) {
+    this.send('location_share', { roomId, userId, location, timestamp: Date.now() });
   }
 }
 
