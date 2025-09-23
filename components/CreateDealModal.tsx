@@ -1,4 +1,6 @@
 import React, { useState } from 'react';
+import MapLocationPicker from './MapLocationPicker.tsx';
+import OpenStreetMapPicker from './OpenStreetMapPicker.tsx';
 
 interface CreateDealModalProps {
   onClose: () => void;
@@ -15,8 +17,12 @@ const CreateDealModal: React.FC<CreateDealModalProps> = ({ onClose, onSubmit }) 
     businessType: 'restaurant',
     businessAddress: '',
     businessPhone: '',
+    businessWebsite: '',
+    location: { lat: 0, lng: 0, address: '' },
     images: [] as string[],
   });
+  const [showMapPicker, setShowMapPicker] = useState(false);
+  const [mapType, setMapType] = useState<'google' | 'osm'>('google');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -250,8 +256,63 @@ const CreateDealModal: React.FC<CreateDealModalProps> = ({ onClose, onSubmit }) 
                   value={formData.businessPhone}
                   onChange={handleChange}
                   className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="Your business phone"
+                  placeholder="+1 555-123-4567"
                 />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Business Website
+                </label>
+                <input
+                  type="url"
+                  name="businessWebsite"
+                  value={formData.businessWebsite}
+                  onChange={handleChange}
+                  className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="https://www.yourbusiness.com"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Business Location
+                </label>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={formData.location.address}
+                    onChange={(e) => setFormData(prev => ({
+                      ...prev,
+                      location: { ...prev.location, address: e.target.value }
+                    }))}
+                    className="flex-1 px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="Enter address or click map to select"
+                  />
+                  <div className="flex gap-1">
+                    <button
+                      type="button"
+                      onClick={() => { setMapType('google'); setShowMapPicker(true); }}
+                      className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                      title="Google Maps - High accuracy location picker"
+                    >
+                      📍 Select Location
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => { setMapType('osm'); setShowMapPicker(true); }}
+                      className="px-3 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 text-sm"
+                      title="Alternative: Free OpenStreetMap"
+                    >
+                      🗺️ OSM
+                    </button>
+                  </div>
+                </div>
+                {formData.location.lat !== 0 && (
+                  <p className="text-xs text-green-600 mt-1">
+                    📍 Location set: {formData.location.lat.toFixed(4)}, {formData.location.lng.toFixed(4)}
+                  </p>
+                )}
               </div>
             </div>
 
@@ -275,6 +336,30 @@ const CreateDealModal: React.FC<CreateDealModalProps> = ({ onClose, onSubmit }) 
           </form>
         </div>
       </div>
+      
+      {/* Map Location Picker */}
+      {showMapPicker && mapType === 'google' && (
+        <MapLocationPicker
+          onLocationSelect={(location) => {
+            setFormData(prev => ({ ...prev, location }));
+            setShowMapPicker(false);
+          }}
+          onClose={() => setShowMapPicker(false)}
+          initialLocation={formData.location}
+        />
+      )}
+      
+      {/* OpenStreetMap Picker */}
+      {showMapPicker && mapType === 'osm' && (
+        <OpenStreetMapPicker
+          onLocationSelect={(location) => {
+            setFormData(prev => ({ ...prev, location }));
+            setShowMapPicker(false);
+          }}
+          onClose={() => setShowMapPicker(false)}
+          initialLocation={formData.location}
+        />
+      )}
     </div>
   );
 };

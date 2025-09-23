@@ -1059,6 +1059,12 @@ const dealSchema = new mongoose.Schema({
   businessType: String,
   businessAddress: String,
   businessPhone: String,
+  businessWebsite: String,
+  location: {
+    lat: Number,
+    lng: Number,
+    address: String
+  },
   images: [String],
   views: { type: Number, default: 0 },
   claims: { type: Number, default: 0 },
@@ -2065,15 +2071,37 @@ app.delete('/api/reviews/:id', async (req, res) => {
 // Deals
 app.get('/api/deals', async (req, res) => {
   try {
-  // Return only active deals within optional date window
-  const now = new Date();
-  const deals = await Deal.find({
-    isActive: true,
-    $and: [
-      { $or: [{ startsAt: { $exists: false } }, { startsAt: null }, { startsAt: { $lte: now } }] },
-      { $or: [{ endsAt: { $exists: false } }, { endsAt: null }, { endsAt: { $gte: now } }] }
-    ]
-  }).sort({ createdAt: -1 });
+    const { businessType, isActive, limit = '50', merchantId } = req.query;
+    
+    // Build query
+    const query: any = {};
+    
+    if (isActive === 'true') {
+      query.isActive = true;
+    }
+    
+    if (businessType && businessType !== 'all') {
+      query.businessType = businessType;
+    }
+    
+    if (merchantId) {
+      query.merchantId = merchantId;
+    }
+    
+    // Date filtering for active deals
+    if (isActive === 'true') {
+      const now = new Date();
+      query.$and = [
+        { $or: [{ startsAt: { $exists: false } }, { startsAt: null }, { startsAt: { $lte: now } }] },
+        { $or: [{ endsAt: { $exists: false } }, { endsAt: null }, { endsAt: { $gte: now } }] }
+      ];
+    }
+    
+    const deals = await Deal.find(query)
+      .sort({ createdAt: -1 })
+      .limit(parseInt(limit.toString(), 10))
+      .lean(); // Use lean() for better performance
+    
     res.json(deals);
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -2106,6 +2134,42 @@ app.delete('/api/deals/:id', async (req, res) => {
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
+});
+
+// Track deal views
+app.post('/api/deals/:id/view', async (req, res) => {
+  try {
+    await Deal.findByIdAndUpdate(req.params.id, { $inc: { views: 1 } });
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Claim deal
+app.post('/api/deals/:id/claim', async (req, res) => {
+  try {
+    const deal = await Deal.findByIdAndUpdate(
+      req.params.id, 
+      { $inc: { claims: 1 } },
+      { new: true }
+    );
+    if (!deal) {
+      return res.status(404).json({ error: 'Deal not found' });
+    }
+    res.json({ success: true, claims: deal.claims });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Get Google Maps API key (from environment)
+app.get('/api/config/maps-key', (req, res) => {
+  const apiKey = process.env.GOOGLE_PLACES_API_KEY || process.env.VITE_GOOGLE_MAPS_API_KEY;
+  if (!apiKey) {
+    return res.status(404).json({ error: 'API key not configured' });
+  }
+  res.json({ apiKey });
 });
 
 // Events

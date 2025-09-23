@@ -60,7 +60,7 @@ import { CurrencyConverterModal } from './components/CurrencyConverterModal.tsx'
 import { FeatureDiscoveryModal } from './components/FeatureDiscoveryModal.tsx';
 import { LostAndFoundModal } from './components/LostAndFoundModal.tsx';
 import { FlightHelpModal } from './components/FlightHelpModal.tsx';
-import DealsView from './components/DealsView.tsx';
+import FastDealsView from './components/FastDealsView.tsx';
 import OneDayItineraryView from './components/OneDayItineraryView.tsx';
 import PlannerHomeView from './components/PlannerHomeView.tsx';
 import LocalAgencyPlannerView from './components/LocalAgencyPlannerView.tsx';
@@ -2464,17 +2464,7 @@ const App: React.FC = () => {
         );
         break;
       case 'deals':
-        content = (
-          <DealsView
-            placesWithDeals={placesWithDealsCommercial}
-            onSelectPlaceByNameOrId={handleSelectPlaceByNameOrId}
-            currentUserHomeCurrency={currentUser?.homeCurrency}
-            exchangeRates={exchangeRates}
-            hasAccessToPremiumDeals={hasAccess('premium')}
-            fallbackPlaces={dealsFallbackPlaces.length > 0 ? dealsFallbackPlaces : fallbackCommercialPlaces}
-            isLoading={isLoadingDeals}
-          />
-        );
+        content = <FastDealsView currentUser={currentUser} />;
         break;
       case 'planner':
         let plannerContent;
