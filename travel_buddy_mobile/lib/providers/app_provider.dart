@@ -645,9 +645,6 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
     notifyListeners();
 
     try {
-      // Ensure storage is initialized first
-      await _storageService.initialize();
-      
       final user = await _authService.signInWithGoogle();
       if (user != null) {
         _currentUser = user;
@@ -1811,9 +1808,9 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
     notifyListeners();
 
     try {
-      // Try to load real deals from backend first
       List<Deal> deals = [];
       
+      // Try real backend deals first
       try {
         deals = _currentLocation != null 
             ? await _apiService.getNearbyDeals(
@@ -1825,34 +1822,91 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
         
         if (deals.isNotEmpty) {
           print('✅ Loaded ${deals.length} REAL deals from backend');
+          _deals = deals;
+          return;
         }
       } catch (apiError) {
         print('⚠️ Backend deals API not available: $apiError');
-        print('🎭 Using mock deals as fallback');
       }
       
-      // If no real deals, use mock deals
-      if (deals.isEmpty) {
-        deals = MockDealsService.generateMockDeals();
-        print('🎭 Loaded ${deals.length} mock deals for demonstration');
-      }
-          
-      final newDealsCount = deals.length - _deals.length;
+      // Fallback to mock deals
+      deals = MockDealsService.generateMockDeals();
+      print('🎭 Loaded ${deals.length} mock deals for demonstration');
+      
       _deals = deals;
       
-      if (newDealsCount > 0 && SettingsService.dealAlertsEnabled) {
+      // Notify about new deals
+      if (SettingsService.dealAlertsEnabled && deals.isNotEmpty) {
         await _notificationService.showLocalNotification(
-          'New Deals Available!',
-          '$newDealsCount new deals found near you',
+          'Deals Available!',
+          '${deals.length} deals found near you',
         );
       }
       
     } catch (e) {
       print('❌ Error loading deals: $e');
       _dealsError = 'Failed to load deals: ${e.toString()}';
+      // Still try to load mock deals as final fallback
+      try {
+        _deals = MockDealsService.generateMockDeals();
+        print('🎭 Loaded fallback mock deals after error');
+      } catch (mockError) {
+        print('❌ Even mock deals failed: $mockError');
+      }
     } finally {
       _isDealsLoading = false;
       notifyListeners();
+    }
+  }
+  
+  Future<List<Deal>> getMyDeals() async {
+    if (_currentUser?.mongoId == null) return [];
+    
+    try {
+      return await _apiService.getMyDeals(_currentUser!.mongoId!);
+    } catch (e) {
+      print('❌ Error loading my deals: $e');
+      return [];
+    }
+  }
+  
+  Future<bool> claimDeal(String dealId) async {
+    try {
+      final success = await _apiService.claimDeal(dealId);
+      if (success) {
+        // Update local deal claims count
+        final dealIndex = _deals.indexWhere((d) => d.id == dealId);
+        if (dealIndex != -1) {
+          final updatedDeal = Deal(
+            id: _deals[dealIndex].id,
+            title: _deals[dealIndex].title,
+            description: _deals[dealIndex].description,
+            discount: _deals[dealIndex].discount,
+            placeName: _deals[dealIndex].placeName,
+            businessType: _deals[dealIndex].businessType,
+            businessName: _deals[dealIndex].businessName,
+            images: _deals[dealIndex].images,
+            validUntil: _deals[dealIndex].validUntil,
+            isActive: _deals[dealIndex].isActive,
+            views: _deals[dealIndex].views,
+            claims: _deals[dealIndex].claims + 1,
+            merchantId: _deals[dealIndex].merchantId,
+            price: _deals[dealIndex].price,
+            isPremium: _deals[dealIndex].isPremium,
+          );
+          _deals[dealIndex] = updatedDeal;
+          notifyListeners();
+        }
+        
+        await _notificationService.showLocalNotification(
+          'Deal Claimed!',
+          'You have successfully claimed this deal',
+        );
+      }
+      return success;
+    } catch (e) {
+      print('❌ Error claiming deal: $e');
+      return false;
     }
   }
 

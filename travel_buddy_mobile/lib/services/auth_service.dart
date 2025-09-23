@@ -3,6 +3,7 @@ import 'package:google_sign_in/google_sign_in.dart';
 import '../models/user.dart';
 import 'storage_service.dart';
 import 'api_service.dart';
+import 'auth_error_handler.dart';
 
 class AuthService {
   static final AuthService _instance = AuthService._internal();
@@ -19,9 +20,6 @@ class AuthService {
 
   Future<CurrentUser?> signInWithEmail(String email, String password) async {
     try {
-      // Initialize storage first
-      await _storage.initialize();
-      
       final credential = await _auth.signInWithEmailAndPassword(
         email: email,
         password: password,
@@ -64,11 +62,11 @@ class AuthService {
 
   Future<CurrentUser?> signInWithGoogle() async {
     try {
-      // Initialize storage first
-      await _storage.initialize();
-      
       final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
-      if (googleUser == null) return null;
+      if (googleUser == null) {
+        // User cancelled sign-in
+        return null;
+      }
 
       final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
       final credential = GoogleAuthProvider.credential(
@@ -82,7 +80,8 @@ class AuthService {
       }
       return null;
     } catch (e) {
-      throw 'Google Sign-In failed: ${e.toString()}';
+      print('Google Sign-In error details: $e');
+      throw AuthErrorHandler.getReadableError(e);
     }
   }
 
@@ -160,9 +159,6 @@ class AuthService {
 
   Future<CurrentUser?> _createOrUpdateUser(User firebaseUser, {bool isNewUser = false}) async {
     try {
-      // Ensure storage is initialized
-      await _storage.initialize();
-      
       // Create user data for backend
       final userData = {
         'firebaseUid': firebaseUser.uid,
@@ -171,36 +167,37 @@ class AuthService {
         'profilePicture': firebaseUser.photoURL,
       };
 
-      // Always try to create/update user in backend (it handles existing users)
-      final backendUser = await _api.createUser(userData);
-      
-      if (backendUser != null) {
-        await _storage.saveUser(backendUser);
-        return backendUser;
+      // Try to create/update user in backend (with timeout)
+      CurrentUser? backendUser;
+      try {
+        backendUser = await _api.createUser(userData).timeout(
+          const Duration(seconds: 10),
+          onTimeout: () => null,
+        );
+      } catch (e) {
+        print('Backend user creation failed: $e');
+        backendUser = null;
       }
       
-      // Fallback: create local user if backend fails
+      // Create local user (always works)
       final localUser = CurrentUser(
         username: userData['username']!,
         email: userData['email'],
-        mongoId: firebaseUser.uid,
+        mongoId: backendUser?.mongoId ?? firebaseUser.uid,
         uid: firebaseUser.uid,
         profilePicture: userData['profilePicture'],
+        subscriptionStatus: backendUser?.subscriptionStatus ?? SubscriptionStatus.none,
+        tier: backendUser?.tier ?? SubscriptionTier.free,
+        homeCurrency: backendUser?.homeCurrency ?? 'USD',
+        language: backendUser?.language ?? 'en',
       );
       
+      // Save to local storage
       await _storage.saveUser(localUser);
       return localUser;
     } catch (e) {
       print('Error creating/updating user: $e');
-      // Create minimal local user as last resort
-      final fallbackUser = CurrentUser(
-        username: firebaseUser.displayName ?? 'User',
-        email: firebaseUser.email,
-        mongoId: firebaseUser.uid,
-        uid: firebaseUser.uid,
-      );
-      await _storage.saveUser(fallbackUser);
-      return fallbackUser;
+      throw AuthErrorHandler.getReadableError(e);
     }
   }
 

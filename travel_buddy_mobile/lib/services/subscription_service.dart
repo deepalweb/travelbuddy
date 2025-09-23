@@ -147,8 +147,8 @@ class SubscriptionService {
     final trialEndDate = DateTime.now().add(Duration(days: limits.trialDays));
 
     try {
-      // TODO: Implement API call when backend methods are available
-      print('✅ Trial started');
+      // Use AppProvider's backend integration instead of direct API calls
+      print('✅ Trial started locally - backend sync handled by AppProvider');
     } catch (e) {
       print('❌ Failed to start trial: $e');
     }

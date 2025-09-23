@@ -1,11 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:http/http.dart' as http;
-import 'dart:convert';
 import '../providers/app_provider.dart';
 import '../models/user.dart';
 import '../services/payment_service.dart';
-import '../constants/app_constants.dart';
 
 class SubscriptionPlansScreen extends StatefulWidget {
   const SubscriptionPlansScreen({super.key});
@@ -473,18 +470,13 @@ class _SubscriptionPlansScreenState extends State<SubscriptionPlansScreen> {
       final user = appProvider.currentUser;
       if (user?.mongoId == null) return false;
       
-      // Check backend for trial usage
-      final response = await http.get(
-        Uri.parse('${AppConstants.baseUrl}/api/users/${user!.mongoId}/trial-status'),
-        headers: {'Content-Type': 'application/json'},
-      ).timeout(const Duration(seconds: 10));
+      // Check if user already has trial status in their profile
+      // This avoids making direct API calls and uses existing user data
+      final hasActiveTrial = user!.subscriptionStatus == SubscriptionStatus.trial;
+      final hasActiveSubscription = user.subscriptionStatus == SubscriptionStatus.active;
       
-      if (response.statusCode == 200) {
-        final data = json.decode(response.body);
-        return data['hasUsedTrial'] ?? false;
-      }
-      
-      return false; // Default to allowing trial if API fails
+      // If user already has active subscription or trial, they've used it
+      return hasActiveTrial || hasActiveSubscription;
     } catch (e) {
       print('❌ Error checking trial status: $e');
       return false; // Allow trial on error

@@ -85,6 +85,43 @@ class PlaceAdapter extends TypeAdapter<Place> {
           typeId == other.typeId;
 }
 
+class PriceInfoAdapter extends TypeAdapter<PriceInfo> {
+  @override
+  final int typeId = 20;
+
+  @override
+  PriceInfo read(BinaryReader reader) {
+    final numOfFields = reader.readByte();
+    final fields = <int, dynamic>{
+      for (int i = 0; i < numOfFields; i++) reader.readByte(): reader.read(),
+    };
+    return PriceInfo(
+      amount: fields[0] as double,
+      currencyCode: fields[1] as String,
+    );
+  }
+
+  @override
+  void write(BinaryWriter writer, PriceInfo obj) {
+    writer
+      ..writeByte(2)
+      ..writeByte(0)
+      ..write(obj.amount)
+      ..writeByte(1)
+      ..write(obj.currencyCode);
+  }
+
+  @override
+  int get hashCode => typeId.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is PriceInfoAdapter &&
+          runtimeType == other.runtimeType &&
+          typeId == other.typeId;
+}
+
 class DealAdapter extends TypeAdapter<Deal> {
   @override
   final int typeId = 1;
@@ -99,28 +136,30 @@ class DealAdapter extends TypeAdapter<Deal> {
       id: fields[0] as String,
       title: fields[1] as String,
       description: fields[2] as String,
-      category: fields[3] as String,
-      imageUrl: fields[4] as String,
-      discount: fields[14] as String,
-      placeName: fields[17] as String,
-      bookingLink: fields[15] as String,
-      isPremium: fields[16] as bool,
-      originalPrice: fields[5] as double,
-      discountedPrice: fields[6] as double,
-      currency: fields[7] as String,
-      validFrom: fields[8] as DateTime,
-      validUntil: fields[9] as DateTime,
-      location: fields[10] as String,
-      details: (fields[11] as Map).cast<String, dynamic>(),
-      terms: (fields[12] as List).cast<String>(),
-      providerName: fields[13] as String,
+      discount: fields[3] as String,
+      placeName: fields[4] as String,
+      businessType: fields[5] as String,
+      businessName: fields[6] as String,
+      images: (fields[7] as List).cast<String>(),
+      validUntil: fields[8] as DateTime,
+      isActive: fields[9] as bool,
+      views: fields[10] as int,
+      claims: fields[11] as int,
+      merchantId: fields[12] as String?,
+      price: fields[13] as PriceInfo?,
+      isPremium: fields[14] as bool,
+      category: fields[15] as String?,
+      imageUrl: fields[16] as String?,
+      originalPrice: fields[17] as double?,
+      discountedPrice: fields[18] as double?,
+      currency: fields[19] as String?,
     );
   }
 
   @override
   void write(BinaryWriter writer, Deal obj) {
     writer
-      ..writeByte(18)
+      ..writeByte(20)
       ..writeByte(0)
       ..write(obj.id)
       ..writeByte(1)
@@ -128,35 +167,39 @@ class DealAdapter extends TypeAdapter<Deal> {
       ..writeByte(2)
       ..write(obj.description)
       ..writeByte(3)
-      ..write(obj.category)
-      ..writeByte(4)
-      ..write(obj.imageUrl)
-      ..writeByte(5)
-      ..write(obj.originalPrice)
-      ..writeByte(6)
-      ..write(obj.discountedPrice)
-      ..writeByte(7)
-      ..write(obj.currency)
-      ..writeByte(8)
-      ..write(obj.validFrom)
-      ..writeByte(9)
-      ..write(obj.validUntil)
-      ..writeByte(10)
-      ..write(obj.location)
-      ..writeByte(11)
-      ..write(obj.details)
-      ..writeByte(12)
-      ..write(obj.terms)
-      ..writeByte(13)
-      ..write(obj.providerName)
-      ..writeByte(14)
       ..write(obj.discount)
-      ..writeByte(17)
+      ..writeByte(4)
       ..write(obj.placeName)
+      ..writeByte(5)
+      ..write(obj.businessType)
+      ..writeByte(6)
+      ..write(obj.businessName)
+      ..writeByte(7)
+      ..write(obj.images)
+      ..writeByte(8)
+      ..write(obj.validUntil)
+      ..writeByte(9)
+      ..write(obj.isActive)
+      ..writeByte(10)
+      ..write(obj.views)
+      ..writeByte(11)
+      ..write(obj.claims)
+      ..writeByte(12)
+      ..write(obj.merchantId)
+      ..writeByte(13)
+      ..write(obj.price)
+      ..writeByte(14)
+      ..write(obj.isPremium)
       ..writeByte(15)
-      ..write(obj.bookingLink)
+      ..write(obj.category)
       ..writeByte(16)
-      ..write(obj.isPremium);
+      ..write(obj.imageUrl)
+      ..writeByte(17)
+      ..write(obj.originalPrice)
+      ..writeByte(18)
+      ..write(obj.discountedPrice)
+      ..writeByte(19)
+      ..write(obj.currency);
   }
 
   @override

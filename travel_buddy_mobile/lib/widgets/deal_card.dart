@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
 import '../models/place.dart';
 import '../constants/app_constants.dart';
+import '../services/currency_service.dart';
+import '../widgets/premium_deal_overlay.dart';
+import 'package:provider/provider.dart';
+import '../providers/app_provider.dart';
 
 class DealCard extends StatelessWidget {
   final Deal deal;
@@ -50,13 +54,18 @@ class DealCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final appProvider = Provider.of<AppProvider>(context);
+    final hasAccess = !deal.isPremium || appProvider.hasActiveSubscription;
+    
     return Card(
       clipBehavior: Clip.antiAlias,
       elevation: 2,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: InkWell(
-        onTap: onTap,
-        child: Column(
+      child: Stack(
+        children: [
+          InkWell(
+            onTap: hasAccess ? onTap : null,
+            child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // Deal Badge
@@ -142,43 +151,55 @@ class DealCard extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 8),
-                    Row(
-                      children: [
-                        const Text(
-                            '\$100',
-                            style: TextStyle(
-                              decoration: TextDecoration.lineThrough,
-                              fontSize: 10,
-                              color: Colors.grey,
+                    // Price
+                    if (deal.price != null)
+                      Row(
+                        children: [
+                          Text(
+                            '${deal.price!.amount.toStringAsFixed(2)} ${deal.price!.currencyCode}',
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              color: Colors.green,
+                              fontSize: 12,
                             ),
                           ),
-                          const SizedBox(width: 4),
-                        const Text(
-                          '\$75',
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            color: Colors.green,
-                            fontSize: 12,
-                          ),
-                        ),
-                        const Spacer(),
-                        GestureDetector(
-                          onTap: () => _showPaymentDialog(context),
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                            decoration: BoxDecoration(
-                              color: Color(AppConstants.colors['primary']!),
-                              borderRadius: BorderRadius.circular(4),
-                            ),
-                            child: const Text(
-                              'BUY',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 10,
-                                fontWeight: FontWeight.bold,
+                          const Spacer(),
+                          GestureDetector(
+                            onTap: () => _showPaymentDialog(context),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: Color(AppConstants.colors['primary']!),
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: const Text(
+                                'GET DEAL',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.bold,
+                                ),
                               ),
                             ),
                           ),
+                        ],
+                      ),
+                    const SizedBox(height: 4),
+                    // Stats
+                    Row(
+                      children: [
+                        Icon(Icons.visibility, size: 12, color: Colors.grey[600]),
+                        const SizedBox(width: 2),
+                        Text(
+                          '${deal.views}',
+                          style: TextStyle(fontSize: 10, color: Colors.grey[600]),
+                        ),
+                        const SizedBox(width: 8),
+                        Icon(Icons.local_offer, size: 12, color: Colors.grey[600]),
+                        const SizedBox(width: 2),
+                        Text(
+                          '${deal.claims}',
+                          style: TextStyle(fontSize: 10, color: Colors.grey[600]),
                         ),
                       ],
                     ),
@@ -186,8 +207,20 @@ class DealCard extends StatelessWidget {
                 ),
               ),
             ),
-          ],
-        ),
+            ],
+          ),
+          ),
+          
+          // Premium Overlay
+          if (deal.isPremium && !hasAccess)
+            Positioned.fill(
+              child: PremiumDealOverlay(
+                onUpgrade: () {
+                  Navigator.pushNamed(context, '/subscription');
+                },
+              ),
+            ),
+        ],
       ),
     );
   }

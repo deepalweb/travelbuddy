@@ -257,7 +257,7 @@ class _CategoryDealsScreenState extends State<CategoryDealsScreen> {
               Row(
                 children: [
                   Text(
-                    '\$${deal.originalPrice.toInt()}',
+                    deal.originalPrice != null ? '\$${deal.originalPrice!.toInt()}' : 'N/A',
                     style: const TextStyle(
                       decoration: TextDecoration.lineThrough,
                       fontSize: 18,
@@ -266,7 +266,7 @@ class _CategoryDealsScreenState extends State<CategoryDealsScreen> {
                   ),
                   const SizedBox(width: 8),
                   Text(
-                    '\$${deal.discountedPrice.toInt()}',
+                    deal.discountedPrice != null ? '\$${deal.discountedPrice!.toInt()}' : deal.price?.amount.toStringAsFixed(0) ?? 'N/A',
                     style: const TextStyle(
                       fontSize: 24,
                       fontWeight: FontWeight.bold,
@@ -281,7 +281,7 @@ class _CategoryDealsScreenState extends State<CategoryDealsScreen> {
                       borderRadius: BorderRadius.circular(4),
                     ),
                     child: Text(
-                      '${((deal.originalPrice - deal.discountedPrice) / deal.originalPrice * 100).round()}% OFF',
+                      deal.discount,
                       style: const TextStyle(
                         color: Colors.white,
                         fontSize: 12,
@@ -345,8 +345,8 @@ class _CategoryDealsScreenState extends State<CategoryDealsScreen> {
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text('Original Price: \$${deal.originalPrice.toInt()}'),
-            Text('Deal Price: \$${deal.discountedPrice.toInt()}'),
+            if (deal.originalPrice != null) Text('Original Price: \$${deal.originalPrice!.toInt()}'),
+            if (deal.discountedPrice != null) Text('Deal Price: \$${deal.discountedPrice!.toInt()}'),
             const SizedBox(height: 16),
             const Text('This feature requires a subscription plan.'),
           ],

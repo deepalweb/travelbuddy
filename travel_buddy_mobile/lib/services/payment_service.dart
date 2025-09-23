@@ -23,9 +23,9 @@ class PaymentService {
     bool isFreeTrial = true,
   }) async {
     try {
-      // Handle free trial - no payment required
+      // Handle free trial - no payment required, handled by AppProvider
       if (isFreeTrial) {
-        await _startFreeTrial(tier);
+        print('✅ Free trial will be handled by AppProvider');
         return true;
       }
       
@@ -134,37 +134,7 @@ class PaymentService {
     return 'mobile_user_${DateTime.now().millisecondsSinceEpoch}';
   }
 
-  Future<void> _startFreeTrial(SubscriptionTier tier) async {
-    try {
-      final trialEndDate = DateTime.now().add(const Duration(days: 7));
-      
-      // Create trial subscription in backend
-      final response = await http.post(
-        Uri.parse('${AppConstants.baseUrl}/api/subscriptions/trial'),
-        headers: {'Content-Type': 'application/json'},
-        body: json.encode({
-          'userId': _getCurrentUserId(),
-          'tier': tier.name,
-          'trialEndDate': trialEndDate.toIso8601String(),
-        }),
-      ).timeout(const Duration(seconds: 10));
-      
-      if (response.statusCode == 200) {
-        print('✅ Started 7-day free trial for ${tier.toString().split('.').last}');
-        print('📅 Trial ends: ${trialEndDate.toString()}');
-        
-        // Send confirmation email via backend
-        await _sendTrialConfirmationEmail(tier, trialEndDate);
-      } else {
-        throw Exception('Failed to create trial subscription');
-      }
-      
-      await _updateUserSubscription(tier, isFreeTrial: true);
-    } catch (e) {
-      print('❌ Error starting free trial: $e');
-      throw Exception('Failed to start free trial: $e');
-    }
-  }
+  // Free trial is now handled by AppProvider.updateSubscription()
   
   Future<void> _sendTrialConfirmationEmail(SubscriptionTier tier, DateTime trialEndDate) async {
     try {

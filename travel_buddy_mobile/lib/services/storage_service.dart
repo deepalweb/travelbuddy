@@ -33,13 +33,28 @@ class StorageService {
     if (!Hive.isAdapterRegistered(7)) Hive.registerAdapter(SubscriptionStatusAdapter());
     if (!Hive.isAdapterRegistered(8)) Hive.registerAdapter(SubscriptionTierAdapter());
     if (!Hive.isAdapterRegistered(9)) Hive.registerAdapter(UserInterestAdapter());
+    if (!Hive.isAdapterRegistered(20)) Hive.registerAdapter(PriceInfoAdapter());
 
-
-    // Open boxes
-    _userBox = await Hive.openBox<CurrentUser>('users');
-    _placesBox = await Hive.openBox<Place>('places');
-    _tripPlansBox = await Hive.openBox<TripPlan>('tripPlans');
-    _itinerariesBox = await Hive.openBox<OneDayItinerary>('itineraries');
+    // Open boxes with error handling for corrupted data
+    try {
+      _userBox = await Hive.openBox<CurrentUser>('users');
+      _placesBox = await Hive.openBox<Place>('places');
+      _tripPlansBox = await Hive.openBox<TripPlan>('tripPlans');
+      _itinerariesBox = await Hive.openBox<OneDayItinerary>('itineraries');
+    } catch (e) {
+      print('Corrupted Hive data detected, clearing and recreating boxes...');
+      // Delete corrupted boxes
+      await Hive.deleteBoxFromDisk('users');
+      await Hive.deleteBoxFromDisk('places');
+      await Hive.deleteBoxFromDisk('tripPlans');
+      await Hive.deleteBoxFromDisk('itineraries');
+      
+      // Recreate boxes
+      _userBox = await Hive.openBox<CurrentUser>('users');
+      _placesBox = await Hive.openBox<Place>('places');
+      _tripPlansBox = await Hive.openBox<TripPlan>('tripPlans');
+      _itinerariesBox = await Hive.openBox<OneDayItinerary>('itineraries');
+    }
     
     _prefs = await SharedPreferences.getInstance();
   }

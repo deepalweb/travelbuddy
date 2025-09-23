@@ -132,6 +132,34 @@ class Place extends HiveObject {
   }
 }
 
+@HiveType(typeId: 20)
+class PriceInfo extends HiveObject {
+  @HiveField(0)
+  final double amount;
+
+  @HiveField(1)
+  final String currencyCode;
+
+  PriceInfo({
+    required this.amount,
+    required this.currencyCode,
+  });
+
+  factory PriceInfo.fromJson(Map<String, dynamic> json) {
+    return PriceInfo(
+      amount: (json['amount'] as num?)?.toDouble() ?? 0.0,
+      currencyCode: json['currencyCode'] ?? 'USD',
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'amount': amount,
+      'currencyCode': currencyCode,
+    };
+  }
+}
+
 @HiveType(typeId: 1)
 class Deal extends HiveObject {
   @HiveField(0)
@@ -144,90 +172,104 @@ class Deal extends HiveObject {
   final String description;
 
   @HiveField(3)
-  final String category;
-
-  @HiveField(4)
-  final String imageUrl;
-
-  @HiveField(5)
-  final double originalPrice;
-
-  @HiveField(6)
-  final double discountedPrice;
-
-  @HiveField(7)
-  final String currency;
-
-  @HiveField(8)
-  final DateTime validFrom;
-
-  @HiveField(9)
-  final DateTime validUntil;
-
-  @HiveField(10)
-  final String location;
-
-  @HiveField(11)
-  final Map<String, dynamic> details;
-
-  @HiveField(12)
-  final List<String> terms;
-
-  @HiveField(13)
-  final String providerName;
-
-  @HiveField(14)
   final String discount;
 
-  @HiveField(17)
+  @HiveField(4)
   final String placeName;
 
+  @HiveField(5)
+  final String businessType;
+
+  @HiveField(6)
+  final String businessName;
+
+  @HiveField(7)
+  final List<String> images;
+
+  @HiveField(8)
+  final DateTime validUntil;
+
+  @HiveField(9)
+  final bool isActive;
+
+  @HiveField(10)
+  final int views;
+
+  @HiveField(11)
+  final int claims;
+
+  @HiveField(12)
+  final String? merchantId;
+
+  @HiveField(13)
+  final PriceInfo? price;
+
+  @HiveField(14)
+  final bool isPremium;
+
+  // Legacy fields for backward compatibility
   @HiveField(15)
-  final String bookingLink;
+  final String? category;
 
   @HiveField(16)
-  final bool isPremium;
+  final String? imageUrl;
+
+  @HiveField(17)
+  final double? originalPrice;
+
+  @HiveField(18)
+  final double? discountedPrice;
+
+  @HiveField(19)
+  final String? currency;
 
   Deal({
     required this.id,
     required this.title,
     required this.description,
-    required this.category,
-    required this.imageUrl,
     required this.discount,
     required this.placeName,
-    required this.bookingLink,
-    this.isPremium = false,
-    required this.originalPrice,
-    required this.discountedPrice,
-    required this.currency,
-    required this.validFrom,
+    required this.businessType,
+    required this.businessName,
+    required this.images,
     required this.validUntil,
-    required this.location,
-    required this.details,
-    required this.terms,
-    required this.providerName,
+    this.isActive = true,
+    this.views = 0,
+    this.claims = 0,
+    this.merchantId,
+    this.price,
+    this.isPremium = false,
+    // Legacy fields
+    this.category,
+    this.imageUrl,
+    this.originalPrice,
+    this.discountedPrice,
+    this.currency,
   });
 
   factory Deal.fromJson(Map<String, dynamic> json) {
     return Deal(
-      id: json['id'] ?? '',
+      id: json['_id'] ?? json['id'] ?? '',
       title: json['title'] ?? '',
       description: json['description'] ?? '',
-      category: json['category'] ?? 'general',
-      imageUrl: json['imageUrl'] ?? '',
       discount: json['discount'] ?? '0%',
-      placeName: json['placeName'] ?? '',
-      originalPrice: (json['originalPrice'] as num?)?.toDouble() ?? 0.0,
-      discountedPrice: (json['discountedPrice'] as num?)?.toDouble() ?? 0.0,
-      currency: json['currency'] ?? 'USD',
-      validFrom: DateTime.parse(json['validFrom'] ?? DateTime.now().toIso8601String()),
+      placeName: json['placeName'] ?? json['businessName'] ?? '',
+      businessType: json['businessType'] ?? json['category'] ?? 'general',
+      businessName: json['businessName'] ?? json['placeName'] ?? '',
+      images: List<String>.from(json['images'] ?? [json['imageUrl']].where((e) => e != null)),
       validUntil: DateTime.parse(json['validUntil'] ?? DateTime.now().add(const Duration(days: 30)).toIso8601String()),
-      location: json['location'] ?? '',
-      details: json['details'] as Map<String, dynamic>? ?? {},
-      terms: List<String>.from(json['terms'] ?? []),
-      providerName: json['providerName'] ?? '',
-      bookingLink: json['bookingLink'] ?? '',
+      isActive: json['isActive'] ?? true,
+      views: json['views'] ?? 0,
+      claims: json['claims'] ?? 0,
+      merchantId: json['merchantId'],
+      price: json['price'] != null ? PriceInfo.fromJson(json['price']) : null,
+      isPremium: json['isPremium'] ?? false,
+      // Legacy support
+      category: json['category'],
+      imageUrl: json['imageUrl'],
+      originalPrice: (json['originalPrice'] as num?)?.toDouble(),
+      discountedPrice: (json['discountedPrice'] as num?)?.toDouble(),
+      currency: json['currency'],
     );
   }
 
@@ -236,18 +278,18 @@ class Deal extends HiveObject {
       'id': id,
       'title': title,
       'description': description,
-      'category': category,
-      'imageUrl': imageUrl,
-      'originalPrice': originalPrice,
-      'discountedPrice': discountedPrice,
-      'currency': currency,
-      'validFrom': validFrom.toIso8601String(),
+      'discount': discount,
+      'placeName': placeName,
+      'businessType': businessType,
+      'businessName': businessName,
+      'images': images,
       'validUntil': validUntil.toIso8601String(),
-      'location': location,
-      'details': details,
-      'terms': terms,
-      'providerName': providerName,
-      'bookingLink': bookingLink,
+      'isActive': isActive,
+      'views': views,
+      'claims': claims,
+      'merchantId': merchantId,
+      'price': price?.toJson(),
+      'isPremium': isPremium,
     };
   }
 }

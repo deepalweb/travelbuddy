@@ -5,7 +5,7 @@ import 'firebase_options.dart';
 import 'providers/app_provider.dart';
 import 'providers/community_provider.dart';
 import 'screens/splash_screen.dart';
-
+import 'services/storage_service.dart';
 import 'constants/app_constants.dart';
 import 'services/error_handler_service.dart';
 
@@ -18,6 +18,9 @@ void main() async {
   };
   
   try {
+    // Initialize Storage Service first
+    await StorageService().initialize();
+    
     // Initialize Firebase
     await Firebase.initializeApp(
       options: DefaultFirebaseOptions.currentPlatform,

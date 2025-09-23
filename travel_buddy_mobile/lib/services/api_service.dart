@@ -432,6 +432,63 @@ class ApiService {
     return getActiveDeals(latitude: latitude, longitude: longitude, radius: radius);
   }
 
+  Future<List<Deal>> getMyDeals(String merchantId) async {
+    try {
+      final response = await _dio.get('/api/deals/merchant/$merchantId');
+      if (response.statusCode == 200) {
+        final List<dynamic> data = response.data;
+        return data.map((json) => Deal.fromJson(json)).toList();
+      }
+      return [];
+    } catch (e) {
+      print('Error fetching my deals: $e');
+      return [];
+    }
+  }
+
+  Future<Deal?> createDeal(Map<String, dynamic> dealData) async {
+    try {
+      final response = await _dio.post('/api/deals', data: dealData);
+      if (response.statusCode == 201) {
+        return Deal.fromJson(response.data);
+      }
+      return null;
+    } catch (e) {
+      print('Error creating deal: $e');
+      return null;
+    }
+  }
+
+  Future<bool> claimDeal(String dealId) async {
+    try {
+      await _dio.post('/api/deals/$dealId/claim');
+      return true;
+    } catch (e) {
+      print('Error claiming deal: $e');
+      return false;
+    }
+  }
+
+  Future<bool> updateDeal(String dealId, Map<String, dynamic> dealData) async {
+    try {
+      final response = await _dio.put('/api/deals/$dealId', data: dealData);
+      return response.statusCode == 200;
+    } catch (e) {
+      print('Error updating deal: $e');
+      return false;
+    }
+  }
+
+  Future<bool> deleteDeal(String dealId) async {
+    try {
+      final response = await _dio.delete('/api/deals/$dealId');
+      return response.statusCode == 200;
+    } catch (e) {
+      print('Error deleting deal: $e');
+      return false;
+    }
+  }
+
 
 
   // Community API

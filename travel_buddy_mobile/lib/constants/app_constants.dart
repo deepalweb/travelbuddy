@@ -1,6 +1,6 @@
 class AppConstants {
   // API Configuration
-  static const String baseUrl = 'http://localhost:3001'; // Local backend for testing
+  static const String baseUrl = 'https://travelbuddy-b2c6hgbbgeh4esdh.eastus2-01.azurewebsites.net'; // Azure backend
   static const String geminiModelText = 'gemini-2.5-flash';
   
   // Default Values

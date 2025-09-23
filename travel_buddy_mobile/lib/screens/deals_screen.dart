@@ -14,7 +14,6 @@ class DealsScreen extends StatefulWidget {
 }
 
 class _DealsScreenState extends State<DealsScreen> {
-  String _selectedCategory = 'all';
   String _selectedFilter = 'all';
   
   final Map<String, List<Map<String, String>>> _filterCategories = {
@@ -91,72 +90,34 @@ class _DealsScreenState extends State<DealsScreen> {
           ),
           body: Column(
             children: [
-              // Category Filters
-              Column(
-                children: [
-                  // Main Categories
-                  Container(
-                    height: 50,
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                    child: ListView.builder(
-                      scrollDirection: Axis.horizontal,
-                      itemCount: _mainCategories.length,
-                      itemBuilder: (context, index) {
-                        final category = _mainCategories[index];
-                        final isSelected = _selectedCategory == category['key'];
-                        return Padding(
-                          padding: const EdgeInsets.only(right: 8),
-                          child: FilterChip(
-                            avatar: Text(category['icon']!, style: const TextStyle(fontSize: 14)),
-                            label: Text(category['label']!, style: const TextStyle(fontSize: 12)),
-                            selected: isSelected,
-                            onSelected: (selected) {
-                              setState(() {
-                                _selectedCategory = category['key']!;
-                                _selectedFilter = 'all';
-                              });
-                            },
-                            selectedColor: Color(AppConstants.colors['primary']!).withOpacity(0.2),
-                            checkmarkColor: Color(AppConstants.colors['primary']!),
-                          ),
-                        );
-                      },
-                    ),
-                  ),
-                  
-                  // Sub-category Filters
-                  if (_selectedCategory != 'all')
-                    Container(
-                      height: 45,
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      child: ListView.builder(
-                        scrollDirection: Axis.horizontal,
-                        itemCount: _filterCategories[_selectedCategory]!.length,
-                        itemBuilder: (context, index) {
-                          final filter = _filterCategories[_selectedCategory]![index];
-                          final isSelected = _selectedFilter == filter['key'];
-                          return Padding(
-                            padding: const EdgeInsets.only(right: 6),
-                            child: ActionChip(
-                              avatar: Text(filter['icon']!, style: const TextStyle(fontSize: 12)),
-                              label: Text(filter['label']!, style: const TextStyle(fontSize: 11)),
-                              backgroundColor: isSelected 
-                                  ? Color(AppConstants.colors['primary']!).withOpacity(0.1)
-                                  : Colors.grey[100],
-                              side: BorderSide(
-                                color: isSelected 
-                                    ? Color(AppConstants.colors['primary']!)
-                                    : Colors.grey[300]!,
-                              ),
-                              onPressed: () {
-                                setState(() => _selectedFilter = filter['key']!);
-                              },
-                            ),
-                          );
-                        },
+              // WebApp-Style Filter Buttons
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                child: Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: ['all', 'restaurant', 'hotel', 'cafe', 'shop', 'attraction'].map((filter) {
+                    final isSelected = _selectedFilter == filter;
+                    return FilterChip(
+                      label: Text(
+                        filter == 'all' ? 'All Categories' : '${filter[0].toUpperCase()}${filter.substring(1)}s',
+                        style: TextStyle(
+                          color: isSelected ? Colors.white : Colors.grey[700],
+                          fontSize: 14,
+                        ),
                       ),
-                    ),
-                ],
+                      selected: isSelected,
+                      onSelected: (selected) {
+                        setState(() => _selectedFilter = filter);
+                      },
+                      backgroundColor: isSelected ? Color(AppConstants.colors['primary']!) : Colors.white,
+                      selectedColor: Color(AppConstants.colors['primary']!),
+                      side: BorderSide(
+                        color: isSelected ? Color(AppConstants.colors['primary']!) : Colors.grey[300]!,
+                      ),
+                    );
+                  }).toList(),
+                ),
               ),
               
               // Deals Content
@@ -208,15 +169,101 @@ class _DealsScreenState extends State<DealsScreen> {
     final places = _getFilteredPlaces(appProvider.places);
 
     if (deals.isNotEmpty) {
-      final groupedDeals = _groupDealsByCategory(deals);
-      return ListView.builder(
+      final myDeals = deals.where((deal) => deal.merchantId == 'current_user_id').toList();
+      final otherDeals = deals.where((deal) => deal.merchantId != 'current_user_id').toList();
+      final filteredDeals = _selectedFilter == 'all' ? otherDeals : otherDeals.where((deal) => deal.businessType == _selectedFilter).toList();
+      final dealsByCategory = _groupDealsByBusinessType(otherDeals);
+      
+      return SingleChildScrollView(
         padding: const EdgeInsets.all(16),
-        itemCount: groupedDeals.length,
-        itemBuilder: (context, index) {
-          final category = groupedDeals.keys.elementAt(index);
-          final categoryDeals = groupedDeals[category]!;
-          return _buildDealSection(category, categoryDeals);
-        },
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // My Deals Section (if any)
+            if (myDeals.isNotEmpty) ...[
+              const Text(
+                'My Deals',
+                style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.blue),
+              ),
+              const SizedBox(height: 16),
+              GridView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 2,
+                  childAspectRatio: 0.75,
+                  crossAxisSpacing: 12,
+                  mainAxisSpacing: 12,
+                ),
+                itemCount: myDeals.length,
+                itemBuilder: (context, index) => DealCard(
+                  deal: myDeals[index],
+                  onTap: () => _showDealDetails(myDeals[index]),
+                ),
+              ),
+              const SizedBox(height: 32),
+            ],
+            
+            // Other Deals by Category or Filtered
+            if (_selectedFilter == 'all') ...[
+              // Show all categories with counts
+              ...dealsByCategory.entries.where((entry) => entry.value.isNotEmpty).map((entry) {
+                final category = entry.key;
+                final categoryDeals = entry.value;
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '${category[0].toUpperCase()}${category.substring(1)}s (${categoryDeals.length})',
+                      style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(height: 16),
+                    GridView.builder(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: 2,
+                        childAspectRatio: 0.75,
+                        crossAxisSpacing: 12,
+                        mainAxisSpacing: 12,
+                      ),
+                      itemCount: categoryDeals.length,
+                      itemBuilder: (context, index) => DealCard(
+                        deal: categoryDeals[index],
+                        onTap: () => _showDealDetails(categoryDeals[index]),
+                      ),
+                    ),
+                    const SizedBox(height: 32),
+                  ],
+                );
+              }).toList(),
+            ] else ...[
+              // Show filtered deals
+              if (filteredDeals.isNotEmpty) ...[
+                Text(
+                  '${_selectedFilter[0].toUpperCase()}${_selectedFilter.substring(1)}s (${filteredDeals.length})',
+                  style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 16),
+                GridView.builder(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 2,
+                    childAspectRatio: 0.75,
+                    crossAxisSpacing: 12,
+                    mainAxisSpacing: 12,
+                  ),
+                  itemCount: filteredDeals.length,
+                  itemBuilder: (context, index) => DealCard(
+                    deal: filteredDeals[index],
+                    onTap: () => _showDealDetails(filteredDeals[index]),
+                  ),
+                ),
+              ],
+            ],
+          ],
+        ),
       );
     }
 
@@ -380,30 +427,30 @@ class _DealsScreenState extends State<DealsScreen> {
   }
   
   String _getCategoryTitle() {
-    if (_selectedCategory == 'all') {
+    if (_selectedFilter == 'all') {
       return 'Nearby Places & Services';
     }
     
     final categoryTitles = {
-      'stay': 'Nearby Hotels, Resorts & Transport',
-      'food': 'Nearby Restaurants, Bars & Cafes',
-      'shopping': 'Nearby Malls, Shops & Boutiques',
-      'experiences': 'Nearby Tours, Museums & Activities',
-      'wellness': 'Nearby Spas, Gyms & Services',
+      'restaurant': 'Nearby Restaurants & Cafes',
+      'hotel': 'Nearby Hotels & Lodging',
+      'cafe': 'Nearby Cafes & Coffee Shops',
+      'shop': 'Nearby Shops & Boutiques',
+      'attraction': 'Nearby Attractions & Activities',
     };
     
-    return categoryTitles[_selectedCategory] ?? 'Nearby Places';
+    return categoryTitles[_selectedFilter] ?? 'Nearby Places';
   }
   
-  Map<String, List<Deal>> _groupDealsByCategory(List<Deal> deals) {
+  Map<String, List<Deal>> _groupDealsByBusinessType(List<Deal> deals) {
     final grouped = <String, List<Deal>>{};
     
     for (final deal in deals) {
-      final category = _getDealCategory(deal);
-      if (!grouped.containsKey(category)) {
-        grouped[category] = [];
+      final type = deal.businessType;
+      if (!grouped.containsKey(type)) {
+        grouped[type] = [];
       }
-      grouped[category]!.add(deal);
+      grouped[type]!.add(deal);
     }
     
     // Sort categories by deal count (most deals first)
@@ -599,41 +646,67 @@ class _DealsScreenState extends State<DealsScreen> {
               ),
               const SizedBox(height: 16),
               
-              // Price
-              Row(
-                children: [
-                  Text(
-                    '\$${deal.originalPrice.toInt()}',
-                    style: const TextStyle(
-                      decoration: TextDecoration.lineThrough,
-                      fontSize: 18,
-                      color: Colors.grey,
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Text(
-                    '\$${deal.discountedPrice.toInt()}',
-                    style: const TextStyle(
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.green,
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: Colors.red,
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                    child: Text(
-                      '${((deal.originalPrice - deal.discountedPrice) / deal.originalPrice * 100).round()}% OFF',
+              // Price and Stats
+              if (deal.price != null) ...[
+                Row(
+                  children: [
+                    Text(
+                      '${deal.price!.amount.toStringAsFixed(2)} ${deal.price!.currencyCode}',
                       style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 12,
+                        fontSize: 20,
                         fontWeight: FontWeight.bold,
+                        color: Colors.green,
                       ),
                     ),
+                    const Spacer(),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: Colors.red,
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Text(
+                        deal.discount,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+              ],
+              
+              // Stats Row
+              Row(
+                children: [
+                  Icon(Icons.visibility, size: 16, color: Colors.grey[600]),
+                  const SizedBox(width: 4),
+                  Text(
+                    '${deal.views} views',
+                    style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                  ),
+                  const SizedBox(width: 16),
+                  Icon(Icons.local_offer, size: 16, color: Colors.grey[600]),
+                  const SizedBox(width: 4),
+                  Text(
+                    '${deal.claims} claimed',
+                    style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              
+              // Expiry Date
+              Row(
+                children: [
+                  Icon(Icons.schedule, size: 16, color: Colors.grey[600]),
+                  const SizedBox(width: 4),
+                  Text(
+                    'Valid until ${deal.validUntil.day}/${deal.validUntil.month}/${deal.validUntil.year}',
+                    style: TextStyle(fontSize: 12, color: Colors.grey[600]),
                   ),
                 ],
               ),
@@ -691,8 +764,8 @@ class _DealsScreenState extends State<DealsScreen> {
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text('Original Price: \$${deal.originalPrice.toInt()}'),
-            Text('Deal Price: \$${deal.discountedPrice.toInt()}'),
+            if (deal.originalPrice != null) Text('Original Price: \$${deal.originalPrice!.toInt()}'),
+            if (deal.discountedPrice != null) Text('Deal Price: \$${deal.discountedPrice!.toInt()}'),
             const SizedBox(height: 16),
             const Text('This feature requires a subscription plan.'),
           ],

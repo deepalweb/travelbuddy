@@ -303,7 +303,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
                     child: Text(
                       isCurrentPlan 
                           ? 'Current Plan' 
-                          : plan.tier.name == 'free' 
+                          : plan.tier == SubscriptionTier.free 
                               ? 'Downgrade' 
                               : 'Start Free Trial',
                       style: const TextStyle(
@@ -373,20 +373,23 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
     if (appProvider.currentUser == null) return;
 
     try {
-      if (plan.tier.name == 'free') {
-        await _subscriptionService.cancelSubscription(appProvider.currentUser!);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Subscription canceled')),
-        );
+      if (plan.tier == SubscriptionTier.free) {
+        // Cancel subscription - downgrade to free
+        final success = await appProvider.updateSubscription(SubscriptionTier.free, isFreeTrial: false);
+        if (success) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Downgraded to free plan')),
+          );
+        }
       } else {
-        await _subscriptionService.startTrial(appProvider.currentUser!, plan.tier);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Started ${plan.name} trial!')),
-        );
+        // Start trial for paid tier
+        final success = await appProvider.updateSubscription(plan.tier, isFreeTrial: true);
+        if (success) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Started ${plan.name} 7-day free trial!')),
+          );
+        }
       }
-      
-      // Refresh user data
-      // await appProvider.loadUserProfile();
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Error: $e')),
