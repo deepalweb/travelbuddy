@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import '../models/place.dart';
 import '../constants/app_constants.dart';
-import '../services/currency_service.dart';
 import '../widgets/premium_deal_overlay.dart';
+import '../screens/deal_detail_screen.dart';
 import 'package:provider/provider.dart';
 import '../providers/app_provider.dart';
 
@@ -15,6 +15,15 @@ class DealCard extends StatelessWidget {
     required this.deal,
     required this.onTap,
   });
+
+  void _navigateToDetail(BuildContext context) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => DealDetailScreen(deal: deal),
+      ),
+    );
+  }
 
   void _showPaymentDialog(BuildContext context) {
     showDialog(
@@ -64,7 +73,7 @@ class DealCard extends StatelessWidget {
       child: Stack(
         children: [
           InkWell(
-            onTap: hasAccess ? onTap : null,
+            onTap: hasAccess ? () => _navigateToDetail(context) : null,
             child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -130,7 +139,7 @@ class DealCard extends StatelessWidget {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      'at ${deal.placeName}',
+                      'at ${deal.businessName}',
                       style: TextStyle(
                         color: Color(AppConstants.colors['textSecondary']!),
                         fontSize: 12,
@@ -223,5 +232,21 @@ class DealCard extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  String _getExpiryText() {
+    final now = DateTime.now();
+    final difference = deal.validUntil.difference(now).inDays;
+    
+    if (difference < 0) return 'Expired';
+    if (difference == 0) return 'Expires today';
+    if (difference == 1) return 'Expires tomorrow';
+    if (difference < 7) return 'Expires in ${difference}d';
+    return 'Valid until ${deal.validUntil.day}/${deal.validUntil.month}';
+  }
+
+  bool _isExpiringSoon() {
+    final difference = deal.validUntil.difference(DateTime.now()).inDays;
+    return difference <= 3;
   }
 }

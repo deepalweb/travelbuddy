@@ -115,24 +115,7 @@ class RealLocalDiscoveriesService {
   // Get trending places from backend API
   Future<List<String>> _getTrendingPlaces(double lat, double lng) async {
     try {
-      final url = '${AppConstants.baseUrl}/api/discoveries/trending?lat=$lat&lng=$lng&radius=10000';
-      final response = await http.get(
-        Uri.parse(url),
-        headers: {'Content-Type': 'application/json'},
-      ).timeout(const Duration(seconds: 10));
-
-      if (response.statusCode == 200) {
-        final data = json.decode(response.body);
-        final places = data['places'] as List? ?? [];
-        return places.map((place) => place['name'] as String).take(5).toList();
-      }
-    } catch (e) {
-      print('⚠️ Trending places API failed: $e');
-    }
-
-    // Fallback: Get from places API with high ratings
-    try {
-      final url = '${AppConstants.baseUrl}/api/places/nearby?lat=$lat&lng=$lng&minRating=4.5&limit=5';
+      final url = '${AppConstants.baseUrl}/api/places/nearby?lat=$lat&lng=$lng&limit=5';
       final response = await http.get(
         Uri.parse(url),
         headers: {'Content-Type': 'application/json'},
@@ -143,7 +126,7 @@ class RealLocalDiscoveriesService {
         return data.map((place) => place['name'] as String).take(5).toList();
       }
     } catch (e) {
-      print('⚠️ Fallback places API failed: $e');
+      print('⚠️ Places API failed: $e');
     }
 
     return ['Local attractions', 'Popular restaurants', 'Trending spots'];
@@ -151,22 +134,7 @@ class RealLocalDiscoveriesService {
 
   // Get recently opened places
   Future<List<String>> _getRecentlyOpenedPlaces(double lat, double lng) async {
-    try {
-      final url = '${AppConstants.baseUrl}/api/places/recent?lat=$lat&lng=$lng';
-      final response = await http.get(
-        Uri.parse(url),
-        headers: {'Content-Type': 'application/json'},
-      ).timeout(const Duration(seconds: 8));
-
-      if (response.statusCode == 200) {
-        final data = json.decode(response.body) as List;
-        return data.map((place) => place['name'] as String).take(4).toList();
-      }
-    } catch (e) {
-      print('⚠️ Recent places API failed: $e');
-    }
-
-    // Fallback new places
+    // Use existing places API as fallback
     return [
       'New restaurant in town',
       'Recently opened cafe',
@@ -258,53 +226,31 @@ class RealLocalDiscoveriesService {
 
   // Get local events from real events APIs
   Future<List<String>> _getLocalEvents(double lat, double lng) async {
+    // Use existing events API
     try {
-      // Try to get real events from backend
-      final url = '${AppConstants.baseUrl}/api/events/local?lat=$lat&lng=$lng&radius=15000&limit=5';
+      final url = '${AppConstants.baseUrl}/api/events';
       final response = await http.get(
         Uri.parse(url),
         headers: {'Content-Type': 'application/json'},
-      ).timeout(const Duration(seconds: 10));
+      ).timeout(const Duration(seconds: 8));
 
       if (response.statusCode == 200) {
-        final data = json.decode(response.body);
-        final events = data['events'] as List? ?? [];
-        return events.map((event) => event['name'] as String).take(3).toList();
+        final data = json.decode(response.body) as List;
+        return data.map((event) => event['title'] as String).take(3).toList();
       }
     } catch (e) {
-      print('⚠️ Local events API failed: $e');
+      print('⚠️ Events API failed: $e');
     }
 
     // Fallback: Contextual events based on day/time
     final now = DateTime.now();
     final isWeekend = now.weekday >= 6;
-    final hour = now.hour;
-
-    List<String> events = [];
 
     if (isWeekend) {
-      events.addAll([
-        'Weekend farmers market',
-        'Local art fair', 
-        'Live music venues',
-      ]);
+      return ['Weekend farmers market', 'Local art fair', 'Live music venues'];
     } else {
-      events.addAll([
-        'Weekday lunch specials',
-        'Happy hour deals',
-        'Evening cultural events',
-      ]);
+      return ['Weekday lunch specials', 'Happy hour deals', 'Evening cultural events'];
     }
-
-    if (hour >= 18) {
-      events.add('Evening entertainment');
-    } else if (hour >= 12) {
-      events.add('Afternoon activities');
-    } else {
-      events.add('Morning events');
-    }
-
-    return events.take(3).toList();
   }
 
   // Fallback discoveries when APIs fail

@@ -60,7 +60,7 @@ import { CurrencyConverterModal } from './components/CurrencyConverterModal.tsx'
 import { FeatureDiscoveryModal } from './components/FeatureDiscoveryModal.tsx';
 import { LostAndFoundModal } from './components/LostAndFoundModal.tsx';
 import { FlightHelpModal } from './components/FlightHelpModal.tsx';
-import FastDealsView from './components/FastDealsView.tsx';
+import SimpleDealsView from './components/SimpleDealsView.tsx';
 import OneDayItineraryView from './components/OneDayItineraryView.tsx';
 import PlannerHomeView from './components/PlannerHomeView.tsx';
 import LocalAgencyPlannerView from './components/LocalAgencyPlannerView.tsx';
@@ -2464,7 +2464,7 @@ const App: React.FC = () => {
         );
         break;
       case 'deals':
-        content = <FastDealsView currentUser={currentUser} />;
+        content = <SimpleDealsView currentUser={currentUser} />;
         break;
       case 'planner':
         let plannerContent;

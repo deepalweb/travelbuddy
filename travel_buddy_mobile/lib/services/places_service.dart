@@ -168,35 +168,7 @@ class PlacesService {
     return mockPlaces;
   }
 
-  // Test backend connection using existing places endpoint
-  Future<bool> testConnection() async {
-    try {
-      final response = await http.get(
-        Uri.parse('${Environment.backendUrl}/api/places/nearby?lat=40.7128&lng=-74.0060&q=test&radius=1000'),
-        headers: {'Content-Type': 'application/json'},
-      );
-      print('📡 Backend connection test: ${response.statusCode}');
-      print('📡 Response body: ${response.body}');
-      return response.statusCode == 200;
-    } catch (e) {
-      print('❌ Backend connection failed: $e');
-      return false;
-    }
-  }
-  
-  // Test API key specifically
-  Future<void> testApiKey() async {
-    try {
-      final response = await http.get(
-        Uri.parse('${Environment.backendUrl}/api/places/test-key'),
-        headers: {'Content-Type': 'application/json'},
-      );
-      print('🔑 API Key test: ${response.statusCode}');
-      print('🔑 Response: ${response.body}');
-    } catch (e) {
-      print('❌ API Key test failed: $e');
-    }
-  }
+
 
   // Legacy methods for backward compatibility
   Future<List<Place>> searchPlaces({

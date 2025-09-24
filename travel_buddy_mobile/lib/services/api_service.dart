@@ -1025,6 +1025,103 @@ class ApiService {
     }
   }
 
+  // NEW: Daily Suggestions API
+  Future<List<String>> getDailySuggestions({
+    required String userId,
+    required double lat,
+    required double lng,
+    String? weather,
+    String? timeOfDay,
+    String? userStyle,
+  }) async {
+    try {
+      final response = await _dio.get(
+        '/api/users/$userId/daily-suggestions',
+        queryParameters: {
+          'lat': lat,
+          'lng': lng,
+          if (weather != null) 'weather': weather,
+          if (timeOfDay != null) 'timeOfDay': timeOfDay,
+          if (userStyle != null) 'userStyle': userStyle,
+        },
+      );
+      if (response.statusCode == 200) {
+        return List<String>.from(response.data['suggestions'] ?? []);
+      }
+    } catch (e) {
+      print('❌ Error getting daily suggestions: $e');
+    }
+    return [];
+  }
+
+  // NEW: Local Discoveries API
+  Future<Map<String, dynamic>?> getLocalDiscoveries({
+    required double lat,
+    required double lng,
+    int radius = 20000,
+    String? userStyle,
+  }) async {
+    try {
+      final response = await _dio.get(
+        '/api/discoveries/local',
+        queryParameters: {
+          'lat': lat,
+          'lng': lng,
+          'radius': radius,
+          if (userStyle != null) 'userStyle': userStyle,
+        },
+      );
+      if (response.statusCode == 200) {
+        return response.data;
+      }
+    } catch (e) {
+      print('❌ Error getting local discoveries: $e');
+    }
+    return null;
+  }
+
+  // NEW: Enhanced Deals API
+  Future<List<Deal>> getNearbyDealsReal({
+    required double lat,
+    required double lng,
+    int radius = 20000,
+    String? userId,
+  }) async {
+    try {
+      final response = await _dio.get(
+        '/api/deals/nearby',
+        queryParameters: {
+          'lat': lat,
+          'lng': lng,
+          'radius': radius,
+          if (userId != null) 'userId': userId,
+        },
+      );
+      if (response.statusCode == 200) {
+        return (response.data['deals'] as List)
+            .map((deal) => Deal.fromJson(deal))
+            .toList();
+      }
+    } catch (e) {
+      print('❌ Error getting nearby deals: $e');
+    }
+    return [];
+  }
+
+  // NEW: Claim Deal API
+  Future<bool> claimDealReal(String dealId, String userId) async {
+    try {
+      final response = await _dio.post(
+        '/api/deals/$dealId/claim',
+        data: {'userId': userId},
+      );
+      return response.statusCode == 200;
+    } catch (e) {
+      print('❌ Error claiming deal: $e');
+      return false;
+    }
+  }
+
 
 
 

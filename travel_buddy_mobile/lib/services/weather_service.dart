@@ -202,10 +202,10 @@ class WeatherService {
   
   Future<WeatherInfo?> _fetchGoogleWeather(double latitude, double longitude) async {
     try {
-      // Try OpenWeatherMap API directly (free tier)
-      final realWeather = await _fetchOpenWeatherMap(latitude, longitude);
-      if (realWeather != null) {
-        return realWeather;
+      // Try Google Weather API via backend first
+      final googleWeather = await _fetchGoogleWeatherAPI(latitude, longitude);
+      if (googleWeather != null) {
+        return googleWeather;
       }
       
       // Try backend endpoints as fallback
@@ -234,6 +234,30 @@ class WeatherService {
       print('❌ All weather APIs failed, using smart mock data');
     } catch (e) {
       print('❌ Weather fetch error: $e');
+    }
+    return null;
+  }
+  
+  Future<WeatherInfo?> _fetchGoogleWeatherAPI(double latitude, double longitude) async {
+    try {
+      // Use Google Weather API via backend (backend has the API key)
+      final url = '${AppConstants.baseUrl}/api/weather/google?lat=$latitude&lng=$longitude';
+      print('🌤️ Fetching REAL weather from Google Weather API via backend');
+      
+      final response = await http.get(
+        Uri.parse(url),
+        headers: {'Content-Type': 'application/json'},
+      ).timeout(const Duration(seconds: 10));
+      
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        print('✅ Using REAL Google Weather data');
+        return _parseGoogleWeatherResponse(data);
+      } else {
+        print('⚠️ Google Weather API returned: ${response.statusCode}');
+      }
+    } catch (e) {
+      print('⚠️ Google Weather API failed: $e');
     }
     return null;
   }

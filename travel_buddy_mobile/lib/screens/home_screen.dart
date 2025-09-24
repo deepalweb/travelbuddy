@@ -62,37 +62,24 @@ class _HomeScreenState extends State<HomeScreen> {
   
   Widget _buildWeatherInfo(AppProvider appProvider) {
     final weather = appProvider.weatherInfo;
-    if (weather == null) {
-      return Row(
-        children: [
-          Icon(Icons.wb_sunny, color: Colors.white.withOpacity(0.9), size: 16),
-          const SizedBox(width: 2),
-          Text(
-            '28°C',
-            style: TextStyle(
-              color: Colors.white.withOpacity(0.9),
-              fontSize: 13,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-        ],
-      );
-    }
+    final temp = weather?.temperature.round() ?? 28;
+    final condition = weather?.condition ?? 'sunny';
     
     return Row(
+      mainAxisSize: MainAxisSize.min,
       children: [
         Icon(
-          _getWeatherIcon(weather.condition),
-          color: Colors.white.withOpacity(0.9),
-          size: 16,
+          _getWeatherIcon(condition),
+          color: Colors.white,
+          size: 20,
         ),
-        const SizedBox(width: 2),
+        const SizedBox(width: 6),
         Text(
-          '${weather.temperature.round()}°C',
-          style: TextStyle(
-            color: Colors.white.withOpacity(0.9),
-            fontSize: 13,
-            fontWeight: FontWeight.w500,
+          '${temp}°',
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 16,
+            fontWeight: FontWeight.w600,
           ),
         ),
       ],
@@ -128,39 +115,48 @@ class _HomeScreenState extends State<HomeScreen> {
           'Today\'s Forecast',
           style: TextStyle(
             color: Colors.white.withOpacity(0.9),
-            fontSize: 15,
+            fontSize: 16,
             fontWeight: FontWeight.w600,
           ),
         ),
-        const SizedBox(height: 6),
+        const SizedBox(height: 12),
         Row(
-          mainAxisAlignment: MainAxisAlignment.spaceAround,
+          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
           children: forecast.hourlyForecast.take(3).map((hourly) {
-            return Column(
-              children: [
-                Text(
-                  hourly.time,
-                  style: TextStyle(
-                    color: Colors.white.withOpacity(0.8),
-                    fontSize: 10,
+            return Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.15),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: Colors.white.withOpacity(0.2)),
+              ),
+              child: Column(
+                children: [
+                  Text(
+                    hourly.time,
+                    style: TextStyle(
+                      color: Colors.white.withOpacity(0.8),
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                    ),
                   ),
-                ),
-                const SizedBox(height: 2),
-                Icon(
-                  _getWeatherIcon(hourly.condition),
-                  color: Colors.white.withOpacity(0.9),
-                  size: 16,
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  '${hourly.temperature.round()}°',
-                  style: TextStyle(
-                    color: Colors.white.withOpacity(0.9),
-                    fontSize: 11,
-                    fontWeight: FontWeight.w500,
+                  const SizedBox(height: 8),
+                  Icon(
+                    _getWeatherIcon(hourly.condition),
+                    color: Colors.white,
+                    size: 24,
                   ),
-                ),
-              ],
+                  const SizedBox(height: 8),
+                  Text(
+                    '${hourly.temperature.round()}°',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
             );
           }).toList(),
         ),
@@ -177,33 +173,57 @@ class _HomeScreenState extends State<HomeScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          'Today\'s Suggestions',
-          style: TextStyle(
-            color: Colors.white.withOpacity(0.9),
-            fontSize: 15,
-            fontWeight: FontWeight.w600,
-          ),
+        Row(
+          children: [
+            Icon(
+              Icons.auto_awesome,
+              color: Colors.white.withOpacity(0.9),
+              size: 18,
+            ),
+            const SizedBox(width: 8),
+            Text(
+              'Today\'s Suggestions',
+              style: TextStyle(
+                color: Colors.white.withOpacity(0.9),
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
         ),
-        const SizedBox(height: 6),
-        ...suggestions.map((suggestion) => Padding(
-          padding: const EdgeInsets.only(bottom: 4),
+        const SizedBox(height: 12),
+        ...suggestions.take(2).map((suggestion) => Container(
+          margin: const EdgeInsets.only(bottom: 8),
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: Colors.white.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: Colors.white.withOpacity(0.2)),
+          ),
           child: Row(
             children: [
-              Icon(
-                Icons.lightbulb_outline,
-                color: Colors.white.withOpacity(0.8),
-                size: 12,
+              Container(
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(
+                  Icons.tips_and_updates,
+                  color: Colors.white,
+                  size: 16,
+                ),
               ),
-              const SizedBox(width: 6),
+              const SizedBox(width: 12),
               Expanded(
                 child: Text(
                   suggestion,
                   style: TextStyle(
-                    color: Colors.white.withOpacity(0.9),
-                    fontSize: 14,
+                    color: Colors.white.withOpacity(0.95),
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
                   ),
-                  maxLines: 1,
+                  maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
@@ -475,68 +495,169 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _buildWelcomeCard(AppProvider appProvider) {
     try {
-      return Card(
-        child: Container(
-          width: double.infinity,
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: [Colors.blue[400]!, Colors.blue[600]!],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
-            borderRadius: BorderRadius.circular(12),
+      return Container(
+        margin: const EdgeInsets.symmetric(horizontal: 4),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [Color(0xFF667eea), Color(0xFF764ba2)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
           ),
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Greeting
-              Text(
-                '${_getGreeting()}, ${appProvider.currentUser?.username ?? 'Traveler'}!',
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 24,
-                  fontWeight: FontWeight.bold,
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.15),
+              blurRadius: 20,
+              offset: const Offset(0, 8),
+            ),
+          ],
+        ),
+        child: Stack(
+          children: [
+            // Background pattern
+            Positioned(
+              top: -50,
+              right: -50,
+              child: Container(
+                width: 150,
+                height: 150,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: Colors.white.withOpacity(0.1),
                 ),
               ),
-              const SizedBox(height: 12),
-              // Location and Current Weather
-              Row(
+            ),
+            Positioned(
+              bottom: -30,
+              left: -30,
+              child: Container(
+                width: 100,
+                height: 100,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: Colors.white.withOpacity(0.05),
+                ),
+              ),
+            ),
+            // Content
+            Padding(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Icon(Icons.location_on, color: Colors.white.withOpacity(0.9), size: 16),
-                  const SizedBox(width: 4),
-                  Expanded(
-                    child: Text(
-                      _getCurrentLocationName(appProvider),
-                      style: TextStyle(
-                        color: Colors.white.withOpacity(0.9),
-                        fontSize: 16,
-                        fontWeight: FontWeight.w500,
+                  // Header with avatar and greeting
+                  Row(
+                    children: [
+                      Container(
+                        width: 50,
+                        height: 50,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: Colors.white.withOpacity(0.2),
+                          border: Border.all(color: Colors.white.withOpacity(0.3), width: 2),
+                        ),
+                        child: ClipOval(
+                          child: appProvider.currentUser?.profilePicture?.isNotEmpty == true
+                              ? Image.network(
+                                  appProvider.currentUser!.profilePicture!,
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (_, __, ___) => Icon(
+                                    Icons.person,
+                                    color: Colors.white.withOpacity(0.8),
+                                    size: 24,
+                                  ),
+                                )
+                              : Icon(
+                                  Icons.person,
+                                  color: Colors.white.withOpacity(0.8),
+                                  size: 24,
+                                ),
+                        ),
                       ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              _getGreeting(),
+                              style: TextStyle(
+                                color: Colors.white.withOpacity(0.9),
+                                fontSize: 16,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                            Text(
+                              appProvider.currentUser?.username ?? 'Traveler',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 24,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      // Weather widget
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.2),
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(color: Colors.white.withOpacity(0.3)),
+                        ),
+                        child: _buildWeatherInfo(appProvider),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 20),
+                  // Location with better styling
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.15),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(Icons.location_on, color: Colors.white.withOpacity(0.9), size: 18),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            _getCurrentLocationName(appProvider),
+                            style: TextStyle(
+                              color: Colors.white.withOpacity(0.95),
+                              fontSize: 15,
+                              fontWeight: FontWeight.w500,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                  const SizedBox(width: 12),
-                  _buildWeatherInfo(appProvider),
+                  const SizedBox(height: 16),
+                  // Weather Forecast
+                  _buildWeatherForecast(appProvider),
+                  const SizedBox(height: 16),
+                  // Daily Suggestions
+                  _buildDailySuggestions(appProvider),
                 ],
               ),
-              const SizedBox(height: 12),
-              // Weather Forecast
-              _buildWeatherForecast(appProvider),
-              const SizedBox(height: 12),
-              // Daily Suggestions
-              _buildDailySuggestions(appProvider),
-            ],
-          ),
+            ),
+          ],
         ),
       );
     } catch (e) {
-      return const Card(
-        child: Padding(
-          padding: EdgeInsets.all(20),
-          child: Text('Welcome to Travel Buddy!'),
+      return Container(
+        margin: const EdgeInsets.symmetric(horizontal: 4),
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: Colors.blue[100],
+          borderRadius: BorderRadius.circular(20),
         ),
+        child: const Text('Welcome to Travel Buddy!'),
       );
     }
   }

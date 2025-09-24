@@ -4,6 +4,7 @@ import '../providers/app_provider.dart';
 import '../constants/app_constants.dart';
 import '../widgets/deal_card.dart';
 import '../models/place.dart';
+import '../screens/deal_detail_screen.dart';
 import 'category_deals_screen.dart';
 
 class DealsScreen extends StatefulWidget {
@@ -606,6 +607,15 @@ class _DealsScreenState extends State<DealsScreen> {
   }
   
   void _showDealDetails(Deal deal) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => DealDetailScreen(deal: deal),
+      ),
+    );
+  }
+  
+  void _showDealDetailsOld(Deal deal) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,

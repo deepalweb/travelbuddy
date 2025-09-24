@@ -27,6 +27,7 @@ import '../services/usage_tracking_service.dart';
 import '../services/recommendation_engine.dart';
 import '../services/real_local_discoveries_service.dart';
 import '../services/mock_deals_service.dart';
+import '../services/deals_service.dart';
 import '../models/travel_style.dart';
 import '../models/place_section.dart';
 
@@ -211,9 +212,9 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
       _isAppActive = true;
       _lastActiveTime = DateTime.now();
       
-      // Test API connection first (only if app is active)
+      // Skip API connection test for now
       if (_isAppActive) {
-        await DebugService.testApiConnection();
+        print('🌐 App is active - ready for API calls');
       }
       
       // Initialize services
@@ -343,7 +344,29 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
   Future<void> _loadLocalDiscoveries() async {
     try {
       if (_currentLocation != null) {
-        // Generate real local discoveries from multiple sources
+        // Try real API first
+        final realDiscoveryData = await _apiService.getLocalDiscoveries(
+          lat: _currentLocation!.latitude,
+          lng: _currentLocation!.longitude,
+          userStyle: _currentUser?.travelStyle?.name,
+        );
+        
+        if (realDiscoveryData != null) {
+          _localDiscoveries = LocalDiscovery(
+            title: realDiscoveryData['title'] ?? 'Local Discoveries',
+            description: realDiscoveryData['description'] ?? 'Explore local gems',
+            hiddenGem: realDiscoveryData['hiddenGems']?.first ?? {'name': 'Local spot'},
+            localFoodCulture: {'highlights': realDiscoveryData['localTips']?.take(2)?.toList() ?? []},
+            insiderTips: List<String>.from(realDiscoveryData['localTips'] ?? []),
+            events: List<Map<String, dynamic>>.from(realDiscoveryData['events'] ?? []),
+            traditions: [],
+            seasonalHighlights: [],
+          );
+          print('✅ Loaded REAL local discoveries from API: ${realDiscoveryData['title']}');
+          return;
+        }
+        
+        // Fallback to generated discoveries
         final realDiscoveries = await _realLocalDiscoveriesService.generateRealDiscoveries(
           latitude: _currentLocation!.latitude,
           longitude: _currentLocation!.longitude,
@@ -351,7 +374,6 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
           weather: _weatherInfo?.condition,
         );
         
-        // Convert to model format (use first discovery)
         if (realDiscoveries.isNotEmpty) {
           final discovery = realDiscoveries.first;
           _localDiscoveries = LocalDiscovery(
@@ -363,18 +385,13 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
             events: [],
             traditions: [],
             seasonalHighlights: [],
-);
-          
-          print('✅ Loaded REAL local discoveries: ${discovery.title}');
+          );
+          print('✅ Loaded fallback local discoveries: ${discovery.title}');
         }
-      } else {
-        // Fallback to mock service
-        final discoveries = await _localDiscoveriesService.generateLocalDiscoveries('Current City');
-        _localDiscoveries = discoveries.isNotEmpty ? discoveries.first.toModelLocalDiscovery() : null;
       }
     } catch (e) {
-      print('❌ Error loading real local discoveries: $e');
-      // Fallback to mock service
+      print('❌ Error loading local discoveries: $e');
+      // Final fallback to mock service
       final discoveries = await _localDiscoveriesService.generateLocalDiscoveries('Current City');
       _localDiscoveries = discoveries.isNotEmpty ? discoveries.first.toModelLocalDiscovery() : null;
     }
@@ -442,11 +459,29 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
 
   Future<void> _loadDailySuggestions() async {
     try {
-      // Generate personalized suggestions based on real user data
+      if (_currentUser?.mongoId != null && _currentLocation != null) {
+        // Try real API first
+        final realSuggestions = await _apiService.getDailySuggestions(
+          userId: _currentUser!.mongoId!,
+          lat: _currentLocation!.latitude,
+          lng: _currentLocation!.longitude,
+          weather: _weatherInfo?.condition,
+          timeOfDay: _getCurrentTimeOfDay(),
+          userStyle: _currentUser?.travelStyle?.name,
+        );
+        
+        if (realSuggestions.isNotEmpty) {
+          _dailySuggestions = realSuggestions;
+          print('✅ Loaded REAL daily suggestions from API: ${_dailySuggestions.length} items');
+          return;
+        }
+      }
+      
+      // Fallback to generated suggestions
       _dailySuggestions = await _generatePersonalizedSuggestions();
-      print('✅ Loaded REAL personalized suggestions: ${_dailySuggestions.length} items');
+      print('✅ Loaded fallback personalized suggestions: ${_dailySuggestions.length} items');
     } catch (e) {
-      print('❌ Error loading personalized suggestions: $e');
+      print('❌ Error loading daily suggestions: $e');
       _dailySuggestions = ['Explore nearby attractions', 'Try local cuisine'];
     }
   }
@@ -846,10 +881,21 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
         _locationError = null;
         print('📍 Location obtained');
       } else {
-        // Use mock location as fallback for testing
-        print('🔄 Using mock location for testing');
-        _currentLocation = MockLocationService.getMockPosition();
-        _locationError = 'Using mock location (San Francisco) for testing';
+        // Use fallback location for testing
+        print('🔄 Using fallback location for testing');
+        _currentLocation = Position(
+          latitude: 37.7749,
+          longitude: -122.4194,
+          timestamp: DateTime.now(),
+          accuracy: 0,
+          altitude: 0,
+          altitudeAccuracy: 0,
+          heading: 0,
+          headingAccuracy: 0,
+          speed: 0,
+          speedAccuracy: 0,
+        );
+        _locationError = 'Using fallback location (San Francisco) for testing';
       }
     } catch (e) {
       _locationError = e.toString();
@@ -1810,49 +1856,55 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
     try {
       List<Deal> deals = [];
       
-      // Try real backend deals first
-      try {
-        deals = _currentLocation != null 
-            ? await _apiService.getNearbyDeals(
-                _currentLocation!.latitude,
-                _currentLocation!.longitude,
-                radius: _selectedRadius,
-              )
-            : await _apiService.getActiveDeals();
+      // Try real API first
+      if (_currentLocation != null) {
+        deals = await _apiService.getNearbyDealsReal(
+          lat: _currentLocation!.latitude,
+          lng: _currentLocation!.longitude,
+          userId: _currentUser?.mongoId,
+        );
         
         if (deals.isNotEmpty) {
-          print('✅ Loaded ${deals.length} REAL deals from backend');
+          print('✅ Loaded ${deals.length} REAL deals from API');
           _deals = deals;
+          
+          // Notify about new deals
+          if (SettingsService.dealAlertsEnabled) {
+            await _notificationService.showLocalNotification(
+              'Real Deals Available!',
+              '${deals.length} deals found near you',
+            );
+          }
           return;
         }
-      } catch (apiError) {
-        print('⚠️ Backend deals API not available: $apiError');
       }
       
-      // Fallback to mock deals
-      deals = MockDealsService.generateMockDeals();
-      print('🎭 Loaded ${deals.length} mock deals for demonstration');
-      
+      // Fallback to existing deals service
+      deals = await DealsService.getActiveDeals();
+      print('✅ Loaded ${deals.length} fallback deals');
       _deals = deals;
-      
-      // Notify about new deals
-      if (SettingsService.dealAlertsEnabled && deals.isNotEmpty) {
-        await _notificationService.showLocalNotification(
-          'Deals Available!',
-          '${deals.length} deals found near you',
-        );
-      }
       
     } catch (e) {
       print('❌ Error loading deals: $e');
       _dealsError = 'Failed to load deals: ${e.toString()}';
-      // Still try to load mock deals as final fallback
-      try {
-        _deals = MockDealsService.generateMockDeals();
-        print('🎭 Loaded fallback mock deals after error');
-      } catch (mockError) {
-        print('❌ Even mock deals failed: $mockError');
-      }
+      // Final fallback to inline mock deals
+      _deals = [
+        Deal(
+          id: 'mock_deal_1',
+          title: '50% Off Local Restaurant',
+          description: 'Great dining experience with local cuisine',
+          discount: '50% OFF',
+          placeName: 'Local Bistro',
+          businessType: 'restaurant',
+          businessName: 'Local Bistro',
+          images: ['https://via.placeholder.com/300x200'],
+          validUntil: DateTime.now().add(const Duration(days: 7)),
+          views: 150,
+          claims: 12,
+          price: PriceInfo(amount: 25.0, currencyCode: 'USD'),
+        ),
+      ];
+      print('🎭 Loaded final fallback mock deals');
     } finally {
       _isDealsLoading = false;
       notifyListeners();
@@ -1872,7 +1924,20 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
   
   Future<bool> claimDeal(String dealId) async {
     try {
-      final success = await _apiService.claimDeal(dealId);
+      // Try real API first
+      bool success = false;
+      if (_currentUser?.mongoId != null) {
+        success = await _apiService.claimDealReal(dealId, _currentUser!.mongoId!);
+        if (success) {
+          print('✅ Deal claimed via real API');
+        }
+      }
+      
+      // Fallback to existing service
+      if (!success) {
+        success = await DealsService.claimDeal(dealId);
+      }
+      
       if (success) {
         // Update local deal claims count
         final dealIndex = _deals.indexWhere((d) => d.id == dealId);

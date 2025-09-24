@@ -267,8 +267,8 @@ class Deal extends HiveObject {
       // Legacy support
       category: json['category'],
       imageUrl: json['imageUrl'],
-      originalPrice: (json['originalPrice'] as num?)?.toDouble(),
-      discountedPrice: (json['discountedPrice'] as num?)?.toDouble(),
+      originalPrice: _parsePrice(json['originalPrice']),
+      discountedPrice: _parsePrice(json['discountedPrice']),
       currency: json['currency'],
     );
   }
@@ -291,5 +291,15 @@ class Deal extends HiveObject {
       'price': price?.toJson(),
       'isPremium': isPremium,
     };
+  }
+  
+  static double? _parsePrice(dynamic price) {
+    if (price == null) return null;
+    if (price is num) return price.toDouble();
+    if (price is String) {
+      final numStr = price.replaceAll(RegExp(r'[^0-9.]'), '');
+      return double.tryParse(numStr);
+    }
+    return null;
   }
 }
