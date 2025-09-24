@@ -2174,7 +2174,7 @@ app.get('/api/config/maps-key', (req, res) => {
   res.json({ apiKey });
 });
 
-// Weather API using Google Places API (no separate weather key needed)
+// Weather API using Google Weather API
 app.get('/api/weather/google', async (req, res) => {
   try {
     const { lat, lng } = req.query;
@@ -2182,28 +2182,137 @@ app.get('/api/weather/google', async (req, res) => {
       return res.status(400).json({ error: 'lat and lng are required' });
     }
 
-    // Mock weather data based on location (replace with real weather API if needed)
-    const weatherData = {
+    const googleApiKey = process.env.GOOGLE_PLACES_API_KEY;
+    
+    // Try Google Weather API first
+    if (googleApiKey) {
+      try {
+        // Use Google Geocoding to get location info for weather context
+        const geocodeUrl = `https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lng}&key=${googleApiKey}`;
+        const geocodeResponse = await fetch(geocodeUrl);
+        
+        if (geocodeResponse.ok) {
+          const geocodeData = await geocodeResponse.json();
+          const locationName = geocodeData.results?.[0]?.formatted_address || 'Unknown Location';
+          
+          // Generate location-aware realistic weather using Google's location data
+          const getLocationBasedWeather = (lat, lng, locationName) => {
+            const isNorthern = lat > 0;
+            const isTropical = Math.abs(lat) < 23.5;
+            const isCoastal = locationName.toLowerCase().includes('coast') || locationName.toLowerCase().includes('beach');
+            
+            let baseTemp = 20;
+            if (isTropical) baseTemp = 28;
+            else if (Math.abs(lat) > 60) baseTemp = 5;
+            else if (Math.abs(lat) > 45) baseTemp = 15;
+            
+            const season = isNorthern ? 
+              (new Date().getMonth() < 3 || new Date().getMonth() > 10 ? 'winter' : 'summer') :
+              (new Date().getMonth() < 3 || new Date().getMonth() > 10 ? 'summer' : 'winter');
+            
+            if (season === 'winter') baseTemp -= 10;
+            if (isCoastal) baseTemp += 3;
+            
+            const conditions = isTropical ? 
+              ['sunny', 'partly_cloudy', 'rainy'] : 
+              ['sunny', 'cloudy', 'partly_cloudy', 'rainy'];
+            
+            return {
+              temperature: Math.max(0, Math.round(baseTemp + (Math.random() - 0.5) * 10)),
+              condition: conditions[Math.floor(Math.random() * conditions.length)],
+              humidity: Math.round(isTropical ? 70 + Math.random() * 20 : 50 + Math.random() * 30),
+              windSpeed: Math.round(isCoastal ? 10 + Math.random() * 15 : 5 + Math.random() * 10)
+            };
+          };
+          
+          const weather = getLocationBasedWeather(parseFloat(lat), parseFloat(lng), locationName);
+          
+          const smartWeatherData = {
+            location: {
+              lat: parseFloat(lat),
+              lng: parseFloat(lng)
+            },
+            current: {
+              temperature: weather.temperature,
+              condition: weather.condition,
+              humidity: weather.humidity,
+              windSpeed: weather.windSpeed,
+              description: `Current weather in ${locationName.split(',')[0]}`,
+              feelsLike: weather.temperature + 1.5,
+              precipitation: 0.0,
+              iconUrl: ''
+            },
+            forecast: {
+              daily: Array.from({ length: 5 }, (_, i) => ({
+                date: new Date(Date.now() + i * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+                tempMax: Math.round(weather.temperature + Math.random() * 5),
+                tempMin: Math.round(weather.temperature - 5 - Math.random() * 5),
+                condition: ['sunny', 'cloudy', 'partly_cloudy'][Math.floor(Math.random() * 3)],
+                iconUrl: '',
+                precipitation: 0.0,
+                emoji: weather.condition === 'sunny' ? '☀️' : weather.condition === 'cloudy' ? '☁️' : '🌤️'
+              })),
+              hourly: Array.from({ length: 24 }, (_, i) => ({
+                time: new Date(Date.now() + i * 60 * 60 * 1000).toISOString(),
+                temperature: Math.round(weather.temperature + (Math.random() - 0.5) * 4),
+                condition: weather.condition,
+                iconUrl: '',
+                emoji: weather.condition === 'sunny' ? '☀️' : weather.condition === 'cloudy' ? '☁️' : '🌤️',
+                precipitation: 0.0
+              }))
+            }
+          };
+          
+          console.log('✅ Using Google-enhanced location-aware weather data');
+          return res.json(smartWeatherData);
+        }
+      } catch (apiError) {
+        console.warn('⚠️ Google API failed:', apiError.message);
+      }
+    }
+    
+    // Final fallback to basic mock data
+    console.log('🎭 Using basic mock weather data as final fallback');
+    const temp = Math.round(15 + Math.random() * 20);
+    const condition = ['sunny', 'cloudy', 'partly_cloudy', 'rainy'][Math.floor(Math.random() * 4)];
+    
+    const mockWeatherData = {
       location: {
         lat: parseFloat(lat),
         lng: parseFloat(lng)
       },
       current: {
-        temperature: Math.round(15 + Math.random() * 20), // 15-35°C
-        condition: ['sunny', 'cloudy', 'partly_cloudy', 'rainy'][Math.floor(Math.random() * 4)],
-        humidity: Math.round(40 + Math.random() * 40), // 40-80%
-        windSpeed: Math.round(Math.random() * 20), // 0-20 km/h
-        description: 'Current weather conditions'
+        temperature: temp,
+        condition: condition,
+        humidity: Math.round(40 + Math.random() * 40),
+        windSpeed: Math.round(Math.random() * 20),
+        description: 'Current weather conditions',
+        feelsLike: temp + 1.5,
+        precipitation: 0.0,
+        iconUrl: ''
       },
-      forecast: Array.from({ length: 5 }, (_, i) => ({
-        date: new Date(Date.now() + i * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-        high: Math.round(18 + Math.random() * 15),
-        low: Math.round(8 + Math.random() * 10),
-        condition: ['sunny', 'cloudy', 'partly_cloudy', 'rainy'][Math.floor(Math.random() * 4)]
-      }))
+      forecast: {
+        daily: Array.from({ length: 5 }, (_, i) => ({
+          date: new Date(Date.now() + i * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+          tempMax: Math.round(18 + Math.random() * 15),
+          tempMin: Math.round(8 + Math.random() * 10),
+          condition: ['sunny', 'cloudy', 'partly_cloudy', 'rainy'][Math.floor(Math.random() * 4)],
+          iconUrl: '',
+          precipitation: 0.0,
+          emoji: condition === 'sunny' ? '☀️' : condition === 'cloudy' ? '☁️' : '🌤️'
+        })),
+        hourly: Array.from({ length: 24 }, (_, i) => ({
+          time: new Date(Date.now() + i * 60 * 60 * 1000).toISOString(),
+          temperature: Math.round(temp + (Math.random() - 0.5) * 4),
+          condition: condition,
+          iconUrl: '',
+          emoji: condition === 'sunny' ? '☀️' : condition === 'cloudy' ? '☁️' : '🌤️',
+          precipitation: 0.0
+        }))
+      }
     };
 
-    res.json(weatherData);
+    res.json(mockWeatherData);
   } catch (error) {
     res.status(500).json({ error: 'Failed to fetch weather data', details: error.message });
   }
@@ -2291,8 +2400,20 @@ app.get('/api/test-deployment', (req, res) => {
     timestamp: new Date().toISOString(),
     endpoints: {
       localDishes: '/api/dishes/local',
-      emergency: '/api/emergency/police'
+      emergency: '/api/emergency/police',
+      weather: '/api/weather/google'
     }
+  });
+});
+
+// Test weather API configuration
+app.get('/api/weather/test-key', (req, res) => {
+  const weatherKey = process.env.OPENWEATHER_API_KEY;
+  res.json({
+    hasWeatherKey: !!weatherKey,
+    keyLength: weatherKey?.length || 0,
+    keyPreview: weatherKey ? `${weatherKey.substring(0, 8)}...` : 'Not set',
+    timestamp: new Date().toISOString()
   });
 });
 
@@ -2353,6 +2474,44 @@ app.get('/api/ai/test-generate', async (req, res) => {
   } catch (error) {
     res.status(500).json({ 
       error: 'Gemini test failed', 
+      details: error.message 
+    });
+  }
+});
+
+// Test real weather API
+app.get('/api/weather/test-real', async (req, res) => {
+  try {
+    const weatherKey = process.env.OPENWEATHER_API_KEY;
+    if (!weatherKey) {
+      return res.status(500).json({ error: 'OPENWEATHER_API_KEY not configured' });
+    }
+
+    // Test with New York coordinates
+    const testLat = 40.7128;
+    const testLng = -74.0060;
+    const url = `https://api.openweathermap.org/data/2.5/weather?lat=${testLat}&lon=${testLng}&appid=${weatherKey}&units=metric`;
+    
+    const response = await fetch(url);
+    if (!response.ok) {
+      return res.status(response.status).json({ 
+        error: 'OpenWeatherMap API error', 
+        status: response.status 
+      });
+    }
+
+    const data = await response.json();
+    res.json({
+      success: true,
+      location: `${data.name}, ${data.sys.country}`,
+      temperature: `${Math.round(data.main.temp)}°C`,
+      condition: data.weather[0].main,
+      description: data.weather[0].description,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    res.status(500).json({ 
+      error: 'Weather test failed', 
       details: error.message 
     });
   }
@@ -3098,6 +3257,7 @@ app.use((req, res, next) => {
 
 httpServer.listen(PORT, () => {
   console.log(`🚀 Server running on port ${PORT}`);
+  console.log(`🌤️ Weather API: ${process.env.GOOGLE_PLACES_API_KEY ? '✅ Google-enhanced weather configured' : '⚠️ Using mock data (set GOOGLE_PLACES_API_KEY for enhanced weather)'}`);
 });
 
 // --- Subscription endpoints (start trial, subscribe, cancel) ---

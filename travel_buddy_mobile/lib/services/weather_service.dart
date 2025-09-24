@@ -184,6 +184,8 @@ class WeatherService {
     required double latitude,
     required double longitude,
   }) async {
+    print('🌤️ Starting weather fetch for: $latitude, $longitude');
+    
     try {
       // Try Google Weather API via backend first
       final realWeather = await _fetchGoogleWeather(latitude, longitude);
@@ -191,8 +193,9 @@ class WeatherService {
         print('✅ Using real Google Weather data');
         return realWeather;
       }
+      print('⚠️ Google Weather API returned null, trying fallbacks...');
     } catch (e) {
-      print('⚠️ All weather APIs failed: $e');
+      print('⚠️ Weather API error: $e');
     }
     
     // Final fallback to smart mock data
@@ -243,11 +246,18 @@ class WeatherService {
       // Use Google Weather API via backend (backend has the API key)
       final url = '${AppConstants.baseUrl}/api/weather/google?lat=$latitude&lng=$longitude';
       print('🌤️ Fetching REAL weather from Google Weather API via backend');
+      print('🔗 URL: $url');
       
       final response = await http.get(
         Uri.parse(url),
-        headers: {'Content-Type': 'application/json'},
-      ).timeout(const Duration(seconds: 10));
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'User-Agent': 'TravelBuddy-Mobile/1.0',
+        },
+      ).timeout(const Duration(seconds: 15));
+      
+      print('📡 Response status: ${response.statusCode}');
       
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
@@ -255,9 +265,11 @@ class WeatherService {
         return _parseGoogleWeatherResponse(data);
       } else {
         print('⚠️ Google Weather API returned: ${response.statusCode}');
+        print('📄 Response body: ${response.body}');
       }
     } catch (e) {
       print('⚠️ Google Weather API failed: $e');
+      print('🔍 Error type: ${e.runtimeType}');
     }
     return null;
   }

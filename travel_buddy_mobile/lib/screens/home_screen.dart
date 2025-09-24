@@ -702,61 +702,172 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _buildQuickActions(AppProvider appProvider) {
     final actions = [
-      {'label': 'Plan Trip', 'icon': Icons.map, 'color': Colors.green, 'tab': 3},
-      {'label': 'Deals', 'icon': Icons.local_offer, 'color': Colors.orange, 'tab': 2},
-      {'label': 'Community', 'icon': Icons.people, 'color': Colors.purple, 'tab': 4},
+      {
+        'label': 'Plan Trip',
+        'icon': Icons.map_outlined,
+        'activeIcon': Icons.map,
+        'color': const Color(0xFF4CAF50),
+        'gradient': [const Color(0xFF4CAF50), const Color(0xFF45A049)],
+        'tab': 3,
+        'description': 'AI-powered trip planning'
+      },
+      {
+        'label': 'Deals',
+        'icon': Icons.local_offer_outlined,
+        'activeIcon': Icons.local_offer,
+        'color': const Color(0xFFFF9800),
+        'gradient': [const Color(0xFFFF9800), const Color(0xFFFF8F00)],
+        'tab': 2,
+        'description': 'Exclusive local offers'
+      },
+      {
+        'label': 'Community',
+        'icon': Icons.people_outline,
+        'activeIcon': Icons.people,
+        'color': const Color(0xFF9C27B0),
+        'gradient': [const Color(0xFF9C27B0), const Color(0xFF8E24AA)],
+        'tab': 4,
+        'description': 'Connect with travelers'
+      },
     ];
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
-          'Quick Actions',
-          style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+        Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.blue.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Icon(
+                Icons.flash_on,
+                color: Colors.blue[600],
+                size: 20,
+              ),
+            ),
+            const SizedBox(width: 12),
+            const Text(
+              'Quick Actions',
+              style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+            ),
+          ],
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 16),
         GridView.count(
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
           crossAxisCount: 3,
-          mainAxisSpacing: 12,
-          crossAxisSpacing: 12,
-          childAspectRatio: 1.0,
-          children: actions.map((action) {
-            return Card(
-              child: InkWell(
-                onTap: () => appProvider.setCurrentTabIndex(action['tab'] as int),
-                borderRadius: BorderRadius.circular(12),
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: action['color'] as Color,
-                          borderRadius: BorderRadius.circular(12),
+          mainAxisSpacing: 16,
+          crossAxisSpacing: 16,
+          childAspectRatio: 0.85,
+          children: actions.asMap().entries.map((entry) {
+            final index = entry.key;
+            final action = entry.value;
+            
+            return TweenAnimationBuilder<double>(
+              duration: Duration(milliseconds: 300 + (index * 100)),
+              tween: Tween(begin: 0.0, end: 1.0),
+              builder: (context, value, child) {
+                return Transform.scale(
+                  scale: 0.8 + (0.2 * value),
+                  child: Opacity(
+                    opacity: value,
+                    child: Container(
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(16),
+                        boxShadow: [
+                          BoxShadow(
+                            color: (action['color'] as Color).withOpacity(0.3),
+                            blurRadius: 8,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
+                      ),
+                      child: Card(
+                        elevation: 0,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
                         ),
-                        child: Icon(
-                          action['icon'] as IconData,
-                          color: Colors.white,
-                          size: 24,
+                        child: InkWell(
+                          onTap: () {
+                            // Add haptic feedback
+                            // HapticFeedback.lightImpact();
+                            appProvider.setCurrentTabIndex(action['tab'] as int);
+                          },
+                          borderRadius: BorderRadius.circular(16),
+                          child: Container(
+                            padding: const EdgeInsets.all(16),
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(16),
+                              gradient: LinearGradient(
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                                colors: [
+                                  Colors.white,
+                                  (action['color'] as Color).withOpacity(0.05),
+                                ],
+                              ),
+                            ),
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.all(14),
+                                  decoration: BoxDecoration(
+                                    gradient: LinearGradient(
+                                      colors: action['gradient'] as List<Color>,
+                                      begin: Alignment.topLeft,
+                                      end: Alignment.bottomRight,
+                                    ),
+                                    borderRadius: BorderRadius.circular(14),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: (action['color'] as Color).withOpacity(0.4),
+                                        blurRadius: 8,
+                                        offset: const Offset(0, 2),
+                                      ),
+                                    ],
+                                  ),
+                                  child: Icon(
+                                    action['activeIcon'] as IconData,
+                                    color: Colors.white,
+                                    size: 26,
+                                  ),
+                                ),
+                                const SizedBox(height: 12),
+                                Text(
+                                  action['label'] as String,
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.w600,
+                                    fontSize: 14,
+                                    color: Colors.black87,
+                                  ),
+                                  textAlign: TextAlign.center,
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  action['description'] as String,
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    color: Colors.grey[600],
+                                    fontWeight: FontWeight.w400,
+                                  ),
+                                  textAlign: TextAlign.center,
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ],
+                            ),
+                          ),
                         ),
                       ),
-                      const SizedBox(height: 8),
-                      Text(
-                        action['label'] as String,
-                        style: const TextStyle(
-                          fontWeight: FontWeight.w500,
-                          fontSize: 15,
-                        ),
-                        textAlign: TextAlign.center,
-                      ),
-                    ],
+                    ),
                   ),
-                ),
-              ),
+                );
+              },
             );
           }).toList(),
         ),
