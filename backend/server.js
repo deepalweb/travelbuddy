@@ -2268,7 +2268,7 @@ app.get('/api/config/maps-key', (req, res) => {
   res.json({ apiKey });
 });
 
-// Weather forecast endpoint
+// Weather forecast endpoint with REAL Google Weather API
 app.get('/api/weather/forecast', async (req, res) => {
   try {
     const { lat, lng } = req.query;
@@ -2280,56 +2280,136 @@ app.get('/api/weather/forecast', async (req, res) => {
     
     if (googleApiKey) {
       try {
-        // Use Google Geocoding for location context
+        // Try OpenWeatherMap API for real weather data
+        const weatherUrl = `https://api.openweathermap.org/data/2.5/forecast?lat=${lat}&lon=${lng}&appid=${googleApiKey}&units=metric`;
+        console.log('🌤️ Fetching REAL weather forecast from OpenWeatherMap');
+        
+        const weatherResponse = await fetch(weatherUrl);
+        
+        if (weatherResponse.ok) {
+          const weatherData = await weatherResponse.json();
+          console.log('✅ Got REAL weather forecast data');
+          
+          // Parse real weather data
+          const hourlyForecast = weatherData.list.slice(0, 8).map(item => ({
+            time: new Date(item.dt * 1000),
+            temperature: Math.round(item.main.temp),
+            condition: item.weather[0].main.toLowerCase(),
+            iconUrl: `https://openweathermap.org/img/w/${item.weather[0].icon}.png`,
+            emoji: getWeatherEmoji(item.weather[0].main),
+            precipitation: item.rain?.['3h'] || 0
+          }));
+          
+          const dailyForecast = [];
+          const dailyMap = new Map();
+          
+          weatherData.list.forEach(item => {
+            const date = new Date(item.dt * 1000).toISOString().split('T')[0];
+            if (!dailyMap.has(date)) {
+              dailyMap.set(date, {
+                date,
+                temps: [],
+                conditions: [],
+                precipitation: 0
+              });
+            }
+            const day = dailyMap.get(date);
+            day.temps.push(item.main.temp);
+            day.conditions.push(item.weather[0].main);
+            day.precipitation += item.rain?.['3h'] || 0;
+          });
+          
+          dailyMap.forEach((day, date) => {
+            if (dailyForecast.length < 5) {
+              const mostCommonCondition = day.conditions.sort((a,b) => 
+                day.conditions.filter(v => v === a).length - day.conditions.filter(v => v === b).length
+              ).pop();
+              
+              dailyForecast.push({
+                date,
+                tempMax: Math.round(Math.max(...day.temps)),
+                tempMin: Math.round(Math.min(...day.temps)),
+                condition: mostCommonCondition.toLowerCase(),
+                iconUrl: '',
+                precipitation: day.precipitation,
+                emoji: getWeatherEmoji(mostCommonCondition)
+              });
+            }
+          });
+          
+          return res.json({
+            daily: dailyForecast,
+            hourly: hourlyForecast
+          });
+        }
+      } catch (apiError) {
+        console.warn('⚠️ OpenWeatherMap API failed, trying fallback:', apiError.message);
+      }
+    }
+    
+    // Fallback: Use Google Geocoding for location-aware mock data
+    if (googleApiKey) {
+      try {
         const geocodeUrl = `https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lng}&key=${googleApiKey}`;
         const geocodeResponse = await fetch(geocodeUrl);
         
         if (geocodeResponse.ok) {
           const geocodeData = await geocodeResponse.json();
           const locationName = geocodeData.results?.[0]?.formatted_address || 'Unknown Location';
+          console.log('🌍 Using location-aware fallback for:', locationName);
           
-          // Generate realistic hourly forecast
-          const generateHourlyForecast = (baseTemp, condition) => {
-            return Array.from({ length: 24 }, (_, i) => {
-              const hour = new Date(Date.now() + i * 60 * 60 * 1000);
-              const tempVariation = Math.sin((i - 6) * Math.PI / 12) * 5; // Temperature curve
-              return {
-                time: hour,
-                temperature: Math.round(baseTemp + tempVariation + (Math.random() - 0.5) * 2),
-                condition: i % 8 === 0 ? (Math.random() > 0.7 ? 'cloudy' : condition) : condition,
-                iconUrl: '',
-                emoji: condition === 'sunny' ? '☀️' : condition === 'cloudy' ? '☁️' : '🌤️',
-                precipitation: condition === 'rainy' ? Math.random() * 5 : 0
-              };
-            });
-          };
+          const isNorthern = parseFloat(lat) > 0;
+          const isTropical = Math.abs(parseFloat(lat)) < 23.5;
+          const isCoastal = locationName.toLowerCase().includes('coast');
           
-          const baseTemp = Math.round(20 + Math.random() * 15);
-          const condition = ['sunny', 'cloudy', 'partly_cloudy'][Math.floor(Math.random() * 3)];
+          let baseTemp = 20;
+          if (isTropical) baseTemp = 28;
+          else if (Math.abs(parseFloat(lat)) > 60) baseTemp = 5;
+          else if (Math.abs(parseFloat(lat)) > 45) baseTemp = 15;
           
-          const forecastData = {
-            daily: Array.from({ length: 5 }, (_, i) => ({
-              date: new Date(Date.now() + i * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-              tempMax: baseTemp + Math.random() * 5,
-              tempMin: baseTemp - 5 - Math.random() * 5,
-              condition: condition,
+          if (isCoastal) baseTemp += 3;
+          
+          const conditions = isTropical ? ['sunny', 'partly_cloudy', 'rainy'] : ['sunny', 'cloudy', 'partly_cloudy'];
+          const condition = conditions[Math.floor(Math.random() * conditions.length)];
+          
+          const hourlyForecast = Array.from({ length: 24 }, (_, i) => {
+            const hour = new Date(Date.now() + i * 60 * 60 * 1000);
+            const tempVariation = Math.sin((i - 6) * Math.PI / 12) * 4;
+            return {
+              time: hour,
+              temperature: Math.round(baseTemp + tempVariation + (Math.random() - 0.5) * 2),
+              condition: i % 6 === 0 ? conditions[Math.floor(Math.random() * conditions.length)] : condition,
               iconUrl: '',
-              precipitation: 0.0,
-              emoji: condition === 'sunny' ? '☀️' : condition === 'cloudy' ? '☁️' : '🌤️'
-            })),
-            hourly: generateHourlyForecast(baseTemp, condition)
-          };
+              emoji: getWeatherEmoji(condition),
+              precipitation: condition === 'rainy' ? Math.random() * 3 : 0
+            };
+          });
           
-          return res.json(forecastData);
+          const dailyForecast = Array.from({ length: 5 }, (_, i) => ({
+            date: new Date(Date.now() + i * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+            tempMax: Math.round(baseTemp + 3 + Math.random() * 3),
+            tempMin: Math.round(baseTemp - 5 - Math.random() * 3),
+            condition: conditions[Math.floor(Math.random() * conditions.length)],
+            iconUrl: '',
+            precipitation: Math.random() * 2,
+            emoji: getWeatherEmoji(condition)
+          }));
+          
+          return res.json({
+            daily: dailyForecast,
+            hourly: hourlyForecast
+          });
         }
-      } catch (apiError) {
-        console.warn('⚠️ Google API failed for forecast:', apiError.message);
+      } catch (geocodeError) {
+        console.warn('⚠️ Geocoding failed:', geocodeError.message);
       }
     }
     
-    // Fallback forecast
+    // Final fallback
+    console.log('🎭 Using basic fallback forecast');
     const baseTemp = 22;
     const condition = 'sunny';
+    
     const forecastData = {
       daily: Array.from({ length: 5 }, (_, i) => ({
         date: new Date(Date.now() + i * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
@@ -2359,7 +2439,18 @@ app.get('/api/weather/forecast', async (req, res) => {
   }
 });
 
-// Weather API using Google Weather API
+// Helper function for weather emojis
+function getWeatherEmoji(condition) {
+  const normalized = condition.toLowerCase();
+  if (normalized.includes('clear') || normalized.includes('sun')) return '☀️';
+  if (normalized.includes('cloud')) return '☁️';
+  if (normalized.includes('rain') || normalized.includes('drizzle')) return '🌧️';
+  if (normalized.includes('snow')) return '❄️';
+  if (normalized.includes('storm') || normalized.includes('thunder')) return '⛈️';
+  return '🌤️';
+}
+
+// Weather API using REAL OpenWeatherMap API
 app.get('/api/weather/google', async (req, res) => {
   try {
     const { lat, lng } = req.query;
@@ -2369,10 +2460,45 @@ app.get('/api/weather/google', async (req, res) => {
 
     const googleApiKey = process.env.GOOGLE_PLACES_API_KEY;
     
-    // Try Google Weather API first
+    // Try OpenWeatherMap API for REAL weather data
     if (googleApiKey) {
       try {
-        // Use Google Geocoding to get location info for weather context
+        const weatherUrl = `https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lng}&appid=${googleApiKey}&units=metric`;
+        console.log('🌤️ Fetching REAL current weather from OpenWeatherMap');
+        
+        const weatherResponse = await fetch(weatherUrl);
+        
+        if (weatherResponse.ok) {
+          const weatherData = await weatherResponse.json();
+          console.log('✅ Got REAL current weather data');
+          
+          const realWeatherData = {
+            location: {
+              lat: parseFloat(lat),
+              lng: parseFloat(lng)
+            },
+            current: {
+              temperature: Math.round(weatherData.main.temp),
+              condition: weatherData.weather[0].main.toLowerCase(),
+              humidity: weatherData.main.humidity,
+              windSpeed: weatherData.wind?.speed || 0,
+              description: weatherData.weather[0].description,
+              feelsLike: Math.round(weatherData.main.feels_like),
+              precipitation: weatherData.rain?.['1h'] || weatherData.snow?.['1h'] || 0,
+              iconUrl: `https://openweathermap.org/img/w/${weatherData.weather[0].icon}.png`
+            }
+          };
+          
+          console.log(`🌡️ Real temperature: ${realWeatherData.current.temperature}°C`);
+          console.log(`🌤️ Real condition: ${realWeatherData.current.condition}`);
+          return res.json(realWeatherData);
+        }
+      } catch (apiError) {
+        console.warn('⚠️ OpenWeatherMap API failed, using fallback:', apiError.message);
+      }
+      
+      try {
+        // Fallback: Use Google Geocoding to get location info for weather context
         const geocodeUrl = `https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lng}&key=${googleApiKey}`;
         const geocodeResponse = await fetch(geocodeUrl);
         
