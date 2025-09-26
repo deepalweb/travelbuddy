@@ -28,6 +28,7 @@ import '../services/recommendation_engine.dart';
 import '../services/real_local_discoveries_service.dart';
 import '../services/mock_deals_service.dart';
 import '../services/deals_service.dart';
+import '../services/payment_service.dart';
 import '../models/travel_style.dart';
 import '../models/place_section.dart';
 
