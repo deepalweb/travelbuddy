@@ -8,6 +8,7 @@
     "preview": "vite preview",
     "test": "vitest",
     "start": "node server.js",
+    "postinstall": "npm run build",
     "migrate:users": "node scripts/migrate-users.js",
     "seed:roles": "node scripts/seed-roles.js"
   },
