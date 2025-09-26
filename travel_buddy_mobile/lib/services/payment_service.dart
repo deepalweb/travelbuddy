@@ -142,6 +142,10 @@ class PaymentService {
     }
   }
 
+  Future<bool> checkTrialUsage(String userId) async {
+    return await _checkTrialUsage(userId);
+  }
+
   Future<void> _createSubscription(String userId, SubscriptionTier tier, {
     bool isFreeTrial = false,
     String? paymentId,
