@@ -618,8 +618,16 @@ app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 // Serve static files from dist directory
 const staticPath = path.join(__dirname, '../dist');
-console.log('Static files path:', staticPath);
-app.use(express.static(staticPath));
+const altStaticPath = path.join(process.cwd(), 'dist');
+console.log('Static files path (relative to backend):', staticPath);
+console.log('Static files path (from cwd):', altStaticPath);
+console.log('Static path exists:', existsSync(staticPath));
+console.log('Alt static path exists:', existsSync(altStaticPath));
+
+// Use the path that exists
+const finalStaticPath = existsSync(staticPath) ? staticPath : altStaticPath;
+console.log('Using static path:', finalStaticPath);
+app.use(express.static(finalStaticPath));
 
 // Load subscription and payment routes early
 try {
@@ -3424,13 +3432,20 @@ app.use((req, res, next) => {
   }
   
   const indexPath = path.join(__dirname, '../dist/index.html');
-  console.log('Serving index.html from:', indexPath);
+  const altIndexPath = path.join(process.cwd(), 'dist/index.html');
   
-  // Check if file exists before serving
+  console.log('Trying index.html from:', indexPath);
+  console.log('Alt index.html from:', altIndexPath);
+  
+  // Check both possible paths
   if (existsSync(indexPath)) {
+    console.log('Serving from backend relative path');
     res.sendFile(indexPath);
+  } else if (existsSync(altIndexPath)) {
+    console.log('Serving from cwd path');
+    res.sendFile(altIndexPath);
   } else {
-    console.error('index.html not found at:', indexPath);
+    console.error('index.html not found at either:', indexPath, 'or', altIndexPath);
     res.status(404).send('Application not built. Please run npm run build.');
   }
 });

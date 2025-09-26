@@ -15,6 +15,9 @@ if (process.env.MONGO_URI && process.env.MONGO_URI !== 'disabled') {
 
 // Check if dist folder exists, if not build the app
 const distPath = join(process.cwd(), 'dist');
+console.log('🔍 Checking for dist folder at:', distPath);
+console.log('📁 Current working directory:', process.cwd());
+
 if (!existsSync(distPath)) {
   console.log('📦 Building React application...');
   try {
@@ -23,14 +26,16 @@ if (!existsSync(distPath)) {
     
     // Verify build was successful
     if (!existsSync(distPath)) {
-      console.error('❌ Build completed but dist folder not found');
+      console.error('❌ Build completed but dist folder not found at:', distPath);
+    } else {
+      console.log('✅ Dist folder created successfully');
     }
   } catch (error) {
     console.error('❌ Build failed:', error.message);
     console.error('Continuing without build...');
   }
 } else {
-  console.log('✅ Build already exists');
+  console.log('✅ Build already exists at:', distPath);
 }
 
 // Start the server
