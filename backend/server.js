@@ -4,6 +4,7 @@ import mongoose from 'mongoose';
 import cors from 'cors';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { existsSync } from 'fs';
 import dotenv from 'dotenv';
 // Load env from root .env first (won't override already-set vars)
 dotenv.config();
@@ -615,7 +616,10 @@ function enforcePolicy(api) {
 app.use(cors());
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
-app.use(express.static(path.join(__dirname, '../dist')));
+// Serve static files from dist directory
+const staticPath = path.join(__dirname, '../dist');
+console.log('Static files path:', staticPath);
+app.use(express.static(staticPath));
 
 // Load subscription and payment routes early
 try {
@@ -3418,7 +3422,17 @@ app.use((req, res, next) => {
   if (req.path.startsWith('/api')) {
     return res.status(404).json({ error: 'API endpoint not found' });
   }
-  res.sendFile(path.join(__dirname, '../dist/index.html'));
+  
+  const indexPath = path.join(__dirname, '../dist/index.html');
+  console.log('Serving index.html from:', indexPath);
+  
+  // Check if file exists before serving
+  if (existsSync(indexPath)) {
+    res.sendFile(indexPath);
+  } else {
+    console.error('index.html not found at:', indexPath);
+    res.status(404).send('Application not built. Please run npm run build.');
+  }
 });
 
 httpServer.listen(PORT, () => {

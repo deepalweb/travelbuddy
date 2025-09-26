@@ -63,19 +63,28 @@ IF /I "%IN_PLACE_DEPLOYMENT%" NEQ "1" (
 :: 2. Select node version
 call :SelectNodeVersion
 
-:: 3. Install npm packages
+:: 3. Install npm packages for root
 IF EXIST "%DEPLOYMENT_TARGET%\package.json" (
   pushd "%DEPLOYMENT_TARGET%"
-  call :ExecuteCmd !NPM_CMD! install --production
+  echo Installing root dependencies...
+  call :ExecuteCmd npm install --production
   IF !ERRORLEVEL! NEQ 0 goto error
   popd
 )
 
-:: 4. Build application
+:: 4. Build the React app
 IF EXIST "%DEPLOYMENT_TARGET%\package.json" (
   pushd "%DEPLOYMENT_TARGET%"
-  call :ExecuteCmd !NPM_CMD! run build
+  echo Building React application...
+  call :ExecuteCmd npm run build
   IF !ERRORLEVEL! NEQ 0 goto error
+  
+  :: Verify build output
+  IF NOT EXIST "%DEPLOYMENT_TARGET%\dist\index.html" (
+    echo ERROR: Build completed but dist/index.html not found
+    goto error
+  )
+  echo Build verification: dist/index.html exists
   popd
 )
 
@@ -109,24 +118,16 @@ echo Finished successfully.
 :SelectNodeVersion
 
 IF DEFINED KUDU_SELECT_NODE_VERSION_CMD (
-  call %KUDU_SELECT_NODE_VERSION_CMD% "%DEPLOYMENT_SOURCE%" "%DEPLOYMENT_TARGET%" "%DEPLOYMENT_TEMP%"
+  call %KUDU_SELECT_NODE_VERSION_CMD% "%DEPLOYMENT_TARGET%" "%DEPLOYMENT_TARGET%\package.json" "%DEPLOYMENT_TARGET%\.nvmrc"
   IF !ERRORLEVEL! NEQ 0 goto error
 
-  IF EXIST "%DEPLOYMENT_TEMP%\__nodeVersion.tmp" (
-    SET /p NODE_EXE=<"%DEPLOYMENT_TEMP%\__nodeVersion.tmp"
-    IF !ERRORLEVEL! NEQ 0 goto error
+  IF EXIST "%DEPLOYMENT_TARGET%\bin\node.exe" (
+    SET PATH=%DEPLOYMENT_TARGET%\bin;%PATH%
   )
   
-  IF EXIST "%DEPLOYMENT_TEMP%\__npmVersion.tmp" (
-    SET /p NPM_CMD=<"%DEPLOYMENT_TEMP%\__npmVersion.tmp"
-    IF !ERRORLEVEL! NEQ 0 goto error
+  IF EXIST "%DEPLOYMENT_TARGET%\node_modules\.bin" (
+    SET PATH=%DEPLOYMENT_TARGET%\node_modules\.bin;%PATH%
   )
-
-  IF NOT DEFINED NODE_EXE (
-    SET NODE_EXE=node
-  )
-
-  SET NPM_CMD="!NODE_EXE!" "!NPM_FULL_PATH!"
 )
 
 goto :EOF

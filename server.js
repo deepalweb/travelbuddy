@@ -14,11 +14,17 @@ if (process.env.MONGO_URI && process.env.MONGO_URI !== 'disabled') {
 }
 
 // Check if dist folder exists, if not build the app
-if (!existsSync(join(process.cwd(), 'dist'))) {
+const distPath = join(process.cwd(), 'dist');
+if (!existsSync(distPath)) {
   console.log('📦 Building React application...');
   try {
-    execSync('npm run build', { stdio: 'inherit' });
+    execSync('npm run build', { stdio: 'inherit', cwd: process.cwd() });
     console.log('✅ Build completed successfully');
+    
+    // Verify build was successful
+    if (!existsSync(distPath)) {
+      console.error('❌ Build completed but dist folder not found');
+    }
   } catch (error) {
     console.error('❌ Build failed:', error.message);
     console.error('Continuing without build...');
