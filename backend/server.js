@@ -617,6 +617,21 @@ app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 app.use(express.static(path.join(__dirname, '../dist')));
 
+// Load subscription and payment routes early
+try {
+  const subscriptionsRouter = (await import('./routes/subscriptions.js')).default;
+  const paymentsRouter = (await import('./routes/payments.js')).default;
+  const paypalWebhookRouter = (await import('./webhooks/paypal.js')).default;
+  
+  app.use('/api/subscriptions', subscriptionsRouter);
+  app.use('/api/payments', paymentsRouter);
+  app.use('/api/webhooks/paypal', paypalWebhookRouter);
+  
+  console.log('✅ Subscription and payment routes loaded');
+} catch (error) {
+  console.error('❌ Failed to load subscription routes:', error);
+}
+
 // Direct AI endpoint for trip planning
 app.post('/api/ai/generate-text', async (req, res) => {
   const startTime = Date.now();
@@ -3396,10 +3411,7 @@ app.use('/api/roles', (await import('./routes/roles.js')).default);
 app.use('/api/services', (await import('./routes/services.js')).default);
 app.use('/api/bookings', (await import('./routes/bookings.js')).default);
 
-// Mount subscription and payment routes
-app.use('/api/subscriptions', (await import('./routes/subscriptions.js')).default);
-app.use('/api/payments', (await import('./routes/payments.js')).default);
-app.use('/api/webhooks/paypal', (await import('./webhooks/paypal.js')).default);
+
 
 // Serve React app (only for non-API routes)
 app.use((req, res, next) => {
