@@ -32,7 +32,18 @@ const TrialHistory = mongoose.model('TrialHistory', trialHistorySchema);
 // Create subscription
 router.post('/', async (req, res) => {
   try {
+    console.log('Creating subscription with data:', req.body);
+    
     const { userId, tier, status, paymentId, startDate, endDate } = req.body;
+    
+    // Validate required fields
+    if (!userId || !tier || !status || !startDate || !endDate) {
+      return res.status(400).json({ 
+        error: 'Missing required fields', 
+        required: ['userId', 'tier', 'status', 'startDate', 'endDate'],
+        received: { userId, tier, status, startDate, endDate }
+      });
+    }
     
     // Check if user exists
     const User = mongoose.model('User');
@@ -52,6 +63,7 @@ router.post('/', async (req, res) => {
     });
 
     await subscription.save();
+    console.log('Subscription created:', subscription._id);
 
     // Update user subscription status
     await User.findByIdAndUpdate(userId, {
@@ -60,6 +72,7 @@ router.post('/', async (req, res) => {
       subscriptionEndDate: endDate,
       trialEndDate: status === 'trial' ? endDate : undefined
     });
+    console.log('User updated with subscription status');
 
     // Record trial history if it's a trial
     if (status === 'trial') {
@@ -70,11 +83,13 @@ router.post('/', async (req, res) => {
         endDate: new Date(endDate)
       });
       await trialHistory.save();
+      console.log('Trial history recorded');
     }
 
     res.status(201).json(subscription);
   } catch (error) {
-    res.status(400).json({ error: error.message });
+    console.error('Subscription creation error:', error);
+    res.status(400).json({ error: error.message, details: error.stack });
   }
 });
 
@@ -106,9 +121,12 @@ router.get('/:userId', async (req, res) => {
 // Check trial history
 router.get('/:userId/trial-history', async (req, res) => {
   try {
+    console.log('Checking trial history for user:', req.params.userId);
     const trialHistory = await TrialHistory.findOne({ userId: req.params.userId });
+    console.log('Trial history found:', !!trialHistory);
     res.json({ hasUsedTrial: !!trialHistory });
   } catch (error) {
+    console.error('Trial history check error:', error);
     res.status(500).json({ error: error.message });
   }
 });
