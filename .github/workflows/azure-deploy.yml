@@ -33,10 +33,9 @@ jobs:
         rm -rf node_modules/.cache
         rm -rf .env
         rm -rf ssl/*.pem
-        # Create web.config if not exists
-        if [ ! -f web.config ]; then
-          echo "web.config not found, deployment may fail"
-        fi
+        # Remove custom deployment files (let Azure handle it)
+        rm -f .deployment
+        rm -f deploy.cmd
         
     - name: Deploy to Azure Web App
       uses: azure/webapps-deploy@v2
