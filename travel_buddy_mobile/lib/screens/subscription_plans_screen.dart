@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
 import '../providers/app_provider.dart';
 import '../models/user.dart';
 import '../services/payment_service.dart';
+import '../config/environment.dart';
 
 class SubscriptionPlansScreen extends StatefulWidget {
   const SubscriptionPlansScreen({super.key});
@@ -425,7 +428,7 @@ class _SubscriptionPlansScreenState extends State<SubscriptionPlansScreen> {
       }
       
       final success = await _paymentService.processPayment(
-        amount: plan['price'],
+        amount: plan['price'].toDouble(),
         planName: plan['name'],
         tier: plan['tier'],
         context: context,
@@ -470,16 +473,29 @@ class _SubscriptionPlansScreenState extends State<SubscriptionPlansScreen> {
       final user = appProvider.currentUser;
       if (user?.mongoId == null) return false;
       
-      // Check if user already has trial status in their profile
-      // This avoids making direct API calls and uses existing user data
-      final hasActiveTrial = user!.subscriptionStatus == SubscriptionStatus.trial;
-      final hasActiveSubscription = user.subscriptionStatus == SubscriptionStatus.active;
-      
-      // If user already has active subscription or trial, they've used it
-      return hasActiveTrial || hasActiveSubscription;
+      // Check backend for trial history
+      return await _paymentService.checkTrialUsage(user!.mongoId!);
     } catch (e) {
       print('❌ Error checking trial status: $e');
       return false; // Allow trial on error
+    }
+  }
+  
+  Future<bool> checkTrialUsage(String userId) async {
+    try {
+      final response = await http.get(
+        Uri.parse('${Environment.backendUrl}/api/users/$userId/trial-history'),
+        headers: {'Content-Type': 'application/json'},
+      ).timeout(const Duration(seconds: 10));
+      
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        return data['hasUsedTrial'] == true;
+      }
+      return false;
+    } catch (e) {
+      print('❌ Error checking trial usage: $e');
+      return false;
     }
   }
 }

@@ -470,6 +470,32 @@ class StorageService {
     }
   }
 
+  // Subscription storage methods
+  Future<void> saveSubscription(Map<String, dynamic> subscription) async {
+    await _prefs.setString('subscription_data', json.encode(subscription));
+  }
+  
+  Future<Map<String, dynamic>?> getSubscription() async {
+    final data = _prefs.getString('subscription_data');
+    if (data != null) {
+      try {
+        return Map<String, dynamic>.from(json.decode(data));
+      } catch (e) {
+        print('Error parsing subscription data: $e');
+        return null;
+      }
+    }
+    return null;
+  }
+  
+  Future<void> updateSubscriptionStatus(String status) async {
+    final current = await getSubscription();
+    if (current != null) {
+      current['status'] = status;
+      await saveSubscription(current);
+    }
+  }
+
   // Clear all data
   Future<void> clearAllData() async {
     await _userBox.clear();

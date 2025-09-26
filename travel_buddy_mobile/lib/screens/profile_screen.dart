@@ -1,6 +1,8 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
+import 'package:share_plus/share_plus.dart';
 import 'dart:convert';
 import '../providers/app_provider.dart';
 import '../providers/community_provider.dart';
@@ -134,7 +136,7 @@ class ProfileScreen extends StatelessWidget {
                 // Stats Cards
                 Consumer<CommunityProvider>(
                   builder: (context, communityProvider, child) {
-                    final userPosts = communityProvider.posts.where((post) => post.userId == '507f1f77bcf86cd799439011').length;
+                    final userPosts = communityProvider.posts.where((post) => post.userId == user?.mongoId).length;
                     return Row(
                       children: [
                         Expanded(
@@ -415,7 +417,7 @@ class ProfileScreen extends StatelessWidget {
 
   void _showUserPosts(BuildContext context, user) {
     final communityProvider = context.read<CommunityProvider>();
-    final userPosts = communityProvider.posts.where((post) => post.userId == '507f1f77bcf86cd799439011').toList();
+    final userPosts = communityProvider.posts.where((post) => post.userId == user?.mongoId).toList();
     
     Navigator.of(context).push(
       MaterialPageRoute(
@@ -548,23 +550,39 @@ Join Travel Buddy and discover amazing places together!
             ListTile(
               leading: const Icon(Icons.copy),
               title: const Text('Copy Profile Link'),
-              onTap: () {
-                // Copy to clipboard
+              onTap: () async {
                 Navigator.pop(context);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Profile link copied!')),
-                );
+                final profileUrl = 'https://travelbuddy.com/profile/${user?.mongoId ?? user?.uid}';
+                try {
+                  await Clipboard.setData(ClipboardData(text: profileUrl));
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Profile link copied!')),
+                    );
+                  }
+                } catch (e) {
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Failed to copy link')),
+                    );
+                  }
+                }
               },
             ),
             ListTile(
               leading: const Icon(Icons.share),
               title: const Text('Share Profile Text'),
-              onTap: () {
+              onTap: () async {
                 Navigator.pop(context);
-                // In production, use share_plus package
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Sharing profile...')),
-                );
+                try {
+                  await Share.share(profileText);
+                } catch (e) {
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Sharing failed')),
+                    );
+                  }
+                }
               },
             ),
           ],

@@ -1,6 +1,5 @@
 import '../models/enhanced_activity.dart';
 import '../services/places_service.dart';
-import '../services/gemini_service.dart';
 import '../models/place.dart';
 
 class RealPremiumTripService {

@@ -2028,10 +2028,10 @@ class _PlannerScreenState extends State<PlannerScreen> {
                               subtitle: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  if (activity.timeOfDay?.isNotEmpty == true)
+                                  if (activity.timeOfDay.isNotEmpty == true)
                                     Text('⏰ ${activity.timeOfDay}'),
-                                  if (activity.description?.isNotEmpty == true)
-                                    Text(activity.description!),
+                                  if (activity.description.isNotEmpty == true)
+                                    Text(activity.description),
                                 ],
                               ),
                             ),
@@ -2128,10 +2128,10 @@ Generated with Travel Buddy 🧳''';
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          if (tripPlan.introduction?.isNotEmpty == true) ...[
+          if (tripPlan.introduction.isNotEmpty == true) ...[
             const Text('Overview', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
             const SizedBox(height: 8),
-            Text(tripPlan.introduction!),
+            Text(tripPlan.introduction),
             const SizedBox(height: 20),
           ],
           

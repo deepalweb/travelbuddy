@@ -11,6 +11,7 @@ import MerchantDealManager from './MerchantDealManager.tsx';
 import ProfilePictureUpload from './ProfilePictureUpload.tsx';
 import { uploadProfilePicture } from '../services/profilePictureService.ts';
 import SubscriptionPlans from './SubscriptionPlans.tsx';
+import OnboardingProgress from './OnboardingProgress.tsx';
 import { apiService } from '../services/apiService.ts';
 
 
@@ -28,6 +29,8 @@ interface ProfileViewProps {
   onOpenProfilePictureModal?: () => void;
   onSelectPlaceDetail?: (place: Place) => void;
   onRemoveFavorite?: (placeId: string) => void;
+  onStartOnboarding?: () => void;
+  onCompleteProfileSetup?: () => void;
 }
 
 const ProfileView: React.FC<ProfileViewProps> = ({
@@ -38,6 +41,8 @@ const ProfileView: React.FC<ProfileViewProps> = ({
     onViewSavedTripPlan,
     onSelectPlaceDetail,
     onRemoveFavorite,
+    onStartOnboarding,
+    onCompleteProfileSetup,
 }) => {
   const [activeTab, setActiveTab] = useState<ProfileTab>('profile');
   const [isProfilePictureModalOpen, setIsProfilePictureModalOpen] = useState(false);
@@ -218,6 +223,15 @@ const ProfileView: React.FC<ProfileViewProps> = ({
         <h1 className="text-3xl font-bold" style={{ color: 'var(--color-text-primary)' }}>{t('profileView.title')}</h1>
         <p className="mt-1 text-md" style={{ color: 'var(--color-text-secondary)' }}>{t('profileView.description')}</p>
       </div>
+      
+      {/* Onboarding Progress */}
+      {onStartOnboarding && onCompleteProfileSetup && (
+        <OnboardingProgress 
+          user={user}
+          onStartOnboarding={onStartOnboarding}
+          onCompleteProfileSetup={onCompleteProfileSetup}
+        />
+      )}
       <div className="card-base p-2 mb-6">
         <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
           {tabs.map(tab => (
@@ -464,6 +478,20 @@ const SubscriptionTabContent: React.FC<SubscriptionTabProps> = ({ user, onStartT
 import type { Theme } from '../contexts/ThemeContext.tsx';
 interface SettingsTabProps { onLanguageChange: (lang: string) => void; theme: Theme; setTheme: (v: Theme) => void }
 const SettingsTabContent: React.FC<SettingsTabProps> = ({ onLanguageChange, theme, setTheme }) => {
+    
+    const handleRoleChange = async (targetRole: 'merchant' | 'agent') => {
+        try {
+            const response = await fetch('/api/roles/request-change', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ targetRole })
+            });
+            const result = await response.json();
+            alert(result.message || 'Role change request submitted!');
+        } catch (error) {
+            alert('Failed to request role change');
+        }
+    };
     const { t } = useLanguage();
     const [notifications, setNotifications] = useState({push: true, email: true, safety: false, deals: true});
     
@@ -506,6 +534,23 @@ const SettingsTabContent: React.FC<SettingsTabProps> = ({ onLanguageChange, them
                      <div>
                         <label className="text-sm block mb-2">{t('profileView.settings.preferences.privacy.title')}</label>
                         <button className="btn btn-secondary text-sm"><Lock size={16} className="mr-2"/>{t('profileView.settings.preferences.privacy.button')}</button>
+                    </div>
+                    <div>
+                        <label className="text-sm block mb-2">Account Type</label>
+                        <div className="flex gap-2">
+                            <button 
+                                onClick={() => handleRoleChange('merchant')}
+                                className="btn btn-secondary text-sm"
+                            >
+                                🏪 Business Account
+                            </button>
+                            <button 
+                                onClick={() => handleRoleChange('agent')}
+                                className="btn btn-secondary text-sm"
+                            >
+                                🎯 Service Provider
+                            </button>
+                        </div>
                     </div>
                 </div>
             </Card>

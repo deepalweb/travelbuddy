@@ -1122,6 +1122,17 @@ class ApiService {
     }
   }
 
+  // User Account Deletion API
+  Future<bool> deleteUser(String userId) async {
+    try {
+      final response = await _dio.delete('/api/users/$userId');
+      return response.statusCode == 200;
+    } catch (e) {
+      print('❌ Error deleting user: $e');
+      return false;
+    }
+  }
+
 
 
 

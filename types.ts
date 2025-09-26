@@ -375,6 +375,8 @@ export enum UserInterest {
   RelaxationWellness = "Relaxation & Wellness",
 }
 
+export type ProfileType = 'traveler' | 'business' | 'service' | 'creator';
+
 export interface CurrentUser {
   username: string;
   email?: string;
@@ -395,6 +397,9 @@ export interface CurrentUser {
   language: string; 
   selectedInterests?: UserInterest[]; // Array of selected interests
   hasCompletedWizard?: boolean; // New property
+  hasCompletedProfileSetup?: boolean; // Profile type onboarding
+  profileType?: ProfileType; // User's selected profile type
+  enabledModules?: string[]; // Modules enabled for this user
   mongoId?: string; // MongoDB document ID
   profilePicture?: string; // URL to profile picture
 }

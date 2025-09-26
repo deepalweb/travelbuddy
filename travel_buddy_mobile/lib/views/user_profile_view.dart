@@ -567,8 +567,16 @@ class _FollowersScreen extends StatelessWidget {
   }
 
   Future<List<UserProfile>> _getFollowList() async {
-    // Mock data for now - replace with real API call
-    await Future.delayed(const Duration(seconds: 1));
-    return [];
+    try {
+      final provider = context.read<UserProfileProvider>();
+      if (title == 'Followers') {
+        return await provider.getFollowers(userId);
+      } else {
+        return await provider.getFollowing(userId);
+      }
+    } catch (e) {
+      print('Error loading $title: $e');
+      return [];
+    }
   }
 }

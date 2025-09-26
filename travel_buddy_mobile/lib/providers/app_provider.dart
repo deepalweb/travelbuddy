@@ -428,7 +428,7 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
         _weatherForecast = WeatherForecast(
           condition: _weatherInfo?.condition ?? 'sunny',
           temperature: _weatherInfo?.temperature ?? 25.0,
-          humidity: _weatherInfo?.humidity?.toDouble() ?? 65.0,
+          humidity: _weatherInfo?.humidity.toDouble() ?? 65.0,
           windSpeed: _weatherInfo?.windSpeed ?? 8.5,
           hourlyForecast: hourlyForecasts,
         );
@@ -489,7 +489,7 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
   Future<List<String>> _generatePersonalizedSuggestions() async {
     final hour = DateTime.now().hour;
     final isWeekend = DateTime.now().weekday >= 6;
-    final weather = _weatherInfo?.condition?.toLowerCase() ?? 'clear';
+    final weather = _weatherInfo?.condition.toLowerCase() ?? 'clear';
     final userStyle = _currentUser?.travelStyle;
     final userInsights = _usageTrackingService.getUserInsights();
     final topCategory = userInsights['topCategory'] as String?;
@@ -730,6 +730,35 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
       return false;
     } catch (e) {
       print('Error updating user profile: $e');
+      return false;
+    }
+  }
+
+  Future<bool> deleteUserAccount(String userId) async {
+    try {
+      return await _apiService.deleteUser(userId);
+    } catch (e) {
+      print('Error deleting user account: $e');
+      return false;
+    }
+  }
+  
+  Future<Map<String, dynamic>> getSubscriptionStatus() async {
+    try {
+      final paymentService = PaymentService();
+      return await paymentService.getSubscriptionStatus();
+    } catch (e) {
+      print('Error getting subscription status: $e');
+      return {'active': false, 'tier': 'free'};
+    }
+  }
+  
+  Future<bool> cancelSubscription() async {
+    try {
+      final paymentService = PaymentService();
+      return await paymentService.cancelSubscription();
+    } catch (e) {
+      print('Error cancelling subscription: $e');
       return false;
     }
   }

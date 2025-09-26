@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 // Some environments reported useCallback not being bound; alias from React to be robust
 const useCallback = React.useCallback;
-import { Place, Deal, TripPlanSuggestion, TripPace, TravelStyle, BudgetLevel, PlaceSummary, SurpriseSuggestion, EmergencyContact, HospitalInfo, CurrentUser, SubscriptionStatus, SubscriptionTier, ExchangeRatesResponse, ExchangeRates, UserInterest, CommunityPhoto, CommunityPhotoUploadData, ActiveTab, PortalView, PlaceExplorerView as PlaceExplorerViewType, ItinerarySuggestion, UserReview, Post, QuickTourPlan, SupportPoint, LocalInfo, ChatMessage, PlannerView, LocalAgencyPlan, SpeechRecognition, SpeechRecognitionEvent, SpeechRecognitionErrorEvent, PostCategory } from './types.ts';
+import { Place, Deal, TripPlanSuggestion, TripPace, TravelStyle, BudgetLevel, PlaceSummary, SurpriseSuggestion, EmergencyContact, HospitalInfo, CurrentUser, SubscriptionStatus, SubscriptionTier, ExchangeRatesResponse, ExchangeRates, UserInterest, CommunityPhoto, CommunityPhotoUploadData, ActiveTab, PortalView, PlaceExplorerView as PlaceExplorerViewType, ItinerarySuggestion, UserReview, Post, QuickTourPlan, SupportPoint, LocalInfo, ChatMessage, PlannerView, LocalAgencyPlan, SpeechRecognition, SpeechRecognitionEvent, SpeechRecognitionErrorEvent, PostCategory, ProfileType } from './types.ts';
 import { Colors as lightColors, LOCAL_STORAGE_FAVORITE_PLACES_KEY, LOCAL_STORAGE_SAVED_TRIP_PLANS_KEY, LOCAL_STORAGE_SAVED_ONE_DAY_ITINERARIES_KEY, LOCAL_STORAGE_EMERGENCY_CONTACTS_KEY, LOCAL_STORAGE_CURRENT_USER_KEY, DEFAULT_LANGUAGE, SUPPORTED_LANGUAGES, SUBSCRIPTION_TIERS, LOCAL_STORAGE_USER_REVIEWS_KEY, LOCAL_STORAGE_COMMUNITY_POSTS_KEY, GEMINI_MODEL_TEXT, DEFAULT_PLACES_RADIUS_M, LOCAL_STORAGE_SELECTED_RADIUS_M } from './constants.ts';
 import { GoogleGenAI, Chat } from "@google/genai";
 import { 
@@ -56,6 +56,11 @@ import PlaceExplorerView from './components/PlaceExplorerView.tsx';
 import AITripPlannerView from './components/AITripPlannerView.tsx';
 import WelcomeWizardModal from './components/WelcomeWizardModal.tsx';
 import AIAssistantView from './components/AIAssistantView.tsx';
+import ProfileTypeOnboarding from './components/ProfileTypeOnboarding.tsx';
+import EnhancedOnboardingFlow from './components/EnhancedOnboardingFlow.tsx';
+import DynamicDashboard from './components/DynamicDashboard.tsx';
+import { moduleService } from './services/moduleService.ts';
+import { onboardingService } from './services/onboardingService.ts';
 import { CurrencyConverterModal } from './components/CurrencyConverterModal.tsx';
 import { FeatureDiscoveryModal } from './components/FeatureDiscoveryModal.tsx';
 import { LostAndFoundModal } from './components/LostAndFoundModal.tsx';
@@ -69,6 +74,8 @@ import EnhancedTripPlannerView from './components/EnhancedTripPlannerView.tsx';
 import SimpleTripPlannerView from './components/SimpleTripPlannerView.tsx';
 import SmartHomeDashboard from './components/SmartHomeDashboard.tsx';
 import NearbyPlacesWidget from './components/NearbyPlacesWidget.tsx';
+import AdaptiveDashboard from './components/AdaptiveDashboard.tsx';
+import OnboardingCompletionToast from './components/OnboardingCompletionToast.tsx';
 
 
 import ShareModal from './components/ShareModal.tsx';
@@ -199,6 +206,9 @@ const App: React.FC = () => {
                 subscriptionStatus: parsedUser.subscriptionStatus || 'none',
                 selectedInterests: parsedUser.selectedInterests || [],
                 hasCompletedWizard: parsedUser.hasCompletedWizard ?? true,
+                hasCompletedProfileSetup: parsedUser.hasCompletedProfileSetup ?? true,
+                profileType: parsedUser.profileType || 'traveler',
+                enabledModules: parsedUser.enabledModules || ['places', 'trips', 'community', 'favorites'],
             };
         } catch (e) {
             console.error("Error parsing stored user from localStorage:", e);
@@ -213,6 +223,9 @@ const App: React.FC = () => {
   const [authLoading, setAuthLoading] = useState<boolean>(false);
   const [authError, setAuthError] = useState<string | null>(null);
   const [showWelcomeWizard, setShowWelcomeWizard] = useState<boolean>(false);
+  const [showEnhancedOnboarding, setShowEnhancedOnboarding] = useState<boolean>(false);
+  const [showProfileTypeOnboarding, setShowProfileTypeOnboarding] = useState<boolean>(false);
+  const [showCompletionToast, setShowCompletionToast] = useState<boolean>(false);
   
   // const [showTripPlannerModal, setShowTripPlannerModal] = useState<boolean>(false);
   const [tripDestination, setTripDestination] = useState<string>('');
@@ -732,6 +745,11 @@ const App: React.FC = () => {
       };
       setCurrentUser(mapped);
       setShowAuthModal(false);
+      
+      // Check if new user needs onboarding
+      if (!mapped.hasCompletedWizard || !mapped.hasCompletedProfileSetup) {
+        setShowEnhancedOnboarding(true);
+      }
       // Verify token with backend, propagate admin claim, and upsert user
       (async () => {
         try {
@@ -767,6 +785,9 @@ const App: React.FC = () => {
               language: u.language || prev.language,
               selectedInterests: Array.isArray(u.selectedInterests) ? u.selectedInterests : prev.selectedInterests,
               hasCompletedWizard: typeof u.hasCompletedWizard === 'boolean' ? u.hasCompletedWizard : prev.hasCompletedWizard,
+              hasCompletedProfileSetup: typeof u.hasCompletedProfileSetup === 'boolean' ? u.hasCompletedProfileSetup : prev.hasCompletedProfileSetup,
+              profileType: u.profileType || prev.profileType || 'traveler',
+              enabledModules: Array.isArray(u.enabledModules) ? u.enabledModules : prev.enabledModules || ['places', 'trips', 'community', 'favorites'],
             } : prev);
             await Promise.all([
               loadUserData(u._id),
@@ -1223,7 +1244,8 @@ const App: React.FC = () => {
       } catch {}
       setShowAuthModal(false);
       addToast({ message: t('authModal.welcomeUser', { username }), type: 'success' });
-      setShowWelcomeWizard(true);
+      // Show enhanced onboarding for new users
+      setShowEnhancedOnboarding(true);
     } catch (e: any) {
       setAuthError(e?.message || 'Registration failed');
     } finally {
@@ -1773,6 +1795,79 @@ const App: React.FC = () => {
       addToast({message: t('welcomeWizard.preferencesSaved'), type: 'success'});
     }
     setShowWelcomeWizard(false);
+  };
+
+  const handleEnhancedOnboardingComplete = async (userData: {
+    language: string;
+    homeCurrency: string;
+    selectedInterests: UserInterest[];
+    profileType: ProfileType;
+    enabledModules: string[];
+  }) => {
+    if (currentUser) {
+      // Update local state immediately
+      const updatedUser = {
+        ...currentUser,
+        ...userData,
+        hasCompletedWizard: true,
+        hasCompletedProfileSetup: true,
+      };
+      setCurrentUser(updatedUser);
+      
+      // Sync with backend if user has mongoId
+      if (currentUser.mongoId) {
+        try {
+          const syncedUser = await onboardingService.completeOnboarding(currentUser.mongoId, {
+            ...userData,
+            hasCompletedWizard: true,
+            hasCompletedProfileSetup: true,
+          });
+          if (syncedUser) {
+            setCurrentUser(prev => prev ? { ...prev, ...syncedUser } : null);
+          }
+        } catch (error) {
+          console.error('Failed to sync onboarding data:', error);
+          addToast({ message: 'Profile saved locally. Sync will retry later.', type: 'warning' });
+        }
+      }
+      
+      addToast({ message: 'Profile setup completed! Welcome to Travel Buddy!', type: 'success' });
+      setShowCompletionToast(true);
+    }
+    setShowEnhancedOnboarding(false);
+  };
+
+  const handleProfileTypeComplete = async (profileType: string, modules: string[]) => {
+    if (currentUser) {
+      // Update local state immediately
+      const updatedUser = {
+        ...currentUser,
+        profileType: profileType as ProfileType,
+        enabledModules: modules,
+        hasCompletedProfileSetup: true,
+      };
+      setCurrentUser(updatedUser);
+      
+      // Sync with backend if user has mongoId
+      if (currentUser.mongoId) {
+        try {
+          const syncedUser = await onboardingService.completeProfileSetup(currentUser.mongoId, {
+            profileType: profileType as ProfileType,
+            enabledModules: modules,
+          });
+          if (syncedUser) {
+            setCurrentUser(prev => prev ? { ...prev, ...syncedUser } : null);
+          }
+        } catch (error) {
+          console.error('Failed to sync profile setup:', error);
+          addToast({ message: 'Profile saved locally. Sync will retry later.', type: 'warning' });
+        }
+      }
+      
+      addToast({ message: `Profile set to ${profileType}!`, type: 'success' });
+      setShowCompletionToast(true);
+    }
+    setShowProfileTypeOnboarding(false);
   };
   
   const handleSendMessage = async (message: string) => {
@@ -2374,7 +2469,14 @@ const App: React.FC = () => {
     case 'forYou':
     content = (
       <div className="space-y-6">
-        <SmartHomeDashboard />
+        {currentUser ? (
+          <AdaptiveDashboard 
+            user={currentUser} 
+            onNavigateToTab={handleTabChange}
+          />
+        ) : (
+          <SmartHomeDashboard />
+        )}
         {userLocation && (
           <NearbyPlacesWidget
             userLocation={userLocation}
@@ -2635,6 +2737,8 @@ const App: React.FC = () => {
                     onShareTripPlanToCommunity={handleShareTripPlanToCommunity}
                     onSelectPlaceDetail={handleSelectPlaceDetail}
                     onRemoveFavorite={handleToggleFavoritePlace}
+                    onStartOnboarding={() => setShowEnhancedOnboarding(true)}
+                    onCompleteProfileSetup={() => setShowProfileTypeOnboarding(true)}
                 />
             );
         }
@@ -2783,6 +2887,19 @@ const App: React.FC = () => {
         </React.Suspense>
       )}
       {showWelcomeWizard && currentUser && <WelcomeWizardModal user={currentUser} onComplete={handleWelcomeWizardComplete} onClose={() => setShowWelcomeWizard(false)} />}
+      {showEnhancedOnboarding && currentUser && (
+        <EnhancedOnboardingFlow 
+          user={currentUser} 
+          onComplete={handleEnhancedOnboardingComplete} 
+          onClose={() => setShowEnhancedOnboarding(false)} 
+        />
+      )}
+      {showProfileTypeOnboarding && (
+        <ProfileTypeOnboarding 
+          onComplete={handleProfileTypeComplete}
+          onSkip={() => setShowProfileTypeOnboarding(false)}
+        />
+      )}
       {showCurrencyConverter && <CurrencyConverterModal isOpen={showCurrencyConverter} onClose={() => setShowCurrencyConverter(false)} baseCurrency={currentUser?.homeCurrency || 'USD'} exchangeRates={exchangeRates} />}
       {featureDiscoveryState.isOpen && userLocation && (
           <FeatureDiscoveryModal 
@@ -2851,7 +2968,14 @@ const App: React.FC = () => {
       )}
       {renderMainContent()}
       
-
+      {/* Onboarding Completion Toast */}
+      {showCompletionToast && currentUser && (
+        <OnboardingCompletionToast
+          user={currentUser}
+          isVisible={showCompletionToast}
+          onClose={() => setShowCompletionToast(false)}
+        />
+      )}
       
       {process.env.NODE_ENV === 'development' && (
         <>

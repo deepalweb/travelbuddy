@@ -41,6 +41,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     _usernameController.dispose();
     _emailController.dispose();
     _bioController.dispose();
+    _selectedImage = null; // Clear image reference
     super.dispose();
   }
 
@@ -204,24 +205,24 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                   
                   const SizedBox(height: 16),
                   
-                  // Bio Field
-                  TextFormField(
-                    controller: _bioController,
-                    decoration: const InputDecoration(
-                      labelText: 'Bio',
-                      prefixIcon: Icon(Icons.info),
-                      border: OutlineInputBorder(),
-                      hintText: 'Tell us about yourself...',
-                    ),
-                    maxLines: 3,
-                    maxLength: 150,
-                    validator: (value) {
-                      if (value != null && value.length > 150) {
-                        return 'Bio must be 150 characters or less';
-                      }
-                      return null;
-                    },
-                  ),
+                  // Bio Field (temporarily disabled until user model supports it)
+                  // TextFormField(
+                  //   controller: _bioController,
+                  //   decoration: const InputDecoration(
+                  //     labelText: 'Bio',
+                  //     prefixIcon: Icon(Icons.info),
+                  //     border: OutlineInputBorder(),
+                  //     hintText: 'Tell us about yourself...',
+                  //   ),
+                  //   maxLines: 3,
+                  //   maxLength: 150,
+                  //   validator: (value) {
+                  //     if (value != null && value.length > 150) {
+                  //       return 'Bio must be 150 characters or less';
+                  //     }
+                  //     return null;
+                  //   },
+                  // ),
                   
                   const SizedBox(height: 24),
                   
@@ -470,6 +471,16 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       setState(() => _isLoading = true);
       
       final appProvider = context.read<AppProvider>();
+      
+      // Delete backend user data first
+      final currentUser = context.read<AppProvider>().currentUser;
+      if (currentUser?.mongoId != null) {
+        try {
+          await appProvider.deleteUserAccount(currentUser!.mongoId!);
+        } catch (e) {
+          print('Warning: Backend user deletion failed: $e');
+        }
+      }
       
       // Delete from Firebase
       final firebaseUser = FirebaseAuth.instance.currentUser;

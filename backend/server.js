@@ -102,8 +102,21 @@ const app = express();
 app.use(compression({ threshold: 1024 }));
 const PORT = process.env.PORT || 8080;
 
-// Create HTTP server and Socket.io for real-time metrics
-const httpServer = http.createServer(app);
+// Create HTTP/HTTPS server and Socket.io for real-time metrics
+let httpServer;
+if (process.env.ENABLE_HTTPS === 'true') {
+  const https = await import('https');
+  const fs = await import('fs');
+  const options = {
+    key: fs.readFileSync(process.env.SSL_KEY_PATH || './ssl/key.pem'),
+    cert: fs.readFileSync(process.env.SSL_CERT_PATH || './ssl/cert.pem')
+  };
+  httpServer = https.createServer(options, app);
+  console.log('🔒 HTTPS server enabled');
+} else {
+  httpServer = http.createServer(app);
+  console.log('🔓 HTTP server (development mode)');
+}
 const allowedSocketOrigins = (
   process.env.SOCKET_ALLOWED_ORIGINS || ''
 )
@@ -885,41 +898,95 @@ try {
   try { Config = mongoose.model('Config'); } catch {}
 }
 
-// User Schema
+// Enhanced User Schema with 4-Role System
 const userSchema = new mongoose.Schema({
   firebaseUid: { type: String, index: true, sparse: true },
   username: { type: String, required: true, unique: true },
   email: { type: String, required: true, unique: true },
-  tier: { type: String, default: 'free', enum: ['free', 'basic', 'premium', 'pro'] },
-  subscriptionStatus: { type: String, default: 'none', enum: ['none', 'trial', 'active', 'expired', 'canceled'] },
-  subscriptionEndDate: Date,
-  trialEndDate: Date,
-  homeCurrency: { type: String, default: 'USD' },
-  language: { type: String, default: 'en' },
-  selectedInterests: [String],
-  hasCompletedWizard: { type: Boolean, default: false },
-  isAdmin: { type: Boolean, default: false },
-  isMerchant: { type: Boolean, default: false },
-  merchantInfo: {
+  
+  // Profile-Based System
+  profileType: { type: String, default: 'traveler', enum: ['traveler', 'business', 'service', 'creator'] },
+  enabledModules: { type: [String], default: ['places'] },
+  profileSetupComplete: { type: Boolean, default: false },
+  
+  // Legacy Role System (for backward compatibility)
+  role: { type: String, default: 'regular', enum: ['regular', 'merchant', 'agent', 'admin'] },
+  permissions: [String],
+  isVerified: { type: Boolean, default: false },
+  
+  // Business Profile (for merchants)
+  businessProfile: {
     businessName: String,
     businessType: { type: String, enum: ['restaurant', 'hotel', 'cafe', 'shop', 'attraction'] },
     businessAddress: String,
     businessPhone: String,
-    verificationStatus: { type: String, enum: ['pending', 'approved', 'rejected'], default: 'pending' }
+    businessEmail: String,
+    businessHours: String,
+    businessDescription: String,
+    verificationStatus: { type: String, enum: ['pending', 'approved', 'rejected'], default: 'pending' },
+    approvedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    approvedAt: Date
   },
+  
+  // Service Profile (for agents)
+  serviceProfile: {
+    serviceName: String,
+    serviceType: { type: String, enum: ['guide', 'driver', 'tour_operator', 'transport'] },
+    serviceDescription: String,
+    serviceArea: String,
+    languages: [String],
+    pricing: {
+      hourlyRate: Number,
+      dailyRate: Number,
+      currency: { type: String, default: 'USD' }
+    },
+    availability: {
+      days: [String],
+      hours: String
+    },
+    verificationStatus: { type: String, enum: ['pending', 'verified', 'rejected'], default: 'pending' },
+    approvedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    approvedAt: Date
+  },
+  
+  // Subscription
+  tier: { type: String, default: 'free', enum: ['free', 'basic', 'premium', 'pro'] },
+  subscriptionStatus: { type: String, default: 'none', enum: ['none', 'trial', 'active', 'expired', 'canceled'] },
+  subscriptionEndDate: Date,
+  trialEndDate: Date,
+  
+  // User Preferences
+  homeCurrency: { type: String, default: 'USD' },
+  language: { type: String, default: 'en' },
+  selectedInterests: [String],
+  hasCompletedWizard: { type: Boolean, default: false },
   favoritePlaces: [String],
-  profilePicture: { type: String, default: null }, // URL to profile picture
-  // Reputation system
-  reputation: {
-    score: { type: Number, default: 0 },
-    level: { type: String, enum: ['new', 'trusted', 'expert', 'moderator'], default: 'new' },
-    violations: { type: Number, default: 0 },
-    contributions: { type: Number, default: 0 }
+  profilePicture: { type: String, default: null },
+  
+  // Legacy fields (for backward compatibility)
+  isAdmin: { type: Boolean, default: false },
+  isMerchant: { type: Boolean, default: false },
+  merchantInfo: {
+    businessName: String,
+    businessType: String,
+    businessAddress: String,
+    businessPhone: String,
+    verificationStatus: String
   },
+  
   createdAt: { type: Date, default: Date.now }
 });
 
+// Add indexes for role queries
+userSchema.index({ role: 1 });
+userSchema.index({ 'businessProfile.verificationStatus': 1 });
+userSchema.index({ 'serviceProfile.verificationStatus': 1 });
+
 const User = mongoose.model('User', userSchema);
+
+// Make User model available to routes
+app.set('User', User);
+global.User = User;
 
 // Load persisted cost config from DB on startup (if DB available)
 (async () => {
@@ -3244,8 +3311,95 @@ Return ONLY a valid JSON array with this exact structure:
   }
 }
 
+// Profile Setup Routes
+app.post('/api/users/setup-profile', async (req, res) => {
+  try {
+    const { userId, profileType, modules } = req.body;
+    if (!userId || !profileType) {
+      return res.status(400).json({ error: 'userId and profileType required' });
+    }
+    
+    const user = await User.findByIdAndUpdate(
+      userId,
+      { 
+        $set: { 
+          profileType,
+          enabledModules: modules || [],
+          profileSetupComplete: true
+        }
+      },
+      { new: true }
+    );
+    
+    if (!user) return res.status(404).json({ error: 'User not found' });
+    res.json({ success: true, user });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Service Management Routes
+app.put('/api/services/profile', async (req, res) => {
+  try {
+    const { userId, ...serviceData } = req.body;
+    if (!userId) return res.status(400).json({ error: 'userId required' });
+    
+    const user = await User.findByIdAndUpdate(
+      userId,
+      { $set: { serviceProfile: serviceData } },
+      { new: true }
+    );
+    
+    if (!user) return res.status(404).json({ error: 'User not found' });
+    res.json({ success: true, serviceProfile: user.serviceProfile });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.get('/api/services/profile/:userId', async (req, res) => {
+  try {
+    const user = await User.findById(req.params.userId).select('serviceProfile');
+    if (!user) return res.status(404).json({ error: 'User not found' });
+    res.json(user.serviceProfile || {});
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Business Management Routes
+app.put('/api/business/profile', async (req, res) => {
+  try {
+    const { userId, ...businessData } = req.body;
+    if (!userId) return res.status(400).json({ error: 'userId required' });
+    
+    const user = await User.findByIdAndUpdate(
+      userId,
+      { $set: { businessProfile: businessData } },
+      { new: true }
+    );
+    
+    if (!user) return res.status(404).json({ error: 'User not found' });
+    res.json({ success: true, businessProfile: user.businessProfile });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Merchant routes
 app.use('/api/merchants', (await import('./routes/merchants.js')).default);
+
+// Role management routes
+app.use('/api/roles', (await import('./routes/roles.js')).default);
+
+// Service Provider routes
+app.use('/api/services', (await import('./routes/services.js')).default);
+app.use('/api/bookings', (await import('./routes/bookings.js')).default);
+
+// Mount subscription and payment routes
+app.use('/api/subscriptions', (await import('./routes/subscriptions.js')).default);
+app.use('/api/payments', (await import('./routes/payments.js')).default);
+app.use('/api/webhooks/paypal', (await import('./webhooks/paypal.js')).default);
 
 // Serve React app (only for non-API routes)
 app.use((req, res, next) => {
@@ -3256,8 +3410,11 @@ app.use((req, res, next) => {
 });
 
 httpServer.listen(PORT, () => {
-  console.log(`🚀 Server running on port ${PORT}`);
+  const protocol = process.env.ENABLE_HTTPS === 'true' ? 'https' : 'http';
+  console.log(`🚀 Server running on ${protocol}://localhost:${PORT}`);
   console.log(`🌤️ Weather API: ${process.env.GOOGLE_PLACES_API_KEY ? '✅ Google-enhanced weather configured' : '⚠️ Using mock data (set GOOGLE_PLACES_API_KEY for enhanced weather)'}`);
+  console.log(`💳 PayPal: ${process.env.PAYPAL_CLIENT_ID ? '✅ Configured' : '⚠️ Not configured'}`);
+  console.log(`🗄️ Database: ${mongoose.connection.readyState === 1 ? '✅ Connected' : '⚠️ Not connected'}`);
 });
 
 // --- Subscription endpoints (start trial, subscribe, cancel) ---

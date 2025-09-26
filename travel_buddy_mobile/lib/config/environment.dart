@@ -1,26 +1,17 @@
 class Environment {
-  // Backend Configuration
-  static const bool useLocalBackend = false; // Set to true for local development
-  static const String backendUrl = useLocalBackend 
-    ? 'http://192.168.1.163:3001' // Local backend - use computer's IP
-    : 'https://travelbuddy-b2c6hgbbgeh4esdh.eastus2-01.azurewebsites.net'; // Azure backend
+  // Backend configuration - UPDATE WITH YOUR AZURE URL
+  static const String backendUrl = 'https://travelbuddy-b2c6hgbbgeh4esdh.eastus2-01.azurewebsites.net';
+  static const bool isProduction = true;
   
-  // API Keys - Load from environment or use placeholders
-  static const String googleMapsApiKey = String.fromEnvironment('GOOGLE_MAPS_API_KEY', defaultValue: 'AIzaSyA89E6gkU7-nUMYk9JPt6xxYHVV4Yevtio');
-  static const String weatherApiKey = String.fromEnvironment('WEATHER_API_KEY', defaultValue: 'REPLACE_WITH_YOUR_WEATHER_KEY');
+  // PayPal configuration (production values)
+  static const String paypalClientId = 'AQq4yCVTWy1j8WkcQ_c1Jr0bRdKuQcNGvkj2Q4zeMg5ti53lu5axuoG938MUL6SMIPf54koY8wzcU7LW';
+  static const String paypalSecret = 'EPFfn37B81cgi41YbswVOIC05mPW3JQLiY-MbQ48-GU2neJBvw9m1Mr05SUBuzC2eTVH79Q1fRv4P8gG';
   
-  // API Endpoints (matching your web app)
-  static const String apiUsers = '/api/users';
-  static const String apiPlaces = '/api/places';
-  static const String apiTrips = '/api/trips';
-  static const String apiItineraries = '/api/itineraries';
-  static const String apiFavorites = '/favorites';
-  static const String apiDeals = '/api/deals';
-  static const String apiPosts = '/api/posts';
-  static const String apiReviews = '/api/reviews';
-  static const String apiAuth = '/api/auth';
+  // API Keys
+  static const String googleMapsApiKey = 'AIzaSyA89E6gkU7-nUMYk9JPt6xxYHVV4Yevtio';
   
-  // Development flags
-  static const bool useMockAuth = false; // Set to true to use mock auth
-  static const bool enableLogging = true;
+  // Feature flags
+  static const bool enablePayments = true;
+  static const bool enableTrials = true;
+  static const bool enableAnalytics = true;
 }
