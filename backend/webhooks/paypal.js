@@ -1,11 +1,42 @@
 import express from 'express';
 import crypto from 'crypto';
 import mongoose from 'mongoose';
+import fetch from 'node-fetch';
 
 const router = express.Router();
 
+// Get PayPal access token
+async function getPayPalAccessToken() {
+  const clientId = process.env.PAYPAL_CLIENT_ID;
+  const clientSecret = process.env.PAYPAL_CLIENT_SECRET;
+  const isProduction = process.env.NODE_ENV === 'production';
+  const baseURL = isProduction ? 'https://api.paypal.com' : 'https://api.sandbox.paypal.com';
+
+  if (!clientId || !clientSecret) {
+    throw new Error('PayPal credentials not configured');
+  }
+
+  const auth = Buffer.from(`${clientId}:${clientSecret}`).toString('base64');
+  
+  const response = await fetch(`${baseURL}/v1/oauth2/token`, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Basic ${auth}`,
+      'Content-Type': 'application/x-www-form-urlencoded'
+    },
+    body: 'grant_type=client_credentials'
+  });
+
+  if (!response.ok) {
+    throw new Error('Failed to get PayPal access token');
+  }
+
+  const data = await response.json();
+  return data.access_token;
+}
+
 // PayPal webhook verification
-function verifyPayPalWebhook(payload, headers) {
+async function verifyPayPalWebhook(payload, headers) {
   try {
     const webhookSecret = process.env.PAYPAL_WEBHOOK_SECRET;
     if (!webhookSecret) {
@@ -17,22 +48,44 @@ function verifyPayPalWebhook(payload, headers) {
     const certId = headers['paypal-cert-id'];
     const timestamp = headers['paypal-transmission-time'];
     const authAlgo = headers['paypal-auth-algo'];
+    const webhookId = process.env.PAYPAL_WEBHOOK_ID;
 
-    if (!signature || !certId || !timestamp || !authAlgo) {
+    if (!signature || !certId || !timestamp || !authAlgo || !webhookId) {
+      console.warn('Missing PayPal webhook headers');
       return false;
     }
 
-    // In production, implement full PayPal webhook verification
-    // This is a simplified version
-    const expectedSignature = crypto
-      .createHmac('sha256', webhookSecret)
-      .update(payload)
-      .digest('base64');
+    // Use PayPal's webhook verification API
+    const accessToken = await getPayPalAccessToken();
+    const isProduction = process.env.NODE_ENV === 'production';
+    const baseURL = isProduction ? 'https://api.paypal.com' : 'https://api.sandbox.paypal.com';
 
-    return crypto.timingSafeEqual(
-      Buffer.from(signature, 'base64'),
-      Buffer.from(expectedSignature, 'base64')
-    );
+    const verificationData = {
+      transmission_id: headers['paypal-transmission-id'],
+      cert_id: certId,
+      auth_algo: authAlgo,
+      transmission_time: timestamp,
+      transmission_sig: signature,
+      webhook_id: webhookId,
+      webhook_event: JSON.parse(payload)
+    };
+
+    const verifyResponse = await fetch(`${baseURL}/v1/notifications/verify-webhook-signature`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(verificationData)
+    });
+
+    if (!verifyResponse.ok) {
+      console.error('PayPal webhook verification failed:', verifyResponse.status);
+      return false;
+    }
+
+    const verifyResult = await verifyResponse.json();
+    return verifyResult.verification_status === 'SUCCESS';
   } catch (error) {
     console.error('PayPal webhook verification error:', error);
     return false;
