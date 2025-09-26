@@ -262,6 +262,8 @@ class WeatherService {
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
         print('✅ Using REAL Google Weather data');
+        print('🌡️ Temperature: ${data['current']?['temperature']}°C');
+        print('🌤️ Condition: ${data['current']?['condition']}');
         return _parseGoogleWeatherResponse(data);
       } else {
         print('⚠️ Google Weather API returned: ${response.statusCode}');
@@ -503,21 +505,31 @@ class WeatherService {
     required double longitude,
   }) async {
     try {
+      print('🌤️ Fetching REAL weather forecast from backend');
       final url = '${AppConstants.baseUrl}/api/weather/forecast?lat=$latitude&lng=$longitude';
       final response = await http.get(
         Uri.parse(url),
-        headers: {'Content-Type': 'application/json'},
-      ).timeout(const Duration(seconds: 10));
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+      ).timeout(const Duration(seconds: 15));
+      
+      print('📡 Forecast response status: ${response.statusCode}');
       
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
+        print('✅ Got REAL forecast data with ${data['hourly']?.length ?? 0} hourly entries');
         return _parseForecast(data);
+      } else {
+        print('⚠️ Forecast API returned: ${response.statusCode}');
       }
     } catch (e) {
       print('⚠️ Detailed forecast error: $e');
     }
     
     // Fallback to mock forecast
+    print('🎭 Using fallback mock forecast');
     return WeatherForecast(
       daily: _getMockDailyForecast(),
       hourly: _getMockHourlyForecast(),

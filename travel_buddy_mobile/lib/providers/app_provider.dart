@@ -409,8 +409,8 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
   }
 
   Future<void> _loadWeatherForecast() async {
-    if (_currentLocation != null) {
-      try {
+    try {
+      if (_currentLocation != null) {
         // Get real weather forecast from weather service
         final realForecast = await _weatherService.getDetailedForecast(
           latitude: _currentLocation!.latitude,
@@ -435,27 +435,30 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
         );
         
         print('✅ Loaded REAL weather forecast with ${hourlyForecasts.length} hours');
-      } catch (e) {
-        print('❌ Error loading real weather forecast: $e');
-        // Fallback to mock forecast
-        final hourlyForecasts = List.generate(3, (index) {
-          final time = DateTime.now().add(Duration(hours: index * 3));
-          return HourlyForecast(
-            time: '${time.hour}:00',
-            temperature: 25.0 + (index * 2),
-            condition: index == 0 ? 'sunny' : index == 1 ? 'cloudy' : 'partly_cloudy',
-          );
-        });
-        
-        _weatherForecast = WeatherForecast(
-          condition: _weatherInfo?.condition ?? 'sunny',
-          temperature: _weatherInfo?.temperature ?? 25.0,
-          humidity: 65.0,
-          windSpeed: 8.5,
-          hourlyForecast: hourlyForecasts,
-        );
+        return;
       }
+    } catch (e) {
+      print('❌ Error loading real weather forecast: $e');
     }
+    
+    // Always provide fallback forecast
+    final hourlyForecasts = List.generate(3, (index) {
+      final time = DateTime.now().add(Duration(hours: index * 3));
+      return HourlyForecast(
+        time: '${time.hour}:00',
+        temperature: (_weatherInfo?.temperature ?? 25.0) + (index * 2),
+        condition: index == 0 ? 'sunny' : index == 1 ? 'cloudy' : 'partly_cloudy',
+      );
+    });
+    
+    _weatherForecast = WeatherForecast(
+      condition: _weatherInfo?.condition ?? 'sunny',
+      temperature: _weatherInfo?.temperature ?? 25.0,
+      humidity: 65.0,
+      windSpeed: 8.5,
+      hourlyForecast: hourlyForecasts,
+    );
+    print('✅ Loaded fallback weather forecast');
   }
 
   Future<void> _loadDailySuggestions() async {
@@ -478,12 +481,36 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
         }
       }
       
-      // Fallback to generated suggestions
+      // Always generate personalized suggestions
       _dailySuggestions = await _generatePersonalizedSuggestions();
-      print('✅ Loaded fallback personalized suggestions: ${_dailySuggestions.length} items');
+      print('✅ Loaded personalized suggestions: ${_dailySuggestions.length} items');
     } catch (e) {
       print('❌ Error loading daily suggestions: $e');
-      _dailySuggestions = ['Explore nearby attractions', 'Try local cuisine'];
+      // Final fallback with smart suggestions
+      _dailySuggestions = _getSmartFallbackSuggestions();
+      print('✅ Loaded smart fallback suggestions: ${_dailySuggestions.length} items');
+    }
+  }
+  
+  List<String> _getSmartFallbackSuggestions() {
+    final hour = DateTime.now().hour;
+    final weather = _weatherInfo?.condition.toLowerCase() ?? 'clear';
+    
+    if (hour < 12) {
+      if (weather.contains('rain')) {
+        return ['Find cozy indoor cafes for breakfast', 'Visit museums and galleries today'];
+      }
+      return ['Explore morning markets and cafes', 'Perfect time for outdoor sightseeing'];
+    } else if (hour >= 18) {
+      if (weather.contains('rain')) {
+        return ['Discover indoor dining experiences', 'Check out evening entertainment venues'];
+      }
+      return ['Find great dinner spots nearby', 'Explore evening attractions and nightlife'];
+    } else {
+      if (weather.contains('rain')) {
+        return ['Visit indoor attractions and shopping', 'Try local restaurants for lunch'];
+      }
+      return ['Explore nearby attractions', 'Discover local restaurants and cafes'];
     }
   }
   
