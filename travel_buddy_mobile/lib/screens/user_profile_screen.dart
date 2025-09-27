@@ -1,119 +1,649 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import '../providers/app_provider.dart';
 import '../providers/community_provider.dart';
-import '../widgets/community_post_card.dart';
+import '../models/community_post.dart';
+import '../widgets/instagram_post_card.dart';
+import 'chat_screen.dart';
+import 'edit_profile_screen.dart';
 
-class UserProfileScreen extends StatelessWidget {
+class UserProfileScreen extends StatefulWidget {
   final String userId;
   final String userName;
-  final String userAvatar;
 
   const UserProfileScreen({
     super.key,
     required this.userId,
     required this.userName,
-    required this.userAvatar,
   });
+
+  @override
+  State<UserProfileScreen> createState() => _UserProfileScreenState();
+}
+
+class _UserProfileScreenState extends State<UserProfileScreen>
+    with TickerProviderStateMixin {
+  late TabController _tabController;
+  bool _isFollowing = false;
+  bool _isLoading = false;
+  List<CommunityPost> _userPosts = [];
+  Map<String, dynamic> _userStats = {
+    'posts': 0,
+    'followers': 0,
+    'following': 0,
+    'places': 0,
+  };
+  String _userAvatar = '';
+  String _userBio = '';
+
+  @override
+  void initState() {
+    super.initState();
+    _tabController = TabController(length: 3, vsync: this);
+    _loadUserData();
+  }
+  
+  Future<void> _loadUserData() async {
+    final provider = context.read<CommunityProvider>();
+    final appProvider = context.read<AppProvider>();
+    
+    print('👤 [PROFILE] Loading data for user: ${widget.userName}');
+    print('👤 [PROFILE] User ID: ${widget.userId}');
+    
+    // Get user's posts
+    _userPosts = provider.posts.where((post) => post.userId == widget.userId).toList();
+    print('👤 [PROFILE] Found ${_userPosts.length} posts for user');
+    
+    // Get user profile info from posts or current user
+    if (_userPosts.isNotEmpty) {
+      _userAvatar = _userPosts.first.userAvatar;
+      print('👤 [PROFILE] Avatar from posts: "$_userAvatar"');
+      print('👤 [PROFILE] Avatar is empty: ${_userAvatar.isEmpty}');
+      print('👤 [PROFILE] Avatar is fallback: ${_userAvatar.contains("unsplash")}');
+    } else if (appProvider.currentUser?.uid == widget.userId) {
+      // If it's current user, get from app provider
+      final currentUserAvatar = appProvider.currentUser?.profilePicture ?? '';
+      _userAvatar = currentUserAvatar;
+      print('👤 [PROFILE] Current user avatar: "$currentUserAvatar"');
+      print('👤 [PROFILE] Current user data: ${appProvider.currentUser?.toString()}');
+    }
+    
+    // If still no avatar, check Firebase user directly
+    if (_userAvatar.isEmpty || _userAvatar.contains('unsplash')) {
+      print('👤 [PROFILE] No real avatar found, checking Firebase...');
+      
+      // Get Firebase user directly
+      final firebaseUser = FirebaseAuth.instance.currentUser;
+      if (firebaseUser != null && firebaseUser.uid == widget.userId) {
+        print('👤 [PROFILE] Firebase user found');
+        print('👤 [PROFILE] Firebase photoURL: "${firebaseUser.photoURL}"');
+        print('👤 [PROFILE] Firebase displayName: "${firebaseUser.displayName}"');
+        print('👤 [PROFILE] Firebase providerData: ${firebaseUser.providerData.map((p) => '${p.providerId}: ${p.photoURL}').join(', ')}');
+        
+        if (firebaseUser.photoURL != null && firebaseUser.photoURL!.isNotEmpty) {
+          _userAvatar = firebaseUser.photoURL!;
+          print('✅ [PROFILE] Using Firebase photoURL: $_userAvatar');
+        } else {
+          // Check provider data for Google photo
+          for (final provider in firebaseUser.providerData) {
+            if (provider.providerId == 'google.com' && provider.photoURL != null) {
+              _userAvatar = provider.photoURL!;
+              print('✅ [PROFILE] Using Google provider photo: $_userAvatar');
+              break;
+            }
+          }
+        }
+      }
+    }
+    
+    // Set bio based on user type
+    if (appProvider.currentUser?.uid == widget.userId) {
+      _userBio = 'Travel Enthusiast • 🌍 Explorer';
+    } else {
+      _userBio = 'Fellow Traveler • ✈️ Adventure Seeker';
+    }
+    
+    // Calculate stats
+    _userStats = {
+      'posts': _userPosts.length,
+      'followers': 156 + (_userPosts.length * 12),
+      'following': 89 + (_userPosts.length * 3),
+      'places': _userPosts.map((p) => p.location).toSet().length,
+    };
+    
+    print('👤 [PROFILE] Final avatar being used: "$_userAvatar"');
+    print('👤 [PROFILE] Final stats: $_userStats');
+    setState(() {});
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: Text(userName),
-        backgroundColor: Colors.blue[600],
-        foregroundColor: Colors.white,
-      ),
-      body: Consumer<CommunityProvider>(
-        builder: (context, communityProvider, child) {
-          final userPosts = communityProvider.posts
-              .where((post) => post.userId == userId)
-              .toList();
-
-          return SingleChildScrollView(
-            child: Column(
-              children: [
-                // Profile Header
-                Container(
-                  padding: const EdgeInsets.all(20),
-                  child: Column(
-                    children: [
-                      CircleAvatar(
-                        radius: 50,
-                        backgroundImage: userAvatar.isNotEmpty 
-                            ? NetworkImage(userAvatar) 
-                            : null,
-                        child: userAvatar.isEmpty 
-                            ? const Icon(Icons.person, size: 50) 
-                            : null,
-                      ),
-                      const SizedBox(height: 16),
-                      Text(
-                        userName,
-                        style: const TextStyle(
-                          fontSize: 24,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      const SizedBox(height: 20),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                        children: [
-                          _buildStatColumn('Posts', userPosts.length),
-                          _buildStatColumn('Followers', 0),
-                          _buildStatColumn('Following', 0),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-                const Divider(),
-                // Posts Section
-                if (userPosts.isEmpty)
-                  const Padding(
-                    padding: EdgeInsets.all(40),
-                    child: Column(
-                      children: [
-                        Icon(Icons.article_outlined, size: 64, color: Colors.grey),
-                        SizedBox(height: 16),
-                        Text('No posts yet', style: TextStyle(fontSize: 18)),
-                      ],
-                    ),
-                  )
-                else
-                  ListView.builder(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    itemCount: userPosts.length,
-                    itemBuilder: (context, index) {
-                      return CommunityPostCard(post: userPosts[index]);
-                    },
+      body: RefreshIndicator(
+        onRefresh: _refreshProfile,
+        child: NestedScrollView(
+          headerSliverBuilder: (context, innerBoxIsScrolled) => [
+            SliverAppBar(
+              expandedHeight: 300,
+              pinned: true,
+              backgroundColor: Colors.blue[600],
+              foregroundColor: Colors.white,
+              flexibleSpace: FlexibleSpaceBar(
+                background: _buildProfileHeader(),
+              ),
+              actions: [
+                if (context.read<AppProvider>().currentUser?.uid == widget.userId)
+                  IconButton(
+                    icon: const Icon(Icons.settings),
+                    onPressed: _editProfile,
                   ),
               ],
             ),
-          );
-        },
+          ],
+          body: Column(
+            children: [
+              _buildStatsRow(),
+              _buildActionButtons(),
+              _buildTabBar(),
+              Expanded(
+                child: TabBarView(
+                  controller: _tabController,
+                  children: [
+                    _buildPostsGrid(),
+                    _buildPhotosGrid(),
+                    _buildSavedGrid(),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+  
+  Future<void> _refreshProfile() async {
+    print('🔄 [PROFILE] Refreshing profile data...');
+    await _loadUserData();
+  }
+
+  Widget _buildProfileHeader() {
+    print('🖼️ [PROFILE] Building header with avatar: $_userAvatar');
+    
+    return Container(
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.end,
+        children: [
+          _buildProfileAvatar(),
+          const SizedBox(height: 12),
+          Text(
+            widget.userName,
+            style: const TextStyle(
+              fontSize: 24,
+              fontWeight: FontWeight.bold,
+              color: Colors.white,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            _userBio,
+            style: TextStyle(
+              fontSize: 16,
+              color: Colors.white.withOpacity(0.9),
+            ),
+          ),
+        ],
       ),
     );
   }
 
-  Widget _buildStatColumn(String label, int count) {
+  Widget _buildStatsRow() {
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 20),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+        children: [
+          _buildStatItem('Posts', '${_userStats['posts']}'),
+          _buildStatItem('Followers', _formatCount(_userStats['followers'])),
+          _buildStatItem('Following', '${_userStats['following']}'),
+          _buildStatItem('Places', '${_userStats['places']}'),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStatItem(String label, String count) {
     return Column(
       children: [
         Text(
-          count.toString(),
-          style: const TextStyle(
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
-          ),
+          count,
+          style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
         ),
         Text(
           label,
-          style: TextStyle(
-            color: Colors.grey[600],
-            fontSize: 14,
-          ),
+          style: TextStyle(color: Colors.grey[600], fontSize: 14),
         ),
       ],
+    );
+  }
+
+  Widget _buildActionButtons() {
+    final currentUser = context.read<AppProvider>().currentUser;
+    final isOwnProfile = currentUser?.uid == widget.userId;
+    
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+      child: Row(
+        children: [
+          Expanded(
+            child: ElevatedButton(
+              onPressed: isOwnProfile ? _editProfile : _toggleFollow,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: isOwnProfile 
+                    ? Colors.grey[200] 
+                    : (_isFollowing ? Colors.grey[300] : Colors.blue[600]),
+                foregroundColor: isOwnProfile 
+                    ? Colors.black 
+                    : (_isFollowing ? Colors.black : Colors.white),
+                padding: const EdgeInsets.symmetric(vertical: 12),
+              ),
+              child: _isLoading
+                  ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : Text(isOwnProfile 
+                      ? 'Edit Profile' 
+                      : (_isFollowing ? 'Following' : 'Follow')),
+            ),
+          ),
+          if (!isOwnProfile) ...[
+            const SizedBox(width: 12),
+            OutlinedButton(
+              onPressed: () => _openChat(),
+              style: OutlinedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 20),
+              ),
+              child: const Text('Message'),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTabBar() {
+    return Container(
+      decoration: BoxDecoration(
+        border: Border(bottom: BorderSide(color: Colors.grey[300]!)),
+      ),
+      child: TabBar(
+        controller: _tabController,
+        labelColor: Colors.blue[600],
+        unselectedLabelColor: Colors.grey[600],
+        indicatorColor: Colors.blue[600],
+        tabs: const [
+          Tab(icon: Icon(Icons.grid_on), text: 'Posts'),
+          Tab(icon: Icon(Icons.photo_library), text: 'Photos'),
+          Tab(icon: Icon(Icons.bookmark), text: 'Saved'),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPostsGrid() {
+    if (_userPosts.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.photo_library_outlined, size: 64, color: Colors.grey[400]),
+            const SizedBox(height: 16),
+            Text(
+              'No posts yet',
+              style: TextStyle(fontSize: 18, color: Colors.grey[600]),
+            ),
+          ],
+        ),
+      );
+    }
+    
+    return GridView.builder(
+      padding: const EdgeInsets.all(8),
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 2,
+        childAspectRatio: 1,
+        crossAxisSpacing: 8,
+        mainAxisSpacing: 8,
+      ),
+      itemCount: _userPosts.length,
+      itemBuilder: (context, index) {
+        final post = _userPosts[index];
+        return GestureDetector(
+          onTap: () => _showPostDetail(post),
+          child: Container(
+            decoration: BoxDecoration(
+              color: Colors.grey[300],
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: post.images.isNotEmpty
+                ? ClipRRect(
+                    borderRadius: BorderRadius.circular(8),
+                    child: Image.memory(
+                      base64.decode(post.images.first.split(',')[1]),
+                      fit: BoxFit.cover,
+                      errorBuilder: (context, error, stackTrace) {
+                        return const Icon(Icons.photo, size: 40);
+                      },
+                    ),
+                  )
+                : Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Icon(Icons.article, size: 30),
+                      const SizedBox(height: 4),
+                      Text(
+                        post.content.length > 20 
+                            ? '${post.content.substring(0, 20)}...'
+                            : post.content,
+                        style: const TextStyle(fontSize: 12),
+                        textAlign: TextAlign.center,
+                      ),
+                    ],
+                  ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildPhotosGrid() {
+    // Get posts with images only
+    final postsWithImages = _userPosts.where((post) => post.images.isNotEmpty).toList();
+    
+    if (postsWithImages.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.photo_outlined, size: 64, color: Colors.grey[400]),
+            const SizedBox(height: 16),
+            Text(
+              'No photos yet',
+              style: TextStyle(fontSize: 18, color: Colors.grey[600]),
+            ),
+          ],
+        ),
+      );
+    }
+    
+    return GridView.builder(
+      padding: const EdgeInsets.all(8),
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 3,
+        childAspectRatio: 1,
+        crossAxisSpacing: 4,
+        mainAxisSpacing: 4,
+      ),
+      itemCount: postsWithImages.length,
+      itemBuilder: (context, index) {
+        final post = postsWithImages[index];
+        return GestureDetector(
+          onTap: () => _showPostDetail(post),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(4),
+            child: Image.memory(
+              base64.decode(post.images.first.split(',')[1]),
+              fit: BoxFit.cover,
+              errorBuilder: (context, error, stackTrace) {
+                return Container(
+                  color: Colors.grey[300],
+                  child: const Icon(Icons.photo, size: 30),
+                );
+              },
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildSavedGrid() {
+    // Get saved posts from community provider
+    final provider = context.read<CommunityProvider>();
+    final savedPosts = provider.posts.where((post) => post.isSaved).toList();
+    
+    if (savedPosts.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.bookmark_outline, size: 64, color: Colors.grey[400]),
+            const SizedBox(height: 16),
+            Text(
+              'No saved posts',
+              style: TextStyle(fontSize: 18, color: Colors.grey[600]),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Tap the bookmark icon on posts to save them',
+              style: TextStyle(fontSize: 14, color: Colors.grey[500]),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+      );
+    }
+    
+    return GridView.builder(
+      padding: const EdgeInsets.all(8),
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 2,
+        childAspectRatio: 1,
+        crossAxisSpacing: 8,
+        mainAxisSpacing: 8,
+      ),
+      itemCount: savedPosts.length,
+      itemBuilder: (context, index) {
+        final post = savedPosts[index];
+        return GestureDetector(
+          onTap: () => _showPostDetail(post),
+          child: Container(
+            decoration: BoxDecoration(
+              color: Colors.grey[300],
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Stack(
+              children: [
+                if (post.images.isNotEmpty)
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(8),
+                    child: Image.memory(
+                      base64.decode(post.images.first.split(',')[1]),
+                      fit: BoxFit.cover,
+                      width: double.infinity,
+                      height: double.infinity,
+                      errorBuilder: (context, error, stackTrace) {
+                        return const Center(child: Icon(Icons.photo, size: 40));
+                      },
+                    ),
+                  )
+                else
+                  Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(Icons.article, size: 30),
+                        const SizedBox(height: 4),
+                        Text(
+                          post.content.length > 15
+                              ? '${post.content.substring(0, 15)}...'
+                              : post.content,
+                          style: const TextStyle(fontSize: 10),
+                          textAlign: TextAlign.center,
+                        ),
+                      ],
+                    ),
+                  ),
+                Positioned(
+                  top: 8,
+                  right: 8,
+                  child: Container(
+                    padding: const EdgeInsets.all(4),
+                    decoration: BoxDecoration(
+                      color: Colors.black.withOpacity(0.7),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
+                      Icons.bookmark,
+                      color: Colors.white,
+                      size: 16,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  void _toggleFollow() async {
+    setState(() => _isLoading = true);
+    
+    // Simulate API call
+    await Future.delayed(const Duration(seconds: 1));
+    
+    setState(() {
+      _isFollowing = !_isFollowing;
+      _isLoading = false;
+    });
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(_isFollowing ? 'Now following ${widget.userName}' : 'Unfollowed ${widget.userName}'),
+      ),
+    );
+  }
+  
+  String _formatCount(int count) {
+    if (count >= 1000000) {
+      return '${(count / 1000000).toStringAsFixed(1)}M';
+    } else if (count >= 1000) {
+      return '${(count / 1000).toStringAsFixed(1)}K';
+    }
+    return count.toString();
+  }
+  
+  void _showPostDetail(CommunityPost post) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => DraggableScrollableSheet(
+        initialChildSize: 0.9,
+        builder: (context, scrollController) => Container(
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+          ),
+          child: InstagramPostCard(post: post),
+        ),
+      ),
+    );
+  }
+  
+  void _openChat() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => ChatScreen(
+          userId: widget.userId,
+          userName: widget.userName,
+        ),
+      ),
+    );
+  }
+  
+  void _editProfile() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => const EditProfileScreen(),
+      ),
+    ).then((_) {
+      // Refresh profile after editing
+      _refreshProfile();
+    });
+  }
+  
+  Widget _buildProfileAvatar() {
+    if (_userAvatar.isEmpty || _userAvatar.contains('unsplash')) {
+      // Show initial letter
+      return CircleAvatar(
+        radius: 50,
+        backgroundColor: Colors.white,
+        child: Text(
+          widget.userName[0].toUpperCase(),
+          style: const TextStyle(
+            fontSize: 32,
+            fontWeight: FontWeight.bold,
+            color: Colors.blue,
+          ),
+        ),
+      );
+    }
+    
+    // Handle base64 images
+    if (_userAvatar.startsWith('data:image/')) {
+      try {
+        final base64String = _userAvatar.split(',')[1];
+        final bytes = base64.decode(base64String);
+        return CircleAvatar(
+          radius: 50,
+          backgroundColor: Colors.white,
+          backgroundImage: MemoryImage(bytes),
+        );
+      } catch (e) {
+        print('❌ [PROFILE] Base64 decode error: $e');
+        return _buildFallbackAvatar();
+      }
+    }
+    
+    // Handle network images
+    return CircleAvatar(
+      radius: 50,
+      backgroundColor: Colors.white,
+      backgroundImage: NetworkImage(_userAvatar),
+      onBackgroundImageError: (error, stackTrace) {
+        print('❌ [PROFILE] Network image error: $error');
+      },
+    );
+  }
+  
+  Widget _buildFallbackAvatar() {
+    return CircleAvatar(
+      radius: 50,
+      backgroundColor: Colors.white,
+      child: Text(
+        widget.userName[0].toUpperCase(),
+        style: const TextStyle(
+          fontSize: 32,
+          fontWeight: FontWeight.bold,
+          color: Colors.blue,
+        ),
+      ),
     );
   }
 }

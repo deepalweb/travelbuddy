@@ -4,12 +4,14 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../models/travel_companion.dart';
 import '../../services/travel_companion_service.dart';
+import '../../services/weather_service.dart';
+import '../../services/location_service.dart';
 
 class HomeViewModel extends ChangeNotifier {
   String _currentTime = '';
   String get currentTime => _currentTime;
 
-  final String _currentLocationName = 'Getting location...';
+  String _currentLocationName = 'Getting location...';
   String get currentLocationName => _currentLocationName;
 
   List<String> _selectedActionKeys = ['explore', 'plan', 'nearby', 'safety'];
@@ -57,7 +59,9 @@ class HomeViewModel extends ChangeNotifier {
   }
 
   void _updateTime() {
-    _currentTime = DateFormat('HH:mm:ss').format(DateTime.now());
+    final now = DateTime.now();
+    print('Current time: $now');
+    _currentTime = DateFormat('h:mm a').format(now);
     notifyListeners();
   }
 
@@ -148,7 +152,33 @@ class HomeViewModel extends ChangeNotifier {
       {'name': 'Food Festival', 'location': 'Central Park', 'time': 'All Day'},
     ];
 
-    _weatherData = {'temp': '24°C', 'condition': 'Sunny'};
+    // Load real location and weather data
+    try {
+      final locationService = LocationService();
+      final position = await locationService.getCurrentLocation();
+      
+      if (position != null) {
+        _currentLocationName = 'Lat: ${position.latitude.toStringAsFixed(2)}, Lng: ${position.longitude.toStringAsFixed(2)}';
+        
+        final weatherService = WeatherService();
+        final weatherInfo = await weatherService.getCurrentWeather(
+          latitude: position.latitude,
+          longitude: position.longitude,
+        );
+        _weatherData = {
+          'temp': '${weatherInfo.temperature.round()}°C',
+          'condition': weatherInfo.condition,
+          'emoji': weatherInfo.emoji,
+          'description': weatherInfo.description,
+        };
+      } else {
+        throw Exception('Location not available');
+      }
+    } catch (e) {
+      print('Location/Weather loading failed: $e');
+      _currentLocationName = 'Location unavailable';
+      _weatherData = {'temp': 'Weather unavailable', 'condition': 'Unknown'};
+    }
     _userStats = {'trips': 5, 'places': 23, 'badges': 12};
 
     _isLoadingRealData = false;

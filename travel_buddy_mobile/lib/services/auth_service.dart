@@ -159,13 +159,21 @@ class AuthService {
 
   Future<CurrentUser?> _createOrUpdateUser(User firebaseUser, {bool isNewUser = false}) async {
     try {
+      print('👤 [AUTH] Creating user from Firebase:');
+      print('👤 [AUTH] Display Name: ${firebaseUser.displayName}');
+      print('👤 [AUTH] Email: ${firebaseUser.email}');
+      print('👤 [AUTH] Photo URL: ${firebaseUser.photoURL}');
+      print('👤 [AUTH] Provider Data: ${firebaseUser.providerData.map((p) => '${p.providerId}: ${p.photoURL}').join(', ')}');
+      
       // Create user data for backend
       final userData = {
         'firebaseUid': firebaseUser.uid,
         'username': firebaseUser.displayName ?? firebaseUser.email?.split('@')[0] ?? 'User',
         'email': firebaseUser.email,
-        'profilePicture': firebaseUser.photoURL,
+        'profilePicture': firebaseUser.photoURL ?? 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150',
       };
+      
+      print('👤 [AUTH] User data for backend: $userData');
 
       // Try to create/update user in backend (with timeout)
       CurrentUser? backendUser;

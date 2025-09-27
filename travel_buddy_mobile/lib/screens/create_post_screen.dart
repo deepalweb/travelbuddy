@@ -341,7 +341,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                 style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
               ),
               const Spacer(),
-              if (_selectedImages.length < 5)
+              if (_selectedImages.length < 2)
                 ElevatedButton.icon(
                   onPressed: _pickImages,
                   icon: const Icon(Icons.add, size: 18),
@@ -364,9 +364,9 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
               height: 120,
               child: ListView.builder(
                 scrollDirection: Axis.horizontal,
-                itemCount: _selectedImages.length + (_selectedImages.length < 5 ? 1 : 0),
+                itemCount: _selectedImages.length + (_selectedImages.length < 2 ? 1 : 0),
                 itemBuilder: (context, index) {
-                  if (index == _selectedImages.length) {
+                  if (index == _selectedImages.length && _selectedImages.length < 2) {
                     return Container(
                       width: 120,
                       margin: const EdgeInsets.only(right: 8),
@@ -453,7 +453,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                       style: TextStyle(color: Colors.grey[600], fontSize: 14),
                     ),
                     Text(
-                      'Up to 5 photos',
+                      'Up to 2 photos',
                       style: TextStyle(color: Colors.grey[500], fontSize: 12),
                     ),
                   ],
@@ -800,7 +800,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
   }
 
   Future<void> _pickImages() async {
-    final images = await _imageService.pickImages(maxImages: 5);
+    final images = await _imageService.pickImages(maxImages: 2);
     setState(() {
       _selectedImages = images;
     });
@@ -851,6 +851,11 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
       imageUrls = await _imageService.uploadImages(_selectedImages);
     }
 
+    print('🚀 [CREATE] Starting post creation...');
+    print('🚀 [CREATE] Content: ${_contentController.text.trim()}');
+    print('🚀 [CREATE] Location: ${_locationController.text.trim()}');
+    print('🚀 [CREATE] Images: ${imageUrls.length}');
+    
     final success = await context.read<CommunityProvider>().createPost(
       content: _contentController.text.trim(),
       location: _locationController.text.trim(),
@@ -859,13 +864,19 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
       hashtags: _hashtags,
       allowComments: _allowComments,
       visibility: _visibility,
+      context: context,
     );
+    
+    print('🚀 [CREATE] Post creation result: $success');
 
     setState(() {
       _isPosting = false;
     });
 
+    print('🚀 [CREATE] Final success result: $success');
+    
     if (success) {
+      print('✅ [CREATE] Post created successfully - navigating back');
       Navigator.of(context).pop(true); // Return true to indicate success
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -874,6 +885,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
         ),
       );
     } else {
+      print('❌ [CREATE] Post creation failed - showing error');
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Failed to create post. Please try again.'),

@@ -111,12 +111,13 @@ class CommunityQuickActions extends StatelessWidget {
     );
   }
 
-  void _navigateToCreatePost(BuildContext context, String postType) {
-    Navigator.of(context).push(
+  void _navigateToCreatePost(BuildContext context, String postType) async {
+    await Navigator.of(context).push(
       MaterialPageRoute(
         builder: (context) => CreatePostScreen(initialPostType: postType),
       ),
     );
+    // Post already added optimistically, no refresh needed
   }
 }
 

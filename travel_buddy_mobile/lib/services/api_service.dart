@@ -21,15 +21,16 @@ class ApiService {
   
   final Dio _dio = Dio(BaseOptions(
     baseUrl: Environment.backendUrl,
-    connectTimeout: const Duration(seconds: 30),
-    receiveTimeout: const Duration(seconds: 30),
+    connectTimeout: const Duration(seconds: 8), // Faster timeout
+    receiveTimeout: const Duration(seconds: 12), // Faster timeout
+    sendTimeout: const Duration(seconds: 10),
     headers: {
       'Content-Type': 'application/json',
       'Accept': 'application/json',
     },
   ))..interceptors.add(LogInterceptor(
-    requestBody: true,
-    responseBody: true,
+    requestBody: false, // Reduce logging for performance
+    responseBody: false,
     logPrint: (obj) => print(obj),
   ));
 
@@ -553,8 +554,26 @@ class ApiService {
     String? username,
   }) async {
     try {
+      // Try to use MongoDB ID from user, fallback to default ObjectId
+      String mongoUserId = '507f1f77bcf86cd799439011'; // Default ObjectId
+      
+      if (userId != null) {
+        if (userId.length == 24) {
+          // Already a valid MongoDB ObjectId
+          mongoUserId = userId;
+        } else {
+          // Firebase UID - use a consistent mapping or let backend handle it
+          print('🔄 Converting Firebase UID to MongoDB format: $userId');
+          // For now, use default ObjectId - backend should handle user creation/mapping
+          mongoUserId = '507f1f77bcf86cd799439011';
+        }
+      }
+      
+      print('🆔 Using MongoDB userId: $mongoUserId');
+      
       final requestData = {
-        'userId': userId ?? '507f1f77bcf86cd799439011',
+        'userId': mongoUserId,
+        'firebaseUid': userId, // Include original Firebase UID for backend mapping
         'content': {
           'text': content,
           'images': images,
@@ -564,6 +583,7 @@ class ApiService {
           'avatar': 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150',
           'location': location,
           'verified': false,
+          'firebaseUid': userId, // Also in author for reference
         },
         'tags': hashtags.isNotEmpty ? hashtags : [postType],
         'category': _mapPostTypeToCategory(postType),
@@ -577,17 +597,38 @@ class ApiService {
       final response = await _dio.post('/api/posts', data: requestData);
       
       if (response.statusCode == 200 || response.statusCode == 201) {
-        print('✅ Post creation API success: ${response.statusCode}');
+        print('✅ POST CREATION SUCCESS: Status ${response.statusCode}');
         final responseData = response.data;
-        print('📝 Response data: $responseData');
+        print('📝 Backend response: $responseData');
+        
+        // Check if response indicates database save
+        if (responseData is Map) {
+          final success = responseData['success'] ?? true;
+          final message = responseData['message'] ?? 'Post created';
+          final postId = responseData['postId'] ?? responseData['_id'] ?? responseData['id'];
+          
+          print('💾 Database save: $success');
+          print('📄 Message: $message');
+          print('🆔 Post ID: $postId');
+          
+          if (postId != null && postId.toString().isNotEmpty) {
+            print('🎉 CONFIRMED: POST SAVED TO DATABASE with ID: $postId');
+          } else {
+            print('⚠️ WARNING: No valid post ID returned');
+          }
+        } else {
+          print('📄 Response is not a map: ${responseData.runtimeType}');
+        }
+        
         final postData = responseData is Map ? responseData['post'] ?? responseData : responseData;
-        print('📝 Post data: $postData');
+        print('📝 Post data for conversion: $postData');
         final convertedPost = _convertBackendPostToCommunityPost(postData);
         print('✅ Converted post: ${convertedPost.id} - ${convertedPost.content}');
         return convertedPost;
       } else {
         print('❌ Post creation failed with status: ${response.statusCode}');
         print('❌ Response data: ${response.data}');
+        print('❌ POST NOT SAVED TO DATABASE');
       }
       return null;
     } catch (e) {
@@ -724,7 +765,7 @@ class ApiService {
       final response = await _dio.post('/api/posts/$postId/comments', data: {
         'content': content,
         'username': 'Mobile User',
-        'userAvatar': 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150',
+        'userAvatar': '',
         'createdAt': DateTime.now().toIso8601String(),
       });
       if (response.statusCode == 200 || response.statusCode == 201) {
@@ -735,7 +776,7 @@ class ApiService {
           postId: postId,
           userId: json['userId'] ?? 'mobile_user',
           userName: 'Mobile User',
-          userAvatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150',
+          userAvatar: '',
           content: content,
           createdAt: DateTime.now(),
         );

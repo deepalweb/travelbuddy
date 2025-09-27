@@ -1913,33 +1913,12 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
     try {
       List<Deal> deals = [];
       
-      // Try real API first
-      if (_currentLocation != null) {
-        deals = await _apiService.getNearbyDealsReal(
-          lat: _currentLocation!.latitude,
-          lng: _currentLocation!.longitude,
-          userId: _currentUser?.mongoId,
-        );
-        
-        if (deals.isNotEmpty) {
-          print('✅ Loaded ${deals.length} REAL deals from API');
-          _deals = deals;
-          
-          // Notify about new deals
-          if (SettingsService.dealAlertsEnabled) {
-            await _notificationService.showLocalNotification(
-              'Real Deals Available!',
-              '${deals.length} deals found near you',
-            );
-          }
-          return;
-        }
-      }
+      // Skip real API for now - endpoint not available
+      print('⚠️ Skipping real deals API - endpoint not implemented');
       
-      // Fallback to existing deals service
-      deals = await DealsService.getActiveDeals();
-      print('✅ Loaded ${deals.length} fallback deals');
-      _deals = deals;
+      // Skip fallback deals service too - not needed for places-based deals page
+      print('⚠️ Skipping fallback deals service - using places data instead');
+      _deals = [];
       
     } catch (e) {
       print('❌ Error loading deals: $e');

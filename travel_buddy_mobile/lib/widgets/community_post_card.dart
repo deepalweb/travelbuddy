@@ -5,6 +5,7 @@ import '../models/travel_enums.dart';
 import '../providers/community_provider.dart';
 import '../widgets/post_detail_view.dart';
 import '../screens/user_profile_screen.dart';
+import '../screens/post_comments_screen.dart';
 import 'package:share_plus/share_plus.dart';
 
 class CommunityPostCard extends StatefulWidget {
@@ -71,9 +72,14 @@ class _CommunityPostCardState extends State<CommunityPostCard> with TickerProvid
             onTap: () => _showUserProfile(context),
             child: CircleAvatar(
               radius: 20,
-              backgroundImage: NetworkImage(widget.post.userAvatar),
+              backgroundColor: Colors.grey[300],
+              backgroundImage: widget.post.userAvatar.isNotEmpty 
+                  ? NetworkImage(widget.post.userAvatar) 
+                  : null,
               onBackgroundImageError: (_, __) {},
-              child: widget.post.userAvatar.isEmpty ? const Icon(Icons.person) : null,
+              child: widget.post.userAvatar.isEmpty 
+                  ? const Icon(Icons.person, color: Colors.grey)
+                  : null,
             ),
           ),
           const SizedBox(width: 12),
@@ -211,22 +217,38 @@ class _CommunityPostCardState extends State<CommunityPostCard> with TickerProvid
           margin: const EdgeInsets.all(16),
           height: 250,
           width: double.infinity,
-          decoration: BoxDecoration(
+          child: ClipRRect(
             borderRadius: BorderRadius.circular(12),
-            image: DecorationImage(
-              image: NetworkImage(widget.post.images.first),
+            child: Image.network(
+              widget.post.images.first,
+              height: 250,
+              width: double.infinity,
               fit: BoxFit.cover,
-              onError: (_, __) {},
-            ),
-          ),
-          child: Container(
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(12),
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [Colors.transparent, Colors.black.withOpacity(0.1)],
-              ),
+              loadingBuilder: (context, child, loadingProgress) {
+                if (loadingProgress == null) return child;
+                return Container(
+                  height: 250,
+                  color: Colors.grey[300],
+                  child: const Center(child: CircularProgressIndicator()),
+                );
+              },
+              errorBuilder: (context, error, stackTrace) {
+                return Container(
+                  height: 250,
+                  color: Colors.grey[300],
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.image, color: Colors.grey[600], size: 40),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Image',
+                        style: TextStyle(color: Colors.grey[600]),
+                      ),
+                    ],
+                  ),
+                );
+              },
             ),
           ),
         ),
@@ -245,32 +267,42 @@ class _CommunityPostCardState extends State<CommunityPostCard> with TickerProvid
             child: Container(
               width: 150,
               margin: EdgeInsets.only(right: index < widget.post.images.length - 1 ? 8 : 0),
-              decoration: BoxDecoration(
+              child: ClipRRect(
                 borderRadius: BorderRadius.circular(8),
-                image: DecorationImage(
-                  image: NetworkImage(widget.post.images[index]),
+                child: Image.network(
+                  widget.post.images[index],
+                  width: 150,
+                  height: 200,
                   fit: BoxFit.cover,
-                  onError: (_, __) {},
+                  loadingBuilder: (context, child, loadingProgress) {
+                    if (loadingProgress == null) return child;
+                    return Container(
+                      width: 150,
+                      height: 200,
+                      color: Colors.grey[300],
+                      child: const Center(child: CircularProgressIndicator()),
+                    );
+                  },
+                  errorBuilder: (context, error, stackTrace) {
+                    return Container(
+                      width: 150,
+                      height: 200,
+                      color: Colors.grey[300],
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.image, color: Colors.grey[600], size: 30),
+                          const SizedBox(height: 4),
+                          Text(
+                            'Image ${index + 1}',
+                            style: TextStyle(color: Colors.grey[600], fontSize: 12),
+                          ),
+                        ],
+                      ),
+                    );
+                  },
                 ),
               ),
-              child: widget.post.images.length > 1 && index == widget.post.images.length - 1
-                  ? Container(
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(8),
-                        color: Colors.black.withOpacity(0.5),
-                      ),
-                      child: Center(
-                        child: Text(
-                          '+${widget.post.images.length - 1}',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
-                    )
-                  : null,
             ),
           );
         },
@@ -316,7 +348,7 @@ class _CommunityPostCardState extends State<CommunityPostCard> with TickerProvid
           ),
           InkWell(
             borderRadius: BorderRadius.circular(20),
-            onTap: () => _showPostDetail(context),
+            onTap: () => _showComments(context),
             child: Padding(
               padding: const EdgeInsets.all(8),
               child: Icon(Icons.comment_outlined, color: Colors.grey[600], size: 24),
@@ -414,8 +446,15 @@ class _CommunityPostCardState extends State<CommunityPostCard> with TickerProvid
         builder: (context) => UserProfileScreen(
           userId: widget.post.userId,
           userName: widget.post.userName,
-          userAvatar: widget.post.userAvatar,
         ),
+      ),
+    );
+  }
+  
+  void _showComments(BuildContext context) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => PostCommentsScreen(post: widget.post),
       ),
     );
   }
@@ -444,8 +483,21 @@ class _CommunityPostCardState extends State<CommunityPostCard> with TickerProvid
                       return const Center(child: CircularProgressIndicator());
                     },
                     errorBuilder: (context, error, stackTrace) {
-                      return const Center(
-                        child: Icon(Icons.error, color: Colors.white, size: 50),
+                      return Container(
+                        color: Colors.grey[800],
+                        child: const Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(Icons.image, color: Colors.white, size: 50),
+                              SizedBox(height: 8),
+                              Text(
+                                'Image Preview',
+                                style: TextStyle(color: Colors.white),
+                              ),
+                            ],
+                          ),
+                        ),
                       );
                     },
                   ),

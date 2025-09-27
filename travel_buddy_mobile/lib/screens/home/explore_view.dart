@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import 'home_viewmodel.dart';
 
 class ExploreView extends StatelessWidget {
   const ExploreView({super.key});
@@ -11,8 +13,8 @@ class ExploreView extends StatelessWidget {
         _buildProfileCard(),
         _buildSafetyAlert(),
         _buildQuickActions(),
-        _buildRecommendations(),
-        _buildLocalHighlights(),
+
+
         // Extra space for bottom nav
         const SliverPadding(padding: EdgeInsets.only(bottom: 80)),
       ],
@@ -92,20 +94,35 @@ class ExploreView extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text(
-                          'Good morning, Alex!',
-                          style: TextStyle(
-                            fontSize: 20,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.white,
-                          ),
+                        Consumer<HomeViewModel>(
+                          builder: (context, viewModel, child) {
+                            return Text(
+                              '${viewModel.getTimeBasedGreeting()} Alex!',
+                              style: const TextStyle(
+                                fontSize: 20,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.white,
+                              ),
+                            );
+                          },
                         ),
                         const SizedBox(height: 8),
-                        _buildInfoRow(Icons.location_on, 'San Francisco'),
-                        const SizedBox(height: 4),
-                        _buildInfoRow(Icons.wb_sunny, '68°F'),
-                        const SizedBox(height: 4),
-                        _buildInfoRow(Icons.schedule, '10:00 AM'),
+                        Consumer<HomeViewModel>(
+                          builder: (context, viewModel, child) {
+                            return Column(
+                              children: [
+                                _buildInfoRow(Icons.location_on, 'Current Location'),
+                                const SizedBox(height: 4),
+                                _buildInfoRow(
+                                  Icons.wb_sunny, 
+                                  '${viewModel.weatherData?['emoji'] ?? '☀️'} ${viewModel.weatherData?['temp'] ?? 'Loading...'}'
+                                ),
+                                const SizedBox(height: 4),
+                                _buildInfoRow(Icons.schedule, viewModel.currentTime),
+                              ],
+                            );
+                          },
+                        ),
                       ],
                     ),
                   ),
@@ -296,155 +313,7 @@ class ExploreView extends StatelessWidget {
     );
   }
 
-  Widget _buildRecommendations() {
-    return SliverToBoxAdapter(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Padding(
-            padding: EdgeInsets.fromLTRB(16, 24, 16, 12),
-            child: Text(
-              "Today's Recommendations",
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 22,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'How are you feeling?',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 16,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Wrap(
-                  spacing: 8,
-                  children: [
-                    _buildMoodButton(
-                      icon: Icons.sentiment_satisfied,
-                      label: 'Adventurous',
-                      isSelected: true,
-                    ),
-                    _buildMoodButton(
-                      icon: Icons.sentiment_neutral,
-                      label: 'Relaxed',
-                    ),
-                    _buildMoodButton(
-                      icon: Icons.sentiment_dissatisfied,
-                      label: 'Spontaneous',
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 16),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: Colors.black.withOpacity(0.2),
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: Column(
-                children: [
-                  Row(
-                    children: [
-                      const Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Smart Daily Planner',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            Text(
-                              'Ideas based on your time and energy.',
-                              style: TextStyle(
-                                color: Color(0xFF9EB7A8),
-                                fontSize: 14,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      ElevatedButton(
-                        onPressed: () {
-                          // Handle create plan
-                        },
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF38E07B),
-                          foregroundColor: Colors.black,
-                          textStyle: const TextStyle(
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        child: const Text('Create Plan'),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-                  Row(
-                    children: [
-                      Container(
-                        width: 96,
-                        height: 96,
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(12),
-                          image: const DecorationImage(
-                            image: NetworkImage(
-                              'https://lh3.googleusercontent.com/aida-public/AB6AXuA7fYG8FCayWn_BzWYqQEHsgvAt-XFoZGpXSs5BDPWjXTdp-QHcWAMkwypuUQz3fCs_ASHP-8r0wzqNCnm7rwvj10-HdkINuj-VQdG2Q5h4RtJ3IQymBE3G2DmZZqfcZjo3a8bFL-6VllpKfUtwYQTieKGtxRu-YqVHn_8K7XfX8aCuVzytQyc0_5g_LXk6UlwKwnD0LxfLftlut2qB0Fzmdm_PwhZ1dkcdaAJoNuBFsK8Q1xDSpS6zCJpgpu2oHMsNuDfiaJBHmhU',
-                            ),
-                            fit: BoxFit.cover,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 16),
-                      const Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Morning: Golden Gate Vista',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            Text(
-                              '2 hours, low energy',
-                              style: TextStyle(
-                                color: Color(0xFF9EB7A8),
-                                fontSize: 14,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+
 
   Widget _buildMoodButton({
     required IconData icon,
@@ -485,237 +354,5 @@ class ExploreView extends StatelessWidget {
     );
   }
 
-  Widget _buildLocalHighlights() {
-    return SliverToBoxAdapter(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Padding(
-            padding: EdgeInsets.fromLTRB(16, 24, 16, 12),
-            child: Text(
-              "What's Hot Locally",
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 22,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Column(
-              children: [
-                _buildHighlightCard(),
-                const SizedBox(height: 16),
-                SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: Row(
-                    children: [
-                      _buildCategoryCard(
-                        'Food & Culture',
-                        'https://lh3.googleusercontent.com/aida-public/AB6AXuCAt2z91-7hQ6Iv2Ez2LOj0_H5oODGRxU5zA5M2Ibwp166f9twYP25RiW5FHKQXvsazT3BH9cKVwM84MDpnFFcpS8ic15VWuDeBaoRKtr-Lw27NuA-QkGDKq97IoZizZi8U3jaLsNzeLudp5Y-o4yCsJNuMEHiZq8GzBu9pX3yk_9hwYSnJLlzTq5W8Pes-a6zrwpwHxZpeRk-nRcmZJ8BuFE87qlzMMcFBK1ew5qw9UEvdZU2vBK83Gj2H_FlpRMZIOG2EXVn4aIc',
-                      ),
-                      _buildCategoryCard(
-                        'Insider Tips',
-                        'https://lh3.googleusercontent.com/aida-public/AB6AXuC_Wp0JZsnPW9GS-9Jx08Oj8mWstvG3m_U9ySnGyGjkMQa0LQf5QxZg7b3-70eNf2p17ooKAHXhos7b-t2WMA6yDoBa1vvT2GngbicL1LQrLeCeyI3fqGthyTC3gy9tgCFxUxzO2ASoSy9LOQuiLOPL2_0eXreiA06uYK-hCIPjE4-MzrwpPVJr90tMy3qTZK7gywUpJUrSKcpqqCsx5lazT0w2V2zzvxI4Di9_OEAn5llnCKxIrMYaPtXj9gKkRGLSs0jURGpIOVI',
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
 
-  Widget _buildHighlightCard() {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.black.withOpacity(0.2),
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Column(
-        children: [
-          Stack(
-            children: [
-              ClipRRect(
-                borderRadius: const BorderRadius.vertical(
-                  top: Radius.circular(16),
-                ),
-                child: AspectRatio(
-                  aspectRatio: 4/3,
-                  child: Image.network(
-                    'https://lh3.googleusercontent.com/aida-public/AB6AXuDUXetume8DpVRmy0PqK0_QIlq8CGlooymYotIjN2yfvyXy-u89a_15Q-M9mM1UvelhZmlbBaJEh5HVLaobe_es5WECPm9godM_P6zbjQ5mk-DKwxrD56mDcc5myO3zbsN4wTzY-3v5Djd5d37ipMMC1QzYZ3Wts7AfujqfR1gP-L4IQVkk8E4IbTDBswP25kIR2xGhalw3VQ6jN98JoWdAeReRzPCB5EY4n4QxvUMv3eRmlBDOHv8YQ1o_p5HAuE7YODv5KPhn7Ao',
-                    fit: BoxFit.cover,
-                  ),
-                ),
-              ),
-              Positioned(
-                top: 8,
-                left: 8,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 4,
-                  ),
-                  decoration: BoxDecoration(
-                    color: Colors.black.withOpacity(0.5),
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  child: const Text(
-                    'Hidden Gem',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 12,
-                    ),
-                  ),
-                ),
-              ),
-              Positioned(
-                bottom: 0,
-                left: 0,
-                right: 0,
-                child: Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                      colors: [
-                        Colors.transparent,
-                        Colors.black.withOpacity(0.8),
-                      ],
-                    ),
-                  ),
-                  child: const Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Clarion Alley Murals',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      Text(
-                        'Vibrant street art in a hidden alley.',
-                        style: TextStyle(
-                          color: Color(0xFF9EB7A8),
-                          fontSize: 14,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ],
-          ),
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                _buildCircularButton(Icons.bookmark_border),
-                const SizedBox(width: 8),
-                _buildCircularButton(Icons.share),
-                const SizedBox(width: 8),
-                ElevatedButton(
-                  onPressed: () {
-                    // Handle explore
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF38E07B),
-                    foregroundColor: Colors.black,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 24,
-                      vertical: 12,
-                    ),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(24),
-                    ),
-                    textStyle: const TextStyle(
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  child: const Text('Explore'),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildCircularButton(IconData icon) {
-    return Container(
-      width: 40,
-      height: 40,
-      decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.1),
-        shape: BoxShape.circle,
-      ),
-      child: IconButton(
-        icon: Icon(icon),
-        color: Colors.white,
-        onPressed: () {
-          // Handle button press
-        },
-      ),
-    );
-  }
-
-  Widget _buildCategoryCard(String title, String imageUrl) {
-    return Container(
-      width: 192,
-      margin: const EdgeInsets.only(right: 16),
-      child: AspectRatio(
-        aspectRatio: 1,
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            ClipRRect(
-              borderRadius: BorderRadius.circular(12),
-              child: Image.network(
-                imageUrl,
-                fit: BoxFit.cover,
-              ),
-            ),
-            Positioned(
-              bottom: 0,
-              left: 0,
-              right: 0,
-              child: Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [
-                      Colors.transparent,
-                      Colors.black.withOpacity(0.8),
-                    ],
-                  ),
-                  borderRadius: const BorderRadius.vertical(
-                    bottom: Radius.circular(12),
-                  ),
-                ),
-                child: Text(
-                  title,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 }

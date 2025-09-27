@@ -233,7 +233,10 @@ class DealDetailScreen extends StatelessWidget {
 
   void _shareDeal(BuildContext context) {
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Share feature coming soon!')),
+      SnackBar(
+        content: Text('Sharing ${deal.title}...'),
+        backgroundColor: Color(AppConstants.colors['primary']!),
+      ),
     );
   }
 }

@@ -82,9 +82,9 @@ class CommunityInsightsWidget extends StatelessWidget {
 
   Widget _buildPopularDestinations() {
     final destinations = [
-      {'name': 'Bali, Indonesia', 'posts': 456, 'image': 'https://images.unsplash.com/photo-1537953773345-d172ccf13cf1?w=100'},
-      {'name': 'Tokyo, Japan', 'posts': 389, 'image': 'https://images.unsplash.com/photo-1540959733332-eab4deabeeaf?w=100'},
-      {'name': 'Paris, France', 'posts': 334, 'image': 'https://images.unsplash.com/photo-1502602898536-47ad22581b52?w=100'},
+      {'name': 'Bali, Indonesia', 'posts': 456, 'image': ''},
+      {'name': 'Tokyo, Japan', 'posts': 389, 'image': ''},
+      {'name': 'Paris, France', 'posts': 334, 'image': ''},
     ];
 
     return Card(
@@ -110,22 +110,14 @@ class CommunityInsightsWidget extends StatelessWidget {
               padding: const EdgeInsets.symmetric(vertical: 6),
               child: Row(
                 children: [
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(8),
-                    child: Image.network(
-                      destination['image'] as String,
-                      width: 40,
-                      height: 40,
-                      fit: BoxFit.cover,
-                      errorBuilder: (context, error, stackTrace) {
-                        return Container(
-                          width: 40,
-                          height: 40,
-                          color: Colors.grey[300],
-                          child: const Icon(Icons.place, color: Colors.grey),
-                        );
-                      },
+                  Container(
+                    width: 40,
+                    height: 40,
+                    decoration: BoxDecoration(
+                      color: Colors.grey[300],
+                      borderRadius: BorderRadius.circular(8),
                     ),
+                    child: const Icon(Icons.place, color: Colors.grey),
                   ),
                   const SizedBox(width: 12),
                   Expanded(

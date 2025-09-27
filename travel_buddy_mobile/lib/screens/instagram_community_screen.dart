@@ -1,4 +1,3 @@
-import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/app_provider.dart';
@@ -7,31 +6,19 @@ import '../widgets/instagram_post_card.dart';
 import '../widgets/instagram_stories.dart';
 import 'create_post_screen.dart';
 
-class CommunityScreen extends StatefulWidget {
-  const CommunityScreen({super.key});
+class InstagramCommunityScreen extends StatefulWidget {
+  const InstagramCommunityScreen({super.key});
 
   @override
-  State<CommunityScreen> createState() => _CommunityScreenState();
+  State<InstagramCommunityScreen> createState() => _InstagramCommunityScreenState();
 }
 
-class _CommunityScreenState extends State<CommunityScreen> {
+class _InstagramCommunityScreenState extends State<InstagramCommunityScreen> {
   @override
   void initState() {
     super.initState();
-    print('🚀 [INSTAGRAM] Initializing community screen');
-    
-    final provider = context.read<CommunityProvider>();
-    
-    // Load local posts immediately (instant)
-    provider.loadLocalPosts();
-    print('💾 [INSTAGRAM] Loading local posts instantly');
-    
-    // Sync with backend after 1 second delay
-    Timer(Duration(seconds: 1), () {
-      if (mounted) {
-        print('🌐 [INSTAGRAM] Starting background sync');
-        provider.syncWithBackend();
-      }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.read<CommunityProvider>().loadPosts(refresh: true);
     });
   }
 
@@ -39,12 +26,12 @@ class _CommunityScreenState extends State<CommunityScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
-      appBar: _buildInstagramAppBar(),
-      body: _buildInstagramBody(),
+      appBar: _buildAppBar(),
+      body: _buildBody(),
     );
   }
 
-  PreferredSizeWidget _buildInstagramAppBar() {
+  PreferredSizeWidget _buildAppBar() {
     return AppBar(
       backgroundColor: Colors.white,
       elevation: 0,
@@ -54,6 +41,7 @@ class _CommunityScreenState extends State<CommunityScreen> {
           color: Colors.black,
           fontSize: 24,
           fontWeight: FontWeight.w600,
+          fontFamily: 'Billabong',
         ),
       ),
       actions: [
@@ -62,14 +50,8 @@ class _CommunityScreenState extends State<CommunityScreen> {
           onPressed: () {},
         ),
         IconButton(
-          icon: const Icon(Icons.add_box_outlined, color: Colors.black, size: 26),
-          onPressed: () async {
-            await Navigator.of(context).push(
-              MaterialPageRoute(
-                builder: (context) => const CreatePostScreen(),
-              ),
-            );
-          },
+          icon: const Icon(Icons.send_outlined, color: Colors.black, size: 26),
+          onPressed: () {},
         ),
       ],
       bottom: PreferredSize(
@@ -82,24 +64,9 @@ class _CommunityScreenState extends State<CommunityScreen> {
     );
   }
 
-  Widget _buildInstagramBody() {
+  Widget _buildBody() {
     return Consumer2<AppProvider, CommunityProvider>(
       builder: (context, appProvider, communityProvider, child) {
-        print('📺 [FEED] Building Instagram body');
-        print('📺 [FEED] Posts count: ${communityProvider.posts.length}');
-        print('📺 [FEED] Is loading: ${communityProvider.isLoading}');
-        print('📺 [FEED] Error: ${communityProvider.error}');
-        print('📺 [FEED] User authenticated: ${appProvider.isAuthenticated}');
-        
-        if (communityProvider.posts.isNotEmpty) {
-          print('📺 [FEED] First post content: "${communityProvider.posts.first.content}"');
-          print('📺 [FEED] First post ID: ${communityProvider.posts.first.id}');
-          print('📺 [FEED] First post user: ${communityProvider.posts.first.userName}');
-          print('📺 [FEED] First post avatar: ${communityProvider.posts.first.userAvatar}');
-        } else {
-          print('📺 [FEED] No posts to display');
-        }
-        
         if (!appProvider.isAuthenticated) {
           return _buildUnauthenticatedView();
         }

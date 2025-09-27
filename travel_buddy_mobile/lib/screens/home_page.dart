@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'home/explore_view.dart';
+import 'home/home_viewmodel.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -15,7 +17,10 @@ class _HomePageState extends State<HomePage> {
     _NavigationItem(
       icon: Icons.home,
       label: 'Home',
-      view: const ExploreView(),
+      view: ChangeNotifierProvider(
+        create: (_) => HomeViewModel(),
+        child: const ExploreView(),
+      ),
     ),
     _NavigationItem(
       icon: Icons.search,
