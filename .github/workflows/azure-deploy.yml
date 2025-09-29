@@ -17,25 +17,21 @@ jobs:
     - name: Setup Node.js
       uses: actions/setup-node@v4
       with:
-        node-version: '18'
+        node-version: '20'
         cache: 'npm'
         cache-dependency-path: backend/package-lock.json
         
     - name: Install dependencies
       run: |
         cd backend
-        npm ci --production
+        npm ci
         
     - name: Create deployment package
       run: |
         cd backend
-        # Remove development files
+        # Remove only cache files
         rm -rf node_modules/.cache
-        rm -rf .env
         rm -rf ssl/*.pem
-        # Remove custom deployment files (let Azure handle it)
-        rm -f .deployment
-        rm -f deploy.cmd
         
     - name: Deploy to Azure Web App
       uses: azure/webapps-deploy@v2
