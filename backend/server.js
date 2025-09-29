@@ -644,121 +644,14 @@ try {
   console.error('❌ Failed to load subscription routes:', error);
 }
 
-// Direct AI endpoint for trip planning
-app.post('/api/ai/generate-text', async (req, res) => {
-  const startTime = Date.now();
-  
-  try {
-    const { prompt } = req.body;
-    
-    if (!prompt) {
-      return res.status(400).json({ error: 'Prompt is required' });
-    }
-
-    console.log('🤖 Gemini API request:', prompt.substring(0, 100) + '...');
-    console.log('🔑 GEMINI_API_KEY exists:', !!process.env.GEMINI_API_KEY);
-    console.log('🔑 GEMINI_API_KEY length:', process.env.GEMINI_API_KEY?.length || 0);
-
-    if (!process.env.GEMINI_API_KEY) {
-      throw new Error('GEMINI_API_KEY not configured');
-    }
-
-    // Get Gemini model
-    const model = genAI.getGenerativeModel({ model: "gemini-pro" });
-    console.log('📱 Model created successfully');
-    
-    // Generate content
-    console.log('🚀 Calling Gemini API...');
-    const result = await model.generateContent(prompt);
-    console.log('📥 Got result from Gemini');
-    
-    const response = await result.response;
-    console.log('📄 Got response object');
-    
-    const text = response.text();
-    console.log('✅ Gemini response length:', text.length);
-    console.log('✅ Gemini response preview:', text.substring(0, 200) + '...');
-
-    // Try to extract JSON from response
-    let jsonData = null;
-    try {
-      const jsonMatch = text.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
-        jsonData = JSON.parse(jsonMatch[0]);
-      }
-    } catch (e) {
-      console.warn('⚠️ JSON parsing failed:', e.message);
-    }
-
-    res.json({
-      text: text,
-      itinerary: jsonData,
-      model: 'gemini-pro',
-      processingTime: Date.now() - startTime
-    });
-
-  } catch (error) {
-    console.error('❌ Gemini AI error details:');
-    console.error('Error name:', error.name);
-    console.error('Error message:', error.message);
-    console.error('Error stack:', error.stack);
-    console.error('Full error object:', JSON.stringify(error, null, 2));
-    
-    // Return fallback data instead of error
-    const fallbackData = {
-      text: `{
-  "activities": [
-    {
-      "name": "Explore City Center",
-      "type": "landmark",
-      "startTime": "09:00",
-      "endTime": "11:00",
-      "description": "Discover the main attractions and historic sites.",
-      "cost": "Free",
-      "tips": ["Start early", "Bring comfortable shoes"]
-    },
-    {
-      "name": "Local Restaurant",
-      "type": "restaurant",
-      "startTime": "12:30",
-      "endTime": "14:00",
-      "description": "Try authentic local cuisine.",
-      "cost": "$20-30",
-      "tips": ["Ask for recommendations", "Try local specialties"]
-    }
-  ]
-}`,
-      itinerary: {
-        activities: [
-          {
-            name: "Explore City Center",
-            type: "landmark",
-            startTime: "09:00",
-            endTime: "11:00",
-            description: "Discover the main attractions and historic sites.",
-            cost: "Free",
-            tips: ["Start early", "Bring comfortable shoes"]
-          },
-          {
-            name: "Local Restaurant",
-            type: "restaurant",
-            startTime: "12:30",
-            endTime: "14:00",
-            description: "Try authentic local cuisine.",
-            cost: "$20-30",
-            tips: ["Ask for recommendations", "Try local specialties"]
-          }
-        ]
-      },
-      model: 'fallback',
-      processingTime: Date.now() - startTime,
-      fallback: true,
-      originalError: error.message
-    };
-    
-    res.json(fallbackData);
-  }
-});
+// Load Azure OpenAI routes
+try {
+  const aiRouter = (await import('./routes/ai.js')).default;
+  app.use('/api/ai', aiRouter);
+  console.log('✅ Azure OpenAI routes loaded');
+} catch (error) {
+  console.error('❌ Failed to load Azure OpenAI routes:', error);
+}
 
 // Payment routes (Stripe scaffold) - mount only when explicitly enabled to allow
 // running the app without the `stripe` package or Stripe env vars.
