@@ -1,10 +1,13 @@
 import express from 'express';
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import fetch from 'node-fetch';
 
 const router = express.Router();
 
-// Initialize Gemini AI
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+// Azure OpenAI Configuration
+const AZURE_OPENAI_ENDPOINT = process.env.AZURE_OPENAI_ENDPOINT;
+const AZURE_OPENAI_API_KEY = process.env.AZURE_OPENAI_API_KEY;
+const AZURE_OPENAI_DEPLOYMENT_NAME = process.env.AZURE_OPENAI_DEPLOYMENT_NAME;
+const AZURE_API_VERSION = '2025-01-01-preview';
 
 // Generate text endpoint for trip planning
 router.post('/generate-text', async (req, res) => {
@@ -17,17 +20,45 @@ router.post('/generate-text', async (req, res) => {
       return res.status(400).json({ error: 'Prompt is required' });
     }
 
-    console.log('🤖 Gemini API request:', prompt.substring(0, 100) + '...');
+    console.log('🤖 Azure AI request:', prompt.substring(0, 100) + '...');
 
-    // Get Gemini model
-    const model = genAI.getGenerativeModel({ model: "gemini-pro" });
+    // Call Azure OpenAI
+    const response = await fetch(
+      `${AZURE_OPENAI_ENDPOINT}/openai/deployments/${AZURE_OPENAI_DEPLOYMENT_NAME}/chat/completions?api-version=${AZURE_API_VERSION}`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'api-key': AZURE_OPENAI_API_KEY,
+        },
+        body: JSON.stringify({
+          messages: [
+            {
+              role: 'system',
+              content: 'You are a travel planning expert. Always respond with valid JSON only.'
+            },
+            {
+              role: 'user',
+              content: prompt
+            }
+          ],
+          max_tokens: 2000,
+          temperature: 0.7,
+          top_p: 0.95,
+          frequency_penalty: 0,
+          presence_penalty: 0
+        })
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error(`Azure AI API failed: ${response.status}`);
+    }
+
+    const data = await response.json();
+    const text = data.choices[0].message.content;
     
-    // Generate content
-    const result = await model.generateContent(prompt);
-    const response = await result.response;
-    const text = response.text();
-    
-    console.log('✅ Gemini response:', text.substring(0, 200) + '...');
+    console.log('✅ Azure AI response:', text.substring(0, 200) + '...');
 
     // Try to extract JSON from response
     let jsonData = null;
@@ -43,12 +74,12 @@ router.post('/generate-text', async (req, res) => {
     res.json({
       text: text,
       itinerary: jsonData,
-      model: 'gemini-pro',
+      model: 'azure-gpt-4.1',
       processingTime: Date.now() - startTime
     });
 
   } catch (error) {
-    console.error('❌ Gemini AI error:', error);
+    console.error('❌ Azure AI error:', error);
     
     res.status(500).json({
       error: 'Failed to generate text',
