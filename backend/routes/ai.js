@@ -7,7 +7,7 @@ const router = express.Router();
 const AZURE_OPENAI_ENDPOINT = process.env.AZURE_OPENAI_ENDPOINT;
 const AZURE_OPENAI_API_KEY = process.env.AZURE_OPENAI_API_KEY;
 const AZURE_OPENAI_DEPLOYMENT_NAME = process.env.AZURE_OPENAI_DEPLOYMENT_NAME;
-const AZURE_API_VERSION = '2025-01-01-preview';
+const AZURE_API_VERSION = '2024-02-01';
 
 // Test Azure OpenAI configuration
 router.get('/test-config', (req, res) => {
