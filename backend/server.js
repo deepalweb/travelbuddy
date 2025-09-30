@@ -628,33 +628,31 @@ app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 // Serve static files from dist directory
 const staticPath = path.join(__dirname, '../dist');
-const altStaticPath = path.join(process.cwd(), 'dist');
 const wwwrootPath = path.join('/home/site/wwwroot/dist');
-const sitePath = path.join('/home/site/dist');
-
-console.log('Static files path (relative to backend):', staticPath);
-console.log('Static files path (from cwd):', altStaticPath);
-console.log('Static files path (wwwroot):', wwwrootPath);
-console.log('Static files path (site):', sitePath);
-console.log('Static path exists:', existsSync(staticPath));
-console.log('Alt static path exists:', existsSync(altStaticPath));
-console.log('Wwwroot path exists:', existsSync(wwwrootPath));
-console.log('Site path exists:', existsSync(sitePath));
 
 // Use the path that exists, prioritizing Azure paths
 let finalStaticPath;
 if (existsSync(wwwrootPath)) {
   finalStaticPath = wwwrootPath;
-} else if (existsSync(sitePath)) {
-  finalStaticPath = sitePath;
 } else if (existsSync(staticPath)) {
   finalStaticPath = staticPath;
 } else {
-  finalStaticPath = altStaticPath;
+  finalStaticPath = path.join(process.cwd(), 'dist');
 }
 
 console.log('Using static path:', finalStaticPath);
-app.use(express.static(finalStaticPath));
+app.use(express.static(finalStaticPath, {
+  maxAge: '1d',
+  etag: false
+}));
+
+// Serve static files from multiple possible locations
+if (existsSync(path.join(process.cwd(), 'dist'))) {
+  app.use(express.static(path.join(process.cwd(), 'dist')));
+}
+if (existsSync('/home/site/wwwroot/dist')) {
+  app.use(express.static('/home/site/wwwroot/dist'));
+}
 
 // Load subscription and payment routes early
 try {
