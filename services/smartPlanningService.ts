@@ -1,6 +1,4 @@
-import { GoogleGenAI } from "@google/genai";
 import { TripPlanSuggestion, DailyTripPlan, Activity } from '../types';
-import { GEMINI_MODEL_TEXT } from '../constants';
 
 interface WeatherContext {
   condition: string;
@@ -17,10 +15,18 @@ interface RouteOptimization {
 
 class SmartPlanningService {
   private static instance: SmartPlanningService;
-  private ai: GoogleGenAI;
+  private config: {
+    endpoint: string;
+    apiKey: string;
+    deploymentName: string;
+  };
 
   private constructor() {
-    this.ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    this.config = {
+      endpoint: import.meta.env.VITE_AZURE_OPENAI_ENDPOINT || process.env.AZURE_OPENAI_ENDPOINT || '',
+      apiKey: import.meta.env.VITE_AZURE_OPENAI_API_KEY || process.env.AZURE_OPENAI_API_KEY || '',
+      deploymentName: import.meta.env.VITE_AZURE_OPENAI_DEPLOYMENT_NAME || process.env.AZURE_OPENAI_DEPLOYMENT_NAME || 'gpt-4'
+    };
   }
 
   static getInstance(): SmartPlanningService {
@@ -30,14 +36,39 @@ class SmartPlanningService {
     return SmartPlanningService.instance;
   }
 
+  private async makeAzureRequest(prompt: string): Promise<string> {
+    const url = `${this.config.endpoint}/openai/deployments/${this.config.deploymentName}/chat/completions?api-version=2024-02-15-preview`;
+    
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'api-key': this.config.apiKey
+      },
+      body: JSON.stringify({
+        messages: [
+          { role: 'system', content: 'You are an expert travel planner. Always respond with valid JSON only.' },
+          { role: 'user', content: prompt }
+        ],
+        max_tokens: 2000,
+        temperature: 0.7
+      })
+    });
+
+    if (!response.ok) {
+      throw new Error(`Azure OpenAI API error: ${response.status} ${response.statusText}`);
+    }
+
+    const data = await response.json();
+    return data.choices[0]?.message?.content || '';
+  }
+
   // Dynamic weather-based plan adjustments
   async adaptPlanForWeather(
     originalPlan: TripPlanSuggestion, 
     weather: WeatherContext
   ): Promise<TripPlanSuggestion> {
     try {
-      const model = this.ai.getGenerativeModel({ model: GEMINI_MODEL_TEXT });
-      
       const prompt = `Adapt this trip plan for ${weather.condition} weather (${weather.temperature}°C):
 
 Original Plan: ${JSON.stringify(originalPlan.dailyPlans)}
@@ -52,8 +83,8 @@ Rules:
 
 Return JSON with adapted dailyPlans array only.`;
 
-      const result = await model.generateContent(prompt);
-      const adaptedPlans = JSON.parse(result.response.text());
+      const result = await this.makeAzureRequest(prompt);
+      const adaptedPlans = JSON.parse(result);
       
       return {
         ...originalPlan,
@@ -73,8 +104,6 @@ Return JSON with adapted dailyPlans array only.`;
     weather: string
   ): Promise<Activity[]> {
     try {
-      const model = this.ai.getGenerativeModel({ model: GEMINI_MODEL_TEXT });
-      
       const prompt = `Generate 3 alternative activities for:
 Original: ${originalActivity.activityTitle} - ${originalActivity.description}
 Location: ${location}
@@ -91,8 +120,8 @@ Requirements:
 
 Return JSON array: [{"activityTitle": "", "description": "", "icon": "", "timeOfDay": "", "estimatedDuration": "", "budgetImpact": 0}]`;
 
-      const result = await model.generateContent(prompt);
-      const alternatives = JSON.parse(result.response.text());
+      const result = await this.makeAzureRequest(prompt);
+      const alternatives = JSON.parse(result);
       
       return alternatives.map((alt: any) => ({
         ...originalActivity,
@@ -141,8 +170,6 @@ Return JSON array: [{"activityTitle": "", "description": "", "icon": "", "timeOf
     if (currentSpend <= targetBudget) return plan;
 
     try {
-      const model = this.ai.getGenerativeModel({ model: GEMINI_MODEL_TEXT });
-      
       const prompt = `Adjust this trip plan to fit budget of $${targetBudget} (currently $${currentSpend}):
 
 ${JSON.stringify(plan.dailyPlans)}
@@ -155,8 +182,8 @@ Strategies:
 
 Return JSON with adjusted dailyPlans array.`;
 
-      const result = await model.generateContent(prompt);
-      const adjustedPlans = JSON.parse(result.response.text());
+      const result = await this.makeAzureRequest(prompt);
+      const adjustedPlans = JSON.parse(result);
       
       return {
         ...plan,

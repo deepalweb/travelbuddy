@@ -23,7 +23,7 @@ interface ProfileViewProps {
   favoritePlaces: Place[];
   savedTripPlans: TripPlanSuggestion[];
   onViewSavedTripPlan: (plan: TripPlanSuggestion) => void;
-  onDeleteSavedTripPlan: (planId: string) => void;
+  onDeleteSavedTripPlan: (planId: string) => Promise<void>;
   onShareTripPlanToCommunity: (plan: TripPlanSuggestion) => void;
   onProfilePictureUpload?: (imageDataUrl: string) => Promise<void>;
   onOpenProfilePictureModal?: () => void;
@@ -190,6 +190,8 @@ const ProfileView: React.FC<ProfileViewProps> = ({
                     <TripsTabContent
                         savedTripPlans={savedTripPlans}
                         onViewSavedTripPlan={onViewSavedTripPlan}
+                        onDeleteSavedTripPlan={onDeleteSavedTripPlan}
+                        onShareTripPlan={onShareTripPlanToCommunity}
                     />
                 );
             case 'merchant':
@@ -417,36 +419,87 @@ const FavoritesTabContent: React.FC<FavoritesTabProps> = ({ favoritePlaces, onSe
     );
 };
 
-interface TripsTabProps { savedTripPlans: TripPlanSuggestion[]; onViewSavedTripPlan: (plan: TripPlanSuggestion) => void }
-const TripsTabContent: React.FC<TripsTabProps> = ({ savedTripPlans, onViewSavedTripPlan }) => {
+interface TripsTabProps { 
+  savedTripPlans: TripPlanSuggestion[]; 
+  onViewSavedTripPlan: (plan: TripPlanSuggestion) => void;
+  onDeleteSavedTripPlan?: (planId: string) => Promise<void>;
+  onShareTripPlan?: (plan: TripPlanSuggestion) => void;
+}
+const TripsTabContent: React.FC<TripsTabProps> = ({ savedTripPlans, onViewSavedTripPlan, onDeleteSavedTripPlan, onShareTripPlan }) => {
     const { t } = useLanguage();
-    const getStatusStyle = (status: string) => {
-        switch(status){
-            case 'upcoming': return {backgroundColor: `var(--color-accent-info)20`, color: 'var(--color-accent-info)'};
-            case 'completed': return {backgroundColor: `var(--color-accent-success)20`, color: 'var(--color-accent-success)'};
-            default: return {backgroundColor: `var(--color-accent-warning)20`, color: 'var(--color-accent-warning)'};
-        }
-    };
+    
+    if (savedTripPlans.length === 0) {
+        return (
+            <Card title={t('profileView.trips.title')} icon={<Calendar />}>
+                <div className="text-center py-8">
+                    <Calendar size={48} className="mx-auto mb-4 opacity-30" />
+                    <p className="text-lg font-medium mb-2">No trip plans yet</p>
+                    <p className="text-sm opacity-70">Create your first trip plan to get started!</p>
+                </div>
+            </Card>
+        );
+    }
+    
     return (
         <Card title={t('profileView.trips.title')} icon={<Calendar />}>
             <div className="space-y-4">
                 {savedTripPlans.map(plan => (
-                     <div key={plan.id} className="p-3 rounded-lg flex flex-col md:flex-row items-start md:items-center gap-4" style={{backgroundColor: 'var(--color-input-bg)'}}>
-                        <img src={plan.dailyPlans[0]?.photoUrl || '/images/placeholder.svg'} alt={plan.destination} className="w-full md:w-32 h-20 object-cover rounded-md" onError={(e) => { (e.target as HTMLImageElement).src = '/images/placeholder.svg'; }}/>
-                        <div className="flex-grow">
-                            <h4 className="font-semibold">{plan.tripTitle}</h4>
-                            <p className="text-xs" style={{color: 'var(--color-text-secondary)'}}>{plan.duration} to {plan.destination}</p>
-                            <div className="flex items-center gap-2 mt-1">
-                                <span className="px-2 py-0.5 text-xs rounded-full font-semibold" style={getStatusStyle('upcoming')}>Upcoming</span>
-                                <span className="px-2 py-0.5 text-xs rounded-full" style={{backgroundColor: 'var(--color-input-bg)'}}>{plan.duration}</span>
+                    <div key={plan.id} className="p-4 rounded-lg border hover:shadow-md transition-shadow" style={{backgroundColor: 'var(--color-input-bg)', borderColor: 'var(--color-glass-border)'}}>
+                        <div className="flex items-start gap-4">
+                            <img 
+                                src={plan.dailyPlans?.[0]?.photoUrl || '/images/placeholder.svg'} 
+                                alt={plan.destination} 
+                                className="w-20 h-20 object-cover rounded-md" 
+                                onError={(e) => { (e.target as HTMLImageElement).src = '/images/placeholder.svg'; }}
+                            />
+                            <div className="flex-1">
+                                <h4 className="font-bold text-lg" style={{color: 'var(--color-text-primary)'}}>{plan.tripTitle}</h4>
+                                <p className="text-sm mb-2" style={{color: 'var(--color-text-secondary)'}}>{plan.duration} to {plan.destination}</p>
+                                
+                                <div className="flex items-center gap-3 text-xs mb-2" style={{color: 'var(--color-text-secondary)'}}>
+                                    <span>📅 {plan.dailyPlans?.length || 1} days</span>
+                                    <span>📍 {plan.destination}</span>
+                                    {plan.createdAt && <span>🕒 Created {new Date(plan.createdAt).toLocaleDateString()}</span>}
+                                </div>
+                                
+                                {plan.introduction && (
+                                    <p className="text-sm line-clamp-2" style={{color: 'var(--color-text-secondary)'}}>
+                                        {plan.introduction}
+                                    </p>
+                                )}
                             </div>
                         </div>
-                        <div className="flex gap-2 self-start md:self-center">
-                            <button onClick={() => onViewSavedTripPlan(plan)} className="p-2 btn-secondary"><Edit3 size={16}/></button>
-                            <button className="p-2 btn-secondary"><Share size={16}/></button>
-                            <button className="p-2 btn-secondary"><Download size={16}/></button>
+                        
+                        <div className="flex gap-2 mt-4">
+                            <button 
+                                onClick={() => onViewSavedTripPlan(plan)} 
+                                className="flex-1 bg-blue-500 text-white px-3 py-2 rounded text-sm font-medium hover:bg-blue-600 transition-colors"
+                            >
+                                View Plan
+                            </button>
+                            {onShareTripPlan && (
+                                <button 
+                                    onClick={() => onShareTripPlan(plan)}
+                                    className="px-3 py-2 border text-sm rounded hover:bg-gray-50 transition-colors" 
+                                    style={{borderColor: 'var(--color-glass-border)', color: 'var(--color-text-secondary)'}}
+                                >
+                                    <Share size={14} className="inline mr-1" /> Share
+                                </button>
+                            )}
+                            {onDeleteSavedTripPlan && (
+                                <button 
+                                    onClick={async () => {
+                                        if (confirm('Are you sure you want to delete this trip plan?')) {
+                                            await onDeleteSavedTripPlan(plan.id);
+                                        }
+                                    }}
+                                    className="px-3 py-2 text-red-600 hover:bg-red-50 rounded text-sm transition-colors"
+                                >
+                                    Delete
+                                </button>
+                            )}
                         </div>
-                     </div>
+                    </div>
                 ))}
             </div>
         </Card>

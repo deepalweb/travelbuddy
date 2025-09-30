@@ -266,6 +266,9 @@ export interface TripPlanSuggestion {
     phrase: string;
     translation: string;
   }[];
+  // Timestamps
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 // --- Type for Quick Tour ---
@@ -507,7 +510,7 @@ export interface ChatMessage {
 
 // App view types
 export type ActiveTab = 'forYou' | 'placeExplorer' | 'deals' | 'planner' | 'community' | 'aiAssistant' | 'profile' | 'subscription' | 'subscriptionAnalytics';
-export type PlannerView = 'hub' | 'oneDay' | 'smart';
+export type PlannerView = 'hub' | 'oneDay' | 'multiDay' | 'smart' | 'enhanced' | 'localAgency';
 
 // Smart Planner Types
 export interface Activity {

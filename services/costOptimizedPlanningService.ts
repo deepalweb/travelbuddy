@@ -1,7 +1,5 @@
 import { TripPlanSuggestion, Place } from '../types.ts';
 import { aiCache } from './aiCacheService.ts';
-import { generateContentWithRetry } from './geminiService.ts';
-import { GEMINI_MODEL_TEXT } from '../constants.ts';
 
 class CostOptimizedPlanningService {
   // Use templates for common scenarios to reduce AI calls
@@ -42,33 +40,10 @@ class CostOptimizedPlanningService {
       return templatePlan;
     }
 
-    // Fallback to AI with minimal prompt
-    const minimalPrompt = `Create 1-day plan for ${destination}. Interests: ${interests}. 
-    Return JSON: {"title":"","dailyPlans":[{"day":1,"title":"","activities":[{"timeOfDay":"Morning","activityTitle":"","description":"","estimatedDuration":"2h"}]}]}`;
-
-    try {
-      const response = await generateContentWithRetry({
-        model: GEMINI_MODEL_TEXT,
-        contents: minimalPrompt,
-        config: { responseMimeType: 'application/json' }
-      });
-
-      const plan = JSON.parse(response.text || '{}');
-      const fullPlan: TripPlanSuggestion = {
-        id: `plan_${Date.now()}`,
-        tripTitle: plan.title || `${duration} in ${destination}`,
-        destination,
-        duration,
-        introduction: `Explore ${destination} with this optimized itinerary.`,
-        dailyPlans: plan.dailyPlans || [],
-        conclusion: `Enjoy your time in ${destination}!`
-      };
-
-      aiCache.set(cacheKey, fullPlan, 'itinerary');
-      return fullPlan;
-    } catch (error) {
-      return this.getFallbackPlan(destination, duration);
-    }
+    // Fallback to template-based plan (no AI cost)
+    const fallbackPlan = this.getFallbackPlan(destination, duration);
+    aiCache.set(cacheKey, fallbackPlan, 'itinerary');
+    return fallbackPlan;
   }
 
   private static tryTemplateGeneration(

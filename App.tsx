@@ -7,7 +7,6 @@ import { GoogleGenAI, Chat } from "@google/genai";
 import { 
   fetchNearbyPlaces, 
   generateItinerary as generateItineraryService,
-  generateComprehensiveTripPlan,
   fetchPlaceRecommendations,
   generateSurpriseSuggestion,
   fetchNearbyHospitals,
@@ -19,6 +18,7 @@ import {
   fetchLocalInfo,
   generateLocalAgencyPlan
 } from './services/geminiService.ts';
+import { azureOpenAIService } from './services/azureOpenAIService.ts';
 import { fetchExchangeRates } from './services/exchangeRateService.ts';
 import Header from './components/Header.tsx';
 import ErrorDisplay from './components/ErrorDisplay.tsx';
@@ -90,7 +90,7 @@ import APIUsageMonitor from './components/APIUsageMonitor.tsx';
 import DatabaseConnectivityTest from './components/DatabaseConnectivityTest.tsx';
 import PlacesPerformanceMonitor from './components/PlacesPerformanceMonitor.tsx';
 import APIStatusChecker from './components/APIStatusChecker.tsx';
-import { recognizeLandmark, generatePersonalizedRecommendations, optimizeBudget } from './services/geminiService.ts';
+// Removed Gemini AI imports - now using Azure OpenAI
 import { enhancedTripPlanningService } from './services/enhancedTripPlanningService.ts';
 import { generatePostImages, generateUserAvatar } from './services/communityImageService.ts';
 import { apiService } from './services/apiService.ts';
@@ -176,11 +176,16 @@ const App: React.FC = () => {
   // Initialize multi-day trip plans from localStorage so "My Trips" isn't blank when backend is offline or user isn't logged in
   const [savedTripPlans, setSavedTripPlans] = useState<TripPlanSuggestion[]>(() => {
     try {
-      const stored = localStorage.getItem(LOCAL_STORAGE_SAVED_TRIP_PLANS_KEY);
-      return stored ? JSON.parse(stored) : [];
+      const { TripPlanningService } = require('./services/tripPlanningService.ts');
+      return TripPlanningService.getSavedPlans();
     } catch (e) {
-      console.warn('[App] Failed to parse saved trip plans from localStorage:', e);
-      return [];
+      console.warn('[App] Failed to load saved trip plans:', e);
+      try {
+        const stored = localStorage.getItem(LOCAL_STORAGE_SAVED_TRIP_PLANS_KEY);
+        return stored ? JSON.parse(stored) : [];
+      } catch {
+        return [];
+      }
     }
   });
 
@@ -2092,26 +2097,20 @@ const App: React.FC = () => {
     setTripPlanError(null);
     
     try {
-      const enhancedPlan = await generateComprehensiveTripPlan(
-        tripDestination,
-        tripDuration,
-        tripInterests,
-        tripPace,
-        tripTravelStyles,
-        tripBudget,
-        {
-          includePracticalInfo: true,
-          includeTransportDetails: true,
-          includeCostEstimates: true,
-          includeTiming: true,
-          includeAlternatives: true,
-          travelerProfile: getTravelerProfile(),
-          weather: localInfo?.weather || 'sunny'
-        }
-      );
+      const { TripPlanningService } = await import('./services/tripPlanningService.ts');
+      const enhancedPlan = await TripPlanningService.createTripPlan({
+        destination: tripDestination,
+        duration: tripDuration,
+        interests: tripInterests,
+        pace: tripPace,
+        travelStyles: tripTravelStyles,
+        budget: tripBudget
+      });
       setGeneratedTripPlan(enhancedPlan);
+      addToast({ message: 'Trip plan generated successfully!', type: 'success' });
     } catch (err) {
       setTripPlanError(err instanceof Error ? err.message : 'Failed to generate trip plan');
+      addToast({ message: 'Failed to generate trip plan', type: 'error' });
     } finally {
       setIsGeneratingTripPlan(false);
     }
@@ -2126,12 +2125,23 @@ const App: React.FC = () => {
   };
 
   const handleViewSavedTripPlan = (plan: TripPlanSuggestion) => {
-  setGeneratedTripPlan(plan);
+    setGeneratedTripPlan(plan);
+    // Navigate to planner tab and multiDay view to show the plan
+    setActiveTab('planner');
+    setPlannerView('multiDay');
   };
 
-  const handleDeleteSavedTripPlan = (planId: string) => {
-    setSavedTripPlans(prev => prev.filter(p => p.id !== planId));
-    addToast({ message: 'Trip plan deleted', type: 'success' });
+  const handleDeleteSavedTripPlan = async (planId: string) => {
+    try {
+      const { TripPlanningService } = await import('./services/tripPlanningService.ts');
+      await TripPlanningService.deleteTripPlan(planId, currentUser?.mongoId);
+      
+      // Update local state
+      setSavedTripPlans(TripPlanningService.getSavedPlans());
+      addToast({ message: 'Trip plan deleted successfully!', type: 'success' });
+    } catch (error) {
+      addToast({ message: 'Failed to delete trip plan', type: 'error' });
+    }
   };
 
   const handleEditTripPlan = (plan: TripPlanSuggestion) => {
@@ -2141,52 +2151,15 @@ const App: React.FC = () => {
   };
 
   const handleSaveTripPlan = async (plan: TripPlanSuggestion) => {
-    if (!savedTripPlans.some(p => p.id === plan.id)) {
-      setSavedTripPlans(prev => [...prev, plan]);
+    try {
+      const { TripPlanningService } = await import('./services/tripPlanningService.ts');
+      await TripPlanningService.saveTripPlan(plan, currentUser?.mongoId);
       
-      // Save to database if user is logged in
-      if (currentUser) {
-        try {
-          let userId = currentUser.mongoId;
-          if (!userId) {
-            const userResponse = await fetch(withApiBase(`/api/users`), {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ username: currentUser.username, email: currentUser.email })
-            });
-            if (userResponse.ok) {
-              const userData = await userResponse.json();
-              userId = userData._id;
-              setCurrentUser(prev => prev ? { ...prev, mongoId: userId } : null);
-            } else {
-              addToast({ message: 'Saved locally, but failed to sync user to cloud.', type: 'warning' });
-            }
-          }
-          
-          if (userId) {
-            const resp = await fetch(withApiBase(`/api/trips`), {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                userId: userId,
-                tripTitle: plan.tripTitle,
-                destination: plan.destination,
-                duration: plan.duration,
-                dailyPlans: plan.dailyPlans
-              })
-            });
-            if (!resp.ok) {
-              addToast({ message: 'Saved locally, but failed to sync trip to cloud.', type: 'warning' });
-            }
-          } else {
-            addToast({ message: 'Saved locally, but missing user for cloud sync.', type: 'warning' });
-          }
-        } catch (error) {
-          console.error('Error saving trip plan to database:', error);
-        }
-      }
-      
-      addToast({ message: 'Trip plan saved!', type: 'success' });
+      // Update local state
+      setSavedTripPlans(TripPlanningService.getSavedPlans());
+      addToast({ message: 'Trip plan saved successfully!', type: 'success' });
+    } catch (error) {
+      addToast({ message: 'Failed to save trip plan', type: 'error' });
     }
   };
 

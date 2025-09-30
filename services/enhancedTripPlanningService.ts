@@ -1,6 +1,4 @@
-import { GoogleGenAI } from "@google/genai";
 import { TripPlanSuggestion, DailyTripPlan, ActivityDetail, TripPace, TravelStyle, BudgetLevel } from '../types';
-import { GEMINI_MODEL_TEXT } from '../constants';
 
 interface EnhancedPlanningOptions {
   includePracticalInfo: boolean;
@@ -14,11 +12,18 @@ interface EnhancedPlanningOptions {
 
 class EnhancedTripPlanningService {
   private static instance: EnhancedTripPlanningService;
-  private ai: GoogleGenAI;
+  private config: {
+    endpoint: string;
+    apiKey: string;
+    deploymentName: string;
+  };
 
   private constructor() {
-    const apiKey = import.meta.env.VITE_GEMINI_API_KEY || process.env.API_KEY || '';
-    this.ai = new GoogleGenAI({ apiKey });
+    this.config = {
+      endpoint: import.meta.env.VITE_AZURE_OPENAI_ENDPOINT || process.env.AZURE_OPENAI_ENDPOINT || '',
+      apiKey: import.meta.env.VITE_AZURE_OPENAI_API_KEY || process.env.AZURE_OPENAI_API_KEY || '',
+      deploymentName: import.meta.env.VITE_AZURE_OPENAI_DEPLOYMENT_NAME || process.env.AZURE_OPENAI_DEPLOYMENT_NAME || 'gpt-4'
+    };
   }
 
   static getInstance(): EnhancedTripPlanningService {
@@ -39,18 +44,39 @@ class EnhancedTripPlanningService {
   ): Promise<TripPlanSuggestion> {
     try {
       const prompt = this.buildEnhancedPrompt(destination, duration, interests, pace, travelStyles, budget, options);
-      
-      const result = await this.ai.models.generateContent({
-        model: GEMINI_MODEL_TEXT,
-        contents: prompt
-      });
-      const planText = result.text || result.response?.text() || '';
-      
+      const planText = await this.makeAzureRequest(prompt);
       return this.parsePlanResponse(planText, destination, duration);
     } catch (error) {
       console.error('Enhanced trip planning failed:', error);
       throw new Error('Failed to generate enhanced trip plan');
     }
+  }
+
+  private async makeAzureRequest(prompt: string): Promise<string> {
+    const url = `${this.config.endpoint}/openai/deployments/${this.config.deploymentName}/chat/completions?api-version=2024-02-15-preview`;
+    
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'api-key': this.config.apiKey
+      },
+      body: JSON.stringify({
+        messages: [
+          { role: 'system', content: 'You are an expert travel planner. Always respond with valid JSON only.' },
+          { role: 'user', content: prompt }
+        ],
+        max_tokens: 4000,
+        temperature: 0.7
+      })
+    });
+
+    if (!response.ok) {
+      throw new Error(`Azure OpenAI API error: ${response.status} ${response.statusText}`);
+    }
+
+    const data = await response.json();
+    return data.choices[0]?.message?.content || '';
   }
 
   private buildEnhancedPrompt(

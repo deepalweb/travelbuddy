@@ -13,7 +13,7 @@ import fs from 'fs';
 import http from 'http';
 import { Server as SocketIOServer } from 'socket.io';
 import admin from 'firebase-admin';
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import OpenAI from 'openai';
 
 // In-memory cache for Places results (TTL + SWR)
 const PLACES_CACHE_TTL_MS = parseInt(process.env.BACKEND_PLACES_CACHE_TTL || '3600000', 10); // default 60m
@@ -184,7 +184,7 @@ io.on('connection', (socket) => {
 // In-memory API usage metrics store (resets on server restart)
 const usageState = {
   totals: {
-    gemini: { count: 0, success: 0, error: 0 },
+    openai: { count: 0, success: 0, error: 0 },
     maps: { count: 0, success: 0, error: 0 },
     places: { count: 0, success: 0, error: 0 },
   },
@@ -207,7 +207,7 @@ function broadcastUsageUpdate(lastEvent) {
 }
 
 function recordUsage({ api, action, status, durationMs, meta }) {
-  if (!['gemini', 'maps', 'places'].includes(api)) return;
+  if (!['openai', 'maps', 'places'].includes(api)) return;
   const id = `ev-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
   const event = { id, ts: Date.now(), api, action, status, durationMs, meta };
   usageState.events.push(event);
@@ -234,7 +234,7 @@ function recordUsage({ api, action, status, durationMs, meta }) {
 const costConfig = {
   includeErrors: String(process.env.COST_INCLUDE_ERRORS || 'false').toLowerCase() === 'true',
   rates: {
-    gemini: parseFloat(process.env.COST_RATE_GEMINI_PER_CALL_USD || '0.01'),
+    openai: parseFloat(process.env.COST_RATE_OPENAI_PER_CALL_USD || '0.002'),
     maps: parseFloat(process.env.COST_RATE_MAPS_PER_CALL_USD || '0.005'),
     places: parseFloat(process.env.COST_RATE_PLACES_PER_CALL_USD || '0.002'),
   }
@@ -246,7 +246,7 @@ function buildCostSnapshot(windowMinutes = 60) {
   const windowStart = now - windowMs;
   const within = usageState.events.filter(e => e.ts >= windowStart);
   const shouldCount = (e) => costConfig.includeErrors ? true : e.status === 'success';
-  const apis = ['gemini','maps','places'];
+  const apis = ['openai','maps','places'];
 
   const totalsCount = Object.fromEntries(apis.map(api => {
     const totalCalls = usageState.events.filter(e => e.api === api && shouldCount(e)).length;
@@ -284,8 +284,15 @@ function buildCostSnapshot(windowMinutes = 60) {
   };
 }
 
-// Initialize Gemini AI
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+// Initialize Azure OpenAI
+const openai = new OpenAI({
+  apiKey: process.env.AZURE_OPENAI_API_KEY,
+  baseURL: `${process.env.AZURE_OPENAI_ENDPOINT}/openai/deployments/${process.env.AZURE_OPENAI_DEPLOYMENT_NAME}`,
+  defaultQuery: { 'api-version': '2024-02-15-preview' },
+  defaultHeaders: {
+    'api-key': process.env.AZURE_OPENAI_API_KEY,
+  },
+});
 
 // Enhanced dishes endpoint with full specification
 app.post('/api/dishes/generate', async (req, res) => {
@@ -374,10 +381,13 @@ app.post('/api/dishes/generate', async (req, res) => {
       }
     }`;
 
-    // Generate with Gemini AI
-    const model = genAI.getGenerativeModel({ model: "gemini-pro" });
-    const result = await model.generateContent(prompt);
-    const responseText = result.response.text();
+    // Generate with OpenAI
+    const completion = await openai.chat.completions.create({
+      model: process.env.AZURE_OPENAI_DEPLOYMENT_NAME,
+      messages: [{ role: "user", content: prompt }],
+      temperature: 0.7
+    });
+    const responseText = completion.choices[0].message.content;
     
     // Parse response
     let dishesData;
@@ -393,7 +403,7 @@ app.post('/api/dishes/generate', async (req, res) => {
 
     // Record API usage
     recordUsage({
-      api: 'gemini',
+      api: 'openai',
       action: 'generate_enhanced_dishes',
       status: 'success',
       durationMs: Date.now() - startTime,
@@ -406,7 +416,7 @@ app.post('/api/dishes/generate', async (req, res) => {
     console.error('❌ Error generating dishes:', error);
     
     recordUsage({
-      api: 'gemini',
+      api: 'openai',
       action: 'generate_enhanced_dishes',
       status: 'error',
       durationMs: Date.now() - startTime,
@@ -457,25 +467,25 @@ const TIER_POLICY = {
   free: {
     places: { daily: 50, perMin: 5 },
     maps: { daily: 150, perMin: 15 },
-    gemini: { daily: 10, perMin: 2 },
+    openai: { daily: 10, perMin: 2 },
     features: { dynamicMap: false, resultsPerSearch: 10, photosPerPlace: 1, radiusMaxM: 10000 }
   },
   basic: {
     places: { daily: 200, perMin: 10 },
     maps: { daily: 500, perMin: 30 },
-    gemini: { daily: 50, perMin: 5 },
+    openai: { daily: 50, perMin: 5 },
     features: { dynamicMap: true, resultsPerSearch: 15, photosPerPlace: 2, radiusMaxM: 20000 }
   },
   premium: {
     places: { daily: 1000, perMin: 20 },
     maps: { daily: 2000, perMin: 60 },
-    gemini: { daily: 200, perMin: 15 },
+    openai: { daily: 200, perMin: 15 },
     features: { dynamicMap: true, resultsPerSearch: 25, photosPerPlace: 3, radiusMaxM: 40000 }
   },
   pro: {
     places: { daily: 5000, perMin: 60 },
     maps: { daily: 10000, perMin: 120 },
-    gemini: { daily: 1000, perMin: 60 },
+    openai: { daily: 1000, perMin: 60 },
     features: { dynamicMap: true, resultsPerSearch: 30, photosPerPlace: 6, radiusMaxM: 50000 }
   }
 };
@@ -957,7 +967,7 @@ global.User = User;
       if (doc && doc.data) {
         if (typeof doc.data.includeErrors === 'boolean') costConfig.includeErrors = doc.data.includeErrors;
         if (doc.data.rates) {
-          for (const k of ['gemini','maps','places']) {
+          for (const k of ['openai','maps','places']) {
             if (doc.data.rates[k] != null && !isNaN(doc.data.rates[k])) {
               costConfig.rates[k] = parseFloat(doc.data.rates[k]);
             }
@@ -1230,8 +1240,8 @@ app.get('/api/usage/aggregate/daily', async (req, res) => {
       const dayKeys = new Set([...byDay.keys()].map(k=>k.split('|')[0]));
       const sortedDays = [...dayKeys].sort();
       for (const d of sortedDays) {
-        const perApi = { gemini: { success:0, error:0 }, maps:{ success:0, error:0 }, places:{ success:0, error:0 } };
-        for (const api of ['gemini','maps','places']) {
+        const perApi = { openai: { success:0, error:0 }, maps:{ success:0, error:0 }, places:{ success:0, error:0 } };
+        for (const api of ['openai','maps','places']) {
           for (const status of ['success','error']) {
             perApi[api][status] = byDay.get(`${d}|${api}|${status}`) || 0;
           }
@@ -1249,7 +1259,7 @@ app.get('/api/usage/aggregate/daily', async (req, res) => {
     const map = new Map();
     for (const r of rows) {
       const { day, api, status } = r._id;
-      if (!map.has(day)) map.set(day, { gemini:{success:0,error:0}, maps:{success:0,error:0}, places:{success:0,error:0} });
+      if (!map.has(day)) map.set(day, { openai:{success:0,error:0}, maps:{success:0,error:0}, places:{success:0,error:0} });
       map.get(day)[api][status] = r.count;
     }
     const daysOut = [...map.keys()].sort().map(d => {
@@ -1278,8 +1288,8 @@ app.get('/api/usage/aggregate/monthly', async (req, res) => {
       }
       const ymKeys = new Set([...byMonth.keys()].map(k=>k.split('|')[0]));
       const out = [...ymKeys].sort().map(ym => {
-        const perApi = { gemini:{success:0,error:0}, maps:{success:0,error:0}, places:{success:0,error:0} };
-        for (const api of ['gemini','maps','places']) {
+        const perApi = { openai:{success:0,error:0}, maps:{success:0,error:0}, places:{success:0,error:0} };
+        for (const api of ['openai','maps','places']) {
           for (const status of ['success','error']) perApi[api][status] = byMonth.get(`${ym}|${api}|${status}`)||0;
         }
         const total = Object.values(perApi).reduce((s,v)=> s + v.success + v.error, 0);
@@ -1295,7 +1305,7 @@ app.get('/api/usage/aggregate/monthly', async (req, res) => {
     const map = new Map();
     for (const r of rows) {
       const { month, api, status } = r._id;
-      if (!map.has(month)) map.set(month, { gemini:{success:0,error:0}, maps:{success:0,error:0}, places:{success:0,error:0} });
+      if (!map.has(month)) map.set(month, { openai:{success:0,error:0}, maps:{success:0,error:0}, places:{success:0,error:0} });
       map.get(month)[api][status] = r.count;
     }
     const monthsOut = [...map.keys()].sort().map(m => {
@@ -1313,7 +1323,7 @@ app.get('/api/usage/stats', async (req, res) => {
   try {
     const windowMinutes = Math.min(1440, Math.max(5, parseInt(String(req.query.window || '60'), 10)));
     const since = new Date(Date.now() - windowMinutes * 60 * 1000);
-    const apis = ['gemini','maps','places'];
+    const apis = ['openai','maps','places'];
     const result = {};
     if (!ApiEvent || SKIP_MONGO) {
       const recent = usageState.events.filter(e => e.ts >= since.getTime());
@@ -1360,7 +1370,7 @@ app.get('/api/usage/timeseries', async (req, res) => {
       since = new Date(Date.now() - windowMin * 60 * 1000);
       until = new Date();
     }
-    const apis = String(req.query.apis || 'gemini,maps,places').split(',').map(s=>s.trim()).filter(Boolean);
+    const apis = String(req.query.apis || 'openai,maps,places').split(',').map(s=>s.trim()).filter(Boolean);
     const statusFilter = String(req.query.status || 'all'); // all|success|error
     let bucket = String(req.query.bucket || 'auto');
     if (bucket === 'auto') {
@@ -1439,7 +1449,7 @@ app.get('/api/usage/policy', async (req, res) => {
     const tier = await getUserTier(req);
     const userKey = getRequestUserKey(req);
     const date = getDateKey();
-    const apis = ['places','maps','gemini'];
+    const apis = ['places','maps','openai'];
     const used = {};
     for (const api of apis) {
       used[api] = await getDailyCount(userKey, api);
@@ -1483,7 +1493,7 @@ app.post('/api/usage/cost/config', async (req, res) => {
     const { includeErrors, rates } = req.body || {};
     if (typeof includeErrors === 'boolean') costConfig.includeErrors = includeErrors;
     if (rates && typeof rates === 'object') {
-      for (const k of ['gemini','maps','places']) {
+      for (const k of ['openai','maps','places']) {
         if (rates[k] != null && !isNaN(rates[k])) {
           costConfig.rates[k] = parseFloat(rates[k]);
         }
@@ -2673,43 +2683,32 @@ app.get('/api/places/test-key', (req, res) => {
   });
 });
 
-// Test Gemini AI configuration
+// Test OpenAI configuration
 app.get('/api/ai/test-key', (req, res) => {
-  const geminiKey = process.env.GEMINI_API_KEY;
+  const openaiKey = process.env.AZURE_OPENAI_API_KEY;
   res.json({
-    hasGeminiKey: !!geminiKey,
-    keyLength: geminiKey?.length || 0,
-    keyPreview: geminiKey ? `${geminiKey.substring(0, 10)}...` : 'Not set',
+    hasOpenAIKey: !!openaiKey,
+    keyLength: openaiKey?.length || 0,
+    keyPreview: openaiKey ? `${openaiKey.substring(0, 10)}...` : 'Not set',
     timestamp: new Date().toISOString()
   });
 });
 
-// Test Gemini AI with simple request
+// Test OpenAI with simple request
 app.get('/api/ai/test-generate', async (req, res) => {
   try {
-    const geminiKey = process.env.GEMINI_API_KEY;
-    if (!geminiKey) {
-      return res.status(500).json({ error: 'GEMINI_API_KEY not configured' });
+    const openaiKey = process.env.AZURE_OPENAI_API_KEY;
+    if (!openaiKey) {
+      return res.status(500).json({ error: 'AZURE_OPENAI_API_KEY not configured' });
     }
 
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${geminiKey}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: [{ parts: [{ text: 'Say hello in JSON format: {"message": "your response"}' }] }]
-      })
+    const completion = await openai.chat.completions.create({
+      model: process.env.AZURE_OPENAI_DEPLOYMENT_NAME,
+      messages: [{ role: "user", content: 'Say hello in JSON format: {"message": "your response"}' }],
+      temperature: 0.7
     });
-
-    if (!response.ok) {
-      return res.status(response.status).json({ 
-        error: 'Gemini API error', 
-        status: response.status,
-        statusText: response.statusText 
-      });
-    }
-
-    const data = await response.json();
-    const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+    
+    const text = completion.choices[0].message.content;
     
     res.json({
       success: true,
@@ -2718,7 +2717,7 @@ app.get('/api/ai/test-generate', async (req, res) => {
     });
   } catch (error) {
     res.status(500).json({ 
-      error: 'Gemini test failed', 
+      error: 'OpenAI test failed', 
       details: error.message 
     });
   }
@@ -3012,7 +3011,7 @@ app.get('/api/dishes', async (req, res) => {
   }
 });
 
-app.get('/api/dishes/local', enforcePolicy('gemini'), async (req, res) => {
+app.get('/api/dishes/local', enforcePolicy('openai'), async (req, res) => {
   try {
     const { lat, lng, limit = 10 } = req.query;
     
@@ -3024,16 +3023,16 @@ app.get('/api/dishes/local', enforcePolicy('gemini'), async (req, res) => {
     res.json(dishes);
   } catch (error) {
     console.error('Error fetching AI local dishes:', error);
-    recordUsage({ api: 'gemini', action: 'local_dishes', status: 'error', meta: { err: error?.message } });
+    recordUsage({ api: 'openai', action: 'local_dishes', status: 'error', meta: { err: error?.message } });
     res.status(500).json({ error: 'Failed to get local dishes', details: error?.message });
   }
 });
 
 // AI-powered local dishes function
 async function getAILocalDishes(lat, lng, limit = 10) {
-  const apiKey = process.env.GEMINI_API_KEY;
+  const apiKey = process.env.AZURE_OPENAI_API_KEY;
   if (!apiKey) {
-    throw new Error('GEMINI_API_KEY not configured');
+    throw new Error('AZURE_OPENAI_API_KEY not configured');
   }
 
   const prompt = `Based on the location coordinates ${lat}, ${lng}, suggest ${limit} popular local dishes from this area. For each dish, provide:
@@ -3065,23 +3064,16 @@ Return ONLY a valid JSON array with this exact structure:
 
   const start = Date.now();
   try {
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${apiKey}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: [{ parts: [{ text: prompt }] }]
-      })
+    const completion = await openai.chat.completions.create({
+      model: process.env.AZURE_OPENAI_DEPLOYMENT_NAME,
+      messages: [{ role: "user", content: prompt }],
+      temperature: 0.7
     });
-
-    if (!response.ok) {
-      throw new Error(`Gemini API error: ${response.status}`);
-    }
-
-    const data = await response.json();
-    const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+    
+    const text = completion.choices[0].message.content;
     
     if (!text) {
-      throw new Error('No response from Gemini AI');
+      throw new Error('No response from OpenAI');
     }
 
     // Extract JSON from response
@@ -3109,10 +3101,10 @@ Return ONLY a valid JSON array with this exact structure:
       culturalNote: dish.culturalNote || 'A local specialty'
     }));
 
-    recordUsage({ api: 'gemini', action: 'local_dishes', status: 'success', durationMs: Date.now() - start });
+    recordUsage({ api: 'openai', action: 'local_dishes', status: 'success', durationMs: Date.now() - start });
     return mobileDishes;
   } catch (error) {
-    recordUsage({ api: 'gemini', action: 'local_dishes', status: 'error', durationMs: Date.now() - start, meta: { err: error?.message } });
+    recordUsage({ api: 'openai', action: 'local_dishes', status: 'error', durationMs: Date.now() - start, meta: { err: error?.message } });
     throw error;
   }
 }
@@ -3379,9 +3371,9 @@ app.get('/api/emergency/hospitals', async (req, res) => {
 
 // AI-powered emergency services function
 async function getAIEmergencyServices(lat, lng, serviceType, limit = 5) {
-  const apiKey = process.env.GEMINI_API_KEY;
+  const apiKey = process.env.AZURE_OPENAI_API_KEY;
   if (!apiKey) {
-    throw new Error('GEMINI_API_KEY not configured');
+    throw new Error('AZURE_OPENAI_API_KEY not configured');
   }
 
   const serviceTypeMap = {
@@ -3414,23 +3406,16 @@ Return ONLY a valid JSON array with this exact structure:
 
   const start = Date.now();
   try {
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${apiKey}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: [{ parts: [{ text: prompt }] }]
-      })
+    const completion = await openai.chat.completions.create({
+      model: process.env.AZURE_OPENAI_DEPLOYMENT_NAME,
+      messages: [{ role: "user", content: prompt }],
+      temperature: 0.7
     });
-
-    if (!response.ok) {
-      throw new Error(`Gemini API error: ${response.status}`);
-    }
-
-    const data = await response.json();
-    const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+    
+    const text = completion.choices[0].message.content;
     
     if (!text) {
-      throw new Error('No response from Gemini AI');
+      throw new Error('No response from OpenAI');
     }
 
     // Extract JSON from response
@@ -3478,10 +3463,10 @@ Return ONLY a valid JSON array with this exact structure:
       }
     }));
 
-    recordUsage({ api: 'gemini', action: `emergency_${serviceType}`, status: 'success', durationMs: Date.now() - start });
+    recordUsage({ api: 'openai', action: `emergency_${serviceType}`, status: 'success', durationMs: Date.now() - start });
     return mobileServices;
   } catch (error) {
-    recordUsage({ api: 'gemini', action: `emergency_${serviceType}`, status: 'error', durationMs: Date.now() - start, meta: { err: error?.message } });
+    recordUsage({ api: 'openai', action: `emergency_${serviceType}`, status: 'error', durationMs: Date.now() - start, meta: { err: error?.message } });
     
     // Fallback to mock data when AI fails
     console.log('AI failed, using fallback mock data');
