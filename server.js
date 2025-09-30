@@ -26,28 +26,31 @@ console.log('📁 Current working directory:', process.cwd());
 // Check if any dist folder exists
 const hasDistFolder = existsSync(distPath) || existsSync(wwwrootDistPath) || existsSync(siteDistPath);
 
-if (!hasDistFolder) {
-  console.log('📦 Building React application...');
-  try {
-    execSync('npm run build', { stdio: 'inherit', cwd: process.cwd() });
-    console.log('✅ Build completed successfully');
-    
-    // Verify build was successful
-    const newHasDistFolder = existsSync(distPath) || existsSync(wwwrootDistPath) || existsSync(siteDistPath);
-    if (!newHasDistFolder) {
-      console.error('❌ Build completed but dist folder not found at any location');
-    } else {
-      console.log('✅ Dist folder created successfully');
+console.log('📦 Building React application...');
+try {
+  execSync('npm run build', { stdio: 'inherit', cwd: process.cwd() });
+  console.log('✅ Build completed');
+  
+  // Copy to Azure locations
+  const { copyFileSync, mkdirSync, readdirSync, statSync } = await import('fs');
+  if (existsSync(distPath)) {
+    for (const dest of [wwwrootDistPath, siteDistPath]) {
+      try {
+        mkdirSync(dest, { recursive: true });
+        const files = readdirSync(distPath);
+        for (const file of files) {
+          const src = join(distPath, file);
+          const dst = join(dest, file);
+          if (statSync(src).isFile()) copyFileSync(src, dst);
+        }
+        console.log(`✅ Copied to ${dest}`);
+      } catch (e) {
+        console.log(`⚠️ Could not copy to ${dest}`);
+      }
     }
-  } catch (error) {
-    console.error('❌ Build failed:', error.message);
-    console.error('Continuing without build...');
   }
-} else {
-  console.log('✅ Build already exists');
-  if (existsSync(distPath)) console.log('  - Found at:', distPath);
-  if (existsSync(wwwrootDistPath)) console.log('  - Found at:', wwwrootDistPath);
-  if (existsSync(siteDistPath)) console.log('  - Found at:', siteDistPath);
+} catch (error) {
+  console.error('❌ Build failed:', error.message);
 }
 
 // Start the server
