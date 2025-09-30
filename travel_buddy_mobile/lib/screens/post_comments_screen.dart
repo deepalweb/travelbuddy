@@ -1,6 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
-import '../providers/community_provider.dart';
 import '../models/community_post.dart';
 
 class PostCommentsScreen extends StatefulWidget {

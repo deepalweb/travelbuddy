@@ -2,10 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/app_provider.dart';
 import '../constants/app_constants.dart';
-import '../widgets/deal_card.dart';
 import '../models/place.dart';
 import '../screens/deal_detail_screen.dart';
-import 'category_deals_screen.dart';
 import '../services/places_service.dart';
 import '../services/location_service.dart';
 

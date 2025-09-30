@@ -619,13 +619,30 @@ app.use(express.urlencoded({ limit: '50mb', extended: true }));
 // Serve static files from dist directory
 const staticPath = path.join(__dirname, '../dist');
 const altStaticPath = path.join(process.cwd(), 'dist');
+const wwwrootPath = path.join('/home/site/wwwroot/dist');
+const sitePath = path.join('/home/site/dist');
+
 console.log('Static files path (relative to backend):', staticPath);
 console.log('Static files path (from cwd):', altStaticPath);
+console.log('Static files path (wwwroot):', wwwrootPath);
+console.log('Static files path (site):', sitePath);
 console.log('Static path exists:', existsSync(staticPath));
 console.log('Alt static path exists:', existsSync(altStaticPath));
+console.log('Wwwroot path exists:', existsSync(wwwrootPath));
+console.log('Site path exists:', existsSync(sitePath));
 
-// Use the path that exists
-const finalStaticPath = existsSync(staticPath) ? staticPath : altStaticPath;
+// Use the path that exists, prioritizing Azure paths
+let finalStaticPath;
+if (existsSync(wwwrootPath)) {
+  finalStaticPath = wwwrootPath;
+} else if (existsSync(sitePath)) {
+  finalStaticPath = sitePath;
+} else if (existsSync(staticPath)) {
+  finalStaticPath = staticPath;
+} else {
+  finalStaticPath = altStaticPath;
+}
+
 console.log('Using static path:', finalStaticPath);
 app.use(express.static(finalStaticPath));
 
@@ -3543,19 +3560,29 @@ app.use((req, res, next) => {
   
   const indexPath = path.join(__dirname, '../dist/index.html');
   const altIndexPath = path.join(process.cwd(), 'dist/index.html');
+  const wwwrootIndexPath = path.join('/home/site/wwwroot/dist/index.html');
+  const siteIndexPath = path.join('/home/site/dist/index.html');
   
   console.log('Trying index.html from:', indexPath);
   console.log('Alt index.html from:', altIndexPath);
+  console.log('Wwwroot index.html from:', wwwrootIndexPath);
+  console.log('Site index.html from:', siteIndexPath);
   
-  // Check both possible paths
-  if (existsSync(indexPath)) {
+  // Check all possible paths, prioritizing Azure paths
+  if (existsSync(wwwrootIndexPath)) {
+    console.log('Serving from wwwroot path');
+    res.sendFile(wwwrootIndexPath);
+  } else if (existsSync(siteIndexPath)) {
+    console.log('Serving from site path');
+    res.sendFile(siteIndexPath);
+  } else if (existsSync(indexPath)) {
     console.log('Serving from backend relative path');
     res.sendFile(indexPath);
   } else if (existsSync(altIndexPath)) {
     console.log('Serving from cwd path');
     res.sendFile(altIndexPath);
   } else {
-    console.error('index.html not found at either:', indexPath, 'or', altIndexPath);
+    console.error('index.html not found at any of:', wwwrootIndexPath, siteIndexPath, indexPath, altIndexPath);
     res.status(404).send('Application not built. Please run npm run build.');
   }
 });

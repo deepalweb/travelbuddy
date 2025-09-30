@@ -3,7 +3,6 @@ import 'package:flutter_paypal_payment/flutter_paypal_payment.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import '../models/user.dart';
-import '../constants/app_constants.dart';
 import '../config/environment.dart';
 import '../services/auth_service.dart';
 import '../services/storage_service.dart';

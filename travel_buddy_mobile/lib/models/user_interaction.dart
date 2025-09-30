@@ -1,4 +1,3 @@
-import 'package:hive/hive.dart';
 
 // part 'user_interaction.g.dart'; // Will be generated
 

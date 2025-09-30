@@ -1091,7 +1091,7 @@ class _PlannerScreenState extends State<PlannerScreen> {
               const SizedBox(width: 16),
               Expanded(
                 child: DropdownButtonFormField<String>(
-                  value: _selectedBudget,
+                  initialValue: _selectedBudget,
                   decoration: const InputDecoration(
                     labelText: 'Budget',
                     prefixIcon: Icon(Icons.attach_money),
@@ -1233,7 +1233,7 @@ class _PlannerScreenState extends State<PlannerScreen> {
             children: [
               Expanded(
                 child: DropdownButtonFormField<String>(
-                  value: _groupType,
+                  initialValue: _groupType,
                   decoration: const InputDecoration(
                     labelText: 'Group Type',
                     prefixIcon: Icon(Icons.group),
@@ -1248,7 +1248,7 @@ class _PlannerScreenState extends State<PlannerScreen> {
               const SizedBox(width: 16),
               Expanded(
                 child: DropdownButtonFormField<String>(
-                  value: _foodPreference,
+                  initialValue: _foodPreference,
                   decoration: const InputDecoration(
                     labelText: 'Food Preference',
                     prefixIcon: Icon(Icons.restaurant),

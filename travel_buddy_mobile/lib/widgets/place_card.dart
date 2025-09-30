@@ -3,8 +3,6 @@ import '../models/place.dart';
 import '../constants/app_constants.dart';
 import '../services/usage_tracking_service.dart';
 import 'add_to_trip_dialog.dart';
-import 'package:provider/provider.dart';
-import '../providers/app_provider.dart';
 
 class PlaceCard extends StatelessWidget {
   final Place place;

@@ -15,18 +15,27 @@ if (process.env.MONGO_URI && process.env.MONGO_URI !== 'disabled') {
 
 // Check if dist folder exists, if not build the app
 const distPath = join(process.cwd(), 'dist');
+const wwwrootDistPath = join('/home/site/wwwroot/dist');
+const siteDistPath = join('/home/site/dist');
+
 console.log('🔍 Checking for dist folder at:', distPath);
+console.log('🔍 Checking for wwwroot dist at:', wwwrootDistPath);
+console.log('🔍 Checking for site dist at:', siteDistPath);
 console.log('📁 Current working directory:', process.cwd());
 
-if (!existsSync(distPath)) {
+// Check if any dist folder exists
+const hasDistFolder = existsSync(distPath) || existsSync(wwwrootDistPath) || existsSync(siteDistPath);
+
+if (!hasDistFolder) {
   console.log('📦 Building React application...');
   try {
     execSync('npm run build', { stdio: 'inherit', cwd: process.cwd() });
     console.log('✅ Build completed successfully');
     
     // Verify build was successful
-    if (!existsSync(distPath)) {
-      console.error('❌ Build completed but dist folder not found at:', distPath);
+    const newHasDistFolder = existsSync(distPath) || existsSync(wwwrootDistPath) || existsSync(siteDistPath);
+    if (!newHasDistFolder) {
+      console.error('❌ Build completed but dist folder not found at any location');
     } else {
       console.log('✅ Dist folder created successfully');
     }
@@ -35,7 +44,10 @@ if (!existsSync(distPath)) {
     console.error('Continuing without build...');
   }
 } else {
-  console.log('✅ Build already exists at:', distPath);
+  console.log('✅ Build already exists');
+  if (existsSync(distPath)) console.log('  - Found at:', distPath);
+  if (existsSync(wwwrootDistPath)) console.log('  - Found at:', wwwrootDistPath);
+  if (existsSync(siteDistPath)) console.log('  - Found at:', siteDistPath);
 }
 
 // Start the server
