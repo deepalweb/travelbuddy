@@ -5,7 +5,7 @@ const router = express.Router();
 
 // Subscription Schema
 const subscriptionSchema = new mongoose.Schema({
-  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  userId: { type: String, required: true },
   tier: { type: String, required: true, enum: ['free', 'basic', 'premium', 'pro'] },
   status: { type: String, required: true, enum: ['trial', 'active', 'cancelled', 'expired'] },
   paymentId: String,
@@ -20,7 +20,7 @@ const Subscription = mongoose.model('Subscription', subscriptionSchema);
 
 // Trial History Schema
 const trialHistorySchema = new mongoose.Schema({
-  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  userId: { type: String, required: true },
   tier: String,
   startDate: Date,
   endDate: Date,
@@ -45,9 +45,9 @@ router.post('/', async (req, res) => {
       });
     }
     
-    // Check if user exists
+    // Check if user exists (Firebase UID)
     const User = mongoose.model('User');
-    const user = await User.findById(userId);
+    const user = await User.findOne({ firebaseUid: userId });
     if (!user) {
       return res.status(404).json({ error: 'User not found' });
     }
@@ -66,7 +66,7 @@ router.post('/', async (req, res) => {
     console.log('Subscription created:', subscription._id);
 
     // Update user subscription status
-    await User.findByIdAndUpdate(userId, {
+    await User.findOneAndUpdate({ firebaseUid: userId }, {
       tier,
       subscriptionStatus: status,
       subscriptionEndDate: endDate,
@@ -154,7 +154,7 @@ router.post('/:userId/cancel', async (req, res) => {
     // Update user status if immediate cancellation
     if (!cancelAtPeriodEnd) {
       const User = mongoose.model('User');
-      await User.findByIdAndUpdate(req.params.userId, {
+      await User.findOneAndUpdate({ firebaseUid: req.params.userId }, {
         tier: 'free',
         subscriptionStatus: 'cancelled'
       });
