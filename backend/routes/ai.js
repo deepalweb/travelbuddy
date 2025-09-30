@@ -9,6 +9,19 @@ const AZURE_OPENAI_API_KEY = process.env.AZURE_OPENAI_API_KEY;
 const AZURE_OPENAI_DEPLOYMENT_NAME = process.env.AZURE_OPENAI_DEPLOYMENT_NAME;
 const AZURE_API_VERSION = '2025-01-01-preview';
 
+// Test Azure OpenAI configuration
+router.get('/test-config', (req, res) => {
+  res.json({
+    hasEndpoint: !!AZURE_OPENAI_ENDPOINT,
+    hasApiKey: !!AZURE_OPENAI_API_KEY,
+    hasDeploymentName: !!AZURE_OPENAI_DEPLOYMENT_NAME,
+    endpointPreview: AZURE_OPENAI_ENDPOINT ? AZURE_OPENAI_ENDPOINT.substring(0, 30) + '...' : 'Not set',
+    apiKeyLength: AZURE_OPENAI_API_KEY?.length || 0,
+    deploymentName: AZURE_OPENAI_DEPLOYMENT_NAME || 'Not set',
+    apiVersion: AZURE_API_VERSION
+  });
+});
+
 // Generate text endpoint for trip planning
 router.post('/generate-text', async (req, res) => {
   const startTime = Date.now();
