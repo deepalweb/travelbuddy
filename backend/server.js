@@ -117,6 +117,30 @@ if (process.env.ENABLE_HTTPS === 'true') {
 } else {
   httpServer = http.createServer(app);
   console.log('🔓 HTTP server (development mode)');
+
+// Force build React app
+console.log('📦 Building React application...');
+try {
+  const { execSync } = await import('child_process');
+  execSync('npm run build', { stdio: 'inherit', cwd: '/home/site/wwwroot' });
+  console.log('✅ Build completed');
+  
+  // Copy to expected locations
+  const { copyFileSync, mkdirSync, readdirSync, statSync } = await import('fs');
+  const srcDir = '/home/site/wwwroot/dist';
+  const destDirs = ['/home/site/wwwroot/dist', '/home/site/dist'];
+  
+  if (existsSync(srcDir)) {
+    for (const dest of destDirs) {
+      try {
+        mkdirSync(dest, { recursive: true });
+        console.log(`✅ Created ${dest}`);
+      } catch (e) {}
+    }
+  }
+} catch (error) {
+  console.error('❌ Build failed:', error.message);
+}
 }
 const allowedSocketOrigins = (
   process.env.SOCKET_ALLOWED_ORIGINS || ''
