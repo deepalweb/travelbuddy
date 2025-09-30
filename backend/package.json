@@ -1,7 +1,8 @@
 {
+  "type": "module",
   "scripts": {
-    "start": "node simple-server.js",
-    "dev": "node simple-server.js"
+    "start": "node server.js",
+    "dev": "node server.js"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4.1.11"
