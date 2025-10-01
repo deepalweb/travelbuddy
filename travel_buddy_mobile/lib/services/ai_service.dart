@@ -103,7 +103,7 @@ class AiService {
     String budget = 'Mid-Range',
   }) async {
     try {
-      final response = await _dio.post('/api/ai/trip-plan', data: {
+      final response = await _dio.post('/api/ai/generate-trip-plan', data: {
         'destination': destination,
         'duration': duration,
         'interests': interests,
@@ -136,14 +136,25 @@ class AiService {
     List<Place> nearbyPlaces = const [],
   }) async {
     try {
-      final response = await _dio.post('/api/ai/day-itinerary', data: {
-        'location': location,
-        'interests': interests,
-        'places': nearbyPlaces.map((p) => p.toJson()).toList(),
+      final response = await _dio.post('/api/ai/generate-text', data: {
+        'prompt': 'Generate a day itinerary for $location with interests: $interests. Return JSON format with title, introduction, dailyPlan array with activities (timeOfDay, activityTitle, description), and conclusion.',
       });
       
-      if (response.statusCode == 200) {
-        return OneDayItinerary.fromJson(response.data);
+      if (response.statusCode == 200 && response.data['itinerary'] != null) {
+        final itineraryData = response.data['itinerary'];
+        return OneDayItinerary(
+          id: DateTime.now().millisecondsSinceEpoch.toString(),
+          title: itineraryData['title'] ?? 'Day in $location',
+          introduction: itineraryData['introduction'] ?? 'Explore $location',
+          dailyPlan: (itineraryData['dailyPlan'] as List? ?? []).map((activity) => 
+            ActivityDetail(
+              timeOfDay: activity['timeOfDay'] ?? 'All day',
+              activityTitle: activity['activityTitle'] ?? 'Activity',
+              description: activity['description'] ?? 'Enjoy this activity',
+            )
+          ).toList(),
+          conclusion: itineraryData['conclusion'] ?? 'Have a great day!',
+        );
       }
     } catch (e) {
       print('AI day itinerary error: $e');

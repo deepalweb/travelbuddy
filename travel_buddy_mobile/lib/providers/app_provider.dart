@@ -1797,32 +1797,50 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
     try {
       // Always load from cache first
       final cachedPlans = await _storageService.getTripPlans();
+      final cachedItineraries = await _storageService.getItineraries();
+      
       _tripPlans = cachedPlans;
+      _itineraries = cachedItineraries ?? [];
+      
       print('💾 Loaded ${cachedPlans.length} trip plans from cache');
+      print('💾 Loaded ${_itineraries.length} itineraries from cache');
       
       // Try to sync with backend if user is logged in (but don't overwrite cache on failure)
       if (_currentUser?.mongoId != null) {
         try {
           final backendPlans = await _apiService.getUserTripPlans(_currentUser!.mongoId!);
           if (backendPlans.isNotEmpty) {
-            _tripPlans = backendPlans;
+            // Merge backend and local plans (keep all unique plans)
+            final allPlans = <TripPlan>[];
+            final seenIds = <String>{};
             
-            // Cache the backend plans
-            for (final trip in backendPlans) {
-              await _storageService.saveTripPlan(trip);
+            // Add backend plans first
+            for (final plan in backendPlans) {
+              if (!seenIds.contains(plan.id)) {
+                allPlans.add(plan);
+                seenIds.add(plan.id);
+              }
             }
-            print('🌍 Synced ${backendPlans.length} trip plans from backend');
+            
+            // Add local plans that aren't in backend
+            for (final plan in cachedPlans) {
+              if (!seenIds.contains(plan.id)) {
+                allPlans.add(plan);
+                seenIds.add(plan.id);
+              }
+            }
+            
+            _tripPlans = allPlans;
+            print('🌍 Merged: ${backendPlans.length} backend + ${cachedPlans.length} local = ${allPlans.length} total plans');
           } else {
-            print('🌍 Backend returned 0 plans, keeping cache');
+            print('🌍 Backend returned 0 plans, keeping ${cachedPlans.length} cached plans');
           }
         } catch (e) {
-          print('⚠️ Backend sync failed, using cached plans: $e');
-          // Keep cached plans, don't overwrite
+          print('⚠️ Backend sync failed, using ${cachedPlans.length} cached plans: $e');
         }
       }
     } catch (e) {
       print('❌ Error loading trip plans: $e');
-      // Don't clear plans on error, try to keep what we have
     } finally {
       _isTripsLoading = false;
       notifyListeners();
@@ -1830,6 +1848,7 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
   }
 
   Future<void> saveTripPlan(TripPlan tripPlan) async {
+    print('🔍 DEBUG: Saving trip plan: ${tripPlan.tripTitle}');
     await _storageService.saveTripPlan(tripPlan);
     
     if (_currentUser?.mongoId != null) {
@@ -1837,6 +1856,7 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
     }
     
     _tripPlans.add(tripPlan);
+    print('🔍 DEBUG: Trip plan added to list. Total plans: ${_tripPlans.length}');
     notifyListeners();
   }
 
@@ -2067,6 +2087,7 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
         _itineraries.add(itinerary);
         await _storageService.saveItinerary(itinerary);
         print('✅ Generated day itinerary for $location');
+        notifyListeners();
         return itinerary;
       }
       return null;
@@ -2171,9 +2192,12 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
     try {
       // Load trip plans and itineraries
       await loadTripPlans();
-      _itineraries = await _storageService.getItineraries() ?? [];
+      final loadedItineraries = await _storageService.getItineraries();
+      _itineraries = loadedItineraries ?? [];
       
       print('📱 Loaded ${_tripPlans.length} trip plans and ${_itineraries.length} itineraries');
+      print('🔍 DEBUG: Trip plans: ${_tripPlans.map((t) => t.tripTitle).join(", ")}');
+      print('🔍 DEBUG: Itineraries: ${_itineraries.map((i) => i.title).join(", ")}');
     } catch (e) {
       print('Error loading cached data: $e');
       _tripPlans = [];

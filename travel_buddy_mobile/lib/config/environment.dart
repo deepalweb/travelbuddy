@@ -1,7 +1,7 @@
 class Environment {
-  // Backend configuration - UPDATE WITH YOUR AZURE URL
-  static const String backendUrl = 'https://travelbuddy-b2c6hgbbgeh4esdh.eastus2-01.azurewebsites.net';
-  static const bool isProduction = true;
+  // Backend configuration - LOCAL TESTING
+  static const String backendUrl = 'http://localhost:8080';
+  static const bool isProduction = false;
   
   // PayPal configuration (production values)
   static const String paypalClientId = 'AQq4yCVTWy1j8WkcQ_c1Jr0bRdKuQcNGvkj2Q4zeMg5ti53lu5axuoG938MUL6SMIPf54koY8wzcU7LW';

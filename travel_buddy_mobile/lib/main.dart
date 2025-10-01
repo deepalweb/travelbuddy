@@ -21,10 +21,12 @@ void main() async {
     // Initialize Storage Service first
     await StorageService().initialize();
     
-    // Initialize Firebase
-    await Firebase.initializeApp(
-      options: DefaultFirebaseOptions.currentPlatform,
-    );
+    // Initialize Firebase (check if already initialized)
+    if (Firebase.apps.isEmpty) {
+      await Firebase.initializeApp(
+        options: DefaultFirebaseOptions.currentPlatform,
+      );
+    }
     
     runApp(const TravelBuddyApp());
   } catch (e, stackTrace) {

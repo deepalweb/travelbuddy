@@ -9,10 +9,18 @@
       "client_info": {
         "mobilesdk_app_id": "1:123456789012:android:abcdef123456789",
         "android_client_info": {
-          "package_name": "com.travelbuddy.mobile"
+          "package_name": "com.example.travel_buddy_mobile"
         }
       },
       "oauth_client": [
+        {
+          "client_id": "123456789012-abcdefghijklmnopqrstuvwxyz.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.travel_buddy_mobile",
+            "certificate_hash": "da39a3ee5e6b4b0d3255bfef95601890afd80709"
+          }
+        },
         {
           "client_id": "123456789012-abcdefghijklmnopqrstuvwxyz.apps.googleusercontent.com",
           "client_type": 3

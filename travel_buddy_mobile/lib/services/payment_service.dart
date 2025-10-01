@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_paypal_payment/flutter_paypal_payment.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import '../models/user.dart';
@@ -73,17 +72,18 @@ class PaymentService {
     required SubscriptionTier tier,
   }) async {
     try {
-      final result = await Navigator.of(context).push(
-        MaterialPageRoute(
-          builder: (context) => PaypalCheckoutView(
-            sandboxMode: !_isProduction,
-            clientId: _paypalClientId,
-            secretKey: _paypalSecret,
-            transactions: [_buildPayPalTransaction(amount, planName)],
-            note: "Travel Buddy $planName subscription",
-            onSuccess: (params) => Navigator.pop(context, {'success': true, 'data': params}),
-            onError: (error) => Navigator.pop(context, {'success': false, 'error': error}),
-            onCancel: () => Navigator.pop(context, {'success': false, 'cancelled': true}),
+      final result = await showDialog<Map<String, dynamic>>(
+        context: context,
+        builder: (context) => AlertDialog(
+          content: PayPalPaymentWidget(
+            amount: amount,
+            description: "Travel Buddy $planName subscription",
+            onPaymentResult: (success) {
+              Navigator.pop(context, {
+                'success': success,
+                'data': success ? {'paymentId': 'mock_${DateTime.now().millisecondsSinceEpoch}'} : null
+              });
+            },
           ),
         ),
       );

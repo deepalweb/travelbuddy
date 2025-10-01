@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
+
 import '../services/auth_service.dart';
 import '../theme/app_theme.dart';
 import '../utils/form_validators.dart';
@@ -61,12 +61,17 @@ class _LoginScreenState extends State<LoginScreen> {
       _error = null;
     });
     try {
+      print('🔍 Starting Google Sign-In...');
       final user = await AuthService().signInWithGoogle();
+      print('🔍 Google Sign-In result: $user');
       if (user != null && mounted) {
         Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const HomeScreen()));
+      } else {
+        setState(() => _error = 'Google Sign-In was cancelled or failed');
       }
     } catch (e) {
-      setState(() => _error = _friendlyError(e));
+      print('🔍 Google Sign-In error: $e');
+      setState(() => _error = 'Google Sign-In error: ${e.toString()}');
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -189,10 +194,11 @@ class _LoginScreenState extends State<LoginScreen> {
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      SvgPicture.asset(
-                        'assets/google_logo.svg',
+                      Image.network(
+                        'https://developers.google.com/identity/images/g-logo.png',
                         width: 18,
                         height: 18,
+                        errorBuilder: (context, error, stackTrace) => const Icon(Icons.login, size: 18),
                       ),
                       const SizedBox(width: 12),
                       const Text(
