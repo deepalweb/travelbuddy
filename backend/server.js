@@ -627,31 +627,39 @@ app.use(cors());
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 // Serve static files from dist directory
-const staticPath = path.join(__dirname, '../dist');
-const wwwrootPath = path.join('/home/site/wwwroot/dist');
+const staticPaths = [
+  path.join(__dirname, 'dist'),
+  path.join(__dirname, '../dist'),
+  path.join('/home/site/wwwroot/dist'),
+  path.join(process.cwd(), 'dist')
+];
 
-// Use the path that exists, prioritizing Azure paths
-let finalStaticPath;
-if (existsSync(wwwrootPath)) {
-  finalStaticPath = wwwrootPath;
-} else if (existsSync(staticPath)) {
-  finalStaticPath = staticPath;
+// Find the first existing path
+let finalStaticPath = null;
+for (const staticPath of staticPaths) {
+  if (existsSync(staticPath)) {
+    finalStaticPath = staticPath;
+    break;
+  }
+}
+
+if (finalStaticPath) {
+  console.log('✅ Using static path:', finalStaticPath);
+  app.use(express.static(finalStaticPath, {
+    maxAge: '1d',
+    etag: false,
+    setHeaders: (res, path) => {
+      if (path.endsWith('.js')) {
+        res.setHeader('Content-Type', 'application/javascript');
+      } else if (path.endsWith('.css')) {
+        res.setHeader('Content-Type', 'text/css');
+      } else if (path.endsWith('.json')) {
+        res.setHeader('Content-Type', 'application/json');
+      }
+    }
+  }));
 } else {
-  finalStaticPath = path.join(process.cwd(), 'dist');
-}
-
-console.log('Using static path:', finalStaticPath);
-app.use(express.static(finalStaticPath, {
-  maxAge: '1d',
-  etag: false
-}));
-
-// Serve static files from multiple possible locations
-if (existsSync(path.join(process.cwd(), 'dist'))) {
-  app.use(express.static(path.join(process.cwd(), 'dist')));
-}
-if (existsSync('/home/site/wwwroot/dist')) {
-  app.use(express.static('/home/site/wwwroot/dist'));
+  console.error('❌ No static files directory found');
 }
 
 // Load subscription and payment routes early
