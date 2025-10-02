@@ -26,6 +26,7 @@ import '../services/recommendation_engine.dart';
 import '../services/real_local_discoveries_service.dart';
 import '../services/deals_service.dart';
 import '../services/payment_service.dart';
+import '../services/real_data_service.dart';
 import '../models/travel_style.dart';
 import '../models/place_section.dart';
 
@@ -1989,13 +1990,11 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
     notifyListeners();
 
     try {
-      final tripPlan = await _aiService.generateSmartTripPlan(
+      // Use RealDataService for structured trip plans
+      final tripPlan = await RealDataService.generateRealisticTripPlan(
         destination: destination,
         duration: duration,
         interests: interests,
-        pace: pace,
-        travelStyles: travelStyles,
-        budget: budget,
       );
       
       if (tripPlan != null) {
