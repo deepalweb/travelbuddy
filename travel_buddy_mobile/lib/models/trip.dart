@@ -128,6 +128,22 @@ class DailyTripPlan extends HiveObject {
   
   @HiveField(6)
   final String dayWalkingDistance;
+  
+  // Structured output fields
+  @HiveField(7)
+  final String date;
+  
+  @HiveField(8)
+  final String summary;
+  
+  @HiveField(9)
+  final String totalWalkingTime;
+  
+  @HiveField(10)
+  final String totalTravelTime;
+  
+  @HiveField(11)
+  final String dailyRecap;
 
   DailyTripPlan({
     required this.day,
@@ -137,6 +153,11 @@ class DailyTripPlan extends HiveObject {
     this.photoUrl,
     this.dayEstimatedCost = '€0',
     this.dayWalkingDistance = '0 km',
+    this.date = '',
+    this.summary = '',
+    this.totalWalkingTime = '0 min',
+    this.totalTravelTime = '0 min',
+    this.dailyRecap = '',
   });
 
   factory DailyTripPlan.fromJson(Map<String, dynamic> json) {
@@ -256,6 +277,28 @@ class ActivityDetail extends HiveObject {
   
   @HiveField(29)
   final int estimatedVisitDurationMin;
+  
+  // Structured display fields
+  @HiveField(30)
+  final String? photoThumbnail;
+  
+  @HiveField(31)
+  final String? fullAddress;
+  
+  @HiveField(32)
+  final String? openingHours;
+  
+  @HiveField(33)
+  final bool isOpenNow;
+  
+  @HiveField(34)
+  final String? weatherNote;
+  
+  @HiveField(35)
+  final List<String> tags;
+  
+  @HiveField(36)
+  final String? bookingLink;
 
   ActivityDetail({
     required this.timeOfDay,
@@ -289,6 +332,14 @@ class ActivityDetail extends HiveObject {
     this.travelMode = 'walking',
     this.travelTimeMin = 0,
     this.estimatedVisitDurationMin = 60,
+    // Display fields
+    this.photoThumbnail,
+    this.fullAddress,
+    this.openingHours,
+    this.isOpenNow = false,
+    this.weatherNote,
+    this.tags = const [],
+    this.bookingLink,
   });
 
   factory ActivityDetail.fromJson(Map<String, dynamic> json) {

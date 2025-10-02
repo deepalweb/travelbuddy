@@ -179,6 +179,13 @@ export class TripPlanningService {
       dailyPlans: tripPlan.dayPlans?.map((day: any, index: number) => ({
         day: index + 1,
         title: day.summary || `Day ${index + 1}`,
+        // Structured fields
+        date: day.date || '',
+        summary: day.summary || '',
+        dayEstimatedCost: day.estimated_cost || '$0',
+        totalWalkingTime: day.total_walking_time || '0 min',
+        totalTravelTime: day.total_travel_time || '0 min',
+        dailyRecap: day.daily_recap || '',
         activities: day.activities?.map((activity: any) => ({
           timeOfDay: activity.start_time,
           activityTitle: activity.name,
@@ -192,10 +199,20 @@ export class TripPlanningService {
           highlight: activity.highlight,
           socialProof: activity.social_proof,
           rating: activity.rating,
+          userRatingsTotal: activity.user_ratings_total,
           practicalTip: activity.practical_tip,
           travelMode: activity.travel_mode,
           travelTimeMin: activity.travel_time_min,
-          estimatedCost: `$${activity.cost_estimate_usd || 0}`
+          estimatedVisitDurationMin: activity.estimated_visit_duration_min,
+          estimatedCost: `$${activity.cost_estimate_usd || 0}`,
+          // Display fields
+          photoThumbnail: activity.photo_url,
+          fullAddress: activity.full_address,
+          openingHours: activity.opening_hours,
+          isOpenNow: activity.is_open_now || false,
+          weatherNote: activity.weather_note,
+          tags: activity.tags || [],
+          bookingLink: activity.booking_link
         })) || []
       })) || [],
       conclusion: 'Have an amazing trip!'
