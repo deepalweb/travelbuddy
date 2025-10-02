@@ -228,6 +228,34 @@ class ActivityDetail extends HiveObject {
   
   @HiveField(20)
   final Map<String, String>? bookingLinks;
+  
+  // Google Places Integration
+  @HiveField(21)
+  final String? googlePlaceId;
+  
+  @HiveField(22)
+  final String? highlight;
+  
+  @HiveField(23)
+  final String? socialProof;
+  
+  @HiveField(24)
+  final double? rating;
+  
+  @HiveField(25)
+  final int? userRatingsTotal;
+  
+  @HiveField(26)
+  final String? practicalTip;
+  
+  @HiveField(27)
+  final String travelMode;
+  
+  @HiveField(28)
+  final int travelTimeMin;
+  
+  @HiveField(29)
+  final int estimatedVisitDurationMin;
 
   ActivityDetail({
     required this.timeOfDay,
@@ -251,18 +279,40 @@ class ActivityDetail extends HiveObject {
     this.crowdLevel = 'Moderate',
     this.imageURL,
     this.bookingLinks,
+    // Google Places fields
+    this.googlePlaceId,
+    this.highlight,
+    this.socialProof,
+    this.rating,
+    this.userRatingsTotal,
+    this.practicalTip,
+    this.travelMode = 'walking',
+    this.travelTimeMin = 0,
+    this.estimatedVisitDurationMin = 60,
   });
 
   factory ActivityDetail.fromJson(Map<String, dynamic> json) {
     return ActivityDetail(
-      timeOfDay: json['timeOfDay'] ?? '',
-      activityTitle: json['activityTitle'] ?? '',
+      timeOfDay: json['timeOfDay'] ?? json['start_time'] ?? '',
+      activityTitle: json['activityTitle'] ?? json['name'] ?? '',
       description: json['description'] ?? '',
       estimatedDuration: json['estimatedDuration'],
       location: json['location'],
       notes: json['notes'],
       icon: json['icon'],
       category: json['category'],
+      startTime: json['start_time'] ?? '09:00',
+      endTime: json['end_time'] ?? '10:00',
+      // Google Places fields
+      googlePlaceId: json['google_place_id'],
+      highlight: json['highlight'],
+      socialProof: json['social_proof'],
+      rating: json['rating']?.toDouble(),
+      userRatingsTotal: json['user_ratings_total'],
+      practicalTip: json['practical_tip'],
+      travelMode: json['travel_mode'] ?? 'walking',
+      travelTimeMin: json['travel_time_min'] ?? 0,
+      estimatedVisitDurationMin: json['estimated_visit_duration_min'] ?? 60,
     );
   }
 
@@ -276,6 +326,17 @@ class ActivityDetail extends HiveObject {
       'notes': notes,
       'icon': icon,
       'category': category,
+      'start_time': startTime,
+      'end_time': endTime,
+      'google_place_id': googlePlaceId,
+      'highlight': highlight,
+      'social_proof': socialProof,
+      'rating': rating,
+      'user_ratings_total': userRatingsTotal,
+      'practical_tip': practicalTip,
+      'travel_mode': travelMode,
+      'travel_time_min': travelTimeMin,
+      'estimated_visit_duration_min': estimatedVisitDurationMin,
     };
   }
 }

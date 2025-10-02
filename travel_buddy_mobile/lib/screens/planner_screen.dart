@@ -573,8 +573,8 @@ class _PlannerScreenState extends State<PlannerScreen> {
               for (int i = 0; i < plans.length; i++) {
                 print('🔍 TRIP $i: ${plans[i].tripTitle} (ID: ${plans[i].id})');
               }
-              for (int i = 0; i < (itineraries?.length ?? 0); i++) {
-                print('🔍 ITINERARY $i: ${itineraries![i].title} (ID: ${itineraries[i].id})');
+              for (int i = 0; i < (itineraries.length ?? 0); i++) {
+                print('🔍 ITINERARY $i: ${itineraries[i].title} (ID: ${itineraries[i].id})');
               }
               
               // Force reload from storage
@@ -584,7 +584,7 @@ class _PlannerScreenState extends State<PlannerScreen> {
               
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
-                  content: Text('Storage: ${plans.length} trips, ${itineraries?.length ?? 0} itineraries\nProvider: ${appProvider.tripPlans.length} trips, ${appProvider.itineraries.length} itineraries'),
+                  content: Text('Storage: ${plans.length} trips, ${itineraries.length ?? 0} itineraries\nProvider: ${appProvider.tripPlans.length} trips, ${appProvider.itineraries.length} itineraries'),
                   duration: Duration(seconds: 5),
                 ),
               );
@@ -1134,7 +1134,7 @@ class _PlannerScreenState extends State<PlannerScreen> {
               const SizedBox(width: 8),
               Expanded(
                 child: DropdownButtonFormField<String>(
-                  value: _durationUnit,
+                  initialValue: _durationUnit,
                   decoration: const InputDecoration(
                     border: OutlineInputBorder(),
                   ),
@@ -1148,7 +1148,7 @@ class _PlannerScreenState extends State<PlannerScreen> {
               Expanded(
                 flex: 2,
                 child: DropdownButtonFormField<String>(
-                  value: _selectedBudget,
+                  initialValue: _selectedBudget,
                   decoration: const InputDecoration(
                     labelText: 'Budget',
                     prefixIcon: Icon(Icons.attach_money),

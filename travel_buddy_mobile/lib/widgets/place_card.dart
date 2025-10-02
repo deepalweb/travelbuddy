@@ -99,18 +99,18 @@ class PlaceCard extends StatelessWidget {
           ),
         ),
         
-        // Content - Fixed height to prevent overflow
-        Container(
-          height: 80,
+        // Content - Dynamic height
+        Padding(
           padding: const EdgeInsets.all(8),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
             children: [
               Text(
                 place.name,
                 style: const TextStyle(
                   fontWeight: FontWeight.bold,
-                  fontSize: 11,
+                  fontSize: 10,
                 ),
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,

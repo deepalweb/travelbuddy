@@ -10,22 +10,24 @@ export class TripPlanningService {
     pace: TripPace;
     travelStyles: TravelStyle[];
     budget: BudgetLevel;
+    mustSeeAttractions?: string[];
   }): Promise<TripPlanSuggestion> {
-    const { destination, duration, interests, pace, travelStyles, budget } = params;
+    const { destination, duration, interests, pace, travelStyles, budget, mustSeeAttractions } = params;
     
     if (!destination?.trim() || !duration?.trim()) {
       throw new Error('Destination and duration are required');
     }
 
     try {
-      const plan = await azureOpenAIService.generateTripPlan(
-        destination.trim(),
-        duration.trim(),
-        interests || '',
+      // Try integrated planning first
+      const plan = await this.generateIntegratedTripPlan({
+        destination: destination.trim(),
+        duration: duration.trim(),
+        travel_style: interests || '',
         pace,
-        travelStyles,
-        budget
-      );
+        budget_level: budget,
+        must_see: mustSeeAttractions || []
+      });
 
       return {
         ...plan,
@@ -34,8 +36,22 @@ export class TripPlanningService {
         updatedAt: new Date().toISOString()
       };
     } catch (error) {
-      console.error('Trip creation failed:', error);
-      throw new Error(error instanceof Error ? error.message : 'Failed to create trip plan');
+      console.error('Integrated trip creation failed, using fallback:', error);
+      // Fallback to existing service
+      const plan = await azureOpenAIService.generateTripPlan(
+        destination.trim(),
+        duration.trim(),
+        interests || '',
+        pace,
+        travelStyles,
+        budget
+      );
+      return {
+        ...plan,
+        id: plan.id || `trip_${Date.now()}`,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
     }
   }
 
@@ -134,6 +150,76 @@ export class TripPlanningService {
       }
     } catch (error) {
       console.warn('Backend delete failed, removed locally only:', error);
+    }
+  }
+
+  private static async generateIntegratedTripPlan(request: any): Promise<TripPlanSuggestion> {
+    const { withApiBase } = await import('./config');
+    const response = await fetch(withApiBase('/api/plans/generate'), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(request)
+    });
+
+    if (!response.ok) {
+      throw new Error('Integrated planning failed');
+    }
+
+    const data = await response.json();
+    return this.convertToTripPlanSuggestion(data.tripPlan);
+  }
+
+  private static convertToTripPlanSuggestion(tripPlan: any): TripPlanSuggestion {
+    return {
+      id: `integrated_${Date.now()}`,
+      tripTitle: `${tripPlan.destination || 'Trip'} Adventure`,
+      destination: tripPlan.destination,
+      duration: tripPlan.duration,
+      introduction: tripPlan.summary || 'AI-generated trip plan',
+      dailyPlans: tripPlan.dayPlans?.map((day: any, index: number) => ({
+        day: index + 1,
+        title: day.summary || `Day ${index + 1}`,
+        activities: day.activities?.map((activity: any) => ({
+          timeOfDay: activity.start_time,
+          activityTitle: activity.name,
+          description: activity.practical_tip || activity.highlight || '',
+          estimatedDuration: `${activity.estimated_visit_duration_min || 60} min`,
+          location: activity.location,
+          category: activity.category,
+          startTime: activity.start_time,
+          endTime: activity.end_time,
+          googlePlaceId: activity.google_place_id,
+          highlight: activity.highlight,
+          socialProof: activity.social_proof,
+          rating: activity.rating,
+          practicalTip: activity.practical_tip,
+          travelMode: activity.travel_mode,
+          travelTimeMin: activity.travel_time_min,
+          estimatedCost: `$${activity.cost_estimate_usd || 0}`
+        })) || []
+      })) || [],
+      conclusion: 'Have an amazing trip!'
+    };
+  }
+
+  static async optimizeRoute(plan: TripPlanSuggestion): Promise<TripPlanSuggestion> {
+    try {
+      const { withApiBase } = await import('./config');
+      const response = await fetch(withApiBase('/api/plans/optimize'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tripPlan: plan })
+      });
+
+      if (!response.ok) {
+        throw new Error('Route optimization failed');
+      }
+
+      const data = await response.json();
+      return this.convertToTripPlanSuggestion(data.optimizedPlan);
+    } catch (error) {
+      console.warn('Route optimization failed, returning original plan:', error);
+      return plan;
     }
   }
 }

@@ -66,9 +66,48 @@ class _PlacesScreenState extends State<PlacesScreen> {
           ),
           body: Column(
             children: [
+              // Personalized Header
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      _getPersonalizedGreeting(appProvider),
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    if (_getSmartSuggestion().isNotEmpty)
+                      GestureDetector(
+                        onTap: () => _applySuggestionFilter(appProvider),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                          decoration: BoxDecoration(
+                            color: Colors.blue[50],
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(color: Colors.blue[200]!),
+                          ),
+                          child: Text(
+                            _getSmartSuggestion(),
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: Colors.blue[700],
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              
               // Search Bar
               Padding(
-                padding: const EdgeInsets.all(16),
+                padding: const EdgeInsets.symmetric(horizontal: 16),
                 child: SearchBarWidget(
                   controller: _searchController,
                   onSearch: (query) {
@@ -532,6 +571,47 @@ class _PlacesScreenState extends State<PlacesScreen> {
     );
   }
 
+  String _getPersonalizedGreeting(AppProvider appProvider) {
+    final hour = DateTime.now().hour;
+    final username = appProvider.currentUser?.username ?? 'Explorer';
+    
+    String timeGreeting;
+    if (hour < 12) {
+      timeGreeting = 'Good morning';
+    } else if (hour < 18) {
+      timeGreeting = 'Good afternoon';
+    } else {
+      timeGreeting = 'Good evening';
+    }
+    
+    return '$timeGreeting, $username 👋 Ready to explore?';
+  }
+  
+  String _getSmartSuggestion() {
+    final hour = DateTime.now().hour;
+    final weather = 'sunny'; // Could get from weather service
+    
+    if (hour < 12) {
+      return 'Perfect morning for cafes & culture ☕';
+    } else if (hour < 18) {
+      return 'Sunny afternoon: perfect for parks 🌳';
+    } else {
+      return 'Evening vibes: restaurants & nightlife 🌆';
+    }
+  }
+  
+  void _applySuggestionFilter(AppProvider appProvider) {
+    final hour = DateTime.now().hour;
+    
+    if (hour < 12) {
+      appProvider.setSelectedCategory('culture');
+    } else if (hour < 18) {
+      appProvider.setSelectedCategory('nature');
+    } else {
+      appProvider.setSelectedCategory('food');
+    }
+  }
+  
   String _getTimeBasedSuggestion() {
     final now = DateTime.now();
     final hour = now.hour;

@@ -12,8 +12,38 @@ class GeminiTripService {
     required bool isAccessible,
     String? weather,
   }) async {
-    print('🤖 Using Gemini AI to generate plan for: $destination');
+    print('🤖 Using integrated Google Places + AI for: $destination');
     
+    try {
+      // Try integrated backend first
+      final response = await _callIntegratedPlanningAPI({
+        'destination': destination,
+        'interests': interests,
+        'pace': pace,
+        'dietary_preferences': dietaryPreferences,
+        'is_accessible': isAccessible,
+        'weather': weather,
+      });
+      
+      final activities = _parseIntegratedResponse(response, destination);
+      
+      print('✅ Generated ${activities.length} activities with integrated service');
+      return activities;
+      
+    } catch (e) {
+      print('❌ Integrated service error: $e, falling back to Gemini');
+      return _generateWithGeminiFallback(destination, interests, pace, dietaryPreferences, isAccessible, weather);
+    }
+  }
+
+  static Future<List<EnhancedActivity>> _generateWithGeminiFallback(
+    String destination,
+    String interests,
+    String pace,
+    List<String> dietaryPreferences,
+    bool isAccessible,
+    String? weather,
+  ) async {
     try {
       final prompt = _buildPrompt(
         destination: destination,
@@ -27,11 +57,9 @@ class GeminiTripService {
       final response = await _callGeminiAPI(prompt);
       final activities = _parseGeminiResponse(response, destination);
       
-      print('✅ Generated ${activities.length} activities with Gemini AI');
       return activities;
-      
     } catch (e) {
-      print('❌ Gemini error: $e');
+      print('❌ Gemini fallback error: $e');
       return _createFallbackActivities(destination);
     }
   }
@@ -76,9 +104,30 @@ Start with morning activity around 9 AM.
 ''';
   }
   
+  static Future<String> _callIntegratedPlanningAPI(Map<String, dynamic> request) async {
+    try {
+      print('🌐 Calling integrated planning API');
+      
+      final response = await http.post(
+        Uri.parse('${AppConstants.baseUrl}/api/plans/generate-day'),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode(request),
+      );
+      
+      if (response.statusCode == 200) {
+        return response.body;
+      } else {
+        throw Exception('Integrated API failed: ${response.statusCode}');
+      }
+    } catch (e) {
+      print('🔴 Integrated API call failed: $e');
+      rethrow;
+    }
+  }
+
   static Future<String> _callGeminiAPI(String prompt) async {
     try {
-      print('🤖 Calling real Gemini API with prompt: ${prompt.substring(0, 100)}...');
+      print('🤖 Calling Gemini API fallback');
       
       final response = await http.post(
         Uri.parse('${AppConstants.baseUrl}/api/ai/generate-text'),
@@ -90,24 +139,14 @@ Start with morning activity around 9 AM.
         }),
       );
       
-      print('📡 Gemini API response status: ${response.statusCode}');
-      print('📡 Gemini API response body: ${response.body}');
-      
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
-        final aiText = data['itinerary'] != null 
-            ? json.encode(data['itinerary']) 
-            : data['text'] ?? data['response'] ?? response.body;
-        
-        print('✅ Got AI response: ${aiText.substring(0, 200)}...');
-        return aiText;
+        return data['text'] ?? data['response'] ?? response.body;
       } else {
-        print('🔴 Gemini API error: ${response.statusCode} - ${response.body}');
         throw Exception('Gemini API failed: ${response.statusCode}');
       }
     } catch (e) {
       print('🔴 Gemini call failed: $e');
-      print('🎭 Using fallback mock response');
       return _getMockGeminiResponse();
     }
   }
