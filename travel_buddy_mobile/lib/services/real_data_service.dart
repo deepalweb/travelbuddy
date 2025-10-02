@@ -146,7 +146,7 @@ class RealDataService {
       {'name': 'Traditional Lunch', 'type': 'restaurant', 'rating': 4.4},
     ];
     
-    return activities.take(3).asMap().entries.map((entry) {
+    return activities.take(3).toList().asMap().entries.map((entry) {
       final index = entry.key;
       final activity = entry.value;
       final timeSlot = _getTimeSlot(index);
@@ -171,7 +171,7 @@ class RealDataService {
         socialProof: '${(rating * 40).round()} travelers visited today',
         practicalTip: _getPracticalTip(type),
         travelMode: 'walking',
-        travelTimeMin: 5 + (index * 5),
+        travelTimeMin: 5 + (index * 5).toInt(),
         estimatedVisitDurationMin: _getVisitDuration(type),
         photoThumbnail: 'https://images.unsplash.com/photo-1449824913935-59a10b8d2000',
         fullAddress: '${activity['name']}, $destination',
