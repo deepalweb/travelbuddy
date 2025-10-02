@@ -22,14 +22,14 @@ jobs:
         
     - name: Install root dependencies and build frontend
       run: |
-        npm install --no-optional
+        npm install
         npm run build
         ls -la dist/
         
     - name: Install backend dependencies
       run: |
         cd backend
-        npm install --no-optional
+        npm install
         
     - name: Copy frontend build to backend
       run: |
