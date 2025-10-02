@@ -3543,6 +3543,40 @@ app.use('/api/bookings', (await import('./routes/bookings.js')).default);
 
 
 
+// Handle static assets explicitly before catch-all
+app.get('*.js', (req, res, next) => {
+  if (finalStaticPath) {
+    const filePath = path.join(finalStaticPath, req.path);
+    if (existsSync(filePath)) {
+      res.setHeader('Content-Type', 'application/javascript');
+      return res.sendFile(filePath);
+    }
+  }
+  res.status(404).send('File not found');
+});
+
+app.get('*.css', (req, res, next) => {
+  if (finalStaticPath) {
+    const filePath = path.join(finalStaticPath, req.path);
+    if (existsSync(filePath)) {
+      res.setHeader('Content-Type', 'text/css');
+      return res.sendFile(filePath);
+    }
+  }
+  res.status(404).send('File not found');
+});
+
+app.get('*.json', (req, res, next) => {
+  if (finalStaticPath) {
+    const filePath = path.join(finalStaticPath, req.path);
+    if (existsSync(filePath)) {
+      res.setHeader('Content-Type', 'application/json');
+      return res.sendFile(filePath);
+    }
+  }
+  res.status(404).send('File not found');
+});
+
 // Serve React app (only for non-API routes)
 app.use((req, res, next) => {
   if (req.path.startsWith('/api')) {
