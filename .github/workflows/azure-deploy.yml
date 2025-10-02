@@ -22,17 +22,20 @@ jobs:
         
     - name: Install root dependencies and build frontend
       run: |
-        npm install
+        npm install --no-optional
         npm run build
+        ls -la dist/
         
     - name: Install backend dependencies
       run: |
         cd backend
-        npm install
+        npm install --no-optional
         
     - name: Copy frontend build to backend
       run: |
-        cp -r dist backend/
+        mkdir -p backend/dist
+        cp -r dist/* backend/dist/
+        ls -la backend/dist/
         
     - name: Create deployment package
       run: |
