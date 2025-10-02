@@ -3544,7 +3544,7 @@ app.use('/api/bookings', (await import('./routes/bookings.js')).default);
 
 
 // Handle static assets explicitly before catch-all
-app.get('*.js', (req, res, next) => {
+app.get(/.*\.js$/, (req, res, next) => {
   if (finalStaticPath) {
     const filePath = path.join(finalStaticPath, req.path);
     if (existsSync(filePath)) {
@@ -3555,7 +3555,7 @@ app.get('*.js', (req, res, next) => {
   res.status(404).send('File not found');
 });
 
-app.get('*.css', (req, res, next) => {
+app.get(/.*\.css$/, (req, res, next) => {
   if (finalStaticPath) {
     const filePath = path.join(finalStaticPath, req.path);
     if (existsSync(filePath)) {
@@ -3566,7 +3566,7 @@ app.get('*.css', (req, res, next) => {
   res.status(404).send('File not found');
 });
 
-app.get('*.json', (req, res, next) => {
+app.get(/.*\.json$/, (req, res, next) => {
   if (finalStaticPath) {
     const filePath = path.join(finalStaticPath, req.path);
     if (existsSync(filePath)) {
