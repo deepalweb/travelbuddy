@@ -22,13 +22,13 @@ jobs:
         
     - name: Install root dependencies and build frontend
       run: |
-        npm ci
+        npm install
         npm run build
         
     - name: Install backend dependencies
       run: |
         cd backend
-        npm ci
+        npm install
         
     - name: Copy frontend build to backend
       run: |
