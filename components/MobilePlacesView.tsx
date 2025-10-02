@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Search, MapPin, Star, Clock, DollarSign, Navigation, Heart, Camera } from 'lucide-react';
 
 interface Place {
@@ -28,6 +28,9 @@ const MobilePlacesView: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [location, setLocation] = useState({ lat: 40.7128, lng: -74.0060 }); // Default NYC
   const [selectedCategory, setSelectedCategory] = useState('points of interest');
+  const [instantResults, setInstantResults] = useState<Place[]>([]);
+  const [showInstantResults, setShowInstantResults] = useState(false);
+  const searchRef = useRef<HTMLDivElement>(null);
 
   const categories = [
     { id: 'points of interest', label: '🏛️ Attractions', icon: MapPin },
@@ -38,11 +41,11 @@ const MobilePlacesView: React.FC = () => {
   ];
 
   const searchPlaces = async () => {
-    if (!searchQuery.trim()) return;
+    const query = searchQuery.trim() || selectedCategory;
     
     setLoading(true);
+    setShowInstantResults(false);
     try {
-      const query = searchQuery || selectedCategory;
       const response = await fetch(
         `/api/places/nearby?lat=${location.lat}&lng=${location.lng}&q=${encodeURIComponent(query)}&radius=5000`
       );
@@ -81,6 +84,35 @@ const MobilePlacesView: React.FC = () => {
     }
   }, [location, selectedCategory]);
 
+  // Instant search effect
+  useEffect(() => {
+    if (searchQuery.length >= 2) {
+      const filtered = places.filter(place => 
+        place.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        place.types.some(type => type.toLowerCase().includes(searchQuery.toLowerCase())) ||
+        place.formatted_address.toLowerCase().includes(searchQuery.toLowerCase())
+      ).slice(0, 5);
+      
+      setInstantResults(filtered);
+      setShowInstantResults(true);
+    } else {
+      setShowInstantResults(false);
+      setInstantResults([]);
+    }
+  }, [searchQuery, places]);
+
+  // Click outside handler
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (searchRef.current && !searchRef.current.contains(event.target as Node)) {
+        setShowInstantResults(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
   const getPlaceImage = (place: Place): string => {
     if (place.photos && place.photos.length > 0) {
       return `/api/places/photo?ref=${place.photos[0].photo_reference}&w=400`;
@@ -115,7 +147,7 @@ const MobilePlacesView: React.FC = () => {
       </div>
 
       {/* Search Bar */}
-      <div className="relative">
+      <div className="relative" ref={searchRef}>
         <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
         <input
           type="text"
@@ -131,6 +163,47 @@ const MobilePlacesView: React.FC = () => {
         >
           Search
         </button>
+        
+        {/* Instant Results Dropdown */}
+        {showInstantResults && instantResults.length > 0 && (
+          <div className="absolute top-full left-0 right-0 z-50 bg-white border border-gray-200 rounded-lg shadow-lg mt-1 max-h-80 overflow-y-auto">
+            <div className="p-2 border-b border-gray-200">
+              <span className="text-sm text-gray-600">{instantResults.length} instant results</span>
+            </div>
+            {instantResults.map((place) => (
+              <div
+                key={place.place_id}
+                onClick={() => {
+                  setSearchQuery(place.name);
+                  setShowInstantResults(false);
+                  searchPlaces();
+                }}
+                className="p-3 hover:bg-gray-50 cursor-pointer border-b border-gray-100 last:border-b-0"
+              >
+                <div className="flex items-start gap-3">
+                  <div className="w-12 h-12 bg-gray-200 rounded-lg flex items-center justify-center text-lg">
+                    {getTypeIcon(place.types)}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <h4 className="font-medium text-gray-900 truncate">{place.name}</h4>
+                    <p className="text-sm text-gray-600 truncate">{place.formatted_address}</p>
+                    <div className="flex items-center gap-2 mt-1">
+                      {place.rating && (
+                        <div className="flex items-center gap-1">
+                          <Star className="w-3 h-3 fill-yellow-400 text-yellow-400" />
+                          <span className="text-xs text-gray-600">{place.rating.toFixed(1)}</span>
+                        </div>
+                      )}
+                      {place.distance_m && (
+                        <span className="text-xs text-gray-500">{formatDistance(place.distance_m)}</span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Category Filters */}

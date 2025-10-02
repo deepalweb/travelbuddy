@@ -121,9 +121,11 @@ const App: React.FC = () => {
   const [selectedPlaceDetail, setSelectedPlaceDetail] = useState<Place | null>(null);
   
   const [searchInput, setSearchInput] = useState<string>('');
-  const debouncedSearchInput = useDebounce(searchInput, 800); // Increased from 300ms to 800ms
+  const debouncedSearchInput = useDebounce(searchInput, 300); // Reduced for faster response
   const [actualSearchTerm, setActualSearchTerm] = useState<string>('');
-  const [searchMode, setSearchMode] = useState<'typing' | 'committed'>('committed'); // Context-aware search state
+  const [searchMode, setSearchMode] = useState<'typing' | 'committed'>('committed');
+  const [instantResults, setInstantResults] = useState<Place[]>([]);
+  const [showInstantResults, setShowInstantResults] = useState<boolean>(false);
 
   // Context-aware search effects
   useEffect(() => {
@@ -251,7 +253,7 @@ const App: React.FC = () => {
 
   const mainContentRef = useRef<HTMLDivElement>(null);
   const footerSentinelRef = useRef<HTMLDivElement>(null);
-  const [activeTab, setActiveTab] = useState<ActiveTab>('forYou'); 
+  const [activeTab, setActiveTab] = useState<ActiveTab>('placeExplorer'); 
   const [plannerView, setPlannerView] = useState<PlannerView>('hub');
 
   const [userLocation, setUserLocation] = useState<{ latitude: number; longitude: number } | null>(null);
@@ -479,6 +481,33 @@ const App: React.FC = () => {
       setLanguage(DEFAULT_LANGUAGE);
     }
   }, [currentUser?.language, setLanguage]);
+
+  // Instant search effect
+  useEffect(() => {
+    if (debouncedSearchInput.length >= 2) {
+      // Show instant results from cache and current places
+      const query = debouncedSearchInput.toLowerCase();
+      const filtered = allPlaces.filter(place => 
+        place.name.toLowerCase().includes(query) ||
+        place.type?.toLowerCase().includes(query) ||
+        place.formatted_address?.toLowerCase().includes(query)
+      ).slice(0, 6);
+      
+      setInstantResults(filtered);
+      setShowInstantResults(true);
+      
+      // Also trigger full search for more comprehensive results
+      if (debouncedSearchInput.length >= 3) {
+        setActualSearchTerm(debouncedSearchInput);
+      }
+    } else {
+      setShowInstantResults(false);
+      setInstantResults([]);
+      if (debouncedSearchInput.length === 0) {
+        setActualSearchTerm(debouncedSearchInput);
+      }
+    }
+  }, [debouncedSearchInput, allPlaces]);
 
   useEffect(() => {
     // Only update search term if it's meaningful (3+ chars) or empty (to show default results)
@@ -939,6 +968,7 @@ const App: React.FC = () => {
       const cachedResults = searchCache.get(cacheKey)!;
       setAllPlaces(cachedResults);
       setIsLoading(false);
+      setShowInstantResults(false); // Hide instant results when showing full results
       addToast({ message: `Found ${cachedResults.length} places (cached)`, type: 'success', duration: 1500 });
       return;
     }
@@ -1036,6 +1066,7 @@ const App: React.FC = () => {
 
       const stabilizedPlaces = stabilizeResults(allPlaces, previousPlaces);
       setAllPlaces(stabilizedPlaces);
+      setShowInstantResults(false); // Hide instant results when showing full results
       
       // Reset pagination and check if more places are available
       setCurrentPage(1);
@@ -2766,6 +2797,10 @@ const App: React.FC = () => {
           onTabChange={handleTabChange}
           isListening={isListening}
           onVoiceSearchClick={handleVoiceSearch}
+          instantResults={instantResults}
+          showInstantResults={showInstantResults}
+          onSelectPlace={handleSelectPlaceDetail}
+          onCloseInstantResults={() => setShowInstantResults(false)}
         />
           <main ref={mainContentRef} className="pt-24 px-4 sm:px-6 lg:px-8 pb-20 md:pb-8 flex-grow overflow-y-auto">
           {content}

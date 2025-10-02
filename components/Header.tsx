@@ -2,10 +2,11 @@ import React, { useState, useEffect } from 'react';
 import { useLanguage } from '../contexts/LanguageContext.tsx';
 import { useTheme } from '../contexts/ThemeContext.tsx';
 import { useNotifications } from '../contexts/NotificationContext.tsx';
-import { CurrentUser, ActiveTab } from '../types.ts';
+import { CurrentUser, ActiveTab, Place } from '../types.ts';
 import SearchBar from './SearchBar.tsx';
 import UserMenuDropdown from './UserMenuDropdown.tsx';
 import NotificationCenter from './NotificationCenter.tsx';
+import InstantSearchResults from './InstantSearchResults.tsx';
 import { Bell } from './Icons.tsx';
 
 interface HeaderProps {
@@ -22,6 +23,11 @@ interface HeaderProps {
   isListening: boolean;
   onVoiceSearchClick: () => void;
   onShowAPIStatus?: () => void;
+  // Instant search props
+  instantResults?: Place[];
+  showInstantResults?: boolean;
+  onSelectPlace?: (place: Place) => void;
+  onCloseInstantResults?: () => void;
 }
 
 const Header: React.FC<HeaderProps> = ({
@@ -37,7 +43,11 @@ const Header: React.FC<HeaderProps> = ({
   onTabChange,
   isListening,
   onVoiceSearchClick,
-  onShowAPIStatus
+  onShowAPIStatus,
+  instantResults = [],
+  showInstantResults = false,
+  onSelectPlace,
+  onCloseInstantResults
 }) => {
   const { t, language, setLanguage } = useLanguage();
   const { theme, setTheme } = useTheme();
@@ -117,9 +127,28 @@ const Header: React.FC<HeaderProps> = ({
             </nav>
         </div>
 
-        <div className="flex-grow max-w-lg mx-2 sm:mx-4">
-          {['deals'].includes(activeTab) && (
-              <SearchBar searchTerm={searchInput} onSearchTermChange={onSearchInputChange} isListening={isListening} onVoiceSearchClick={onVoiceSearchClick} />
+        <div className="flex-grow max-w-lg mx-2 sm:mx-4 relative">
+          {['placeExplorer', 'deals'].includes(activeTab) && (
+            <>
+              <SearchBar 
+                searchTerm={searchInput} 
+                onSearchTermChange={onSearchInputChange} 
+                isListening={isListening} 
+                onVoiceSearchClick={onVoiceSearchClick} 
+              />
+              {onSelectPlace && onCloseInstantResults && (
+                <InstantSearchResults
+                  results={instantResults}
+                  isVisible={showInstantResults}
+                  onSelectPlace={(place) => {
+                    onSelectPlace(place);
+                    onTabChange('placeExplorer');
+                  }}
+                  onClose={onCloseInstantResults}
+                  searchQuery={searchInput}
+                />
+              )}
+            </>
           )}
         </div>
 
