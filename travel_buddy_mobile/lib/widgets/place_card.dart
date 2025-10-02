@@ -68,7 +68,6 @@ class PlaceCard extends StatelessWidget {
                       );
                     },
                     errorBuilder: (context, error, stackTrace) {
-                      print('Image load error: $error for URL: ${place.photoUrl}');
                       return _buildPlaceholder();
                     },
                   ),
@@ -91,7 +90,7 @@ class PlaceCard extends StatelessWidget {
                     child: Icon(
                       isFavorite ? Icons.favorite : Icons.favorite_border,
                       color: isFavorite ? Colors.red : Colors.grey,
-                      size: 18,
+                      size: 16,
                     ),
                   ),
                 ),
@@ -100,46 +99,34 @@ class PlaceCard extends StatelessWidget {
           ),
         ),
         
-        // Content
-        Expanded(
-          child: Padding(
-            padding: const EdgeInsets.all(8),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  place.name,
-                  style: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 14,
+        // Content - Fixed height to prevent overflow
+        Container(
+          height: 80,
+          padding: const EdgeInsets.all(8),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                place.name,
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 11,
+                ),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+              const SizedBox(height: 4),
+              Row(
+                children: [
+                  const Icon(Icons.star, color: Colors.amber, size: 10),
+                  const SizedBox(width: 2),
+                  Text(
+                    place.rating.toStringAsFixed(1),
+                    style: const TextStyle(fontSize: 9),
                   ),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                const SizedBox(height: 4),
-                Row(
-                  children: [
-                    const Icon(Icons.star, color: Colors.amber, size: 14),
-                    const SizedBox(width: 2),
-                    Text(
-                      place.rating.toStringAsFixed(1),
-                      style: const TextStyle(fontSize: 12),
-                    ),
-                  ],
-                ),
-                const Spacer(),
-                Text(
-                  place.type,
-                  style: TextStyle(
-                    color: Color(AppConstants.colors['primary']!),
-                    fontSize: 11,
-                    fontWeight: FontWeight.w500,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ],
-            ),
+                ],
+              ),
+            ],
           ),
         ),
       ],

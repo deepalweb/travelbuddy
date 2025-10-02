@@ -82,13 +82,11 @@ class AppConstants {
   // Place Categories
   static const List<Map<String, String>> placeCategories = [
     {'value': 'all', 'label': 'All'},
-    {'value': 'landmarks', 'label': 'Landmarks'},
-    {'value': 'culture', 'label': 'Culture & History'},
-    {'value': 'nature', 'label': 'Nature & Outdoors'},
-    {'value': 'food', 'label': 'Food & Dining'},
-    {'value': 'entertainment', 'label': 'Entertainment'},
-    {'value': 'lodging', 'label': 'Accommodation'},
-    {'value': 'shopping', 'label': 'Shopping'},
+    {'value': 'food', 'label': 'Food & Drink'},
+    {'value': 'landmarks', 'label': 'Landmarks & Attractions'},
+    {'value': 'culture', 'label': 'Culture & Museums'},
+    {'value': 'nature', 'label': 'Outdoor & Nature'},
+    {'value': 'shopping', 'label': 'Shopping & Markets'},
   ];
   
   // App Theme Colors

@@ -62,21 +62,20 @@ class AuthService {
 
   Future<CurrentUser?> signInWithGoogle() async {
     try {
-      // Mock Google Sign-In for testing
-      final mockUser = CurrentUser(
-        username: 'Google User',
-        email: 'user@gmail.com',
-        mongoId: 'mock_google_${DateTime.now().millisecondsSinceEpoch}',
-        uid: 'mock_google_uid',
-        profilePicture: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150',
-        subscriptionStatus: SubscriptionStatus.none,
-        tier: SubscriptionTier.free,
-        homeCurrency: 'USD',
-        language: 'en',
+      final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
+      if (googleUser == null) return null;
+
+      final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
+      final credential = GoogleAuthProvider.credential(
+        accessToken: googleAuth.accessToken,
+        idToken: googleAuth.idToken,
       );
-      
-      await _storage.saveUser(mockUser);
-      return mockUser;
+
+      final userCredential = await _auth.signInWithCredential(credential);
+      if (userCredential.user != null) {
+        return await _createOrUpdateUser(userCredential.user!);
+      }
+      return null;
     } catch (e) {
       print('Google Sign-In error: $e');
       throw 'Google Sign-In failed: ${e.toString()}';

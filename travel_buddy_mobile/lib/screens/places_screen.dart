@@ -72,19 +72,26 @@ class _PlacesScreenState extends State<PlacesScreen> {
                 child: SearchBarWidget(
                   controller: _searchController,
                   onSearch: (query) {
-                    print('🔍 Search triggered: "$query"');
-                    appProvider.searchPlaces(query);
+                    print('🔍 Search submitted: "$query"');
+                    if (query.trim().isNotEmpty) {
+                      // Show search results instantly
+                      appProvider.performInstantSearch(query.trim());
+                    } else {
+                      // Clear search - show sections
+                      appProvider.clearSearchAndShowSections();
+                    }
                   },
                 ),
               ),
               
               // Smart category filter with time-based suggestions
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    child: Row(
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
                         Text(
                           'Categories',
@@ -96,54 +103,63 @@ class _PlacesScreenState extends State<PlacesScreen> {
                         ),
                         const SizedBox(width: 8),
                         if (_getTimeBasedSuggestion().isNotEmpty)
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: Colors.orange[100],
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: Text(
-                              _getTimeBasedSuggestion(),
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: Colors.orange[800],
-                                fontWeight: FontWeight.w500,
+                          Flexible(
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: Colors.orange[100],
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Text(
+                                _getTimeBasedSuggestion(),
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: Colors.orange[800],
+                                  fontWeight: FontWeight.w500,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
                               ),
                             ),
                           ),
                       ],
                     ),
-                  ),
-                  const SizedBox(height: 8),
-                  SizedBox(
-                    height: 50,
-                    child: ListView.builder(
-                      scrollDirection: Axis.horizontal,
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      itemCount: AppConstants.placeCategories.length,
-                      itemBuilder: (context, index) {
-                        final category = AppConstants.placeCategories[index];
-                        final isSelected = appProvider.selectedCategory == category['value'];
-                        
-                        return Padding(
-                          padding: const EdgeInsets.only(right: 8),
-                          child: FilterChip(
-                            label: Text(category['label']!),
-                            selected: isSelected,
-                            onSelected: (selected) {
-                              appProvider.setSelectedCategory(category['value']!);
-                            },
-                            selectedColor: Color(AppConstants.colors['primary']!).withOpacity(0.2),
-                            checkmarkColor: Color(AppConstants.colors['primary']!),
-                          ),
-                        );
-                      },
-                    ),
-                  ),
-                ],
+                    const SizedBox(height: 12),
+                  ],
+                ),
+              ),
+              SizedBox(
+                height: 40,
+                child: ListView.builder(
+                  scrollDirection: Axis.horizontal,
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  itemCount: AppConstants.placeCategories.length,
+                  itemBuilder: (context, index) {
+                    final category = AppConstants.placeCategories[index];
+                    final isSelected = appProvider.selectedCategory == category['value'];
+                    
+                    return Padding(
+                      padding: const EdgeInsets.only(right: 8),
+                      child: FilterChip(
+                        label: Text(
+                          category['label']!,
+                          style: const TextStyle(fontSize: 13),
+                        ),
+                        selected: isSelected,
+                        onSelected: (selected) {
+                          appProvider.setSelectedCategory(category['value']!);
+                        },
+                        selectedColor: Color(AppConstants.colors['primary']!).withOpacity(0.2),
+                        checkmarkColor: Color(AppConstants.colors['primary']!),
+                        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        visualDensity: VisualDensity.compact,
+                      ),
+                    );
+                  },
+                ),
               ),
               
-              const SizedBox(height: 16),
+              const SizedBox(height: 20),
               
               // User guidance and helpful info
               if (appProvider.placeSections.isEmpty && !appProvider.isSectionsLoading)
@@ -152,57 +168,74 @@ class _PlacesScreenState extends State<PlacesScreen> {
                   child: Column(
                     children: [
                       Container(
-                        padding: const EdgeInsets.all(16),
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(20),
                         decoration: BoxDecoration(
                           color: Colors.blue[50],
-                          borderRadius: BorderRadius.circular(12),
+                          borderRadius: BorderRadius.circular(16),
                           border: Border.all(color: Colors.blue[200]!),
                         ),
                         child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            Icon(Icons.info_outline, color: Colors.blue[600], size: 32),
-                            const SizedBox(height: 8),
+                            Icon(Icons.info_outline, color: Colors.blue[600], size: 36),
+                            const SizedBox(height: 12),
                             Text(
                               'Discover Amazing Places',
                               style: TextStyle(
-                                fontSize: 18,
+                                fontSize: 20,
                                 fontWeight: FontWeight.bold,
                                 color: Colors.blue[800],
                               ),
+                              textAlign: TextAlign.center,
                             ),
                             const SizedBox(height: 8),
                             Text(
                               'We\'ll show you personalized sections of places based on your interests and location.',
                               textAlign: TextAlign.center,
-                              style: TextStyle(color: Colors.blue[700]),
+                              style: TextStyle(
+                                color: Colors.blue[700],
+                                fontSize: 14,
+                                height: 1.4,
+                              ),
                             ),
                           ],
                         ),
                       ),
-                      const SizedBox(height: 16),
+                      const SizedBox(height: 20),
                       Row(
                         children: [
                           Expanded(
+                            flex: 3,
                             child: ElevatedButton.icon(
                               onPressed: () => _loadSectionedPlaces(appProvider),
-                              icon: const Icon(Icons.explore),
+                              icon: const Icon(Icons.explore, size: 20),
                               label: const Text('Find Places'),
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: Color(AppConstants.colors['primary']!),
                                 foregroundColor: Colors.white,
-                                padding: const EdgeInsets.symmetric(vertical: 12),
+                                padding: const EdgeInsets.symmetric(vertical: 14),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
                               ),
                             ),
                           ),
-                          const SizedBox(width: 8),
-                          ElevatedButton(
-                            onPressed: () => _testApiConnection(),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.orange,
-                              foregroundColor: Colors.white,
-                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            flex: 2,
+                            child: ElevatedButton(
+                              onPressed: () => _testApiConnection(),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.orange,
+                                foregroundColor: Colors.white,
+                                padding: const EdgeInsets.symmetric(vertical: 14),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                              ),
+                              child: const Text('Test API', style: TextStyle(fontSize: 13)),
                             ),
-                            child: const Text('Test API'),
                           ),
                         ],
                       ),
@@ -210,13 +243,20 @@ class _PlacesScreenState extends State<PlacesScreen> {
                   ),
                 ),
               
-              const SizedBox(height: 16),
-              
-              // Sectioned Places List with Pull-to-Refresh
+              // Search Results or Sectioned Places List
               Expanded(
                 child: RefreshIndicator(
-                  onRefresh: () => appProvider.loadPlaceSections(),
-                  child: _buildSectionedPlacesList(appProvider),
+                  onRefresh: () async {
+                    if (_searchController.text.isNotEmpty) {
+                      await appProvider.performInstantSearch(_searchController.text.trim());
+                    } else {
+                      await appProvider.forceRefreshPlaces();
+                      await appProvider.loadPlaceSections();
+                    }
+                  },
+                  child: _searchController.text.isNotEmpty 
+                      ? _buildSearchResults(appProvider)
+                      : _buildSectionedPlacesList(appProvider),
                 ),
               ),
             ],
@@ -334,35 +374,49 @@ class _PlacesScreenState extends State<PlacesScreen> {
   }
   
   Widget _buildPlacesListView(AppProvider appProvider) {
-    return ListView.builder(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      physics: const AlwaysScrollableScrollPhysics(), // Enable pull-to-refresh even with few items
-      itemCount: appProvider.places.length + (appProvider.hasMorePlaces ? 1 : 0),
-      itemBuilder: (context, index) {
-        if (index == appProvider.places.length) {
-          // Load more button
-          return _buildLoadMoreButton(appProvider);
-        }
-        
-        final place = appProvider.places[index];
-        return PlaceCard(
-          place: place,
-          isFavorite: appProvider.favoriteIds.contains(place.id),
-          onFavoriteToggle: () async {
-            final success = await appProvider.toggleFavorite(place.id);
-            if (!success && mounted) {
-              _showUpgradeDialog(context);
-            }
-          },
-          onTap: () {
-            Navigator.of(context).push(
-              MaterialPageRoute(
-                builder: (context) => PlaceDetailsScreen(place: place),
-              ),
-            );
-          },
-        );
-      },
+    return CustomScrollView(
+      physics: const AlwaysScrollableScrollPhysics(),
+      slivers: [
+        SliverPadding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          sliver: SliverGrid(
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 2,
+              childAspectRatio: 0.75,
+              crossAxisSpacing: 12,
+              mainAxisSpacing: 12,
+            ),
+            delegate: SliverChildBuilderDelegate(
+              (context, index) {
+                final place = appProvider.places[index];
+                return PlaceCard(
+                  place: place,
+                  compact: true,
+                  isFavorite: appProvider.favoriteIds.contains(place.id),
+                  onFavoriteToggle: () async {
+                    final success = await appProvider.toggleFavorite(place.id);
+                    if (!success && mounted) {
+                      _showUpgradeDialog(context);
+                    }
+                  },
+                  onTap: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (context) => PlaceDetailsScreen(place: place),
+                      ),
+                    );
+                  },
+                );
+              },
+              childCount: appProvider.places.length,
+            ),
+          ),
+        ),
+        if (appProvider.hasMorePlaces)
+          SliverToBoxAdapter(
+            child: _buildLoadMoreButton(appProvider),
+          ),
+      ],
     );
   }
   
@@ -701,6 +755,75 @@ class _PlacesScreenState extends State<PlacesScreen> {
     );
   }
   
+  Widget _buildSearchResults(AppProvider appProvider) {
+    if (appProvider.isPlacesLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    if (appProvider.placesError != null) {
+      return _buildErrorState(appProvider);
+    }
+
+    if (appProvider.places.isEmpty) {
+      return ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        children: [
+          SizedBox(height: MediaQuery.of(context).size.height * 0.3),
+          Center(
+            child: Column(
+              children: [
+                const Icon(Icons.search_off, size: 64, color: Colors.grey),
+                const SizedBox(height: 16),
+                Text(
+                  'No results for "${_searchController.text}"',
+                  style: const TextStyle(fontSize: 18, color: Colors.grey),
+                ),
+                const SizedBox(height: 8),
+                const Text('Try different keywords or clear search'),
+                const SizedBox(height: 16),
+                ElevatedButton.icon(
+                  onPressed: () {
+                    _searchController.clear();
+                    appProvider.clearSearchAndShowSections();
+                  },
+                  icon: const Icon(Icons.clear),
+                  label: const Text('Clear Search'),
+                ),
+              ],
+            ),
+          ),
+        ],
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Search results header
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          child: Row(
+            children: [
+              Text(
+                'Results for "${_searchController.text}"',
+                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+              const Spacer(),
+              Text(
+                '${appProvider.places.length} found',
+                style: TextStyle(color: Colors.grey[600]),
+              ),
+            ],
+          ),
+        ),
+        // Search results list
+        Expanded(
+          child: _buildPlacesListView(appProvider),
+        ),
+      ],
+    );
+  }
+
   Future<void> _testGeminiAI() async {
     try {
       // Test Azure backend URL first

@@ -1034,6 +1034,7 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
           query: query,
           radius: _selectedRadius,
           topN: 12,
+          offset: loadMore ? _places.length : 0,
         );
         print('🔍 Search results for: $query');
       } else if (_selectedCategory != 'all') {
@@ -1044,6 +1045,7 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
           query: query,
           radius: _selectedRadius,
           topN: 12,
+          offset: loadMore ? _places.length : 0,
         );
         print('📂 Category results for: $_selectedCategory');
       } else {
@@ -1260,9 +1262,10 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
         final newPlaces = places.where((p) => !existingIds.contains(p.id)).toList();
         _places.addAll(newPlaces);
         _currentPage++;
-        _hasMorePlaces = newPlaces.isNotEmpty;
+        _hasMorePlaces = newPlaces.length >= 6; // If we got 6+ new places, likely more available
       } else {
         _places = places;
+        _currentPage = 1;
         _hasMorePlaces = places.length >= _placesPerPage;
       }
       _placesError = null;
@@ -1372,20 +1375,16 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
     final isEvening = hour >= 18;
     
     switch (category) {
-      case 'landmarks':
-        return _expandKeywords(['landmarks']);
-      case 'culture':
-        return _expandKeywords(['culture']);
-      case 'nature':
-        return _expandKeywords(['nature']);
       case 'food':
-        return isEvening ? _expandKeywords(['restaurants', 'fine dining']) : _expandKeywords(['restaurants', 'cafes']);
-      case 'entertainment':
-        return isEvening ? _expandKeywords(['bars', 'nightlife']) : _expandKeywords(['entertainment']);
-      case 'lodging':
-        return _expandKeywords(['hotels']);
+        return isEvening ? _expandKeywords(['restaurants', 'bars']) : _expandKeywords(['restaurants', 'cafes']);
+      case 'landmarks':
+        return _expandKeywords(['landmarks', 'attractions']);
+      case 'culture':
+        return _expandKeywords(['museums', 'galleries']);
+      case 'nature':
+        return _expandKeywords(['parks', 'nature']);
       case 'shopping':
-        return _expandKeywords(['shopping']);
+        return _expandKeywords(['shopping', 'markets']);
       case 'all':
       default:
         return _expandKeywords(['attractions']);
@@ -1558,12 +1557,11 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
     
     try {
       final sections = await Future.wait([
-        _loadMustSeeLandmarks(),
-        _loadTopRestaurants(),
-        _loadUserInterestPlaces(),
-        _loadLocalFavorites(),
-        _loadNearbyConveniences(),
-        _loadContextualPlaces(),
+        _loadFoodAndDrink(),
+        _loadLandmarksAndAttractions(),
+        _loadCultureAndMuseums(),
+        _loadOutdoorAndNature(),
+        _loadShoppingAndMarkets(),
       ]);
       
       _placeSections = sections.where((s) => s.places.isNotEmpty).toList();
@@ -1576,128 +1574,68 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
     }
   }
   
-  Future<PlaceSection> _loadMustSeeLandmarks() async {
-    final places = await _fetchPlacesForSection('landmarks attractions monuments', 5);
+  Future<PlaceSection> _loadFoodAndDrink() async {
+    final places = await _fetchPlacesForSection('restaurants cafes bars coffee shops', 5);
     return PlaceSection(
-      id: 'landmarks',
-      title: 'Must-See Landmarks',
-      subtitle: 'Top attractions near you',
-      emoji: '🏛️',
-      places: places,
-      category: 'landmarks',
-      query: 'landmarks attractions monuments',
-    );
-  }
-  
-  Future<PlaceSection> _loadTopRestaurants() async {
-    final places = await _fetchPlacesForSection('restaurants cafes dining', 5);
-    return PlaceSection(
-      id: 'restaurants',
-      title: 'Top Restaurants',
-      subtitle: 'Highly rated dining spots',
+      id: 'food',
+      title: 'Food & Drink',
+      subtitle: 'Restaurants, cafes, bars, coffee shops',
       emoji: '🍽️',
       places: places,
       category: 'food',
-      query: 'restaurants cafes dining',
+      query: 'restaurants cafes bars coffee shops',
     );
   }
   
-  Future<PlaceSection> _loadUserInterestPlaces() async {
-    final userStyle = _currentUser?.travelStyle;
-    String query = 'attractions';
-    String title = 'Recommended for You';
-    String emoji = '🎯';
-    
-    if (userStyle != null) {
-      switch (userStyle) {
-        case TravelStyle.foodie:
-          query = 'restaurants food markets';
-          title = 'For Food Lovers';
-          emoji = '🍴';
-          break;
-        case TravelStyle.culture:
-          query = 'museums galleries cultural sites';
-          title = 'For Culture Lovers';
-          emoji = '🎨';
-          break;
-        case TravelStyle.nature:
-          query = 'parks gardens nature trails';
-          title = 'For Nature Lovers';
-          emoji = '🌳';
-          break;
-        case TravelStyle.nightOwl:
-          query = 'bars nightlife entertainment';
-          title = 'For Night Owls';
-          emoji = '🌙';
-          break;
-        default:
-          break;
-      }
-    }
-    
-    final places = await _fetchPlacesForSection(query, 5);
+  Future<PlaceSection> _loadLandmarksAndAttractions() async {
+    final places = await _fetchPlacesForSection('tourist attractions monuments historical sites landmarks', 5);
     return PlaceSection(
-      id: 'interests',
-      title: title,
-      subtitle: 'Based on your preferences',
-      emoji: emoji,
+      id: 'landmarks',
+      title: 'Landmarks & Attractions',
+      subtitle: 'Tourist attractions, monuments, historical sites',
+      emoji: '🏛️',
       places: places,
-      category: 'interests',
-      query: query,
+      category: 'landmarks',
+      query: 'tourist attractions monuments historical sites landmarks',
     );
   }
   
-  Future<PlaceSection> _loadLocalFavorites() async {
-    final places = await _fetchPlacesForSection('local favorites hidden gems', 5);
+  Future<PlaceSection> _loadCultureAndMuseums() async {
+    final places = await _fetchPlacesForSection('museums art galleries cultural centers theaters', 5);
     return PlaceSection(
-      id: 'local',
-      title: 'Local Favorites',
-      subtitle: 'Hidden gems locals love',
-      emoji: '⭐',
+      id: 'culture',
+      title: 'Culture & Museums',
+      subtitle: 'Museums, art galleries, cultural centers',
+      emoji: '🎨',
       places: places,
-      category: 'local',
-      query: 'local favorites hidden gems',
+      category: 'culture',
+      query: 'museums art galleries cultural centers theaters',
     );
   }
   
-  Future<PlaceSection> _loadNearbyConveniences() async {
-    final places = await _fetchPlacesForSection('pharmacy atm gas station convenience', 5);
+  Future<PlaceSection> _loadOutdoorAndNature() async {
+    final places = await _fetchPlacesForSection('parks gardens hiking trails nature spots', 5);
     return PlaceSection(
-      id: 'convenience',
-      title: 'Nearby Conveniences',
-      subtitle: 'Essential services around you',
-      emoji: '🏪',
+      id: 'nature',
+      title: 'Outdoor & Nature',
+      subtitle: 'Parks, gardens, hiking trails, nature spots',
+      emoji: '🌳',
       places: places,
-      category: 'convenience',
-      query: 'pharmacy atm gas station convenience',
+      category: 'nature',
+      query: 'parks gardens hiking trails nature spots',
     );
   }
   
-  Future<PlaceSection> _loadContextualPlaces() async {
-    final hour = DateTime.now().hour;
-    String query = 'attractions';
-    String title = 'Around Here';
-    String subtitle = 'Places nearby';
-    
-    if (hour < 12) {
-      query = 'cafes breakfast morning';
-      title = 'Morning Spots';
-      subtitle = 'Perfect for breakfast';
-    } else if (hour >= 18) {
-      query = 'restaurants bars evening dining';
-      title = 'Evening Spots';
-      subtitle = 'Great for dinner';
-    }
-    
-    final places = await _fetchPlacesForSection(query, 5);
+  Future<PlaceSection> _loadShoppingAndMarkets() async {
+    final places = await _fetchPlacesForSection('shopping malls local markets bazaars shops', 5);
     return PlaceSection(
-      id: 'contextual',
-      title: title,
-      subtitle: subtitle,
-      emoji: '📍',
+      id: 'shopping',
+      title: 'Shopping & Markets',
+      subtitle: 'Shopping malls, local markets, bazaars',
+      emoji: '🛍️',
       places: places,
-      category: 'contextual',
-      query: query,
+      category: 'shopping',
+      query: 'shopping malls local markets bazaars shops',
     );
   }
   
@@ -1779,6 +1717,16 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
     
     print('🔍 Enhanced query: "$enhancedQuery"');
     await loadNearbyPlaces(searchQuery: enhancedQuery);
+  }
+
+  Future<void> performInstantSearch(String query) async {
+    print('🔍 performInstantSearch called with: "$query"');
+    await searchPlaces(query);
+  }
+
+  Future<void> clearSearchAndShowSections() async {
+    print('🔄 clearSearchAndShowSections called');
+    await loadPlaceSections();
   }
 
   void setSelectedRadius(int radius) {

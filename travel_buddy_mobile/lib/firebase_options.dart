@@ -50,7 +50,7 @@ class DefaultFirebaseOptions {
   );
 
   static const FirebaseOptions android = FirebaseOptions(
-    apiKey: 'AIzaSyCuJr5N0ytr1h_Aq_5qQazNL0wQUnsZlAw',
+    apiKey: 'AIzaSyDWoN1G8x6-GIdb91iKdjWQmpEDeEtyFPk',
     appId: '1:45425409967:android:8808750a02d7c77356b95a',
     messagingSenderId: '45425409967',
     projectId: 'travelbuddy-2d1c5',
@@ -58,29 +58,29 @@ class DefaultFirebaseOptions {
   );
 
   static const FirebaseOptions ios = FirebaseOptions(
-    apiKey: 'your-ios-api-key',
-    appId: '1:your-project-number:ios:your-app-id',
-    messagingSenderId: 'your-sender-id',
-    projectId: 'your-project-id',
-    storageBucket: 'your-project-id.appspot.com',
+    apiKey: 'AIzaSyCuJr5N0ytr1h_Aq_5qQazNL0wQUnsZlAw',
+    appId: '1:45425409967:ios:YOUR_IOS_APP_ID56b95a',
+    messagingSenderId: '45425409967',
+    projectId: 'travelbuddy-2d1c5',
+    storageBucket: 'travelbuddy-2d1c5.firebasestorage.app',
     iosBundleId: 'com.example.travelBuddyMobile',
   );
 
   static const FirebaseOptions macos = FirebaseOptions(
-    apiKey: 'your-macos-api-key',
-    appId: '1:your-project-number:ios:your-app-id',
-    messagingSenderId: 'your-sender-id',
-    projectId: 'your-project-id',
-    storageBucket: 'your-project-id.appspot.com',
+    apiKey: 'AIzaSyCuJr5N0ytr1h_Aq_5qQazNL0wQUnsZlAw',
+    appId: '1:45425409967:ios:YOUR_MACOS_APP_ID56b95a',
+    messagingSenderId: '45425409967',
+    projectId: 'travelbuddy-2d1c5',
+    storageBucket: 'travelbuddy-2d1c5.firebasestorage.app',
     iosBundleId: 'com.example.travelBuddyMobile',
   );
 
   static const FirebaseOptions windows = FirebaseOptions(
-    apiKey: 'your-windows-api-key',
-    appId: '1:your-project-number:web:your-app-id',
-    messagingSenderId: 'your-sender-id',
-    projectId: 'your-project-id',
-    authDomain: 'your-project-id.firebaseapp.com',
-    storageBucket: 'your-project-id.appspot.com',
+    apiKey: 'AIzaSyCuJr5N0ytr1h_Aq_5qQazNL0wQUnsZlAw',
+    appId: '1:45425409967:web:782638c65a40dcb156b95a',
+    messagingSenderId: '45425409967',
+    projectId: 'travelbuddy-2d1c5',
+    authDomain: 'travelbuddy-2d1c5.firebaseapp.com',
+    storageBucket: 'travelbuddy-2d1c5.firebasestorage.app',
   );
 }

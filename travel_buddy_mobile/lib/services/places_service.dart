@@ -15,10 +15,11 @@ class PlacesService {
     required String query,
     int radius = 20000,
     int topN = 12,
+    int offset = 0,
   }) async {
     try {
       // 1. Try real places API (primary)
-      final realPlaces = await _fetchRealPlaces(latitude, longitude, query, radius);
+      final realPlaces = await _fetchRealPlaces(latitude, longitude, query, radius, offset);
       if (realPlaces.isNotEmpty) {
         return realPlaces.take(topN).toList();
       }
@@ -38,8 +39,8 @@ class PlacesService {
     }
   }
   
-  Future<List<Place>> _fetchRealPlaces(double lat, double lng, String query, int radius) async {
-    final url = '${Environment.backendUrl}/api/places/nearby?lat=$lat&lng=$lng&q=$query&radius=$radius';
+  Future<List<Place>> _fetchRealPlaces(double lat, double lng, String query, int radius, [int offset = 0]) async {
+    final url = '${Environment.backendUrl}/api/places/nearby?lat=$lat&lng=$lng&q=$query&radius=$radius&offset=$offset';
     print('🔍 Fetching places: $url');
     
     final response = await http.get(

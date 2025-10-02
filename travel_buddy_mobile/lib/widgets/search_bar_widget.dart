@@ -35,12 +35,12 @@ class _SearchBarWidgetState extends State<SearchBarWidget> {
       ),
       child: TextField(
         controller: widget.controller,
-        onSubmitted: widget.onSearch,
+        onSubmitted: (value) {
+          // Trigger instant search on submit
+          widget.onSearch(value.trim());
+        },
         onChanged: (value) {
-          // Trigger search on every change for real-time results
-          if (value.length >= 2 || value.isEmpty) {
-            widget.onSearch(value);
-          }
+          setState(() {}); // Just update UI for clear button
         },
         decoration: InputDecoration(
           hintText: widget.hintText ?? 'Search restaurants, attractions...',

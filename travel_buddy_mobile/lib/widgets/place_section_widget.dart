@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../models/place_section.dart';
 import '../widgets/place_card.dart';
 import '../screens/section_places_screen.dart';
+import '../screens/place_details_screen.dart';
 
 class PlaceSectionWidget extends StatelessWidget {
   final PlaceSection section;
@@ -82,7 +83,12 @@ class PlaceSectionWidget extends StatelessWidget {
                     isFavorite: false, // Will be updated by parent
                     onFavoriteToggle: () => onFavoriteToggle(place.id),
                     onTap: () {
-                      // Navigate to place details
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => PlaceDetailsScreen(place: place),
+                        ),
+                      );
                     },
                   ),
                 );
