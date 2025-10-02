@@ -95,32 +95,41 @@ class IntegratedTripService {
       estimatedDuration: Duration(minutes: data['estimated_visit_duration_min'] ?? 120),
       type: _mapStringToActivityType(data['category'] ?? 'landmark'),
       location: Location(
-        address: data['address'] ?? '$destination, ${data['name']}',
+        address: data['full_address'] ?? data['address'] ?? '$destination, ${data['name']}',
         latitude: data['lat']?.toDouble() ?? 0.0,
         longitude: data['lng']?.toDouble() ?? 0.0,
       ),
       costInfo: CostInfo(
         entryFee: data['cost_estimate_usd']?.toDouble() ?? 0.0,
         currency: '\$',
-        mealCosts: {},
-        transportCost: 0.0,
+        mealCosts: data['category'] == 'restaurant' ? {
+          'budget': 15.0,
+          'mid-range': 25.0,
+          'luxury': 45.0,
+        } : {},
+        transportCost: (data['travel_cost'] ?? 2.0).toDouble(),
         paymentMethods: ['Card', 'Cash'],
-        hasDiscounts: false,
+        hasDiscounts: data['has_discounts'] ?? false,
       ),
       travelInfo: TravelInfo(
         fromPrevious: index == 0 ? 'Starting Point' : 'Previous Location',
         travelTime: Duration(minutes: data['travel_time_min'] ?? 15),
         recommendedMode: _mapStringToTransportMode(data['travel_mode'] ?? 'walking'),
-        estimatedCost: 0.0,
+        estimatedCost: (data['travel_cost'] ?? 2.0).toDouble(),
         routeInstructions: 'Navigate to ${data['name']}',
-        isAccessible: true,
+        isAccessible: data['is_accessible'] ?? true,
       ),
-      images: [data['photo_url'] ?? 'https://images.unsplash.com/photo-1449824913935-59a10b8d2000'],
+      images: [
+        data['photo_url'] ?? data['photo_thumbnail'] ?? 'https://images.unsplash.com/photo-1449824913935-59a10b8d2000'
+      ],
       contextInfo: ContextualInfo(
         crowdLevel: data['crowd_level'] ?? 'Moderate',
-        bestTimeToVisit: data['best_time'] ?? 'Anytime',
-        weatherTips: [],
-        localTips: [data['practical_tip'] ?? 'Enjoy your visit'],
+        bestTimeToVisit: data['best_time'] ?? data['opening_hours'] ?? 'Anytime',
+        weatherTips: data['weather_note'] != null ? [data['weather_note']] : [],
+        localTips: [
+          data['practical_tip'] ?? 'Enjoy your visit',
+          if (data['social_proof'] != null) data['social_proof'],
+        ],
         safetyAlerts: [],
         isIndoorActivity: data['category'] == 'museum' || data['category'] == 'restaurant',
       ),
@@ -130,6 +139,12 @@ class IntegratedTripService {
           url: 'https://www.google.com/maps/search/?api=1&query=${Uri.encodeComponent(data['name'] ?? destination)}',
           type: ActionType.map,
         ),
+        if (data['booking_link'] != null)
+          ActionableLink(
+            title: data['category'] == 'restaurant' ? 'Reserve Table' : 'Book Tickets',
+            url: data['booking_link'],
+            type: data['category'] == 'restaurant' ? ActionType.reservation : ActionType.tickets,
+          ),
       ],
     );
   }
