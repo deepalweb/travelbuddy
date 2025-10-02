@@ -139,12 +139,7 @@ class RealDataService {
   }
   
   static List<ActivityDetail> _getStructuredDefaultActivities(String destination, Map<String, double> costs, int day) {
-    final activities = [
-      {'name': 'Morning City Walk', 'type': 'landmark', 'rating': 4.3},
-      {'name': 'Local Market Visit', 'type': 'shopping', 'rating': 4.1}, 
-      {'name': 'Cultural Site Tour', 'type': 'museum', 'rating': 4.5},
-      {'name': 'Traditional Lunch', 'type': 'restaurant', 'rating': 4.4},
-    ];
+    final activities = _getDestinationSpecificActivities(destination, day);
     
     return activities.take(3).toList().asMap().entries.map((entry) {
       final index = entry.key;
@@ -213,14 +208,43 @@ class RealDataService {
   }
   
   static String _getDayTheme(int day, String destination) {
-    final themes = [
-      'Historic Highlights & Local Culture',
-      'Natural Beauty & Scenic Views', 
-      'Food & Market Adventures',
-      'Art, Museums & Entertainment',
-      'Relaxation & Hidden Gems',
-    ];
-    return themes[(day - 1) % themes.length];
+    final dest = destination.toLowerCase();
+    
+    if (dest.contains('paris')) {
+      final themes = [
+        'Iconic Paris & Café Culture',
+        'Art, Fashion & Montmartre',
+        'Royal Grandeur & Bohemian Quarters',
+      ];
+      return themes[(day - 1) % themes.length];
+    } else if (dest.contains('tokyo')) {
+      final themes = [
+        'Traditional Temples & Modern Tokyo',
+        'Cultural Districts & Urban Energy',
+        'Zen Gardens & Neon Nights',
+      ];
+      return themes[(day - 1) % themes.length];
+    } else if (dest.contains('trincomalee')) {
+      final themes = [
+        'Ancient Forts & Sacred Temples',
+        'Marine Adventures & Coastal Serenity',
+      ];
+      return themes[(day - 1) % themes.length];
+    } else if (dest.contains('colombo')) {
+      final themes = [
+        'Colonial Heritage & Modern Colombo',
+        'Markets, Temples & Street Food',
+      ];
+      return themes[(day - 1) % themes.length];
+    } else {
+      final themes = [
+        'Historic Highlights & Local Culture',
+        'Natural Beauty & Scenic Views', 
+        'Food & Market Adventures',
+        'Art, Museums & Entertainment',
+      ];
+      return themes[(day - 1) % themes.length];
+    }
   }
   
   static String _getRandomTime() {
@@ -324,14 +348,156 @@ class RealDataService {
     return '${months[date.month - 1]} ${date.day}, ${date.year}';
   }
   
-  static String _getDaySummary(int day, String destination, int activityCount) {
-    final summaries = [
-      'Relaxed exploration of $destination\'s highlights with $activityCount key experiences',
-      'Cultural immersion day featuring local attractions and authentic dining',
-      'Perfect mix of sightseeing and leisure activities in $destination',
-      'Adventure-packed day discovering hidden gems and popular spots',
+  static List<Map<String, dynamic>> _getDestinationSpecificActivities(String destination, int day) {
+    final dest = destination.toLowerCase();
+    
+    // Destination-specific activity templates
+    if (dest.contains('paris')) {
+      return _getParisActivities(day);
+    } else if (dest.contains('tokyo')) {
+      return _getTokyoActivities(day);
+    } else if (dest.contains('london')) {
+      return _getLondonActivities(day);
+    } else if (dest.contains('colombo')) {
+      return _getColomboActivities(day);
+    } else if (dest.contains('trincomalee')) {
+      return _getTrincomaleeActivities(day);
+    } else {
+      return _getGenericActivities(destination, day);
+    }
+  }
+  
+  static List<Map<String, dynamic>> _getParisActivities(int day) {
+    final dayActivities = [
+      [ // Day 1
+        {'name': 'Eiffel Tower Visit', 'type': 'landmark', 'rating': 4.6},
+        {'name': 'Seine River Cruise', 'type': 'landmark', 'rating': 4.4},
+        {'name': 'Café de Flore Lunch', 'type': 'restaurant', 'rating': 4.2},
+      ],
+      [ // Day 2
+        {'name': 'Louvre Museum', 'type': 'museum', 'rating': 4.7},
+        {'name': 'Champs-Élysées Walk', 'type': 'shopping', 'rating': 4.3},
+        {'name': 'Montmartre Evening', 'type': 'landmark', 'rating': 4.5},
+      ],
+      [ // Day 3
+        {'name': 'Versailles Palace', 'type': 'landmark', 'rating': 4.8},
+        {'name': 'Latin Quarter Stroll', 'type': 'landmark', 'rating': 4.4},
+        {'name': 'French Bistro Dinner', 'type': 'restaurant', 'rating': 4.6},
+      ],
     ];
-    return summaries[(day - 1) % summaries.length];
+    return dayActivities[(day - 1) % dayActivities.length];
+  }
+  
+  static List<Map<String, dynamic>> _getTokyoActivities(int day) {
+    final dayActivities = [
+      [ // Day 1
+        {'name': 'Senso-ji Temple', 'type': 'landmark', 'rating': 4.5},
+        {'name': 'Tsukiji Fish Market', 'type': 'shopping', 'rating': 4.4},
+        {'name': 'Sushi Jiro Experience', 'type': 'restaurant', 'rating': 4.8},
+      ],
+      [ // Day 2
+        {'name': 'Tokyo National Museum', 'type': 'museum', 'rating': 4.3},
+        {'name': 'Shibuya Crossing', 'type': 'landmark', 'rating': 4.2},
+        {'name': 'Ramen Yokocho Alley', 'type': 'restaurant', 'rating': 4.5},
+      ],
+    ];
+    return dayActivities[(day - 1) % dayActivities.length];
+  }
+  
+  static List<Map<String, dynamic>> _getColomboActivities(int day) {
+    final dayActivities = [
+      [ // Day 1
+        {'name': 'Gangaramaya Temple', 'type': 'landmark', 'rating': 4.4},
+        {'name': 'Pettah Market', 'type': 'shopping', 'rating': 4.1},
+        {'name': 'Ministry of Crab', 'type': 'restaurant', 'rating': 4.6},
+      ],
+      [ // Day 2
+        {'name': 'National Museum', 'type': 'museum', 'rating': 4.2},
+        {'name': 'Galle Face Green', 'type': 'nature', 'rating': 4.3},
+        {'name': 'Street Food Tour', 'type': 'restaurant', 'rating': 4.5},
+      ],
+    ];
+    return dayActivities[(day - 1) % dayActivities.length];
+  }
+  
+  static List<Map<String, dynamic>> _getTrincomaleeActivities(int day) {
+    final dayActivities = [
+      [ // Day 1
+        {'name': 'Koneswaram Temple', 'type': 'landmark', 'rating': 4.7},
+        {'name': 'Fort Frederick', 'type': 'landmark', 'rating': 4.3},
+        {'name': 'Seafood Beach Restaurant', 'type': 'restaurant', 'rating': 4.4},
+      ],
+      [ // Day 2
+        {'name': 'Pigeon Island Snorkeling', 'type': 'nature', 'rating': 4.8},
+        {'name': 'Trincomalee Harbor', 'type': 'landmark', 'rating': 4.2},
+        {'name': 'Sunset Beach Dinner', 'type': 'restaurant', 'rating': 4.5},
+      ],
+    ];
+    return dayActivities[(day - 1) % dayActivities.length];
+  }
+  
+  static List<Map<String, dynamic>> _getLondonActivities(int day) {
+    final dayActivities = [
+      [ // Day 1
+        {'name': 'Tower of London', 'type': 'landmark', 'rating': 4.5},
+        {'name': 'Thames River Walk', 'type': 'landmark', 'rating': 4.3},
+        {'name': 'Borough Market Lunch', 'type': 'restaurant', 'rating': 4.4},
+      ],
+      [ // Day 2
+        {'name': 'British Museum', 'type': 'museum', 'rating': 4.6},
+        {'name': 'Covent Garden', 'type': 'shopping', 'rating': 4.2},
+        {'name': 'Traditional Pub Dinner', 'type': 'restaurant', 'rating': 4.3},
+      ],
+    ];
+    return dayActivities[(day - 1) % dayActivities.length];
+  }
+  
+  static List<Map<String, dynamic>> _getGenericActivities(String destination, int day) {
+    final dayActivities = [
+      [ // Day 1
+        {'name': '$destination City Center', 'type': 'landmark', 'rating': 4.3},
+        {'name': 'Local Market Visit', 'type': 'shopping', 'rating': 4.1},
+        {'name': 'Traditional Restaurant', 'type': 'restaurant', 'rating': 4.4},
+      ],
+      [ // Day 2
+        {'name': '$destination Museum', 'type': 'museum', 'rating': 4.2},
+        {'name': 'Historic District Walk', 'type': 'landmark', 'rating': 4.3},
+        {'name': 'Local Cuisine Experience', 'type': 'restaurant', 'rating': 4.5},
+      ],
+    ];
+    return dayActivities[(day - 1) % dayActivities.length];
+  }
+  
+  static String _getDaySummary(int day, String destination, int activityCount) {
+    final dest = destination.toLowerCase();
+    
+    if (dest.contains('paris')) {
+      final summaries = [
+        'Iconic Parisian landmarks and café culture with $activityCount experiences',
+        'Art, fashion, and Montmartre charm in the City of Light',
+        'Royal grandeur and bohemian quarters exploration',
+      ];
+      return summaries[(day - 1) % summaries.length];
+    } else if (dest.contains('tokyo')) {
+      final summaries = [
+        'Traditional temples and modern Tokyo fusion with $activityCount stops',
+        'Cultural immersion and urban energy discovery',
+      ];
+      return summaries[(day - 1) % summaries.length];
+    } else if (dest.contains('trincomalee')) {
+      final summaries = [
+        'Ancient forts, sacred temples & sunset hues',
+        'Marine adventures and coastal serenity',
+      ];
+      return summaries[(day - 1) % summaries.length];
+    } else {
+      final summaries = [
+        'Relaxed exploration of $destination\'s highlights with $activityCount key experiences',
+        'Cultural immersion day featuring local attractions and authentic dining',
+        'Perfect mix of sightseeing and leisure activities in $destination',
+      ];
+      return summaries[(day - 1) % summaries.length];
+    }
   }
   
   static String _getRecapDetails(List<ActivityDetail> activities) {
