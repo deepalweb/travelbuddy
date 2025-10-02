@@ -35,13 +35,20 @@ jobs:
       run: |
         mkdir -p backend/dist
         cp -r dist/* backend/dist/
+        echo "Frontend files copied:"
         ls -la backend/dist/
+        echo "Checking for JS files:"
+        find backend/dist -name "*.js" | head -5
         
     - name: Create deployment package
       run: |
         cd backend
         rm -rf node_modules/.cache
         rm -rf ssl/*.pem
+        echo "Final backend structure:"
+        ls -la
+        echo "Dist folder contents:"
+        ls -la dist/ || echo "No dist folder found"
         
     - name: Deploy to Azure Web App
       uses: azure/webapps-deploy@v2
