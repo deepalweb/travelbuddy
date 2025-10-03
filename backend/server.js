@@ -270,6 +270,96 @@ const openai = new OpenAI({
   },
 });
 
+// Trip planning endpoint for mobile app
+app.post('/api/plans/generate-day', async (req, res) => {
+  const startTime = Date.now();
+  
+  try {
+    const { destination, interests, pace, dietary_preferences, is_accessible, weather } = req.body;
+    
+    if (!destination) {
+      return res.status(400).json({ error: 'Destination is required' });
+    }
+    
+    const prompt = `Create a detailed day itinerary for ${destination}.
+    
+Traveler Profile:
+    - Destination: ${destination}
+    - Interests: ${interests || 'General sightseeing'}
+    - Pace: ${pace || 'Moderate'}
+    - Dietary: ${dietary_preferences ? dietary_preferences.join(', ') : 'No restrictions'}
+    - Accessibility: ${is_accessible ? 'Required' : 'Flexible'}
+    - Weather: ${weather || 'Pleasant'}
+    
+    Return ONLY a JSON object with this structure:
+    {
+      "activities": [
+        {
+          "name": "Activity Name",
+          "type": "landmark|restaurant|museum|nature|cultural",
+          "startTime": "09:00",
+          "endTime": "11:00",
+          "description": "Detailed description",
+          "cost": "$10-15",
+          "tips": ["Tip 1", "Tip 2"]
+        }
+      ]
+    }`;
+    
+    const completion = await openai.chat.completions.create({
+      model: process.env.AZURE_OPENAI_DEPLOYMENT_NAME,
+      messages: [{ role: "user", content: prompt }],
+      temperature: 0.7
+    });
+    
+    const responseText = completion.choices[0].message.content;
+    let planData;
+    
+    try {
+      planData = JSON.parse(responseText);
+    } catch (parseError) {
+      const jsonMatch = responseText.match(/\{[\s\S]*\}/);
+      planData = jsonMatch ? JSON.parse(jsonMatch[0]) : { activities: [] };
+    }
+    
+    recordUsage({
+      api: 'openai',
+      action: 'generate_day_plan',
+      status: 'success',
+      durationMs: Date.now() - startTime,
+      meta: { destination, activityCount: planData.activities?.length || 0 }
+    });
+    
+    res.json(planData);
+    
+  } catch (error) {
+    console.error('❌ Error generating day plan:', error);
+    
+    recordUsage({
+      api: 'openai',
+      action: 'generate_day_plan',
+      status: 'error',
+      durationMs: Date.now() - startTime,
+      meta: { error: error.message }
+    });
+    
+    // Return fallback data
+    res.json({
+      activities: [
+        {
+          name: `Explore ${req.body.destination || 'City Center'}`,
+          type: 'landmark',
+          startTime: '09:00',
+          endTime: '11:00',
+          description: `Discover the main attractions and highlights of ${req.body.destination || 'the area'}`,
+          cost: 'Free',
+          tips: ['Start early to avoid crowds', 'Bring comfortable walking shoes']
+        }
+      ]
+    });
+  }
+});
+
 // Enhanced dishes endpoint with full specification
 app.post('/api/dishes/generate', async (req, res) => {
   const startTime = Date.now();
