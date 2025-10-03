@@ -24,6 +24,7 @@ export class TripPlanningService {
     try {
       // Try backend enriched endpoint first for real places
       const { withApiBase } = await import('./config');
+      console.log('🚀 Calling enriched endpoint for:', destination);
       const response = await fetch(withApiBase('/api/plans/generate-enriched'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -36,13 +37,18 @@ export class TripPlanningService {
         })
       });
 
+      console.log('📡 Enriched endpoint response status:', response.status);
       if (response.ok) {
         const data = await response.json();
+        console.log('✅ Got enriched trip plan:', data.tripPlan?.tripTitle);
         return data.tripPlan;
+      } else {
+        const errorText = await response.text();
+        console.error('❌ Enriched endpoint failed:', response.status, errorText);
+        throw new Error(`Enriched endpoint failed: ${response.status}`);
       }
-      throw new Error('Enriched endpoint failed');
     } catch (error) {
-      console.error('Enriched trip creation failed, trying detailed:', error);
+      console.error('❌ Enriched trip creation failed, trying detailed:', error);
       
       try {
         // Fallback to detailed service
