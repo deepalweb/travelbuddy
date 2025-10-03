@@ -327,6 +327,90 @@ WEATHER_NOTE: Indoor kitchen with great ventilation
 ''';
   }
   
+  static List<EnhancedActivity> _parseIntegratedResponse(String response, String destination) {
+    final activities = <EnhancedActivity>[];
+    
+    try {
+      print('🔍 Parsing integrated response: ${response.substring(0, 200)}...');
+      
+      final jsonData = json.decode(response);
+      if (jsonData['activities'] != null) {
+        final activitiesList = jsonData['activities'] as List;
+        
+        for (int i = 0; i < activitiesList.length; i++) {
+          final activityData = activitiesList[i];
+          activities.add(_createActivityFromJson(activityData, i, destination));
+        }
+        
+        print('✅ Parsed ${activities.length} activities from integrated response');
+        return activities;
+      }
+    } catch (e) {
+      print('❌ Integrated response parsing failed: $e');
+      throw Exception('Failed to parse integrated response: $e');
+    }
+    
+    return activities.isNotEmpty ? activities : _createFallbackActivities(destination);
+  }
+  
+  static EnhancedActivity _createActivityFromJson(Map<String, dynamic> data, int index, String destination) {
+    return EnhancedActivity(
+      id: 'integrated_${index + 1}',
+      title: data['name'] ?? 'Activity ${index + 1}',
+      description: data['description'] ?? 'Explore this location',
+      timeSlot: '${data['startTime'] ?? '09:00'}-${data['endTime'] ?? '11:00'}',
+      estimatedDuration: Duration(hours: 2),
+      type: _mapStringToActivityType(data['type'] ?? 'landmark'),
+      location: Location(
+        address: '$destination, ${data['name'] ?? 'Location'}',
+        latitude: 0.0,
+        longitude: 0.0,
+      ),
+      costInfo: CostInfo(
+        entryFee: _parseCost(data['cost'] ?? 'Free'),
+        currency: _detectCurrency(data['cost'] ?? 'Free'),
+        mealCosts: data['type'] == 'restaurant' ? {
+          'budget': 15.0,
+          'mid-range': 25.0,
+          'luxury': 45.0,
+        } : {},
+        transportCost: 3.0,
+        paymentMethods: ['Card', 'Cash'],
+        hasDiscounts: (data['cost'] ?? '').toLowerCase().contains('free'),
+      ),
+      travelInfo: TravelInfo(
+        fromPrevious: index == 0 ? 'Starting Point' : 'Previous Location',
+        travelTime: Duration(minutes: index == 0 ? 0 : 15),
+        recommendedMode: TransportMode.walk,
+        estimatedCost: index == 0 ? 0.0 : 2.0,
+        routeInstructions: 'Navigate to ${data['name']}',
+        isAccessible: true,
+      ),
+      images: _getImageForType(data['type'] ?? 'landmark'),
+      contextInfo: ContextualInfo(
+        crowdLevel: 'Moderate',
+        bestTimeToVisit: '${data['startTime'] ?? '09:00'}-${data['endTime'] ?? '11:00'}',
+        weatherTips: ['Check weather conditions'],
+        localTips: data['tips'] != null ? List<String>.from(data['tips']) : ['Enjoy your visit'],
+        safetyAlerts: [],
+        isIndoorActivity: data['type'] == 'museum' || data['type'] == 'restaurant',
+      ),
+      actionableLinks: [
+        ActionableLink(
+          title: 'Directions',
+          url: 'https://www.google.com/maps/search/?api=1&query=${Uri.encodeComponent('${data['name']} $destination')}',
+          type: ActionType.map,
+        ),
+        if (data['type'] == 'restaurant')
+          ActionableLink(
+            title: 'Find Restaurants',
+            url: 'https://www.tripadvisor.com/restaurants-${Uri.encodeComponent(destination)}',
+            type: ActionType.reservation,
+          ),
+      ],
+    );
+  }
+  
   static List<EnhancedActivity> _parseGeminiResponse(String response, String destination) {
     final activities = <EnhancedActivity>[];
     
