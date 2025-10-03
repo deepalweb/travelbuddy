@@ -6,19 +6,34 @@ export async function fetchFactualPlaces(
   radius: number = 5000
 ): Promise<any[]> {
   try {
-    // Use the backend API endpoint that has the Google Places API key
-    const response = await fetch(`/api/places/nearby?lat=${lat}&lng=${lng}&q=${encodeURIComponent(category)}&radius=${radius}`);
+    // Direct Google Places API call (since we're in backend context)
+    const apiKey = process.env.GOOGLE_PLACES_API_KEY;
+    if (!apiKey) {
+      console.warn('Google Places API key not configured');
+      return [];
+    }
+
+    const url = `https://maps.googleapis.com/maps/api/place/textsearch/json?query=${encodeURIComponent(category)}&location=${lat},${lng}&radius=${radius}&key=${apiKey}`;
     
+    const response = await fetch(url);
     if (!response.ok) {
       throw new Error(`Places API error: ${response.status}`);
     }
     
-    const places = await response.json();
+    const data = await response.json();
+    
+    if (data.status !== 'OK') {
+      console.warn(`Places API status: ${data.status}`);
+      return [];
+    }
+    
+    const places = data.results || [];
     
     // Filter and enhance the places data
     return places
       .filter((place: any) => place.name && place.place_id)
       .filter((place: any) => (place.rating || 0) >= 3.0)
+      .slice(0, 10) // Limit results
       .map((place: any) => ({
         place_id: place.place_id,
         name: place.name,

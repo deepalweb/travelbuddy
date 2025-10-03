@@ -786,10 +786,10 @@ app.post('/api/plans/generate-enriched', async (req, res) => {
       return res.status(400).json({ error: 'Destination and duration are required' });
     }
 
-    // Use the EnrichedTripPlanningService (imported at top of file)
-    const enrichedService = enrichedTripPlanningService;
+    console.log('🚀 Generating enriched trip plan for:', destination, duration);
     
-    const tripPlan = await enrichedService.generateEnrichedTripPlan({
+    // Use the EnrichedTripPlanningService directly
+    const tripPlan = await enrichedTripPlanningService.generateEnrichedTripPlan({
       destination: destination.trim(),
       duration: duration.trim(),
       interests: interests || '',
@@ -797,10 +797,11 @@ app.post('/api/plans/generate-enriched', async (req, res) => {
       budget: budget || 'moderate'
     });
     
+    console.log('✅ Generated enriched trip plan:', tripPlan.tripTitle);
     res.json({ tripPlan });
     
   } catch (error) {
-    console.error('Enriched multi-day planning error:', error);
+    console.error('❌ Enriched multi-day planning error:', error);
     res.status(500).json({ 
       error: 'Failed to generate enriched trip plan',
       message: error.message || 'Unable to generate real places data. Please verify your Google Places API key is configured.' 
