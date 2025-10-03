@@ -158,16 +158,155 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
                 // Plans Grid
                 ...SubscriptionService.plans.map((plan) => _buildPlanCard(plan, appProvider)),
                 
+                const SizedBox(height: 16),
+                
+                // Refund Policy
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.green[50],
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.green[200]!),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(Icons.verified_user, color: Colors.green[600]),
+                      const SizedBox(width: 12),
+                      const Expanded(
+                        child: Text(
+                          'Cancel anytime. Full refund within 7 days.',
+                          style: TextStyle(fontWeight: FontWeight.w500),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                
                 const SizedBox(height: 24),
                 
                 // Features Comparison
                 _buildFeaturesComparison(),
+                
+                const SizedBox(height: 24),
+                
+                // Cancel Subscription Section
+                _buildCancelSubscriptionSection(appProvider),
               ],
             ),
           ),
         );
       },
     );
+  }
+
+  Widget _buildCancelSubscriptionSection(AppProvider appProvider) {
+    final currentTier = appProvider.currentUser?.tier ?? SubscriptionTier.free;
+    
+    if (currentTier == SubscriptionTier.free) {
+      return const SizedBox.shrink();
+    }
+
+    return Card(
+      color: Colors.red[50],
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.info_outline, color: Colors.red[600]),
+                const SizedBox(width: 8),
+                const Text(
+                  'Subscription Management',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            const Text(
+              '✅ Cancel anytime. Full refund within 7 days.',
+              style: TextStyle(fontSize: 14),
+            ),
+            const SizedBox(height: 16),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton(
+                onPressed: () => _showCancelDialog(appProvider),
+                style: OutlinedButton.styleFrom(
+                  side: BorderSide(color: Colors.red[600]!),
+                  foregroundColor: Colors.red[600],
+                ),
+                child: const Text('Cancel Subscription'),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showCancelDialog(AppProvider appProvider) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Cancel Subscription'),
+        content: const Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Are you sure you want to cancel your subscription?'),
+            SizedBox(height: 12),
+            Text(
+              '• You\'ll lose access to premium features\n• Full refund available within 7 days\n• You can resubscribe anytime',
+              style: TextStyle(fontSize: 14, color: Colors.grey),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Keep Subscription'),
+          ),
+          ElevatedButton(
+            onPressed: () => _cancelSubscription(appProvider),
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            child: const Text('Cancel', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _cancelSubscription(AppProvider appProvider) async {
+    Navigator.pop(context);
+    
+    try {
+      final paymentService = PaymentService();
+      final success = await paymentService.cancelSubscription();
+      if (success) {
+        await appProvider.updateSubscription(SubscriptionTier.free, isFreeTrial: false);
+        
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Subscription cancelled. You\'ll receive a refund confirmation email.'),
+              backgroundColor: Colors.green,
+              duration: Duration(seconds: 4),
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Cancellation failed: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
   }
 
   Widget _buildPlanCard(SubscriptionPlan plan, AppProvider appProvider) {

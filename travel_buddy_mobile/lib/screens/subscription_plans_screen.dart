@@ -25,7 +25,7 @@ class _SubscriptionPlansScreenState extends State<SubscriptionPlansScreen> {
       'price': 4.99,
       'period': 'month',
       'features': [
-        'Unlimited place searches',
+        '30 places per day',
         'Basic trip planning',
         'Save up to 50 favorites',
         'Standard support',
@@ -39,8 +39,8 @@ class _SubscriptionPlansScreenState extends State<SubscriptionPlansScreen> {
       'period': 'month',
       'popular': true,
       'features': [
-        'Everything in Basic',
-        'AI-powered recommendations',
+        '100 places per day',
+        '20 AI queries per month',
         'Unlimited favorites',
         'Advanced trip planning',
         'Offline maps',
@@ -54,12 +54,12 @@ class _SubscriptionPlansScreenState extends State<SubscriptionPlansScreen> {
       'price': 19.99,
       'period': 'month',
       'features': [
-        'Everything in Premium',
+        'Unlimited places',
+        '100 AI queries per month',
         'Business travel features',
         'Team collaboration',
         'Custom integrations',
         'Dedicated support',
-        'Analytics dashboard',
       ],
       'color': Colors.orange,
     },
@@ -95,14 +95,154 @@ class _SubscriptionPlansScreenState extends State<SubscriptionPlansScreen> {
                 ),
                 const SizedBox(height: 24),
                 ..._plans.map((plan) => _buildPlanCard(plan, currentTier)),
+                const SizedBox(height: 16),
+                
+                // Refund Policy
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.green[50],
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.green[200]!),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(Icons.verified_user, color: Colors.green[600]),
+                      const SizedBox(width: 12),
+                      const Expanded(
+                        child: Text(
+                          'Cancel anytime. Full refund within 7 days.',
+                          style: TextStyle(fontWeight: FontWeight.w500),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                
                 const SizedBox(height: 24),
                 _buildFreePlanCard(currentTier),
+                
+                const SizedBox(height: 24),
+                _buildCancelSubscriptionSection(currentTier),
               ],
             ),
           );
         },
       ),
     );
+  }
+
+  Widget _buildCancelSubscriptionSection(SubscriptionTier currentTier) {
+    if (currentTier == SubscriptionTier.free) {
+      return const SizedBox.shrink();
+    }
+
+    return Card(
+      color: Colors.red[50],
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.info_outline, color: Colors.red[600]),
+                const SizedBox(width: 8),
+                const Text(
+                  'Subscription Management',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            const Text(
+              '✅ Cancel anytime. Full refund within 7 days.',
+              style: TextStyle(fontSize: 14),
+            ),
+            const SizedBox(height: 16),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton(
+                onPressed: _isLoading ? null : _showCancelDialog,
+                style: OutlinedButton.styleFrom(
+                  side: BorderSide(color: Colors.red[600]!),
+                  foregroundColor: Colors.red[600],
+                ),
+                child: const Text('Cancel Subscription'),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showCancelDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Cancel Subscription'),
+        content: const Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Are you sure you want to cancel your subscription?'),
+            SizedBox(height: 12),
+            Text(
+              '• You\'ll lose access to premium features\n• Full refund available within 7 days\n• You can resubscribe anytime',
+              style: TextStyle(fontSize: 14, color: Colors.grey),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Keep Subscription'),
+          ),
+          ElevatedButton(
+            onPressed: _cancelSubscription,
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            child: const Text('Cancel', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _cancelSubscription() async {
+    Navigator.pop(context);
+    setState(() => _isLoading = true);
+    
+    try {
+      final success = await _paymentService.cancelSubscription();
+      if (success) {
+        final appProvider = context.read<AppProvider>();
+        await appProvider.updateSubscription(SubscriptionTier.free, isFreeTrial: false);
+        
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Subscription cancelled. You\'ll receive a refund confirmation email.'),
+              backgroundColor: Colors.green,
+              duration: Duration(seconds: 4),
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Cancellation failed: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
   }
 
   Widget _buildCurrentPlanCard(SubscriptionTier currentTier) {
@@ -366,7 +506,7 @@ class _SubscriptionPlansScreenState extends State<SubscriptionPlansScreen> {
               children: [
                 Icon(Icons.check, color: Colors.green, size: 20),
                 SizedBox(width: 8),
-                Text('Basic place search'),
+                Text('10 places per day'),
               ],
             ),
             const SizedBox(height: 4),
@@ -374,7 +514,7 @@ class _SubscriptionPlansScreenState extends State<SubscriptionPlansScreen> {
               children: [
                 Icon(Icons.check, color: Colors.green, size: 20),
                 SizedBox(width: 8),
-                Text('Save up to 10 favorites'),
+                Text('3 deals per day'),
               ],
             ),
             const SizedBox(height: 4),

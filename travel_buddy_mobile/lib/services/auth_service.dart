@@ -107,7 +107,17 @@ class AuthService {
   Future<CurrentUser?> updateUserProfile({
     String? username,
     String? email,
+    String? bio,
+    String? website,
+    String? location,
+    String? birthday,
+    List<String>? languages,
+    List<String>? interests,
+    List<String>? budgetPreferences,
+    bool? showBirthdayToOthers,
+    bool? showLocationToOthers,
     String? profilePicture,
+    String? travelStyle,
   }) async {
     final firebaseUser = _auth.currentUser;
     if (firebaseUser == null) return null;
@@ -129,6 +139,15 @@ class AuthService {
         final updatedUser = currentUser.copyWith(
           username: username ?? currentUser.username,
           email: email ?? currentUser.email,
+          bio: bio ?? currentUser.bio,
+          website: website ?? currentUser.website,
+          location: location ?? currentUser.location,
+          birthday: birthday ?? currentUser.birthday,
+          languages: languages ?? currentUser.languages,
+          interests: interests ?? currentUser.interests,
+          budgetPreferences: budgetPreferences ?? currentUser.budgetPreferences,
+          showBirthdayToOthers: showBirthdayToOthers ?? currentUser.showBirthdayToOthers,
+          showLocationToOthers: showLocationToOthers ?? currentUser.showLocationToOthers,
           profilePicture: profilePicture ?? currentUser.profilePicture,
         );
 
@@ -140,7 +159,17 @@ class AuthService {
           await _api.updateUser(updatedUser.mongoId ?? firebaseUser.uid, {
             'username': updatedUser.username,
             'email': updatedUser.email,
+            'bio': updatedUser.bio,
+            'website': updatedUser.website,
+            'location': updatedUser.location,
+            'birthday': updatedUser.birthday,
+            'languages': updatedUser.languages,
+            'interests': updatedUser.interests,
+            'budgetPreferences': updatedUser.budgetPreferences,
+            'showBirthdayToOthers': updatedUser.showBirthdayToOthers,
+            'showLocationToOthers': updatedUser.showLocationToOthers,
             'profilePicture': updatedUser.profilePicture,
+            'travelStyle': travelStyle,
           });
         } catch (e) {
           print('Backend update failed, but local update succeeded: $e');

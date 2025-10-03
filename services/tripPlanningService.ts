@@ -1,5 +1,7 @@
 import { TripPlanSuggestion, TripPace, TravelStyle, BudgetLevel } from '../types';
 import { azureOpenAIService } from './azureOpenAIService';
+import { enhancedRealTripPlanningService } from './enhancedRealTripPlanningService';
+import { detailedTripPlanningService } from './detailedTripPlanningService';
 import { LOCAL_STORAGE_SAVED_TRIP_PLANS_KEY } from '../constants';
 
 export class TripPlanningService {
@@ -19,39 +21,71 @@ export class TripPlanningService {
     }
 
     try {
-      // Try integrated planning first
-      const plan = await this.generateIntegratedTripPlan({
+      // Try detailed service first for rich, specific content
+      const plan = await detailedTripPlanningService.generateDetailedTripPlan({
         destination: destination.trim(),
         duration: duration.trim(),
-        travel_style: interests || '',
-        pace,
-        budget_level: budget,
-        must_see: mustSeeAttractions || []
+        interests: interests || '',
+        pace: pace.toString(),
+        budget: budget.toString()
       });
 
-      return {
-        ...plan,
-        id: plan.id || `trip_${Date.now()}`,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
-      };
+      return plan;
     } catch (error) {
-      console.error('Integrated trip creation failed, using fallback:', error);
-      // Fallback to existing service
-      const plan = await azureOpenAIService.generateTripPlan(
-        destination.trim(),
-        duration.trim(),
-        interests || '',
-        pace,
-        travelStyles,
-        budget
-      );
-      return {
-        ...plan,
-        id: plan.id || `trip_${Date.now()}`,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
-      };
+      console.error('Detailed trip creation failed, trying enhanced:', error);
+      
+      try {
+        // Fallback to enhanced real data service
+        const plan = await enhancedRealTripPlanningService.generatePersonalizedTripPlan({
+          destination: destination.trim(),
+          duration: duration.trim(),
+          interests: interests || '',
+          pace: pace.toString(),
+          budget: budget.toString(),
+          groupType: 'general',
+          startDate: new Date().toISOString()
+        });
+
+        return plan;
+      } catch (error3) {
+        console.error('Enhanced trip creation failed, trying integrated:', error3);
+        
+        try {
+          // Fallback to integrated planning
+          const plan = await this.generateIntegratedTripPlan({
+            destination: destination.trim(),
+            duration: duration.trim(),
+            travel_style: interests || '',
+            pace,
+            budget_level: budget,
+            must_see: mustSeeAttractions || []
+          });
+
+          return {
+            ...plan,
+            id: plan.id || `trip_${Date.now()}`,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString()
+          };
+        } catch (error4) {
+          console.error('Integrated trip creation failed, using basic AI:', error4);
+          // Final fallback to existing service
+          const plan = await azureOpenAIService.generateTripPlan(
+            destination.trim(),
+            duration.trim(),
+            interests || '',
+            pace,
+            travelStyles,
+            budget
+          );
+          return {
+            ...plan,
+            id: plan.id || `trip_${Date.now()}`,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString()
+          };
+        }
+      }
     }
   }
 

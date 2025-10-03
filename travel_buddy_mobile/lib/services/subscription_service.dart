@@ -8,27 +8,27 @@ class SubscriptionService {
 
   static final Map<SubscriptionTier, SubscriptionLimits> tierLimits = {
     SubscriptionTier.free: const SubscriptionLimits(
-      placesPerDay: 50,
+      placesPerDay: 10,
       aiQueriesPerDay: 0,
-      dealsPerDay: 10,
+      dealsPerDay: 3,
       favoritesMax: 0,
       postsPerDay: 0,
       hasTrialAccess: false,
       trialDays: 0,
     ),
     SubscriptionTier.basic: const SubscriptionLimits(
-      placesPerDay: 200,
+      placesPerDay: 30,
       aiQueriesPerDay: 0,
-      dealsPerDay: 50,
+      dealsPerDay: 10,
       favoritesMax: 50,
       postsPerDay: 3,
       hasTrialAccess: true,
       trialDays: 7,
     ),
     SubscriptionTier.premium: const SubscriptionLimits(
-      placesPerDay: 500,
-      aiQueriesPerDay: 50,
-      dealsPerDay: 100,
+      placesPerDay: 100,
+      aiQueriesPerDay: 20,
+      dealsPerDay: 20,
       favoritesMax: 200,
       postsPerDay: 10,
       hasTrialAccess: true,
@@ -36,7 +36,7 @@ class SubscriptionService {
     ),
     SubscriptionTier.pro: const SubscriptionLimits(
       placesPerDay: -1,
-      aiQueriesPerDay: -1,
+      aiQueriesPerDay: 100,
       dealsPerDay: -1,
       favoritesMax: -1,
       postsPerDay: -1,
@@ -48,21 +48,22 @@ class SubscriptionService {
   static final List<SubscriptionPlan> plans = [
     const SubscriptionPlan(
       tier: SubscriptionTier.free,
-      name: 'Free',
+      name: 'Explorer',
       monthlyPrice: 0,
       features: [
-        'Basic place discovery',
-        'Limited deals access',
+        '10 places per day',
+        '3 deals per day',
         'Basic search',
       ],
     ),
     const SubscriptionPlan(
       tier: SubscriptionTier.basic,
-      name: 'Basic',
+      name: 'Traveler',
       monthlyPrice: 9.99,
       annualPrice: 99.99,
       features: [
-        'Enhanced place discovery',
+        '30 places per day',
+        '10 deals per day',
         'Favorites (50 places)',
         'Community posts (3/day)',
         '7-day free trial',
@@ -70,13 +71,14 @@ class SubscriptionService {
     ),
     const SubscriptionPlan(
       tier: SubscriptionTier.premium,
-      name: 'Premium',
+      name: 'Smart Traveler',
       monthlyPrice: 19.99,
       annualPrice: 199.99,
       isRecommended: true,
       features: [
-        'AI trip planning (50/day)',
-        'Premium deals access',
+        '100 places per day',
+        '20 AI queries per month',
+        '20 deals per day',
         'Favorites (200 places)',
         'Community posts (10/day)',
         '7-day free trial',
@@ -84,13 +86,15 @@ class SubscriptionService {
     ),
     const SubscriptionPlan(
       tier: SubscriptionTier.pro,
-      name: 'Pro',
+      name: 'Business/Teams',
       monthlyPrice: 39.99,
       annualPrice: 399.99,
       badge: 'BEST VALUE',
       features: [
-        'Unlimited AI trip planning',
-        'Unlimited everything',
+        'Unlimited places',
+        '100 AI queries per month',
+        'Unlimited deals',
+        'Unlimited favorites',
         'Priority support',
         'Early access features',
         '7-day free trial',
@@ -227,7 +231,7 @@ class SubscriptionService {
       case 'ai_planning':
         return limits.aiQueriesPerDay != 0;
       case 'premium_deals':
-        return user.tier != SubscriptionTier.free;
+        return user.tier == SubscriptionTier.premium || user.tier == SubscriptionTier.pro;
       case 'favorites':
         return limits.favoritesMax != 0;
       case 'community_posts':

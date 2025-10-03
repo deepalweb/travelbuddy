@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../models/trip.dart';
+import 'real_data_service_helpers.dart';
 
 class RealDataService {
   static const String _placesApiKey = 'YOUR_GOOGLE_PLACES_API_KEY';
@@ -9,19 +10,56 @@ class RealDataService {
   // Get real places for a destination
   static Future<List<Map<String, dynamic>>> getRealPlaces(String destination) async {
     try {
-      final response = await http.get(
-        Uri.parse('https://maps.googleapis.com/maps/api/place/textsearch/json?query=attractions+in+$destination&key=$_placesApiKey'),
-      );
+      print('🌍 Fetching REAL places for $destination from Google Places API');
       
-      if (response.statusCode == 200) {
-        final data = json.decode(response.body);
-        return List<Map<String, dynamic>>.from(data['results'] ?? []);
+      // Multiple queries for diverse content
+      final queries = [
+        'tourist attractions in $destination',
+        'restaurants in $destination', 
+        'museums in $destination',
+        'parks in $destination',
+      ];
+      
+      List<Map<String, dynamic>> allPlaces = [];
+      
+      for (final query in queries) {
+        try {
+          final response = await http.get(
+            Uri.parse('https://maps.googleapis.com/maps/api/place/textsearch/json?query=${Uri.encodeComponent(query)}&key=$_placesApiKey'),
+          );
+          
+          if (response.statusCode == 200) {
+            final data = json.decode(response.body);
+            final places = List<Map<String, dynamic>>.from(data['results'] ?? []);
+            allPlaces.addAll(places);
+            print('✅ Got ${places.length} places for query: $query');
+          } else {
+            print('❌ API error for $query: ${response.statusCode}');
+          }
+        } catch (e) {
+          print('❌ Query error for $query: $e');
+        }
       }
+      
+      // Remove duplicates and filter by rating
+      final uniquePlaces = <String, Map<String, dynamic>>{};
+      for (final place in allPlaces) {
+        final id = place['place_id'] ?? place['name'];
+        final rating = place['rating'] ?? 0.0;
+        if (rating >= 3.5 && !uniquePlaces.containsKey(id)) {
+          uniquePlaces[id] = place;
+        }
+      }
+      
+      final filteredPlaces = uniquePlaces.values.toList();
+      print('✅ Filtered to ${filteredPlaces.length} unique, well-rated places');
+      
+      return filteredPlaces.isNotEmpty ? filteredPlaces : _getFallbackPlaces(destination);
+      
     } catch (e) {
-      print('Error fetching places: $e');
+      print('❌ Error fetching real places: $e');
+      return _getFallbackPlaces(destination);
     }
-    
-    return _getFallbackPlaces(destination);
   }
   
   // Get real costs for destination
@@ -45,37 +83,46 @@ class RealDataService {
     required String duration,
     required String interests,
   }) async {
-    final places = await getRealPlaces(destination);
+    // Get REAL places from Google Places API
+    final realPlaces = await getRealPlaces(destination);
     final costs = await getRealCosts(destination);
     final days = _extractDays(duration);
+    
+    print('🌍 Using ${realPlaces.length} REAL places from Google Places API for $destination');
     
     return TripPlan(
       id: DateTime.now().millisecondsSinceEpoch.toString(),
       tripTitle: '$destination ${duration} Adventure',
       destination: destination,
       duration: duration,
-      introduction: 'Discover the best of $destination with carefully selected attractions and experiences.',
-      dailyPlans: _generateStructuredDailyPlans(places, costs, days, destination),
+      introduction: 'Discover the best of $destination with real attractions and experiences from Google Places.',
+      dailyPlans: _generateRealDataDailyPlans(realPlaces, costs, days, destination, interests),
       conclusion: 'Enjoy your amazing trip to $destination!',
       totalEstimatedCost: '€${(costs['meal']! + costs['attraction']! + costs['transport']!) * days}',
       estimatedWalkingDistance: '${(2.5 * days).toStringAsFixed(1)} km',
     );
   }
   
-  static List<DailyTripPlan> _generateStructuredDailyPlans(
-    List<Map<String, dynamic>> places,
+  static List<DailyTripPlan> _generateRealDataDailyPlans(
+    List<Map<String, dynamic>> realPlaces,
     Map<String, double> costs,
     int days,
     String destination,
+    String interests,
   ) {
     final startDate = DateTime.now().add(Duration(days: 7));
     
     return List.generate(days, (index) {
-      final dayPlaces = places.skip(index * 3).take(3).toList();
-      final dayActivities = dayPlaces.map((place) => _createStructuredActivity(place, costs, index)).toList();
+      // Distribute real places across days
+      final dayPlaces = RealDataServiceHelpers.selectPlacesForDay(realPlaces, index, days, interests);
+      final dayActivities = dayPlaces.map((place) => RealDataServiceHelpers.createRealPlaceActivity(place, costs, index)).toList();
       
+      // Only use fallback if no real places available
       if (dayActivities.isEmpty) {
+        print('⚠️ No real places for day ${index + 1}, using fallback');
         dayActivities.addAll(_getStructuredDefaultActivities(destination, costs, index + 1));
+      } else {
+        print('✅ Day ${index + 1}: Using ${dayActivities.length} REAL places');
       }
       
       final totalCost = dayActivities.fold(0.0, (double sum, activity) => 

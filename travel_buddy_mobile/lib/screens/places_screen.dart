@@ -644,13 +644,23 @@ class _PlacesScreenState extends State<PlacesScreen> {
   void _showFilterBottomSheet(BuildContext context, AppProvider appProvider) {
     showModalBottomSheet(
       context: context,
+      useSafeArea: true,
       builder: (context) {
         return Container(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              Container(
+                width: 40,
+                height: 4,
+                margin: const EdgeInsets.only(bottom: 16),
+                decoration: BoxDecoration(
+                  color: Colors.grey[300],
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
               const Text(
                 'Filters',
                 style: TextStyle(
@@ -710,20 +720,26 @@ class _PlacesScreenState extends State<PlacesScreen> {
               const SizedBox(height: 16),
               
               // Apply Button with place count estimate
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: () {
-                    Navigator.pop(context);
-                    // Clear search and reload with new filters
-                    _searchController.clear();
-                    appProvider.loadNearbyPlaces();
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Color(AppConstants.colors['primary']!),
-                    foregroundColor: Colors.white,
+              SafeArea(
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: SizedBox(
+                    width: double.infinity,
+                    height: 48,
+                    child: ElevatedButton(
+                      onPressed: () {
+                        Navigator.pop(context);
+                        // Clear search and reload with new filters
+                        _searchController.clear();
+                        appProvider.loadNearbyPlaces();
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Color(AppConstants.colors['primary']!),
+                        foregroundColor: Colors.white,
+                      ),
+                      child: const Text('Apply & Search'),
+                    ),
                   ),
-                  child: const Text('Apply & Search'),
                 ),
               ),
             ],

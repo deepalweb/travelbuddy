@@ -93,7 +93,40 @@ class CurrentUser extends HiveObject {
   @HiveField(13)
   final String? uid;
 
-  // @HiveField(14)
+  @HiveField(14)
+  final String? bio;
+
+  @HiveField(15)
+  final String? website;
+
+  @HiveField(16)
+  final String? location;
+
+  @HiveField(17)
+  final String? birthday;
+
+  @HiveField(18)
+  final List<String>? languages;
+
+  @HiveField(19)
+  final List<String>? travelInterests;
+
+  @HiveField(20)
+  final String? budgetPreference;
+
+  @HiveField(21)
+  final List<String>? interests;
+
+  @HiveField(22)
+  final List<String>? budgetPreferences;
+
+  @HiveField(23)
+  final bool showBirthdayToOthers;
+
+  @HiveField(24)
+  final bool showLocationToOthers;
+
+  @HiveField(25)
   final TravelStyle? travelStyle;
 
   CurrentUser({
@@ -111,6 +144,17 @@ class CurrentUser extends HiveObject {
     this.hasCompletedWizard = false,
     this.mongoId,
     this.profilePicture,
+    this.bio,
+    this.website,
+    this.location,
+    this.birthday,
+    this.languages,
+    this.travelInterests,
+    this.budgetPreference,
+    this.interests,
+    this.budgetPreferences,
+    this.showBirthdayToOthers = true,
+    this.showLocationToOthers = true,
     this.travelStyle,
   });
 
@@ -142,6 +186,17 @@ class CurrentUser extends HiveObject {
       hasCompletedWizard: json['hasCompletedWizard'] ?? false,
       mongoId: json['mongoId'],
       profilePicture: json['profilePicture'],
+      bio: json['bio'],
+      website: json['website'],
+      location: json['location'],
+      birthday: json['birthday'],
+      languages: (json['languages'] as List?)?.cast<String>(),
+      travelInterests: (json['travelInterests'] as List?)?.cast<String>(),
+      budgetPreference: json['budgetPreference'],
+      interests: (json['interests'] as List?)?.cast<String>(),
+      budgetPreferences: (json['budgetPreferences'] as List?)?.cast<String>(),
+      showBirthdayToOthers: json['showBirthdayToOthers'] ?? true,
+      showLocationToOthers: json['showLocationToOthers'] ?? true,
       travelStyle: json['travelStyle'] != null 
           ? TravelStyle.values.firstWhere(
               (e) => e.name == json['travelStyle'],
@@ -167,6 +222,17 @@ class CurrentUser extends HiveObject {
       'mongoId': mongoId,
       'profilePicture': profilePicture,
       'uid': uid,
+      'bio': bio,
+      'website': website,
+      'location': location,
+      'birthday': birthday,
+      'languages': languages,
+      'travelInterests': travelInterests,
+      'budgetPreference': budgetPreference,
+      'interests': interests,
+      'budgetPreferences': budgetPreferences,
+      'showBirthdayToOthers': showBirthdayToOthers,
+      'showLocationToOthers': showLocationToOthers,
       'travelStyle': travelStyle?.name,
     };
   }
@@ -186,6 +252,17 @@ class CurrentUser extends HiveObject {
     String? mongoId,
     String? profilePicture,
     String? uid,
+    String? bio,
+    String? website,
+    String? location,
+    String? birthday,
+    List<String>? languages,
+    List<String>? travelInterests,
+    String? budgetPreference,
+    List<String>? interests,
+    List<String>? budgetPreferences,
+    bool? showBirthdayToOthers,
+    bool? showLocationToOthers,
     TravelStyle? travelStyle,
   }) {
     return CurrentUser(
@@ -203,6 +280,17 @@ class CurrentUser extends HiveObject {
       mongoId: mongoId ?? this.mongoId,
       profilePicture: profilePicture ?? this.profilePicture,
       uid: uid ?? this.uid,
+      bio: bio ?? this.bio,
+      website: website ?? this.website,
+      location: location ?? this.location,
+      birthday: birthday ?? this.birthday,
+      languages: languages ?? this.languages,
+      travelInterests: travelInterests ?? this.travelInterests,
+      budgetPreference: budgetPreference ?? this.budgetPreference,
+      interests: interests ?? this.interests,
+      budgetPreferences: budgetPreferences ?? this.budgetPreferences,
+      showBirthdayToOthers: showBirthdayToOthers ?? this.showBirthdayToOthers,
+      showLocationToOthers: showLocationToOthers ?? this.showLocationToOthers,
       travelStyle: travelStyle ?? this.travelStyle,
     );
   }

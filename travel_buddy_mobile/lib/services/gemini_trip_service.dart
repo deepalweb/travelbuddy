@@ -72,35 +72,109 @@ class GeminiTripService {
     required bool isAccessible,
     String? weather,
   }) {
+    final promptStyles = [
+      _buildExplorerPrompt(destination, interests, pace, dietaryPreferences, isAccessible, weather),
+      _buildLocalPrompt(destination, interests, pace, dietaryPreferences, isAccessible, weather),
+      _buildCulturalPrompt(destination, interests, pace, dietaryPreferences, isAccessible, weather),
+    ];
+    
+    return promptStyles[DateTime.now().millisecond % promptStyles.length];
+  }
+  
+  static String _buildExplorerPrompt(String destination, String interests, String pace, List<String> dietaryPreferences, bool isAccessible, String? weather) {
+    final startTime = ['08:30', '09:00', '09:30'][DateTime.now().millisecond % 3];
     return '''
-Create a premium day itinerary for $destination with these requirements:
+You are a local travel expert in $destination. Create a unique day itinerary for an adventurous traveler.
 
-Destination: $destination
-Interests: $interests
-Pace: $pace (Relaxed = 3-4 activities, Moderate = 4-5 activities, Fast-Paced = 6+ activities)
-Dietary Preferences: ${dietaryPreferences.join(', ')}
-Accessibility Required: $isAccessible
-Weather: ${weather ?? 'sunny'}
+Traveler Profile:
+- Destination: $destination
+- Interests: $interests
+- Pace: $pace
+- Dietary: ${dietaryPreferences.join(', ')}
+- Accessibility: ${isAccessible ? 'Required' : 'Flexible'}
+- Weather: ${weather ?? 'pleasant'}
 
-Please create a realistic day plan with:
-1. 3-4 activities with specific times (09:00-11:00 format)
-2. Mix of attractions, dining, and experiences
-3. Realistic travel times between locations
-4. Local tips and crowd insights
-5. Estimated costs in local currency
-6. Weather-appropriate suggestions
+Create experiences that include:
+- Hidden gems locals love
+- Authentic dining spots
+- Perfect photo opportunities
+- Cultural immersion moments
 
-Format each activity as:
-ACTIVITY: [Name]
-TIME: [09:00-11:00]
-TYPE: [landmark/restaurant/museum/nature/shopping/entertainment]
-DESCRIPTION: [2-3 sentences about the activity]
-COST: [Entry fee in local currency]
-TIPS: [Local insider tip]
-CROWD: [Low/Moderate/High]
-WEATHER_NOTE: [If weather affects this activity]
+Format:
+ACTIVITY: [Specific place with character]
+TIME: [$startTime-10:30]
+TYPE: [landmark/restaurant/museum/nature/cultural]
+DESCRIPTION: [Why this place is special and unique]
+COST: [Realistic local pricing]
+TIPS: [Insider secret or local hack]
+CROWD: [Best times to visit]
+WEATHER_NOTE: [Weather considerations]
 
-Start with morning activity around 9 AM.
+Make this feel like a friend's recommendation.
+''';
+  }
+  
+  static String _buildLocalPrompt(String destination, String interests, String pace, List<String> dietaryPreferences, bool isAccessible, String? weather) {
+    final startTime = ['08:30', '09:00', '09:30'][DateTime.now().millisecond % 3];
+    return '''
+As a $destination local, design a perfect day showing the real $destination.
+
+Visitor wants:
+- Interests: $interests
+- Energy: $pace
+- Food needs: ${dietaryPreferences.join(', ')}
+- Accessibility: $isAccessible
+- Weather: ${weather ?? 'good'}
+
+Show them:
+- Where locals actually go
+- Best timing for each place
+- Food spots tourists miss
+- Cultural insights
+
+Format:
+ACTIVITY: [Local name for the place]
+TIME: [$startTime-10:00]
+TYPE: [category]
+DESCRIPTION: [Why locals love this place]
+COST: [What locals pay]
+TIPS: [Local secret]
+CROWD: [Local vs tourist timing]
+WEATHER_NOTE: [Local weather wisdom]
+
+Make them feel like an insider.
+''';
+  }
+  
+  static String _buildCulturalPrompt(String destination, String interests, String pace, List<String> dietaryPreferences, bool isAccessible, String? weather) {
+    final startTime = ['08:30', '09:00', '09:30'][DateTime.now().millisecond % 3];
+    return '''
+Craft a cultural journey through $destination beyond surface tourism.
+
+Seeker profile:
+- Deep interest in: $interests
+- Rhythm: $pace
+- Dietary: ${dietaryPreferences.join(', ')}
+- Accessibility: ${isAccessible ? 'Essential' : 'Flexible'}
+- Conditions: ${weather ?? 'favorable'}
+
+Reveal:
+- Stories behind places
+- Cultural traditions
+- Community spaces
+- Artistic expressions
+
+Format:
+ACTIVITY: [Place with cultural significance]
+TIME: [$startTime-11:00]
+TYPE: [cultural/spiritual/artistic/traditional]
+DESCRIPTION: [Cultural story and connection]
+COST: [Fair local pricing]
+TIPS: [Cultural etiquette tip]
+CROWD: [Respectful timing]
+WEATHER_NOTE: [Seasonal considerations]
+
+Create genuine cultural exchange moments.
 ''';
   }
   
@@ -152,42 +226,104 @@ Start with morning activity around 9 AM.
   }
   
   static String _getMockGeminiResponse() {
+    final responses = [
+      _getMockExplorerResponse(),
+      _getMockLocalResponse(), 
+      _getMockCulturalResponse(),
+    ];
+    return responses[DateTime.now().millisecond % responses.length];
+  }
+  
+  static String _getMockExplorerResponse() {
     return '''
-ACTIVITY: Historic City Center
-TIME: 09:00-11:00
-TYPE: landmark
-DESCRIPTION: Explore the historic downtown area with beautiful architecture and local shops. Perfect for morning walks and photography.
-COST: Free
-TIPS: Best lighting for photos is between 9-10 AM
-CROWD: Low
-WEATHER_NOTE: Great for sunny weather, covered walkways available
-
-ACTIVITY: Local Market & Lunch
-TIME: 12:00-14:00
+ACTIVITY: Dawn Coffee at Artisan Roastery
+TIME: 08:30-09:30
 TYPE: restaurant
-DESCRIPTION: Visit the bustling local market and enjoy authentic cuisine at nearby restaurants. Try regional specialties.
-COST: \$15-25
-TIPS: Ask locals for their favorite stalls
-CROWD: Moderate
-WEATHER_NOTE: Mostly covered areas
+DESCRIPTION: Start where locals fuel up - this hidden roastery serves the city's best single-origin coffee with fresh pastries. The owner sources beans directly from mountain farmers.
+COST: \$8-12
+TIPS: Try the signature blend with local honey
+CROWD: Locals peak at 8 AM, quieter after 9
+WEATHER_NOTE: Perfect cozy spot for any weather
 
-ACTIVITY: Cultural Museum
-TIME: 15:00-17:00
-TYPE: museum
-DESCRIPTION: Discover local history and culture at the main museum. Interactive exhibits and guided tours available.
-COST: \$12
-TIPS: Free entry on first Sunday of month
-CROWD: Low
-WEATHER_NOTE: Perfect indoor activity for any weather
+ACTIVITY: Secret Garden Gallery Walk
+TIME: 10:00-12:00
+TYPE: cultural
+DESCRIPTION: Discover the artist quarter's hidden courtyards where local painters display their work. Each alley tells a different story through murals and sculptures.
+COST: Free (donations appreciated)
+TIPS: Chat with artists - they love sharing inspiration
+CROWD: Peaceful mornings, busier after lunch
+WEATHER_NOTE: Covered walkways protect art and visitors
 
-ACTIVITY: Sunset Viewpoint
-TIME: 18:00-19:30
-TYPE: nature
-DESCRIPTION: End the day at the best viewpoint in the city. Popular spot for sunset photos and evening relaxation.
-COST: Free
-TIPS: Arrive 30 minutes before sunset
-CROWD: High
-WEATHER_NOTE: Weather dependent - check forecast
+ACTIVITY: Grandmother's Kitchen Experience
+TIME: 13:00-14:30
+TYPE: restaurant
+DESCRIPTION: Join a local family for traditional cooking in their home kitchen. Learn recipes passed down through generations while sharing stories over lunch.
+COST: \$25-35
+TIPS: Bring your appetite and curiosity
+CROWD: Intimate groups of 4-6 people
+WEATHER_NOTE: Indoor experience, perfect anytime
+''';
+  }
+  
+  static String _getMockLocalResponse() {
+    return '''
+ACTIVITY: Morning Market Run with Auntie Sita
+TIME: 09:00-10:30
+TYPE: cultural
+DESCRIPTION: Follow locals to the wholesale market where Auntie Sita has sold fresh produce for 30 years. She'll teach you to pick the best fruits and share neighborhood gossip.
+COST: \$5-10 for samples
+TIPS: Bring reusable bag and learn basic greetings
+CROWD: Bustling with locals, no tourists
+WEATHER_NOTE: Covered stalls, rain or shine
+
+ACTIVITY: Uncle Kumar's Spice Workshop
+TIME: 11:00-12:30
+TYPE: cultural
+DESCRIPTION: In his tiny shop, Uncle Kumar blends spices like his grandfather taught him. Watch him create custom masalas and learn medicinal properties of each spice.
+COST: \$15 (includes spice packet)
+TIPS: Ask about healing properties - he's a walking encyclopedia
+CROWD: Usually just you and maybe one other soul
+WEATHER_NOTE: Aromatic indoor experience
+
+ACTIVITY: Workers' Lunch at Mama's Kitchen
+TIME: 12:45-14:00
+TYPE: restaurant
+DESCRIPTION: Squeeze into this 8-table eatery where construction workers, clerks, and taxi drivers share delicious, cheap lunch. No menu - ask what's good today.
+COST: \$3-6
+TIPS: Point and smile - universal language of hunger
+CROWD: Packed with working locals 12:30-1:30
+WEATHER_NOTE: Fan-cooled, authentic atmosphere
+''';
+  }
+  
+  static String _getMockCulturalResponse() {
+    return '''
+ACTIVITY: Sacred Morning Ritual at River Temple
+TIME: 08:30-10:00
+TYPE: spiritual
+DESCRIPTION: Witness ancient dawn prayers where devotees have gathered for 800 years. The temple priest explains ritual significance and stories carved in stone.
+COST: Donation (\$2-5 suggested)
+TIPS: Dress modestly and remove shoes before entering
+CROWD: Peaceful gathering of faithful locals
+WEATHER_NOTE: Mystical in morning mist, golden in sunshine
+
+ACTIVITY: Master Craftsman's Workshop
+TIME: 10:30-12:30
+TYPE: artistic
+DESCRIPTION: Watch Master Chen create intricate wood carvings using 500-year-old techniques. His family served the royal court for 12 generations. Try basic carving.
+COST: \$20 (includes small carving)
+TIPS: Ask about symbolism - every curve has meaning
+CROWD: Intimate setting with serious art lovers
+WEATHER_NOTE: Cool workshop perfect for focused creativity
+
+ACTIVITY: Community Feast Preparation
+TIME: 13:00-15:00
+TYPE: community
+DESCRIPTION: Join weekly community kitchen where neighbors cook together for elderly and needy. Learn traditional recipes while understanding how communities care for each other.
+COST: \$10 donation
+TIPS: Bring apron and open heart
+CROWD: Warm community of volunteers from all walks
+WEATHER_NOTE: Indoor kitchen with great ventilation
 ''';
   }
   

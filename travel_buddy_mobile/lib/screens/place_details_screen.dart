@@ -1441,14 +1441,25 @@ class _PlaceDetailsScreenState extends State<PlaceDetailsScreen> with TickerProv
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
+      useSafeArea: true,
       builder: (context) => DraggableScrollableSheet(
         initialChildSize: 0.7,
         maxChildSize: 0.9,
         minChildSize: 0.5,
+        expand: false,
         builder: (context, scrollController) => Container(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
           child: Column(
             children: [
+              Container(
+                width: 40,
+                height: 4,
+                margin: const EdgeInsets.only(bottom: 16),
+                decoration: BoxDecoration(
+                  color: Colors.grey[300],
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
               Text(
                 'All Reviews (${_reviews.length})',
                 style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
@@ -1460,6 +1471,9 @@ class _PlaceDetailsScreenState extends State<PlaceDetailsScreen> with TickerProv
                   itemCount: _reviews.length,
                   itemBuilder: (context, index) => _buildReviewCard(_reviews[index]),
                 ),
+              ),
+              SafeArea(
+                child: SizedBox(height: 16),
               ),
             ],
           ),

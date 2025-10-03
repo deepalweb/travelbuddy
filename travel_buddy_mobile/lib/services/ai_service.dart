@@ -185,38 +185,63 @@ class AiService {
     final dailyPlans = <DailyTripPlan>[];
     final tripStyle = travelStyles.isNotEmpty ? travelStyles.join(', ') : 'Adventure';
     
+    // Add randomization for variety
+    final planVariation = DateTime.now().millisecond % 3;
+    final titleVariations = [
+      '✈️ Ultimate $destination Adventure',
+      '🌟 Discover $destination Experience', 
+      '🗺️ $destination Journey Awaits'
+    ];
+    
     for (int i = 0; i < days; i++) {
       dailyPlans.add(DailyTripPlan(
         day: i + 1,
-        title: _getDayTitle(i + 1, destination, interests, travelStyles),
-        theme: _getDayTheme(i + 1, destination, travelStyles),
-        activities: _generateDayActivities(i + 1, destination, interests, travelStyles, pace, budget),
+        title: _getDynamicDayTitle(i + 1, destination, interests, travelStyles, planVariation),
+        theme: _getDynamicDayTheme(i + 1, destination, travelStyles, planVariation),
+        activities: _generateVariedDayActivities(i + 1, destination, interests, travelStyles, pace, budget, planVariation),
       ));
     }
     
     return TripPlan(
       id: DateTime.now().millisecondsSinceEpoch.toString(),
-      tripTitle: '✈️ Ultimate $destination Adventure',
+      tripTitle: titleVariations[planVariation],
       destination: destination,
       duration: duration,
-      introduction: _generateUltimateIntroduction(destination, interests, travelStyles, budget),
+      introduction: _generateDynamicIntroduction(destination, interests, travelStyles, budget, planVariation),
       dailyPlans: dailyPlans,
-      conclusion: _generateUltimateConclusion(destination, days),
+      conclusion: _generateDynamicConclusion(destination, days, planVariation),
       accommodationSuggestions: _generateAccommodationSuggestions(destination, budget),
       transportationTips: _generateTransportationTips(destination, budget),
       budgetConsiderations: _generateBudgetConsiderations(destination, budget, days),
     );
   }
 
-  String _getDayTitle(int day, String destination, String interests, List<String> travelStyles) {
-    final themes = {
-      1: 'Arrival & First Impressions',
-      2: 'Cultural Exploration',
-      3: 'Adventure & Discovery',
-      4: 'Local Experiences',
-      5: 'Hidden Gems',
-    };
+  String _getDynamicDayTitle(int day, String destination, String interests, List<String> travelStyles, int variation) {
+    final themeVariations = [
+      {
+        1: 'Arrival & First Impressions',
+        2: 'Cultural Exploration', 
+        3: 'Adventure & Discovery',
+        4: 'Local Experiences',
+        5: 'Hidden Gems',
+      },
+      {
+        1: 'Welcome to $destination',
+        2: 'Immerse in Local Culture',
+        3: 'Discover & Explore', 
+        4: 'Authentic Local Life',
+        5: 'Secret Spots & Treasures',
+      },
+      {
+        1: 'First Day Magic',
+        2: 'Heritage & Traditions',
+        3: 'Adventure Awaits',
+        4: 'Connect with Locals', 
+        5: 'Off the Beaten Path',
+      }
+    ];
     
+    final themes = themeVariations[variation];
     if (day <= 5 && themes.containsKey(day)) {
       return 'Day $day: ${themes[day]}';
     }
@@ -224,48 +249,185 @@ class AiService {
     final style = travelStyles.isNotEmpty ? travelStyles.first : 'Exploration';
     return 'Day $day: $style in $destination';
   }
+  
+  String _getDynamicDayTheme(int day, String destination, List<String> travelStyles, int variation) {
+    final themeVariations = [
+      {
+        1: 'Cultural Immersion in Old Town',
+        2: 'Local Experiences & Hidden Gems',
+        3: 'Adventure & Nature Discovery',
+        4: 'Food & Market Exploration',
+        5: 'Relaxation & Scenic Views',
+      },
+      {
+        1: 'Historic Heart & Local Flavors',
+        2: 'Artisan Quarters & Craft Culture',
+        3: 'Outdoor Adventures & Natural Beauty',
+        4: 'Culinary Journey & Street Life',
+        5: 'Peaceful Retreats & Panoramic Views',
+      },
+      {
+        1: 'Ancient Streets & Modern Vibes',
+        2: 'Creative Districts & Local Artists',
+        3: 'Wild Spaces & Active Pursuits', 
+        4: 'Market Life & Gastronomic Delights',
+        5: 'Tranquil Escapes & Sunset Spots',
+      }
+    ];
+    
+    final themes = themeVariations[variation];
+    if (day <= 5 && themes.containsKey(day)) {
+      return themes[day]!;
+    }
+    
+    final style = travelStyles.isNotEmpty ? travelStyles.first : 'Exploration';
+    return '$style Discovery in $destination';
+  }
 
-  List<ActivityDetail> _generateDayActivities(int day, String destination, String interests, 
-      List<String> travelStyles, String pace, String budget) {
+  List<ActivityDetail> _generateVariedDayActivities(int day, String destination, String interests, 
+      List<String> travelStyles, String pace, String budget, int variation) {
     final activities = <ActivityDetail>[];
     
-    // Morning activity
+    // Morning activity with variation
     activities.add(ActivityDetail(
-      timeOfDay: 'Morning: 9:00 AM - 1:00 PM',
-      activityTitle: _getMorningActivity(day, interests, travelStyles),
-      description: _getMorningDescription(day, destination, interests),
+      timeOfDay: _getVariedTimeSlot('morning', variation),
+      activityTitle: _getVariedMorningActivity(day, interests, travelStyles, variation),
+      description: _getVariedMorningDescription(day, destination, interests, variation),
       estimatedDuration: '2-3 hrs',
-      location: '$destination City Center',
-      notes: _getMorningNotes(day, interests),
+      location: _getVariedLocation(destination, 'morning', variation),
+      notes: _getVariedMorningNotes(day, interests, variation),
       icon: _getMorningIcon(day, interests, travelStyles),
       category: _getMorningCategory(interests, travelStyles),
     ));
     
-    // Afternoon activity
+    // Afternoon activity with variation
     activities.add(ActivityDetail(
-      timeOfDay: 'Afternoon: 2:00 PM - 5:00 PM',
-      activityTitle: _getAfternoonActivity(day, interests, travelStyles),
-      description: _getAfternoonDescription(day, destination, interests, budget),
+      timeOfDay: _getVariedTimeSlot('afternoon', variation),
+      activityTitle: _getVariedAfternoonActivity(day, interests, travelStyles, variation),
+      description: _getVariedAfternoonDescription(day, destination, interests, budget, variation),
       estimatedDuration: '3 hrs',
-      location: '$destination Historic Quarter',
-      notes: _getAfternoonNotes(budget),
+      location: _getVariedLocation(destination, 'afternoon', variation),
+      notes: _getVariedAfternoonNotes(budget, variation),
       icon: _getAfternoonIcon(interests, travelStyles),
       category: _getAfternoonCategory(interests, travelStyles),
     ));
     
-    // Evening activity
+    // Evening activity with variation
     activities.add(ActivityDetail(
-      timeOfDay: 'Evening: 7:00 PM onwards',
-      activityTitle: _getEveningActivity(day, interests, travelStyles, budget),
-      description: _getEveningDescription(day, destination, budget),
+      timeOfDay: _getVariedTimeSlot('evening', variation),
+      activityTitle: _getVariedEveningActivity(day, interests, travelStyles, budget, variation),
+      description: _getVariedEveningDescription(day, destination, budget, variation),
       estimatedDuration: '2.5 hrs',
-      location: '$destination Waterfront',
-      notes: _getEveningNotes(budget, travelStyles),
+      location: _getVariedLocation(destination, 'evening', variation),
+      notes: _getVariedEveningNotes(budget, travelStyles, variation),
       icon: _getEveningIcon(travelStyles, budget),
       category: _getEveningCategory(travelStyles, budget),
     ));
     
     return activities;
+  }
+  
+  String _getVariedTimeSlot(String period, int variation) {
+    final timeVariations = {
+      'morning': [
+        'Morning: 9:00 AM - 1:00 PM',
+        'Morning: 8:30 AM - 12:30 PM', 
+        'Morning: 9:30 AM - 1:30 PM'
+      ],
+      'afternoon': [
+        'Afternoon: 2:00 PM - 5:00 PM',
+        'Afternoon: 1:30 PM - 4:30 PM',
+        'Afternoon: 2:30 PM - 5:30 PM'
+      ],
+      'evening': [
+        'Evening: 7:00 PM onwards',
+        'Evening: 6:30 PM onwards',
+        'Evening: 7:30 PM onwards'
+      ]
+    };
+    return timeVariations[period]![variation];
+  }
+  
+  String _getVariedLocation(String destination, String period, int variation) {
+    final locationVariations = {
+      'morning': [
+        '$destination City Center',
+        '$destination Historic District',
+        '$destination Old Town'
+      ],
+      'afternoon': [
+        '$destination Historic Quarter',
+        '$destination Cultural District',
+        '$destination Arts Quarter'
+      ],
+      'evening': [
+        '$destination Waterfront',
+        '$destination Riverside',
+        '$destination Marina District'
+      ]
+    };
+    return locationVariations[period]![variation];
+  }
+  
+  String _getVariedMorningActivity(int day, String interests, List<String> travelStyles, int variation) {
+    if (day == 1) {
+      final activities = [
+        'Arrival & City Orientation',
+        'Welcome to the City Experience',
+        'First Impressions Walking Tour'
+      ];
+      return activities[variation];
+    }
+    
+    if (interests.toLowerCase().contains('culture')) {
+      final activities = [
+        'Cultural Sites Visit',
+        'Heritage Discovery Tour',
+        'Local Traditions Experience'
+      ];
+      return activities[variation];
+    }
+    
+    final defaultActivities = [
+      'Local Landmarks Tour',
+      'Neighborhood Exploration',
+      'City Highlights Walk'
+    ];
+    return defaultActivities[variation];
+  }
+  
+  String _getVariedMorningDescription(int day, String destination, String interests, int variation) {
+    if (day == 1) {
+      final descriptions = [
+        '🌅 Welcome to $destination! Start with breakfast at a local café (try the regional specialty). '
+        'Take the hop-on-hop-off bus tour (\$25-35) for city orientation. '
+        'Visit the Tourist Information Center for maps and discount cards.',
+        
+        '☀️ Your $destination adventure begins! Fuel up with authentic local breakfast (\$8-15). '
+        'Join a welcome walking tour to get oriented (\$20-30). '
+        'Collect city maps and discover discount opportunities.',
+        
+        '🗺️ First day magic in $destination! Experience morning café culture (\$10-18). '
+        'Take a self-guided orientation walk through main areas. '
+        'Visit the visitor center for insider tips and local recommendations.'
+      ];
+      return descriptions[variation];
+    }
+    
+    final descriptions = [
+      '🏛️ Explore $destination\'s cultural treasures. Visit the main museum (\$15-25). '
+      'Take a guided walking tour focusing on $interests (\$20-30). '
+      'Stop at local artisan shops for authentic souvenirs.',
+      
+      '🎨 Dive deep into $destination\'s heritage. Discover hidden cultural gems (\$12-20). '
+      'Join locals on their morning routines and cultural practices. '
+      'Experience authentic craftsmanship at traditional workshops.',
+      
+      '🌟 Uncover $destination\'s authentic character. Explore beyond tourist paths. '
+      'Connect with local culture through community spaces and markets. '
+      'Learn stories that guidebooks don\'t tell.'
+    ];
+    return descriptions[variation];
   }
 
   String _getMorningActivity(int day, String interests, List<String> travelStyles) {
@@ -410,40 +572,227 @@ class AiService {
     return 'dining';
   }
 
-  String _generateUltimateIntroduction(String destination, String interests, List<String> travelStyles, String budget) {
-    final styleText = travelStyles.isNotEmpty ? travelStyles.join(', ') : 'Adventure';
-    return '✨ Welcome, Traveler!\n\n'
-           'Get ready for your personalized trip to $destination! We\'ve crafted this itinerary based on your interests in $interests. '
-           'Tap on any activity for more details, or use the "Flexible Mode" to explore spontaneous options nearby.\n\n'
-           '🗺️ Trip Summary\n'
-           'Trip Stats: Multiple locations, ${_getActivityCount()} activities, personalized experiences\n'
-           'Budget Tracker: Designed for $budget travel\n'
-           'Quick Links: Accommodation, Transport, Local Tips';
-  }
-
-  String _generateUltimateConclusion(String destination, int days) {
-    return '✅ Conclusion\n\n'
-           'Your $days-day adventure in $destination comes to an end, but the memories will last forever! '
-           'This itinerary provided a comprehensive taste of what makes this destination special, '
-           'from iconic landmarks to hidden local gems.\n\n'
-           '🎆 Safe travels, and we hope you\'ll return to explore even more of $destination!';
+  String _generateDynamicIntroduction(String destination, String interests, List<String> travelStyles, String budget, int variation) {
+    final introVariations = [
+      '✨ Welcome, Traveler!\n\n'
+      'Get ready for your personalized trip to $destination! We\'ve crafted this itinerary based on your interests in $interests. '
+      'Each day offers unique experiences that capture the essence of local culture and adventure.\n\n'
+      '🗺️ Your Journey Awaits\n'
+      'Curated experiences, authentic encounters, memorable moments\n'
+      'Budget-conscious planning for $budget travelers\n'
+      'Local insights and hidden gems included',
+      
+      '🌟 Adventure Begins Here!\n\n'
+      'Welcome to your $destination discovery! This carefully planned journey celebrates your passion for $interests '
+      'while revealing the authentic spirit of this incredible destination.\n\n'
+      '🎯 What Makes This Special\n'
+      'Handpicked locations, cultural immersion, local connections\n'
+      'Thoughtfully designed for $budget experiences\n'
+      'Flexible timing with insider recommendations',
+      
+      '🗺️ Your $destination Story Starts Now!\n\n'
+      'Embark on a journey tailored to your love of $interests. Every recommendation comes from deep local knowledge '
+      'and authentic experiences that go beyond typical tourist paths.\n\n'
+      '✨ Journey Highlights\n'
+      'Authentic experiences, cultural connections, memorable encounters\n'
+      'Carefully budgeted for $budget travel style\n'
+      'Local secrets and community favorites'
+    ];
+    
+    return introVariations[variation];
   }
   
-  String _getDayTheme(int day, String destination, List<String> travelStyles) {
-    final themes = {
-      1: 'Cultural Immersion in Old Town',
-      2: 'Local Experiences & Hidden Gems',
-      3: 'Adventure & Nature Discovery',
-      4: 'Food & Market Exploration',
-      5: 'Relaxation & Scenic Views',
-    };
+  String _generateDynamicConclusion(String destination, int days, int variation) {
+    final conclusionVariations = [
+      '✅ Journey Complete!\n\n'
+      'Your $days-day adventure in $destination comes to an end, but the memories will last forever! '
+      'This itinerary provided a comprehensive taste of what makes this destination special, '
+      'from iconic landmarks to hidden local gems.\n\n'
+      '🎆 Safe travels, and we hope you\'ll return to explore even more of $destination!',
+      
+      '🌟 What an Amazing Adventure!\n\n'
+      'After $days incredible days in $destination, you\'ve experienced the heart and soul of this remarkable place. '
+      'From authentic local encounters to breathtaking discoveries, every moment was crafted for lasting memories.\n\n'
+      '✈️ Until next time - $destination will always welcome you back!',
+      
+      '🎉 Your $destination Story Concludes!\n\n'
+      'These $days days have woven together culture, adventure, and authentic connections that define the true spirit of $destination. '
+      'You\'ve not just visited - you\'ve experienced this place through the eyes of locals and fellow travelers.\n\n'
+      '🌍 The world awaits your next adventure, but $destination will always hold a special place in your heart!'
+    ];
     
-    if (day <= 5 && themes.containsKey(day)) {
-      return themes[day]!;
+    return conclusionVariations[variation];
+  }
+
+  // Remove duplicate method since we added _generateDynamicConclusion above
+  
+  // Add helper methods for varied content
+  String _getVariedAfternoonActivity(int day, String interests, List<String> travelStyles, int variation) {
+    if (interests.toLowerCase().contains('food')) {
+      final activities = [
+        'Culinary Experience',
+        'Food Market Adventure', 
+        'Local Cooking Discovery'
+      ];
+      return activities[variation];
     }
     
-    final style = travelStyles.isNotEmpty ? travelStyles.first : 'Exploration';
-    return '$style Discovery in $destination';
+    final defaultActivities = [
+      'Interactive Local Experience',
+      'Community Cultural Immersion',
+      'Authentic Local Encounters'
+    ];
+    return defaultActivities[variation];
+  }
+  
+  String _getVariedAfternoonDescription(int day, String destination, String interests, String budget, int variation) {
+    final budgetNote = budget == 'Budget-Friendly' ? 'affordable' : budget == 'Luxury' ? 'premium' : 'mid-range';
+    
+    if (interests.toLowerCase().contains('food')) {
+      final descriptions = [
+        '🍽️ Culinary adventure awaits! Join a cooking class (\$45-80) or food tour (\$35-60). '
+        'Visit the central market for fresh ingredients and local delicacies. '
+        'Try 3-4 signature dishes at different $budgetNote restaurants.',
+        
+        '👨‍🍳 Dive into local food culture! Learn from home cooks (\$40-70) or street food experts. '
+        'Explore neighborhood markets where locals shop daily. '
+        'Taste authentic flavors at family-run $budgetNote establishments.',
+        
+        '🥘 Discover culinary secrets! Join food enthusiasts on market tours (\$30-55). '
+        'Learn about regional ingredients and cooking techniques. '
+        'Experience dining culture at carefully selected $budgetNote venues.'
+      ];
+      return descriptions[variation];
+    }
+    
+    final descriptions = [
+      '🎯 Experience $destination like a local! Join a $budgetNote activity related to $interests. '
+      'Interact with residents through community tours or workshops (\$20-40). '
+      'Visit local markets and try regional specialties (\$5-15).',
+      
+      '🤝 Connect with the community! Participate in local traditions and customs. '
+      'Learn from residents about their daily life and culture. '
+      'Support local businesses and artisans through authentic experiences.',
+      
+      '🌟 Authentic cultural exchange! Engage with locals through shared activities. '
+      'Discover neighborhood secrets and community gathering places. '
+      'Create meaningful connections beyond typical tourist interactions.'
+    ];
+    return descriptions[variation];
+  }
+  
+  String _getVariedEveningActivity(int day, String interests, List<String> travelStyles, String budget, int variation) {
+    if (budget == 'Luxury') {
+      final activities = [
+        'Fine Dining Experience',
+        'Premium Evening Entertainment',
+        'Exclusive Sunset Experience'
+      ];
+      return activities[variation];
+    }
+    
+    final defaultActivities = [
+      'Local Dining & Relaxation',
+      'Evening Cultural Experience',
+      'Sunset & Local Flavors'
+    ];
+    return defaultActivities[variation];
+  }
+  
+  String _getVariedEveningDescription(int day, String destination, String budget, int variation) {
+    if (budget == 'Luxury') {
+      final descriptions = [
+        '🍾 Luxury evening experience! Dine at a Michelin-starred restaurant (\$150-300 per person). '
+        'Enjoy cocktails at a rooftop bar with city views (\$15-25 per drink). '
+        'Take a private sunset cruise or helicopter tour (\$200-400).',
+        
+        '✨ Premium $destination evening! Experience world-class dining (\$180-350). '
+        'Sip artisanal cocktails at exclusive venues (\$18-30 per drink). '
+        'Enjoy VIP cultural performances or private tours (\$150-300).',
+        
+        '🥂 Sophisticated night out! Indulge in chef\'s tasting menu (\$200-400). '
+        'Experience premium entertainment and nightlife (\$50-100). '
+        'End with luxury spa treatment or private city illumination tour (\$100-250).'
+      ];
+      return descriptions[variation];
+    }
+    
+    final descriptions = [
+      '🌃 Perfect evening in $destination! Dinner at a recommended local restaurant (\$25-45 per person). '
+      'Try regional wine or beer (\$6-12 per glass). '
+      'Take an evening stroll through illuminated historic areas.',
+      
+      '🌆 Magical $destination sunset! Enjoy dinner with locals at neighborhood favorites (\$20-40). '
+      'Sample craft beverages and regional specialties (\$5-10). '
+      'Experience the city\'s evening rhythm and community life.',
+      
+      '🌙 Enchanting evening atmosphere! Dine where residents gather (\$22-38). '
+      'Discover evening markets and street food culture (\$8-15). '
+      'Join locals for traditional evening activities and entertainment.'
+    ];
+    return descriptions[variation];
+  }
+  
+  String _getVariedMorningNotes(int day, String interests, int variation) {
+    if (day == 1) {
+      final notes = [
+        '📱 Download city app, get SIM card (\$10-20), exchange money, keep hotel card, wear comfortable shoes',
+        '🗺️ Grab offline maps, local transport card (\$8-15), emergency contacts, comfortable walking gear',
+        '📞 Set up local connectivity, visitor information, city orientation materials, weather-appropriate clothing'
+      ];
+      return notes[variation];
+    }
+    
+    final notes = [
+      '🎫 Book online for discounts, arrive early (9-10 AM), bring water, comfortable shoes, phone charger',
+      '💡 Student discounts available, morning crowds lighter, hydration important, good walking shoes essential',
+      '⏰ Early arrival recommended, group rates possible, weather protection, comfortable footwear advised'
+    ];
+    return notes[variation];
+  }
+  
+  String _getVariedAfternoonNotes(String budget, int variation) {
+    switch (budget) {
+      case 'Budget-Friendly':
+        final notes = [
+          '💰 Lunch specials 11-3 PM, free samples at markets, happy hour 4-6 PM, group discounts available',
+          '🍽️ Daily deals common, market tastings free, afternoon discounts, bulk booking savings',
+          '💵 Midday promotions, complimentary samples, early evening specials, student rates available'
+        ];
+        return notes[variation];
+      case 'Luxury':
+        final notes = [
+          '👔 Reservations essential, smart casual dress, valet parking (\$15-25), sommelier available',
+          '🎩 Advance booking required, elegant attire, premium parking, wine expert on-site',
+          '✨ Prior arrangements needed, refined dress code, concierge parking, beverage specialist present'
+        ];
+        return notes[variation];
+      default:
+        final notes = [
+          '🍴 Try daily specials, ask locals for recommendations, 15-20% tip expected, credit cards accepted',
+          '👥 Local favorites recommended, standard gratuity appreciated, most places accept cards',
+          '🗣️ Seek resident advice, customary tipping, electronic payments widely accepted'
+        ];
+        return notes[variation];
+    }
+  }
+  
+  String _getVariedEveningNotes(String budget, List<String> travelStyles, int variation) {
+    if (budget == 'Luxury') {
+      final notes = [
+        '🥂 Smart casual required, advance booking essential, valet available, wine pairing recommended',
+        '👑 Elegant attire expected, reservations mandatory, premium services, sommelier consultation',
+        '✨ Refined dress code, prior booking crucial, luxury amenities, expert beverage guidance'
+      ];
+      return notes[variation];
+    }
+    
+    final notes = [
+      '🌙 Check weather, bring light jacket, last entry 9 PM, night photography tips available',
+      '🌆 Weather-appropriate clothing, evening temperatures cooler, venues close early, photo opportunities',
+      '🌃 Layer clothing recommended, temperature drops evening, early closing times, scenic photo spots'
+    ];
+    return notes[variation];
   }
   
   int _getActivityCount() {

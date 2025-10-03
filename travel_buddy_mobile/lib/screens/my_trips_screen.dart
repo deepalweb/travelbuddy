@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/app_provider.dart';
-import '../widgets/trip_plan_card.dart';
+import '../models/trip.dart';
 import 'trip_plan_detail_screen.dart';
 import 'trip_plan_edit_screen.dart';
 
@@ -63,26 +63,7 @@ class MyTripsScreen extends StatelessWidget {
               final tripPlan = tripPlans[index];
               return Padding(
                 padding: const EdgeInsets.only(bottom: 16),
-                child: TripPlanCard(
-                  tripPlan: tripPlan,
-                  onView: () {
-                    Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (context) => TripPlanDetailScreen(tripPlan: tripPlan),
-                      ),
-                    );
-                  },
-                  onEdit: () {
-                    Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (context) => TripPlanEditScreen(tripPlan: tripPlan),
-                      ),
-                    );
-                  },
-                  onDelete: () {
-                    _showDeleteConfirmation(context, appProvider, tripPlan);
-                  },
-                ),
+                child: _buildEnhancedTripCard(tripPlan, appProvider),
               );
             },
           );
@@ -91,7 +72,160 @@ class MyTripsScreen extends StatelessWidget {
     );
   }
 
-  void _showDeleteConfirmation(BuildContext context, AppProvider appProvider, tripPlan) {
+  Widget _buildEnhancedTripCard(TripPlan tripPlan, AppProvider appProvider) {
+    return Card(
+      elevation: 3,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Enhanced header with theme
+            Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        tripPlan.tripTitle ?? 'Trip Plan',
+                        style: const TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      if (tripPlan.dailyPlans.isNotEmpty && tripPlan.dailyPlans.first.theme != null && tripPlan.dailyPlans.first.theme!.isNotEmpty)
+                        Text(
+                          tripPlan.dailyPlans.first.theme!,
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.purple[600],
+                            fontStyle: FontStyle.italic,
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [Colors.blue[400]!, Colors.purple[400]!],
+                    ),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    '${tripPlan.dailyPlans.length} days',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            
+            const SizedBox(height: 12),
+            
+            // Enhanced trip info
+            Row(
+              children: [
+                Icon(Icons.location_on, size: 16, color: Colors.red[600]),
+                const SizedBox(width: 4),
+                Text(tripPlan.destination, style: const TextStyle(fontSize: 14)),
+                const SizedBox(width: 16),
+                Icon(Icons.euro, size: 16, color: Colors.green[600]),
+                const SizedBox(width: 4),
+                Text(tripPlan.totalEstimatedCost, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
+                const SizedBox(width: 16),
+                Icon(Icons.directions_walk, size: 16, color: Colors.blue[600]),
+                const SizedBox(width: 4),
+                Text(tripPlan.estimatedWalkingDistance, style: const TextStyle(fontSize: 14)),
+              ],
+            ),
+            
+            const SizedBox(height: 12),
+            
+            // Enhanced description with better formatting
+            if (tripPlan.introduction.isNotEmpty)
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.grey[50],
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.grey[200]!),
+                ),
+                child: Text(
+                  tripPlan.introduction,
+                  style: const TextStyle(fontSize: 13, height: 1.4),
+                  maxLines: 3,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            
+            const SizedBox(height: 16),
+            
+            // Enhanced action buttons
+            // Action buttons - using Builder to get context
+            Builder(
+              builder: (context) => Row(
+                children: [
+                  Expanded(
+                    child: ElevatedButton.icon(
+                      onPressed: () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (context) => TripPlanDetailScreen(tripPlan: tripPlan),
+                          ),
+                        );
+                      },
+                      icon: const Icon(Icons.visibility, size: 16),
+                      label: const Text('View'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.blue[600],
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (context) => TripPlanEditScreen(tripPlan: tripPlan),
+                          ),
+                        );
+                      },
+                      icon: const Icon(Icons.edit, size: 16),
+                      label: const Text('Edit'),
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  IconButton(
+                    onPressed: () => _showDeleteConfirmation(context, appProvider, tripPlan),
+                    icon: const Icon(Icons.delete, color: Colors.red, size: 20),
+                    style: IconButton.styleFrom(
+                      backgroundColor: Colors.red[50],
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+  
+  void _showDeleteConfirmation(BuildContext context, AppProvider appProvider, TripPlan tripPlan) {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -108,12 +242,14 @@ class MyTripsScreen extends StatelessWidget {
             onPressed: () async {
               Navigator.of(context).pop();
               await appProvider.deleteTripPlan(tripPlan.id);
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text('"${tripPlan.tripTitle}" deleted successfully'),
-                  backgroundColor: Colors.green,
-                ),
-              );
+              if (context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('"${tripPlan.tripTitle}" deleted successfully'),
+                    backgroundColor: Colors.green,
+                  ),
+                );
+              }
             },
             style: TextButton.styleFrom(foregroundColor: Colors.red),
             child: const Text('Delete'),

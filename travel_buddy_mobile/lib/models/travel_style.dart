@@ -1,9 +1,20 @@
+import 'package:hive/hive.dart';
+
+part 'travel_style.g.dart';
+
+@HiveType(typeId: 25)
 enum TravelStyle {
+  @HiveField(0)
   foodie,     // +40% restaurants, +20% cafes
+  @HiveField(1)
   explorer,   // +40% attractions, +20% nature
+  @HiveField(2)
   relaxer,    // +40% nature, +20% cafes, -20% nightlife
+  @HiveField(3)
   nightOwl,   // +50% nightlife, +20% entertainment
+  @HiveField(4)
   culture,    // +40% museums, +30% historic sites
+  @HiveField(5)
   nature,     // +50% parks, +30% outdoor activities
 }
 

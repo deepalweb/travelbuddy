@@ -21,8 +21,16 @@ class _TravelStyleSelectionScreenState extends State<TravelStyleSelectionScreen>
   @override
   void initState() {
     super.initState();
-    final currentUser = context.read<AppProvider>().currentUser;
-    _selectedStyle = currentUser?.travelStyle;
+    // Use addPostFrameCallback to ensure the context is ready
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final currentUser = context.read<AppProvider>().currentUser;
+      if (mounted) {
+        setState(() {
+          _selectedStyle = currentUser?.travelStyle;
+        });
+        print('🔍 DEBUG: Initialized with travel style: ${_selectedStyle?.displayName ?? "None"}');
+      }
+    });
   }
 
   @override
@@ -81,6 +89,7 @@ class _TravelStyleSelectionScreenState extends State<TravelStyleSelectionScreen>
                         setState(() {
                           _selectedStyle = style;
                         });
+                        print('🔍 DEBUG: Selected style: ${style.displayName}');
                       },
                       child: Padding(
                         padding: const EdgeInsets.all(16),
@@ -201,10 +210,30 @@ class _TravelStyleSelectionScreenState extends State<TravelStyleSelectionScreen>
   }
 
   void _saveSelection() async {
-    if (_selectedStyle == null) return;
+    if (_selectedStyle == null) {
+      print('⚠️ No travel style selected');
+      return;
+    }
 
+    print('🔍 DEBUG: Saving travel style: ${_selectedStyle!.displayName}');
+    
     final appProvider = context.read<AppProvider>();
+    appProvider.debugCurrentUser();
+    final currentUser = appProvider.currentUser;
+    
+    print('🔍 DEBUG: Current user: ${currentUser?.username ?? "None"}, mongoId: ${currentUser?.mongoId ?? "None"}');
+    
     final success = await appProvider.updateTravelStyle(_selectedStyle!);
+    
+    print('🔍 DEBUG: Update result: $success');
+    
+    // Verify the travel style was saved
+    final updatedUser = appProvider.currentUser;
+    print('🔍 DEBUG: After save - Travel style: ${updatedUser?.travelStyle?.displayName ?? "None"}');
+    appProvider.debugCurrentUser();
+    
+    // Verify persistence in storage
+    await appProvider.debugReloadUserFromStorage();
 
     if (success && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -219,6 +248,13 @@ class _TravelStyleSelectionScreenState extends State<TravelStyleSelectionScreen>
       } else {
         Navigator.of(context).pop();
       }
+    } else if (!success && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Failed to save travel style. Please try again.'),
+          backgroundColor: Colors.red,
+        ),
+      );
     }
   }
 }

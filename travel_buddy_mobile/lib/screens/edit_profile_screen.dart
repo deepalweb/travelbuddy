@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:image_picker/image_picker.dart';
 import '../providers/app_provider.dart';
+import '../models/travel_style.dart';
 
 class EditProfileScreen extends StatefulWidget {
   const EditProfileScreen({super.key});
@@ -16,11 +17,16 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   final _formKey = GlobalKey<FormState>();
   final _usernameController = TextEditingController();
   final _bioController = TextEditingController();
+  final _websiteController = TextEditingController();
+  final _locationController = TextEditingController();
   bool _isLoading = false;
   bool _isPickingImage = false;
   File? _selectedImage;
   String? _currentAvatarUrl;
+  DateTime? _selectedBirthday;
   final ImagePicker _picker = ImagePicker();
+  bool _showBirthdayToOthers = true;
+  bool _showLocationToOthers = true;
 
   @override
   void initState() {
@@ -28,12 +34,29 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     _loadCurrentData();
   }
 
+  @override
+  void dispose() {
+    _usernameController.dispose();
+    _bioController.dispose();
+    _websiteController.dispose();
+    _locationController.dispose();
+    super.dispose();
+  }
+
   void _loadCurrentData() {
     final user = context.read<AppProvider>().currentUser;
     if (user != null) {
       _usernameController.text = user.username ?? '';
-      _bioController.text = 'Travel Enthusiast • 🌍 Explorer'; // Mock bio
+      _bioController.text = user.bio ?? 'Travel Enthusiast • 🌍 Explorer';
+      _websiteController.text = user.website ?? '';
+      _locationController.text = user.location ?? '';
+      _selectedBirthday = user.birthday != null ? DateTime.tryParse(user.birthday!) : null;
       _currentAvatarUrl = user.profilePicture;
+      _showBirthdayToOthers = user.showBirthdayToOthers;
+      _showLocationToOthers = user.showLocationToOthers;
+      _selectedLanguages = Set<String>.from(user.languages ?? []);
+      _selectedInterests = Set<String>.from(user.interests ?? []);
+      _selectedBudgets = Set<String>.from(user.budgetPreferences ?? []);
       print('📸 [EDIT] Current avatar: $_currentAvatarUrl');
     }
   }
@@ -126,6 +149,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
               controller: _usernameController,
               decoration: InputDecoration(
                 labelText: 'Username',
+                prefixIcon: const Icon(Icons.person),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(8),
                 ),
@@ -133,6 +157,12 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
               validator: (value) {
                 if (value == null || value.trim().isEmpty) {
                   return 'Username is required';
+                }
+                if (value.length < 3) {
+                  return 'Username must be at least 3 characters';
+                }
+                if (!RegExp(r'^[a-zA-Z0-9_]+$').hasMatch(value)) {
+                  return 'Username can only contain letters, numbers, and underscores';
                 }
                 return null;
               },
@@ -143,34 +173,149 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
             TextFormField(
               controller: _bioController,
               maxLines: 3,
+              maxLength: 150,
               decoration: InputDecoration(
                 labelText: 'Bio',
+                prefixIcon: const Icon(Icons.edit),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(8),
                 ),
                 hintText: 'Tell us about yourself...',
               ),
             ),
+            const SizedBox(height: 16),
+            
+            // Website Field
+            TextFormField(
+              controller: _websiteController,
+              decoration: InputDecoration(
+                labelText: 'Website',
+                prefixIcon: const Icon(Icons.link),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                hintText: 'https://yourwebsite.com',
+              ),
+              validator: (value) {
+                if (value != null && value.isNotEmpty) {
+                  if (Uri.tryParse(value)?.hasAbsolutePath != true) {
+                    return 'Please enter a valid URL';
+                  }
+                }
+                return null;
+              },
+            ),
+            const SizedBox(height: 16),
+            
+            // Location Field
+            TextFormField(
+              controller: _locationController,
+              decoration: InputDecoration(
+                labelText: 'Location',
+                prefixIcon: const Icon(Icons.location_on),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                hintText: 'City, Country',
+              ),
+            ),
+            const SizedBox(height: 16),
+            
+            // Birthday Field
+            InkWell(
+              onTap: _selectBirthday,
+              child: Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  border: Border.all(color: Colors.grey),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.cake, color: Colors.grey),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Birthday',
+                            style: TextStyle(fontSize: 12, color: Colors.grey),
+                          ),
+                          Text(
+                            _selectedBirthday != null
+                                ? '${_selectedBirthday!.day}/${_selectedBirthday!.month}/${_selectedBirthday!.year}'
+                                : 'Select your birthday',
+                            style: TextStyle(
+                              fontSize: 16,
+                              color: _selectedBirthday != null ? Colors.black : Colors.grey,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const Icon(Icons.chevron_right, color: Colors.grey),
+                  ],
+                ),
+              ),
+            ),
             const SizedBox(height: 32),
             
-            // Additional Options
+            // Privacy Settings
+            _buildSectionHeader('Privacy Settings'),
+            _buildPrivacyOption(
+              'Show birthday to others',
+              'Let other users see your birthday',
+              _showBirthdayToOthers,
+              (value) {
+                setState(() {
+                  _showBirthdayToOthers = value;
+                });
+              },
+            ),
+            _buildPrivacyOption(
+              'Show location to others',
+              'Display your location on your profile',
+              _showLocationToOthers,
+              (value) {
+                setState(() {
+                  _showLocationToOthers = value;
+                });
+              },
+            ),
+            const SizedBox(height: 24),
+            
+            // Travel Preferences
+            _buildSectionHeader('Travel Preferences'),
             _buildOptionTile(
-              icon: Icons.link,
-              title: 'Website',
-              subtitle: 'Add your website',
-              onTap: () {},
+              icon: Icons.explore,
+              title: 'Travel Style',
+              subtitle: context.watch<AppProvider>().currentUser?.travelStyle?.displayName ?? 'Choose your travel style',
+              onTap: _selectTravelStyle,
             ),
             _buildOptionTile(
-              icon: Icons.location_on,
-              title: 'Location',
-              subtitle: 'Add your location',
-              onTap: () {},
+              icon: Icons.language,
+              title: 'Languages',
+              subtitle: _selectedLanguages.isEmpty 
+                  ? 'Languages you speak'
+                  : _selectedLanguages.join(', '),
+              onTap: _selectLanguages,
             ),
             _buildOptionTile(
-              icon: Icons.cake,
-              title: 'Birthday',
-              subtitle: 'Add your birthday',
-              onTap: () {},
+              icon: Icons.explore,
+              title: 'Travel Interests',
+              subtitle: _selectedInterests.isEmpty 
+                  ? 'What you love about traveling'
+                  : _selectedInterests.join(', '),
+              onTap: _selectInterests,
+            ),
+            _buildOptionTile(
+              icon: Icons.attach_money,
+              title: 'Budget Preferences',
+              subtitle: _selectedBudgets.isEmpty 
+                  ? 'Your typical travel budgets'
+                  : _selectedBudgets.join(', '),
+              onTap: _selectBudget,
             ),
           ],
         ),
@@ -184,12 +329,19 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     required String subtitle,
     required VoidCallback onTap,
   }) {
-    return ListTile(
-      leading: Icon(icon, color: Colors.grey[600]),
-      title: Text(title),
-      subtitle: Text(subtitle),
-      trailing: const Icon(Icons.chevron_right),
-      onTap: onTap,
+    return Card(
+      margin: const EdgeInsets.only(bottom: 8),
+      child: ListTile(
+        leading: Icon(icon, color: const Color(0xFF3797EF)),
+        title: Text(title),
+        subtitle: Text(
+          subtitle,
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+        ),
+        trailing: const Icon(Icons.chevron_right),
+        onTap: onTap,
+      ),
     );
   }
 
@@ -290,6 +442,319 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     print('🗑️ [EDIT] Photo removed');
   }
 
+  Widget _buildSectionHeader(String title) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Text(
+        title,
+        style: const TextStyle(
+          fontSize: 18,
+          fontWeight: FontWeight.bold,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPrivacyOption(
+    String title,
+    String subtitle,
+    bool value,
+    Function(bool) onChanged,
+  ) {
+    return Card(
+      margin: const EdgeInsets.only(bottom: 8),
+      child: SwitchListTile(
+        title: Text(title),
+        subtitle: Text(subtitle),
+        value: value,
+        onChanged: onChanged,
+        activeColor: const Color(0xFF3797EF),
+      ),
+    );
+  }
+
+  Future<void> _selectBirthday() async {
+    final DateTime? picked = await showDatePicker(
+      context: context,
+      initialDate: _selectedBirthday ?? DateTime(2000),
+      firstDate: DateTime(1900),
+      lastDate: DateTime.now(),
+    );
+    if (picked != null) {
+      setState(() {
+        _selectedBirthday = picked;
+      });
+    }
+  }
+
+  Set<String> _selectedLanguages = {};
+  
+  void _selectLanguages() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      builder: (context) => DraggableScrollableSheet(
+        initialChildSize: 0.7,
+        minChildSize: 0.5,
+        maxChildSize: 0.9,
+        expand: false,
+        builder: (context, scrollController) => Container(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+          child: Column(
+            children: [
+              Container(
+                width: 40,
+                height: 4,
+                margin: const EdgeInsets.only(bottom: 16),
+                decoration: BoxDecoration(
+                  color: Colors.grey[300],
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              const Text(
+                'Languages',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 16),
+              Expanded(
+                child: SingleChildScrollView(
+                  controller: scrollController,
+                  child: Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      'English', 'Spanish', 'French', 'German', 'Italian',
+                      'Portuguese', 'Japanese', 'Chinese', 'Korean', 'Arabic',
+                      'Russian', 'Hindi', 'Dutch', 'Swedish', 'Norwegian'
+                    ].map((lang) => FilterChip(
+                      label: Text(lang),
+                      selected: _selectedLanguages.contains(lang),
+                      onSelected: (selected) {
+                        setState(() {
+                          if (selected) {
+                            _selectedLanguages.add(lang);
+                          } else {
+                            _selectedLanguages.remove(lang);
+                          }
+                        });
+                      },
+                    )).toList(),
+                  ),
+                ),
+              ),
+              SafeArea(
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: SizedBox(
+                    width: double.infinity,
+                    height: 48,
+                    child: ElevatedButton(
+                      onPressed: () => Navigator.pop(context),
+                      child: const Text('Done'),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Set<String> _selectedInterests = {};
+  
+  void _selectInterests() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      builder: (context) => DraggableScrollableSheet(
+        initialChildSize: 0.7,
+        minChildSize: 0.5,
+        maxChildSize: 0.9,
+        expand: false,
+        builder: (context, scrollController) => Container(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+          child: Column(
+            children: [
+              Container(
+                width: 40,
+                height: 4,
+                margin: const EdgeInsets.only(bottom: 16),
+                decoration: BoxDecoration(
+                  color: Colors.grey[300],
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              const Text(
+                'Travel Interests',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 16),
+              Expanded(
+                child: SingleChildScrollView(
+                  controller: scrollController,
+                  child: Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      'Adventure', 'Culture', 'Food', 'Nature', 'History',
+                      'Photography', 'Beach', 'Mountains', 'Cities', 'Wildlife',
+                      'Art', 'Music', 'Sports', 'Nightlife', 'Shopping',
+                      'Architecture', 'Museums', 'Festivals', 'Local Life'
+                    ].map((interest) => FilterChip(
+                      label: Text(interest),
+                      selected: _selectedInterests.contains(interest),
+                      onSelected: (selected) {
+                        setState(() {
+                          if (selected) {
+                            _selectedInterests.add(interest);
+                          } else {
+                            _selectedInterests.remove(interest);
+                          }
+                        });
+                      },
+                    )).toList(),
+                  ),
+                ),
+              ),
+              SafeArea(
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: SizedBox(
+                    width: double.infinity,
+                    height: 48,
+                    child: ElevatedButton(
+                      onPressed: () => Navigator.pop(context),
+                      child: const Text('Done'),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _selectTravelStyle() {
+    showModalBottomSheet(
+      context: context,
+      useSafeArea: true,
+      builder: (context) => Container(
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 40,
+              height: 4,
+              margin: const EdgeInsets.only(bottom: 16),
+              decoration: BoxDecoration(
+                color: Colors.grey[300],
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            const Text(
+              'Travel Style',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 16),
+            ...TravelStyle.values.map((style) {
+              final isSelected = context.watch<AppProvider>().currentUser?.travelStyle == style;
+              return Card(
+                margin: const EdgeInsets.only(bottom: 8),
+                child: ListTile(
+                  leading: Text(style.emoji, style: const TextStyle(fontSize: 24)),
+                  title: Text(style.displayName),
+                  subtitle: Text(style.description),
+                  trailing: isSelected ? const Icon(Icons.check, color: Colors.green) : null,
+                  onTap: () async {
+                    final appProvider = context.read<AppProvider>();
+                    await appProvider.updateTravelStyle(style);
+                    if (mounted) Navigator.pop(context);
+                  },
+                ),
+              );
+            }).toList(),
+            const SizedBox(height: 16),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Set<String> _selectedBudgets = {};
+  
+  void _selectBudget() {
+    showModalBottomSheet(
+      context: context,
+      useSafeArea: true,
+      builder: (context) => Container(
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 40,
+              height: 4,
+              margin: const EdgeInsets.only(bottom: 16),
+              decoration: BoxDecoration(
+                color: Colors.grey[300],
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            const Text(
+              'Budget Preferences',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 16),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                'Budget (Under \$50/day)',
+                'Mid-range (\$50-150/day)',
+                'Luxury (\$150+/day)',
+                'Backpacking',
+                'Business Travel',
+                'Family Trips'
+              ].map((budget) => FilterChip(
+                label: Text(budget),
+                selected: _selectedBudgets.contains(budget),
+                onSelected: (selected) {
+                  setState(() {
+                    if (selected) {
+                      _selectedBudgets.add(budget);
+                    } else {
+                      _selectedBudgets.remove(budget);
+                    }
+                  });
+                },
+              )).toList(),
+            ),
+            SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: SizedBox(
+                  width: double.infinity,
+                  height: 48,
+                  child: ElevatedButton(
+                    onPressed: () => Navigator.pop(context),
+                    child: const Text('Done'),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Future<void> _saveProfile() async {
     if (!_formKey.currentState!.validate()) return;
 
@@ -309,7 +774,16 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       final appProvider = context.read<AppProvider>();
       final success = await appProvider.updateUserProfile(
         username: _usernameController.text.trim(),
+        bio: _bioController.text.trim(),
+        website: _websiteController.text.trim(),
+        location: _locationController.text.trim(),
+        birthday: _selectedBirthday?.toIso8601String(),
         profilePicture: profilePictureData,
+        languages: _selectedLanguages.toList(),
+        interests: _selectedInterests.toList(),
+        budgetPreferences: _selectedBudgets.toList(),
+        showBirthdayToOthers: _showBirthdayToOthers,
+        showLocationToOthers: _showLocationToOthers,
       );
 
       if (success && mounted) {

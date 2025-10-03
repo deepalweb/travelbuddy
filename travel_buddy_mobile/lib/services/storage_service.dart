@@ -6,6 +6,7 @@ import 'package:http/http.dart' as http;
 import '../models/user.dart';
 import '../models/place.dart';
 import '../models/trip.dart';
+import '../models/travel_style.dart';
 import '../constants/app_constants.dart';
 
 class StorageService {
@@ -34,6 +35,7 @@ class StorageService {
     if (!Hive.isAdapterRegistered(8)) Hive.registerAdapter(SubscriptionTierAdapter());
     if (!Hive.isAdapterRegistered(9)) Hive.registerAdapter(UserInterestAdapter());
     if (!Hive.isAdapterRegistered(20)) Hive.registerAdapter(PriceInfoAdapter());
+    if (!Hive.isAdapterRegistered(25)) Hive.registerAdapter(TravelStyleAdapter());
 
     // Open boxes with error handling for corrupted data
     try {
@@ -494,6 +496,23 @@ class StorageService {
       current['status'] = status;
       await saveSubscription(current);
     }
+  }
+
+  // Usage tracking methods
+  Future<Map<String, dynamic>> getUsageData(String date) async {
+    final data = _prefs.getString('usage_$date');
+    if (data != null) {
+      try {
+        return Map<String, dynamic>.from(json.decode(data));
+      } catch (e) {
+        return {};
+      }
+    }
+    return {};
+  }
+
+  Future<void> saveUsageData(String date, Map<String, dynamic> usage) async {
+    await _prefs.setString('usage_$date', json.encode(usage));
   }
 
   // Clear all data

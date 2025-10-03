@@ -686,6 +686,24 @@ try {
   console.error('❌ Failed to load Azure OpenAI routes:', error);
 }
 
+// Load detailed planning routes
+try {
+  const detailedPlanningRouter = (await import('./routes/detailedPlanning.js')).default;
+  app.use('/api/plans', detailedPlanningRouter);
+  console.log('✅ Detailed planning routes loaded');
+} catch (error) {
+  console.error('❌ Failed to load detailed planning routes:', error);
+}
+
+// Load usage tracking routes
+try {
+  const usageRouter = (await import('./routes/usage.js')).default;
+  app.use('/api', usageRouter);
+  console.log('✅ Usage tracking routes loaded');
+} catch (error) {
+  console.error('❌ Failed to load usage routes:', error);
+}
+
 // Payment routes (Stripe scaffold) - mount only when explicitly enabled to allow
 // running the app without the `stripe` package or Stripe env vars.
 if (String(process.env.ENABLE_STRIPE || '').toLowerCase() === 'true') {

@@ -1174,8 +1174,31 @@ class ApiService {
     }
   }
 
+  // Travel Style API
+  Future<bool> updateUserTravelStyle(String userId, String travelStyle) async {
+    try {
+      final response = await _dio.put('/api/users/$userId/travel-style', data: {
+        'travelStyle': travelStyle,
+        'updatedAt': DateTime.now().toIso8601String(),
+      });
+      return response.statusCode == 200;
+    } catch (e) {
+      print('❌ Error updating travel style: $e');
+      return false;
+    }
+  }
 
-
-
+  Future<String?> getUserTravelStyle(String userId) async {
+    try {
+      final response = await _dio.get('/api/users/$userId/travel-style');
+      if (response.statusCode == 200) {
+        return response.data['travelStyle'];
+      }
+      return null;
+    } catch (e) {
+      print('❌ Error getting travel style: $e');
+      return null;
+    }
+  }
 
 }

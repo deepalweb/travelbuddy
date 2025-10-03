@@ -739,12 +739,30 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
   Future<bool> updateUserProfile({
     String? username,
     String? email,
+    String? bio,
+    String? website,
+    String? location,
+    String? birthday,
+    List<String>? languages,
+    List<String>? interests,
+    List<String>? budgetPreferences,
+    bool? showBirthdayToOthers,
+    bool? showLocationToOthers,
     String? profilePicture,
   }) async {
     try {
       final updatedUser = await _authService.updateUserProfile(
         username: username,
         email: email,
+        bio: bio,
+        website: website,
+        location: location,
+        birthday: birthday,
+        languages: languages,
+        interests: interests,
+        budgetPreferences: budgetPreferences,
+        showBirthdayToOthers: showBirthdayToOthers,
+        showLocationToOthers: showLocationToOthers,
         profilePicture: profilePicture,
       );
       
@@ -1528,9 +1546,27 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
     if (_currentUser == null) return false;
     
     try {
+      // Update locally first
       final updatedUser = _currentUser!.copyWith(travelStyle: style);
       await _storageService.saveUser(updatedUser);
       _currentUser = updatedUser;
+      
+      // Sync with backend if user has mongoId
+      if (_currentUser!.mongoId != null) {
+        try {
+          final backendSuccess = await _apiService.updateUserTravelStyle(
+            _currentUser!.mongoId!,
+            style.name,
+          );
+          if (backendSuccess) {
+            print('✅ Travel style synced with backend: ${style.displayName}');
+          } else {
+            print('⚠️ Backend sync failed, but local update succeeded');
+          }
+        } catch (e) {
+          print('⚠️ Backend sync error: $e');
+        }
+      }
       
       // Track the style selection
       await _usageTrackingService.trackCategorySelected('travel_style_${style.name}');
@@ -1545,6 +1581,37 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
   }
   
   TravelStyle? get userTravelStyle => _currentUser?.travelStyle;
+  
+  // Debug method to check current user state
+  void debugCurrentUser() {
+    print('🔍 DEBUG: Current User State:');
+    print('  - Username: ${_currentUser?.username ?? "None"}');
+    print('  - Email: ${_currentUser?.email ?? "None"}');
+    print('  - MongoDB ID: ${_currentUser?.mongoId ?? "None"}');
+    print('  - Firebase UID: ${_currentUser?.uid ?? "None"}');
+    print('  - Travel Style: ${_currentUser?.travelStyle?.displayName ?? "None"}');
+    print('  - Is Authenticated: $_isAuthenticated');
+  }
+  
+  // Debug method to reload user from storage and verify travel style persistence
+  Future<void> debugReloadUserFromStorage() async {
+    try {
+      final storedUser = await _storageService.getUser();
+      print('🔍 DEBUG: Stored User:');
+      print('  - Username: ${storedUser?.username ?? "None"}');
+      print('  - Travel Style: ${storedUser?.travelStyle?.displayName ?? "None"}');
+      
+      if (storedUser != null && storedUser.travelStyle != _currentUser?.travelStyle) {
+        print('⚠️ WARNING: Travel style mismatch between memory and storage!');
+        print('  - Memory: ${_currentUser?.travelStyle?.displayName ?? "None"}');
+        print('  - Storage: ${storedUser.travelStyle?.displayName ?? "None"}');
+      } else {
+        print('✅ Travel style matches between memory and storage');
+      }
+    } catch (e) {
+      print('❌ Error reloading user from storage: $e');
+    }
+  }
 
   // Load places in sections
   Future<void> loadPlaceSections() async {
@@ -1997,16 +2064,14 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
         interests: interests,
       );
       
-      if (tripPlan != null) {
-        await saveTripPlan(tripPlan);
-        await _notificationService.showLocalNotification(
-          'Trip Plan Ready!',
-          'Your ${tripPlan.tripTitle} has been generated successfully',
-        );
-        print('✅ Generated and saved trip plan: ${tripPlan.tripTitle}');
-        return tripPlan;
-      }
-      return null;
+      await saveTripPlan(tripPlan);
+      await _notificationService.showLocalNotification(
+        'Trip Plan Ready!',
+        'Your ${tripPlan.tripTitle} has been generated successfully',
+      );
+      print('✅ Generated and saved trip plan: ${tripPlan.tripTitle}');
+      return tripPlan;
+          return null;
     } catch (e) {
       print('❌ Error generating trip plan: $e');
       return null;
@@ -2128,6 +2193,25 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
         _favoriteIds = ErrorHandlerService.safeListCast<String>(favorites, 'loadUserData - favorites');
         await _updateFavoritePlaces();
         await loadTripPlans();
+        
+        // Sync travel style from backend if available
+        if (_currentUser!.mongoId != null) {
+          try {
+            final backendTravelStyle = await _apiService.getUserTravelStyle(_currentUser!.mongoId!);
+            if (backendTravelStyle != null && _currentUser!.travelStyle?.name != backendTravelStyle) {
+              final travelStyle = TravelStyle.values.firstWhere(
+                (style) => style.name == backendTravelStyle,
+                orElse: () => TravelStyle.explorer,
+              );
+              final updatedUser = _currentUser!.copyWith(travelStyle: travelStyle);
+              await _storageService.saveUser(updatedUser);
+              _currentUser = updatedUser;
+              print('✅ Synced travel style from backend: ${travelStyle.displayName}');
+            }
+          } catch (e) {
+            print('⚠️ Failed to sync travel style from backend: $e');
+          }
+        }
       } catch (e) {
         ErrorHandlerService.handleError('loadUserData', e, null);
         _favoriteIds = [];

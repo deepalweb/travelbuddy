@@ -537,11 +537,21 @@ Join Travel Buddy and discover amazing places together!
 
     showModalBottomSheet(
       context: context,
+      useSafeArea: true,
       builder: (context) => Container(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
+            Container(
+              width: 40,
+              height: 4,
+              margin: const EdgeInsets.only(bottom: 16),
+              decoration: BoxDecoration(
+                color: Colors.grey[300],
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
             const Text(
               'Share Profile',
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
@@ -584,6 +594,9 @@ Join Travel Buddy and discover amazing places together!
                   }
                 }
               },
+            ),
+            SafeArea(
+              child: SizedBox(height: 16),
             ),
           ],
         ),
