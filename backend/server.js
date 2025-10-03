@@ -744,14 +744,80 @@ try {
   console.error('❌ Failed to load Azure OpenAI routes:', error);
 }
 
-// Load detailed planning routes
-try {
-  const detailedPlanningRouter = (await import('./routes/detailedPlanning.js')).default;
-  app.use('/api/plans', detailedPlanningRouter);
-  console.log('✅ Detailed planning routes loaded');
-} catch (error) {
-  console.error('❌ Failed to load detailed planning routes:', error);
-}
+// Multi-day trip planning endpoint
+app.post('/api/plans/generate-detailed', async (req, res) => {
+  try {
+    const { destination, duration, interests, pace, budget } = req.body;
+    
+    if (!destination || !duration) {
+      return res.status(400).json({ error: 'Destination and duration are required' });
+    }
+
+    const days = parseInt(duration.match(/(\d+)/)?.[1] || '3');
+    
+    const prompt = `Create a detailed ${days}-day trip plan for ${destination}.
+    Interests: ${interests || 'general sightseeing'}
+    Pace: ${pace || 'moderate'}
+    Budget: ${budget || 'moderate'}
+    
+    Return JSON: {
+      "tripTitle": "${destination} ${duration} Adventure",
+      "destination": "${destination}",
+      "duration": "${duration}",
+      "introduction": "Brief introduction",
+      "dailyPlans": [
+        {
+          "day": 1,
+          "title": "Day 1 Title",
+          "activities": [
+            {
+              "timeOfDay": "09:00-11:00",
+              "activityTitle": "Activity Name",
+              "description": "Description"
+            }
+          ]
+        }
+      ],
+      "conclusion": "Conclusion"
+    }`;
+    
+    const completion = await openai.chat.completions.create({
+      model: process.env.AZURE_OPENAI_DEPLOYMENT_NAME,
+      messages: [{ role: "user", content: prompt }],
+      temperature: 0.7,
+      max_tokens: 2000
+    });
+    
+    const responseText = completion.choices[0].message.content;
+    const jsonMatch = responseText.match(/\{[\s\S]*\}/);
+    
+    let tripPlan;
+    if (jsonMatch) {
+      tripPlan = JSON.parse(jsonMatch[0]);
+      tripPlan.id = `detailed_${Date.now()}`;
+      tripPlan.totalEstimatedCost = 'USD $45-65 per day';
+      tripPlan.estimatedWalkingDistance = `${days * 3.2} km total`;
+      tripPlan.createdAt = new Date().toISOString();
+      tripPlan.updatedAt = new Date().toISOString();
+    } else {
+      throw new Error('No valid JSON in AI response');
+    }
+
+    res.json({ tripPlan });
+  } catch (error) {
+    console.error('Detailed trip generation error:', error);
+    res.status(500).json({ error: 'Failed to generate detailed trip plan' });
+  }
+});
+
+// Load detailed planning routes (disabled due to module issues)
+// try {
+//   const detailedPlanningRouter = (await import('./routes/detailedPlanning.js')).default;
+//   app.use('/api/plans', detailedPlanningRouter);
+//   console.log('✅ Detailed planning routes loaded');
+// } catch (error) {
+//   console.error('❌ Failed to load detailed planning routes:', error);
+// }
 
 // Load usage tracking routes
 try {
