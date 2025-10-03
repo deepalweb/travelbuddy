@@ -2,6 +2,7 @@ import { TripPlanSuggestion, TripPace, TravelStyle, BudgetLevel } from '../types
 import { azureOpenAIService } from './azureOpenAIService';
 import { enhancedRealTripPlanningService } from './enhancedRealTripPlanningService';
 import { detailedTripPlanningService } from './detailedTripPlanningService';
+import { enrichedTripPlanningService } from './enrichedTripPlanningService';
 import { LOCAL_STORAGE_SAVED_TRIP_PLANS_KEY } from '../constants';
 
 export class TripPlanningService {
@@ -21,21 +22,44 @@ export class TripPlanningService {
     }
 
     try {
-      // Try detailed service first for rich, specific content
-      const plan = await detailedTripPlanningService.generateDetailedTripPlan({
-        destination: destination.trim(),
-        duration: duration.trim(),
-        interests: interests || '',
-        pace: pace.toString(),
-        budget: budget.toString()
+      // Try backend enriched endpoint first for real places
+      const { withApiBase } = await import('./config');
+      const response = await fetch(withApiBase('/api/plans/generate-enriched'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          destination: destination.trim(),
+          duration: duration.trim(),
+          interests: interests || '',
+          pace: pace.toString(),
+          budget: budget.toString()
+        })
       });
 
-      return plan;
+      if (response.ok) {
+        const data = await response.json();
+        return data.tripPlan;
+      }
+      throw new Error('Enriched endpoint failed');
     } catch (error) {
-      console.error('Detailed trip creation failed, trying enhanced:', error);
+      console.error('Enriched trip creation failed, trying detailed:', error);
       
       try {
-        // Fallback to enhanced real data service
+        // Fallback to detailed service
+        const plan = await detailedTripPlanningService.generateDetailedTripPlan({
+          destination: destination.trim(),
+          duration: duration.trim(),
+          interests: interests || '',
+          pace: pace.toString(),
+          budget: budget.toString()
+        });
+
+        return plan;
+      } catch (error2) {
+        console.error('Detailed trip creation failed, trying enhanced:', error2);
+      
+        try {
+          // Fallback to enhanced real data service
         const plan = await enhancedRealTripPlanningService.generatePersonalizedTripPlan({
           destination: destination.trim(),
           duration: duration.trim(),

@@ -679,7 +679,7 @@ try {
   console.error('❌ Failed to load subscription routes:', error);
 }
 
-// Trip planning endpoint for mobile app (defined before router loading)
+// Enhanced day planning endpoint using real places
 app.post('/api/plans/generate-day', async (req, res) => {
   try {
     const { destination, interests, pace, dietary_preferences, is_accessible, weather } = req.body;
@@ -687,53 +687,252 @@ app.post('/api/plans/generate-day', async (req, res) => {
     if (!destination) {
       return res.status(400).json({ error: 'Destination is required' });
     }
+
+    // Get coordinates for destination
+    let coordinates = { lat: 7.8731, lng: 80.7718 }; // Default Sri Lanka
+    try {
+      const geocodeUrl = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(destination)}&key=${process.env.GOOGLE_PLACES_API_KEY}`;
+      const geocodeResponse = await fetch(geocodeUrl);
+      const geocodeData = await geocodeResponse.json();
+      if (geocodeData.status === 'OK' && geocodeData.results.length > 0) {
+        coordinates = geocodeData.results[0].geometry.location;
+      }
+    } catch (error) {
+      console.warn('Geocoding failed, using default coordinates');
+    }
+
+    // Fetch real places based on interests
+    const categories = [];
+    const interestLower = (interests || '').toLowerCase();
+    if (interestLower.includes('culture') || interestLower.includes('history')) {
+      categories.push('museum', 'temple', 'historic site');
+    }
+    if (interestLower.includes('food')) {
+      categories.push('restaurant', 'local cuisine');
+    }
+    if (interestLower.includes('nature')) {
+      categories.push('park', 'garden');
+    }
+    if (categories.length === 0) {
+      categories.push('tourist attraction', 'restaurant');
+    }
+
+    const allPlaces = [];
+    for (const category of categories.slice(0, 2)) { // Limit to 2 categories
+      try {
+        const placesUrl = `https://maps.googleapis.com/maps/api/place/textsearch/json?query=${encodeURIComponent(category)}&location=${coordinates.lat},${coordinates.lng}&radius=5000&key=${process.env.GOOGLE_PLACES_API_KEY}`;
+        const placesResponse = await fetch(placesUrl);
+        const placesData = await placesResponse.json();
+        if (placesData.status === 'OK') {
+          allPlaces.push(...placesData.results.slice(0, 3));
+        }
+      } catch (error) {
+        console.warn(`Failed to fetch ${category} places`);
+      }
+    }
+
+    // Generate enriched activities
+    const activities = [];
+    const timeSlots = ['09:00', '11:00', '14:00', '16:00'];
     
-    const prompt = `Create a detailed day itinerary for ${destination}. 
-    Interests: ${interests || 'general sightseeing'}
-    Pace: ${pace || 'moderate'}
-    Dietary preferences: ${dietary_preferences ? dietary_preferences.join(', ') : 'none'}
-    Accessibility needed: ${is_accessible ? 'yes' : 'no'}
-    Weather: ${weather || 'pleasant'}
+    for (let i = 0; i < Math.min(allPlaces.length, 4); i++) {
+      const place = allPlaces[i];
+      const startTime = timeSlots[i];
+      const endTime = timeSlots[i + 1] || '18:00';
+      
+      activities.push({
+        name: place.name,
+        type: place.types[0] || 'landmark',
+        startTime,
+        endTime,
+        description: `${place.name} - ${place.formatted_address || place.vicinity}. Rating: ${place.rating || 'N/A'}/5`,
+        cost: place.price_level ? `${'$'.repeat(place.price_level)}` : 'Free',
+        tips: [
+          'Check opening hours before visiting',
+          place.rating >= 4.5 ? 'Highly rated by visitors' : 'Popular local spot',
+          'Bring camera for photos'
+        ],
+        address: place.formatted_address || place.vicinity,
+        rating: place.rating,
+        place_id: place.place_id
+      });
+    }
+
+    // Ensure we always have real places
+    if (activities.length === 0) {
+      return res.status(404).json({ 
+        error: 'No places found', 
+        message: `Unable to find real places in ${destination}. Please try a different destination or check your internet connection.` 
+      });
+    }
     
-    Return JSON format: {"activities":[{"name":"Activity Name","type":"landmark","startTime":"09:00","endTime":"11:00","description":"Detailed description","cost":"Price","tips":["Helpful tip"]}]}`;
-    
-    const completion = await openai.chat.completions.create({
-      model: process.env.AZURE_OPENAI_DEPLOYMENT_NAME,
-      messages: [{ role: "user", content: prompt }],
-      temperature: 0.7,
-      max_tokens: 1500
-    });
-    
-    const responseText = completion.choices[0].message.content;
-    const jsonMatch = responseText.match(/\{[\s\S]*\}/);
-    const planData = jsonMatch ? JSON.parse(jsonMatch[0]) : {
-      activities: [{
-        name: `Explore ${destination}`,
-        type: 'landmark',
-        startTime: '09:00',
-        endTime: '11:00',
-        description: `Discover the highlights of ${destination}`,
-        cost: 'Free',
-        tips: ['Enjoy your visit']
-      }]
-    };
-    
-    res.json(planData);
+    res.json({ activities });
     
   } catch (error) {
-    res.json({
-      activities: [{
-        name: `Explore ${req.body.destination || 'City'}`,
-        type: 'landmark',
-        startTime: '09:00',
-        endTime: '11:00',
-        description: 'Discover the area',
-        cost: 'Free',
-        tips: ['Have fun']
-      }]
+    console.error('Day planning error:', error);
+    res.status(500).json({ 
+      error: 'Failed to generate day plan', 
+      message: 'Unable to fetch real places data. Please check your API configuration.' 
     });
   }
 });
+
+// Enhanced multi-day planning endpoint
+app.post('/api/plans/generate-enriched', async (req, res) => {
+  try {
+    const { destination, duration, interests, pace, budget } = req.body;
+    
+    if (!destination || !duration) {
+      return res.status(400).json({ error: 'Destination and duration are required' });
+    }
+
+    const days = parseInt(duration.match(/(\d+)/)?.[1] || '3');
+    
+    // Get coordinates
+    let coordinates = { lat: 7.8731, lng: 80.7718 };
+    try {
+      const geocodeUrl = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(destination)}&key=${process.env.GOOGLE_PLACES_API_KEY}`;
+      const geocodeResponse = await fetch(geocodeUrl);
+      const geocodeData = await geocodeResponse.json();
+      if (geocodeData.status === 'OK' && geocodeData.results.length > 0) {
+        coordinates = geocodeData.results[0].geometry.location;
+      }
+    } catch (error) {
+      console.warn('Geocoding failed for multi-day plan');
+    }
+
+    // Fetch diverse places for multi-day plan
+    const categories = ['tourist attraction', 'restaurant', 'museum', 'park', 'shopping mall', 'temple'];
+    const allPlaces = [];
+    
+    for (const category of categories) {
+      try {
+        const placesUrl = `https://maps.googleapis.com/maps/api/place/textsearch/json?query=${encodeURIComponent(category)}&location=${coordinates.lat},${coordinates.lng}&radius=8000&key=${process.env.GOOGLE_PLACES_API_KEY}`;
+        const placesResponse = await fetch(placesUrl);
+        const placesData = await placesResponse.json();
+        if (placesData.status === 'OK') {
+          allPlaces.push(...placesData.results.slice(0, 2));
+        }
+      } catch (error) {
+        console.warn(`Failed to fetch ${category} places`);
+      }
+    }
+
+    // Filter by budget and rating - require minimum data quality
+    const filteredPlaces = allPlaces
+      .filter(place => place.name && place.place_id) // Must have basic data
+      .filter(place => (place.rating || 0) >= 3.0) // Lower threshold but still quality
+      .filter(place => {
+        if (budget === 'budget') return !place.price_level || place.price_level <= 2;
+        if (budget === 'luxury') return place.price_level >= 3;
+        return true;
+      })
+      .sort((a, b) => (b.rating || 0) - (a.rating || 0));
+
+    // Ensure we have enough places
+    if (filteredPlaces.length === 0) {
+      return res.status(404).json({ 
+        error: 'No suitable places found', 
+        message: `Unable to find quality places in ${destination} matching your criteria.` 
+      });
+    }
+
+    // Generate daily plans
+    const dailyPlans = [];
+    const placesPerDay = Math.ceil(filteredPlaces.length / days);
+    
+    for (let day = 1; day <= days; day++) {
+      const dayPlaces = filteredPlaces.slice((day - 1) * placesPerDay, day * placesPerDay);
+      const activities = [];
+      const timeSlots = ['08:30', '10:30', '13:30', '15:30', '17:30'];
+      
+      dayPlaces.slice(0, 5).forEach((place, index) => {
+        const startTime = timeSlots[index];
+        const endTime = timeSlots[index + 1] || '19:00';
+        
+        activities.push({
+          timeOfDay: `${startTime}-${endTime}`,
+          activityTitle: place.name,
+          description: `📍 **${place.name}** ⭐ ${place.rating || 'N/A'}/5\n\n${getPlaceDescription(place, destination)}\n\n🕒 **Duration:** ${getDuration(place)}\n💰 **Cost:** ${getCost(place)}\n💡 **Tip:** ${getTip(place)}`,
+          location: place.formatted_address || place.vicinity,
+          category: place.types[0] || 'attraction',
+          startTime,
+          endTime,
+          googlePlaceId: place.place_id,
+          rating: place.rating,
+          photoThumbnail: place.photos?.[0] ? `/api/places/photo?ref=${place.photos[0].photo_reference}&w=400` : undefined
+        });
+      });
+      
+      dailyPlans.push({
+        day,
+        title: `Day ${day}: ${getDayTheme(dayPlaces)}`,
+        activities
+      });
+    }
+    
+    const tripPlan = {
+      id: `enriched_${Date.now()}`,
+      tripTitle: `${destination} ${duration} Adventure`,
+      destination,
+      duration,
+      introduction: `🌟 **Welcome to your ${destination} adventure!**\n\nWe've crafted this ${duration} itinerary using real places and current ratings to give you authentic experiences.\n\n**Your itinerary includes:**\n✨ ${filteredPlaces.length} hand-picked locations\n🍽️ Highly-rated dining experiences\n📍 Real addresses and directions\n💰 Budget-appropriate recommendations`,
+      dailyPlans,
+      conclusion: `Have an incredible journey in ${destination}! 🌟`,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+    
+    res.json({ tripPlan });
+    
+  } catch (error) {
+    console.error('Multi-day planning error:', error);
+    res.status(500).json({ 
+      error: 'Failed to generate enriched trip plan',
+      message: 'Unable to fetch real places data. Please verify your Google Places API key is configured.' 
+    });
+  }
+});
+
+// Helper functions for enriched planning
+function getPlaceDescription(place, destination) {
+  const type = place.types[0] || 'establishment';
+  if (type.includes('restaurant')) return `Experience authentic local cuisine at this highly-rated dining spot in ${destination}.`;
+  if (type.includes('museum')) return `Discover the rich history and culture of ${destination} at this fascinating venue.`;
+  if (type.includes('temple')) return `A sacred site offering spiritual tranquility and architectural beauty.`;
+  if (type.includes('park')) return `Enjoy natural beauty and peaceful surroundings perfect for relaxation.`;
+  return `A popular local attraction offering authentic experiences in ${destination}.`;
+}
+
+function getDuration(place) {
+  const type = place.types[0] || 'establishment';
+  if (type.includes('restaurant')) return '1-1.5 hours';
+  if (type.includes('museum')) return '1.5-2 hours';
+  if (type.includes('temple')) return '45-60 minutes';
+  return '1-2 hours';
+}
+
+function getCost(place) {
+  const priceLevel = place.price_level || 1;
+  const costs = ['Free-$5', '$5-15', '$15-30', '$30-50', '$50+'];
+  return costs[priceLevel] || 'Free-$10';
+}
+
+function getTip(place) {
+  const type = place.types[0] || 'establishment';
+  if (type.includes('restaurant')) return 'Try the local specialties and ask about spice levels';
+  if (type.includes('temple')) return 'Dress modestly and remove shoes before entering';
+  if (type.includes('museum')) return 'Check for guided tour times and photography rules';
+  return 'Check opening hours and bring water';
+}
+
+function getDayTheme(places) {
+  const types = places.map(p => p.types[0] || 'establishment');
+  if (types.some(t => t.includes('temple') || t.includes('museum'))) return 'Cultural Heritage';
+  if (types.some(t => t.includes('restaurant') || t.includes('food'))) return 'Culinary Discovery';
+  if (types.some(t => t.includes('park') || t.includes('nature'))) return 'Nature & Relaxation';
+  return 'Local Highlights';
+}
 
 // Load Azure OpenAI routes
 try {
@@ -744,66 +943,11 @@ try {
   console.error('❌ Failed to load Azure OpenAI routes:', error);
 }
 
-// Multi-day trip planning endpoint
+// Multi-day trip planning endpoint (fallback)
 app.post('/api/plans/generate-detailed', async (req, res) => {
   try {
-    const { destination, duration, interests, pace, budget } = req.body;
-    
-    if (!destination || !duration) {
-      return res.status(400).json({ error: 'Destination and duration are required' });
-    }
-
-    const days = parseInt(duration.match(/(\d+)/)?.[1] || '3');
-    
-    const prompt = `Create a detailed ${days}-day trip plan for ${destination}.
-    Interests: ${interests || 'general sightseeing'}
-    Pace: ${pace || 'moderate'}
-    Budget: ${budget || 'moderate'}
-    
-    Return JSON: {
-      "tripTitle": "${destination} ${duration} Adventure",
-      "destination": "${destination}",
-      "duration": "${duration}",
-      "introduction": "Brief introduction",
-      "dailyPlans": [
-        {
-          "day": 1,
-          "title": "Day 1 Title",
-          "activities": [
-            {
-              "timeOfDay": "09:00-11:00",
-              "activityTitle": "Activity Name",
-              "description": "Description"
-            }
-          ]
-        }
-      ],
-      "conclusion": "Conclusion"
-    }`;
-    
-    const completion = await openai.chat.completions.create({
-      model: process.env.AZURE_OPENAI_DEPLOYMENT_NAME,
-      messages: [{ role: "user", content: prompt }],
-      temperature: 0.7,
-      max_tokens: 2000
-    });
-    
-    const responseText = completion.choices[0].message.content;
-    const jsonMatch = responseText.match(/\{[\s\S]*\}/);
-    
-    let tripPlan;
-    if (jsonMatch) {
-      tripPlan = JSON.parse(jsonMatch[0]);
-      tripPlan.id = `detailed_${Date.now()}`;
-      tripPlan.totalEstimatedCost = 'USD $45-65 per day';
-      tripPlan.estimatedWalkingDistance = `${days * 3.2} km total`;
-      tripPlan.createdAt = new Date().toISOString();
-      tripPlan.updatedAt = new Date().toISOString();
-    } else {
-      throw new Error('No valid JSON in AI response');
-    }
-
-    res.json({ tripPlan });
+    // Redirect to enriched endpoint for better results
+    return res.redirect(307, '/api/plans/generate-enriched');
   } catch (error) {
     console.error('Detailed trip generation error:', error);
     res.status(500).json({ error: 'Failed to generate detailed trip plan' });
@@ -2882,6 +3026,44 @@ app.get('/api/weather/test-real', async (req, res) => {
       error: 'Weather test failed', 
       details: error.message 
     });
+  }
+});
+
+// Geocoding endpoint to get coordinates for destinations
+app.get('/api/geocode', async (req, res) => {
+  try {
+    const { address } = req.query;
+    
+    if (!address) {
+      return res.status(400).json({ error: 'Address parameter is required' });
+    }
+
+    // Use Google Geocoding API
+    const googleApiKey = process.env.GOOGLE_PLACES_API_KEY;
+    if (!googleApiKey) {
+      return res.status(500).json({ error: 'Google API key not configured' });
+    }
+
+    const geocodeUrl = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(address)}&key=${googleApiKey}`;
+    
+    const response = await fetch(geocodeUrl);
+    const data = await response.json();
+
+    if (data.status === 'OK' && data.results.length > 0) {
+      const location = data.results[0].geometry.location;
+      res.json({
+        location: {
+          lat: location.lat,
+          lng: location.lng
+        },
+        formatted_address: data.results[0].formatted_address
+      });
+    } else {
+      res.status(404).json({ error: 'Location not found' });
+    }
+  } catch (error) {
+    console.error('Geocoding error:', error);
+    res.status(500).json({ error: 'Geocoding service failed' });
   }
 });
 
