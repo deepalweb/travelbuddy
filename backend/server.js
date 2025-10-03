@@ -307,9 +307,10 @@ Traveler Profile:
     }`;
     
     const completion = await openai.chat.completions.create({
-      model: process.env.AZURE_OPENAI_DEPLOYMENT_NAME,
+      model: process.env.AZURE_OPENAI_DEPLOYMENT_NAME || 'gpt-4.1',
       messages: [{ role: "user", content: prompt }],
-      temperature: 0.7
+      temperature: 0.7,
+      max_tokens: 1000
     });
     
     const responseText = completion.choices[0].message.content;
