@@ -682,19 +682,26 @@ try {
 // Trip planning endpoint for mobile app (defined before router loading)
 app.post('/api/plans/generate-day', async (req, res) => {
   try {
-    const { destination } = req.body;
+    const { destination, interests, pace, dietary_preferences, is_accessible, weather } = req.body;
     
     if (!destination) {
       return res.status(400).json({ error: 'Destination is required' });
     }
     
-    const prompt = `Create a day itinerary for ${destination}. Return JSON: {"activities":[{"name":"Activity","type":"landmark","startTime":"09:00","endTime":"11:00","description":"Description","cost":"Free","tips":["Tip"]}]}`;
+    const prompt = `Create a detailed day itinerary for ${destination}. 
+    Interests: ${interests || 'general sightseeing'}
+    Pace: ${pace || 'moderate'}
+    Dietary preferences: ${dietary_preferences ? dietary_preferences.join(', ') : 'none'}
+    Accessibility needed: ${is_accessible ? 'yes' : 'no'}
+    Weather: ${weather || 'pleasant'}
+    
+    Return JSON format: {"activities":[{"name":"Activity Name","type":"landmark","startTime":"09:00","endTime":"11:00","description":"Detailed description","cost":"Price","tips":["Helpful tip"]}]}`;
     
     const completion = await openai.chat.completions.create({
       model: process.env.AZURE_OPENAI_DEPLOYMENT_NAME,
       messages: [{ role: "user", content: prompt }],
       temperature: 0.7,
-      max_tokens: 1000
+      max_tokens: 1500
     });
     
     const responseText = completion.choices[0].message.content;
@@ -705,7 +712,7 @@ app.post('/api/plans/generate-day', async (req, res) => {
         type: 'landmark',
         startTime: '09:00',
         endTime: '11:00',
-        description: `Discover ${destination}`,
+        description: `Discover the highlights of ${destination}`,
         cost: 'Free',
         tips: ['Enjoy your visit']
       }]
