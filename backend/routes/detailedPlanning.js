@@ -56,7 +56,7 @@ const detailedPlacesDB = {
 
 // Note: /generate-day endpoint is handled in server.js to use Azure OpenAI
 
-// Generate detailed trip plan endpoint
+// Generate detailed trip plan endpoint using Azure OpenAI
 router.post('/generate-detailed', async (req, res) => {
   try {
     const { destination, duration, interests, pace, budget } = req.body;
@@ -66,22 +66,63 @@ router.post('/generate-detailed', async (req, res) => {
     }
 
     const days = parseInt(duration.match(/(\d+)/)?.[1] || '3');
-    const destinationKey = destination.toLowerCase().split(',')[0].trim();
-    const places = detailedPlacesDB[destinationKey] || [];
     
-    const tripPlan = {
-      id: `detailed_${Date.now()}`,
-      tripTitle: `${destination} ${duration} Discovery: Cultural Heritage Journey`,
-      destination,
-      duration,
-      introduction: generateRichIntroduction(destination, interests, days),
-      dailyPlans: generateDailyPlans(places, days, pace, destination),
-      conclusion: generateRichConclusion(destination, interests),
-      totalEstimatedCost: 'USD $45-65 per day',
-      estimatedWalkingDistance: `${days * 3.2} km total`,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
-    };
+    // Use Azure OpenAI to generate trip plan
+    const prompt = `Create a detailed ${days}-day trip plan for ${destination}.
+    Interests: ${interests || 'general sightseeing'}
+    Pace: ${pace || 'moderate'}
+    Budget: ${budget || 'moderate'}
+    
+    Return JSON: {
+      "tripTitle": "${destination} ${duration} Adventure",
+      "destination": "${destination}",
+      "duration": "${duration}",
+      "introduction": "Brief introduction",
+      "dailyPlans": [
+        {
+          "day": 1,
+          "title": "Day 1 Title",
+          "activities": [
+            {
+              "timeOfDay": "09:00-11:00",
+              "activityTitle": "Activity Name",
+              "description": "Description"
+            }
+          ]
+        }
+      ],
+      "conclusion": "Conclusion"
+    }`;
+    
+    const { OpenAI } = await import('openai');
+    const openai = new OpenAI({
+      apiKey: process.env.AZURE_OPENAI_API_KEY,
+      baseURL: `${process.env.AZURE_OPENAI_ENDPOINT}/openai/deployments/${process.env.AZURE_OPENAI_DEPLOYMENT_NAME}`,
+      defaultQuery: { 'api-version': '2024-02-15-preview' },
+      defaultHeaders: { 'api-key': process.env.AZURE_OPENAI_API_KEY },
+    });
+    
+    const completion = await openai.chat.completions.create({
+      model: process.env.AZURE_OPENAI_DEPLOYMENT_NAME,
+      messages: [{ role: "user", content: prompt }],
+      temperature: 0.7,
+      max_tokens: 2000
+    });
+    
+    const responseText = completion.choices[0].message.content;
+    const jsonMatch = responseText.match(/\{[\s\S]*\}/);
+    
+    let tripPlan;
+    if (jsonMatch) {
+      tripPlan = JSON.parse(jsonMatch[0]);
+      tripPlan.id = `detailed_${Date.now()}`;
+      tripPlan.totalEstimatedCost = 'USD $45-65 per day';
+      tripPlan.estimatedWalkingDistance = `${days * 3.2} km total`;
+      tripPlan.createdAt = new Date().toISOString();
+      tripPlan.updatedAt = new Date().toISOString();
+    } else {
+      throw new Error('No valid JSON in AI response');
+    }
 
     res.json({ tripPlan });
   } catch (error) {
