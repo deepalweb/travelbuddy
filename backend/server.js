@@ -777,7 +777,7 @@ app.post('/api/plans/generate-day', async (req, res) => {
   }
 });
 
-// Enhanced multi-day planning endpoint
+// Enhanced multi-day planning endpoint using EnrichedTripPlanningService
 app.post('/api/plans/generate-enriched', async (req, res) => {
   try {
     const { destination, duration, interests, pace, budget } = req.body;
@@ -786,110 +786,24 @@ app.post('/api/plans/generate-enriched', async (req, res) => {
       return res.status(400).json({ error: 'Destination and duration are required' });
     }
 
-    const days = parseInt(duration.match(/(\d+)/)?.[1] || '3');
+    // Use the EnrichedTripPlanningService (imported at top of file)
+    const enrichedService = enrichedTripPlanningService;
     
-    // Get coordinates
-    let coordinates = { lat: 7.8731, lng: 80.7718 };
-    try {
-      const geocodeUrl = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(destination)}&key=${process.env.GOOGLE_PLACES_API_KEY}`;
-      const geocodeResponse = await fetch(geocodeUrl);
-      const geocodeData = await geocodeResponse.json();
-      if (geocodeData.status === 'OK' && geocodeData.results.length > 0) {
-        coordinates = geocodeData.results[0].geometry.location;
-      }
-    } catch (error) {
-      console.warn('Geocoding failed for multi-day plan');
-    }
-
-    // Fetch diverse places for multi-day plan
-    const categories = ['tourist attraction', 'restaurant', 'museum', 'park', 'shopping mall', 'temple'];
-    const allPlaces = [];
-    
-    for (const category of categories) {
-      try {
-        const placesUrl = `https://maps.googleapis.com/maps/api/place/textsearch/json?query=${encodeURIComponent(category)}&location=${coordinates.lat},${coordinates.lng}&radius=8000&key=${process.env.GOOGLE_PLACES_API_KEY}`;
-        const placesResponse = await fetch(placesUrl);
-        const placesData = await placesResponse.json();
-        if (placesData.status === 'OK') {
-          allPlaces.push(...placesData.results.slice(0, 2));
-        }
-      } catch (error) {
-        console.warn(`Failed to fetch ${category} places`);
-      }
-    }
-
-    // Filter by budget and rating - require minimum data quality
-    const filteredPlaces = allPlaces
-      .filter(place => place.name && place.place_id) // Must have basic data
-      .filter(place => (place.rating || 0) >= 3.0) // Lower threshold but still quality
-      .filter(place => {
-        if (budget === 'budget') return !place.price_level || place.price_level <= 2;
-        if (budget === 'luxury') return place.price_level >= 3;
-        return true;
-      })
-      .sort((a, b) => (b.rating || 0) - (a.rating || 0));
-
-    // Ensure we have enough places
-    if (filteredPlaces.length === 0) {
-      return res.status(404).json({ 
-        error: 'No suitable places found', 
-        message: `Unable to find quality places in ${destination} matching your criteria.` 
-      });
-    }
-
-    // Generate daily plans
-    const dailyPlans = [];
-    const placesPerDay = Math.ceil(filteredPlaces.length / days);
-    
-    for (let day = 1; day <= days; day++) {
-      const dayPlaces = filteredPlaces.slice((day - 1) * placesPerDay, day * placesPerDay);
-      const activities = [];
-      const timeSlots = ['08:30', '10:30', '13:30', '15:30', '17:30'];
-      
-      dayPlaces.slice(0, 5).forEach((place, index) => {
-        const startTime = timeSlots[index];
-        const endTime = timeSlots[index + 1] || '19:00';
-        
-        activities.push({
-          timeOfDay: `${startTime}-${endTime}`,
-          activityTitle: place.name,
-          description: `📍 **${place.name}** ⭐ ${place.rating || 'N/A'}/5\n\n${getPlaceDescription(place, destination)}\n\n🕒 **Duration:** ${getDuration(place)}\n💰 **Cost:** ${getCost(place)}\n💡 **Tip:** ${getTip(place)}`,
-          location: place.formatted_address || place.vicinity,
-          category: place.types[0] || 'attraction',
-          startTime,
-          endTime,
-          googlePlaceId: place.place_id,
-          rating: place.rating,
-          photoThumbnail: place.photos?.[0] ? `/api/places/photo?ref=${place.photos[0].photo_reference}&w=400` : undefined
-        });
-      });
-      
-      dailyPlans.push({
-        day,
-        title: `Day ${day}: ${getDayTheme(dayPlaces)}`,
-        activities
-      });
-    }
-    
-    const tripPlan = {
-      id: `enriched_${Date.now()}`,
-      tripTitle: `${destination} ${duration} Adventure`,
-      destination,
-      duration,
-      introduction: `🌟 **Welcome to your ${destination} adventure!**\n\nWe've crafted this ${duration} itinerary using real places and current ratings to give you authentic experiences.\n\n**Your itinerary includes:**\n✨ ${filteredPlaces.length} hand-picked locations\n🍽️ Highly-rated dining experiences\n📍 Real addresses and directions\n💰 Budget-appropriate recommendations`,
-      dailyPlans,
-      conclusion: `Have an incredible journey in ${destination}! 🌟`,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
-    };
+    const tripPlan = await enrichedService.generateEnrichedTripPlan({
+      destination: destination.trim(),
+      duration: duration.trim(),
+      interests: interests || '',
+      pace: pace || 'moderate',
+      budget: budget || 'moderate'
+    });
     
     res.json({ tripPlan });
     
   } catch (error) {
-    console.error('Multi-day planning error:', error);
+    console.error('Enriched multi-day planning error:', error);
     res.status(500).json({ 
       error: 'Failed to generate enriched trip plan',
-      message: 'Unable to fetch real places data. Please verify your Google Places API key is configured.' 
+      message: error.message || 'Unable to generate real places data. Please verify your Google Places API key is configured.' 
     });
   }
 });

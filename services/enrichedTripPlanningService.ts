@@ -1,5 +1,5 @@
 import { TripPlanSuggestion, DailyTripPlan, ActivityDetail } from '../types';
-import { fetchFactualPlaces } from './realPlacesService';
+import { fetchFactualPlaces } from './realPlacesService.js';
 
 interface EnrichedPlace {
   place_id: string;
