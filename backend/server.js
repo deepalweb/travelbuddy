@@ -270,54 +270,7 @@ const openai = new OpenAI({
   },
 });
 
-// Trip planning endpoint for mobile app
-app.post('/api/plans/generate-day', async (req, res) => {
-  try {
-    const { destination } = req.body;
-    
-    if (!destination) {
-      return res.status(400).json({ error: 'Destination is required' });
-    }
-    
-    const prompt = `Create a day itinerary for ${destination}. Return JSON: {"activities":[{"name":"Activity","type":"landmark","startTime":"09:00","endTime":"11:00","description":"Description","cost":"Free","tips":["Tip"]}]}`;
-    
-    const completion = await openai.chat.completions.create({
-      model: process.env.AZURE_OPENAI_DEPLOYMENT_NAME,
-      messages: [{ role: "user", content: prompt }],
-      temperature: 0.7,
-      max_tokens: 1000
-    });
-    
-    const responseText = completion.choices[0].message.content;
-    const jsonMatch = responseText.match(/\{[\s\S]*\}/);
-    const planData = jsonMatch ? JSON.parse(jsonMatch[0]) : {
-      activities: [{
-        name: `Explore ${destination}`,
-        type: 'landmark',
-        startTime: '09:00',
-        endTime: '11:00',
-        description: `Discover ${destination}`,
-        cost: 'Free',
-        tips: ['Enjoy your visit']
-      }]
-    };
-    
-    res.json(planData);
-    
-  } catch (error) {
-    res.json({
-      activities: [{
-        name: `Explore ${req.body.destination || 'City'}`,
-        type: 'landmark',
-        startTime: '09:00',
-        endTime: '11:00',
-        description: 'Discover the area',
-        cost: 'Free',
-        tips: ['Have fun']
-      }]
-    });
-  }
-});
+// Trip planning endpoint moved to after middleware setup
 
 // Enhanced dishes endpoint with full specification
 app.post('/api/dishes/generate', async (req, res) => {
@@ -725,6 +678,55 @@ try {
 } catch (error) {
   console.error('❌ Failed to load subscription routes:', error);
 }
+
+// Trip planning endpoint for mobile app (defined before router loading)
+app.post('/api/plans/generate-day', async (req, res) => {
+  try {
+    const { destination } = req.body;
+    
+    if (!destination) {
+      return res.status(400).json({ error: 'Destination is required' });
+    }
+    
+    const prompt = `Create a day itinerary for ${destination}. Return JSON: {"activities":[{"name":"Activity","type":"landmark","startTime":"09:00","endTime":"11:00","description":"Description","cost":"Free","tips":["Tip"]}]}`;
+    
+    const completion = await openai.chat.completions.create({
+      model: process.env.AZURE_OPENAI_DEPLOYMENT_NAME,
+      messages: [{ role: "user", content: prompt }],
+      temperature: 0.7,
+      max_tokens: 1000
+    });
+    
+    const responseText = completion.choices[0].message.content;
+    const jsonMatch = responseText.match(/\{[\s\S]*\}/);
+    const planData = jsonMatch ? JSON.parse(jsonMatch[0]) : {
+      activities: [{
+        name: `Explore ${destination}`,
+        type: 'landmark',
+        startTime: '09:00',
+        endTime: '11:00',
+        description: `Discover ${destination}`,
+        cost: 'Free',
+        tips: ['Enjoy your visit']
+      }]
+    };
+    
+    res.json(planData);
+    
+  } catch (error) {
+    res.json({
+      activities: [{
+        name: `Explore ${req.body.destination || 'City'}`,
+        type: 'landmark',
+        startTime: '09:00',
+        endTime: '11:00',
+        description: 'Discover the area',
+        cost: 'Free',
+        tips: ['Have fun']
+      }]
+    });
+  }
+});
 
 // Load Azure OpenAI routes
 try {
