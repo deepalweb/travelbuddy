@@ -1,4 +1,4 @@
-const express = require('express');
+import express from 'express';
 const router = express.Router();
 
 // Detailed places database for Azure deployment
@@ -276,4 +276,4 @@ This isn't just a trip plan - it's your gateway to experiences that will stay wi
 Safe travels, and prepare to be amazed! 🙏`;
 }
 
-module.exports = router;
+export default router;
