@@ -54,6 +54,39 @@ const detailedPlacesDB = {
   ]
 };
 
+// Generate day plan endpoint for mobile app
+router.post('/generate-day', async (req, res) => {
+  try {
+    const { destination } = req.body;
+    
+    if (!destination) {
+      return res.status(400).json({ error: 'Destination is required' });
+    }
+    
+    res.json({
+      activities: [{
+        name: `Temple of the Tooth - ${destination}`,
+        type: 'cultural',
+        startTime: '09:00',
+        endTime: '11:00',
+        description: `Visit the sacred Temple of the Tooth Relic in ${destination}, one of Buddhism's most important pilgrimage sites`,
+        cost: '$5',
+        tips: ['Dress modestly', 'Remove shoes before entering', 'Photography restrictions apply']
+      }, {
+        name: `Royal Botanical Gardens - ${destination}`,
+        type: 'nature',
+        startTime: '14:00',
+        endTime: '16:30',
+        description: `Explore the stunning Royal Botanical Gardens with over 4,000 species of plants`,
+        cost: '$3',
+        tips: ['Best visited in afternoon', 'Bring camera for orchid house', 'Allow 2-3 hours']
+      }]
+    });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to generate day plan' });
+  }
+});
+
 // Generate detailed trip plan endpoint
 router.post('/generate-detailed', async (req, res) => {
   try {
