@@ -282,7 +282,7 @@ app.post('/api/plans/generate-day', async (req, res) => {
     const prompt = `Create a day itinerary for ${destination}. Return JSON: {"activities":[{"name":"Activity","type":"landmark","startTime":"09:00","endTime":"11:00","description":"Description","cost":"Free","tips":["Tip"]}]}`;
     
     const completion = await openai.chat.completions.create({
-      model: 'gpt-4.1',
+      model: process.env.AZURE_OPENAI_DEPLOYMENT_NAME,
       messages: [{ role: "user", content: prompt }],
       temperature: 0.7,
       max_tokens: 1000
