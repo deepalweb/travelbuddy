@@ -21,102 +21,34 @@ export class TripPlanningService {
       throw new Error('Destination and duration are required');
     }
 
-    try {
-      // Try backend enriched endpoint first for real places
-      const { withApiBase } = await import('./config');
-      console.log('🚀 Calling enriched endpoint for:', destination);
-      const response = await fetch(withApiBase('/api/plans/generate-enriched'), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          destination: destination.trim(),
-          duration: duration.trim(),
-          interests: interests || '',
-          pace: pace.toString(),
-          budget: budget.toString()
-        })
-      });
+    // FORCE USE OF ENRICHED SERVICE ONLY
+    const { withApiBase } = await import('./config');
+    console.log('🚀 Calling enriched endpoint for:', destination);
+    const response = await fetch(withApiBase('/api/plans/generate-enriched'), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        destination: destination.trim(),
+        duration: duration.trim(),
+        interests: interests || '',
+        pace: pace.toString(),
+        budget: budget.toString()
+      })
+    });
 
-      console.log('📡 Enriched endpoint response status:', response.status);
-      if (response.ok) {
-        const data = await response.json();
-        console.log('✅ Got enriched trip plan:', data.tripPlan?.tripTitle);
-        return data.tripPlan;
-      } else {
-        const errorText = await response.text();
-        console.error('❌ Enriched endpoint failed:', response.status, errorText);
-        throw new Error(`Enriched endpoint failed: ${response.status}`);
-      }
-    } catch (error) {
-      console.error('❌ Enriched trip creation failed, trying detailed:', error);
-      
-      try {
-        // Fallback to detailed service
-        const plan = await detailedTripPlanningService.generateDetailedTripPlan({
-          destination: destination.trim(),
-          duration: duration.trim(),
-          interests: interests || '',
-          pace: pace.toString(),
-          budget: budget.toString()
-        });
-
-        return plan;
-      } catch (error2) {
-        console.error('Detailed trip creation failed, trying enhanced:', error2);
-      
-        try {
-          // Fallback to enhanced real data service
-        const plan = await enhancedRealTripPlanningService.generatePersonalizedTripPlan({
-          destination: destination.trim(),
-          duration: duration.trim(),
-          interests: interests || '',
-          pace: pace.toString(),
-          budget: budget.toString(),
-          groupType: 'general',
-          startDate: new Date().toISOString()
-        });
-
-        return plan;
-      } catch (error3) {
-        console.error('Enhanced trip creation failed, trying integrated:', error3);
-        
-        try {
-          // Fallback to integrated planning
-          const plan = await this.generateIntegratedTripPlan({
-            destination: destination.trim(),
-            duration: duration.trim(),
-            travel_style: interests || '',
-            pace,
-            budget_level: budget,
-            must_see: mustSeeAttractions || []
-          });
-
-          return {
-            ...plan,
-            id: plan.id || `trip_${Date.now()}`,
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString()
-          };
-        } catch (error4) {
-          console.error('Integrated trip creation failed, using basic AI:', error4);
-          // Final fallback to existing service
-          const plan = await azureOpenAIService.generateTripPlan(
-            destination.trim(),
-            duration.trim(),
-            interests || '',
-            pace,
-            travelStyles,
-            budget
-          );
-          return {
-            ...plan,
-            id: plan.id || `trip_${Date.now()}`,
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString()
-          };
-        }
-      }
+    console.log('📡 Enriched endpoint response status:', response.status);
+    if (response.ok) {
+      const data = await response.json();
+      console.log('✅ Got enriched trip plan:', data.tripPlan?.tripTitle);
+      return data.tripPlan;
+    } else {
+      const errorText = await response.text();
+      console.error('❌ Enriched endpoint failed:', response.status, errorText);
+      throw new Error(`Enriched endpoint failed: ${response.status} - ${errorText}`);
     }
+
+    // Fallback code removed to force enriched service usage
+    */
   }
 
   static async saveTripPlan(plan: TripPlanSuggestion, userId?: string): Promise<void> {
