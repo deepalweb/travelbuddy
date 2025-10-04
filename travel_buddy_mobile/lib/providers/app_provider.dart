@@ -298,7 +298,7 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
         _loadLocalDiscoveries(),
         _loadWeatherInfo(),
         _loadWeatherForecast(),
-        _loadDailySuggestions(),
+
         _loadTravelStats(),
       ]);
     } catch (e) {
@@ -390,9 +390,8 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
       }
     } catch (e) {
       print('❌ Error loading local discoveries: $e');
-      // Final fallback to mock service
-      final discoveries = await _localDiscoveriesService.generateLocalDiscoveries('Current City');
-      _localDiscoveries = discoveries.isNotEmpty ? discoveries.first.toModelLocalDiscovery() : null;
+      // No fallback - set to null if all services fail
+      _localDiscoveries = null;
     }
   }
 
@@ -484,9 +483,8 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
       print('✅ Loaded personalized suggestions: ${_dailySuggestions.length} items');
     } catch (e) {
       print('❌ Error loading daily suggestions: $e');
-      // Final fallback with smart suggestions
-      _dailySuggestions = _getSmartFallbackSuggestions();
-      print('✅ Loaded smart fallback suggestions: ${_dailySuggestions.length} items');
+      // No fallback - leave empty
+      _dailySuggestions = [];
     }
   }
   
@@ -640,7 +638,7 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
       print('✅ Loaded travel stats: ${_travelStats!.totalPlacesVisited} interactions');
     } catch (e) {
       print('❌ Error loading travel stats: $e');
-      _travelStats = TravelStats.mock();
+      _travelStats = null;
     }
   }
   static const int _placesPerPage = 12;
@@ -954,21 +952,7 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
         _locationError = null;
         print('📍 Location obtained');
       } else {
-        // Use fallback location for testing
-        print('🔄 Using fallback location for testing');
-        _currentLocation = Position(
-          latitude: 37.7749,
-          longitude: -122.4194,
-          timestamp: DateTime.now(),
-          accuracy: 0,
-          altitude: 0,
-          altitudeAccuracy: 0,
-          heading: 0,
-          headingAccuracy: 0,
-          speed: 0,
-          speedAccuracy: 0,
-        );
-        _locationError = 'Using fallback location (San Francisco) for testing';
+        _locationError = 'Unable to get current location. Please check location permissions and GPS.';
       }
     } catch (e) {
       _locationError = e.toString();

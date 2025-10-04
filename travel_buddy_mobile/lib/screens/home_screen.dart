@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
 import '../providers/app_provider.dart';
 import '../widgets/safe_widget.dart';
 import '../widgets/subscription_status_widget.dart';
@@ -46,14 +49,6 @@ class _HomeScreenState extends State<HomeScreen> {
   String _getCurrentLocationName(AppProvider appProvider) {
     if (appProvider.currentLocation == null) {
       return 'Location not available';
-    }
-    
-    // For Sri Lankan coordinates, show Colombo
-    final lat = appProvider.currentLocation!.latitude;
-    final lng = appProvider.currentLocation!.longitude;
-    
-    if (lat > 6.0 && lat < 7.5 && lng > 79.0 && lng < 81.0) {
-      return 'Colombo, Sri Lanka';
     }
     
     // Default location display
@@ -103,260 +98,103 @@ class _HomeScreenState extends State<HomeScreen> {
   }
   
   Widget _buildWeatherForecast(AppProvider appProvider) {
-    final forecast = appProvider.weatherForecast;
-    if (forecast == null || forecast.hourlyForecast.isEmpty) {
-      // Show fallback forecast
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Today\'s Forecast',
-            style: TextStyle(
-              color: Colors.white.withOpacity(0.9),
-              fontSize: 16,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          const SizedBox(height: 12),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-            children: List.generate(3, (index) {
-              final time = DateTime.now().add(Duration(hours: index * 3));
-              return Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.15),
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: Colors.white.withOpacity(0.2)),
-                ),
-                child: Column(
-                  children: [
-                    Text(
-                      '${time.hour}:00',
-                      style: TextStyle(
-                        color: Colors.white.withOpacity(0.8),
-                        fontSize: 12,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Icon(
-                      Icons.wb_sunny,
-                      color: Colors.white,
-                      size: 24,
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      '${25 + index * 2}°',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ],
-                ),
-              );
-            }),
-          ),
-        ],
-      );
+    if (appProvider.currentLocation == null) {
+      return const SizedBox.shrink();
     }
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'Today\'s Forecast',
-          style: TextStyle(
-            color: Colors.white.withOpacity(0.9),
-            fontSize: 16,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-        const SizedBox(height: 12),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-          children: forecast.hourlyForecast.take(3).map((hourly) {
-            return Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.15),
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: Colors.white.withOpacity(0.2)),
-              ),
-              child: Column(
-                children: [
-                  Text(
-                    hourly.time,
-                    style: TextStyle(
-                      color: Colors.white.withOpacity(0.8),
-                      fontSize: 12,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Icon(
-                    _getWeatherIcon(hourly.condition),
-                    color: Colors.white,
-                    size: 24,
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    '${hourly.temperature.round()}°',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ],
-              ),
-            );
-          }).toList(),
-        ),
-      ],
-    );
-  }
+    return FutureBuilder<Map<String, dynamic>>(
+      future: _fetchRealWeatherForecast(appProvider.currentLocation!),
+      builder: (context, snapshot) {
+        if (!snapshot.hasData) {
+          return const SizedBox.shrink();
+        }
 
-  Widget _buildDailySuggestions(AppProvider appProvider) {
-    final suggestions = appProvider.dailySuggestions;
-    if (suggestions.isEmpty) {
-      // Show fallback suggestions
-      final hour = DateTime.now().hour;
-      final fallbackSuggestions = hour < 12 
-          ? ['Explore morning markets and cafes', 'Perfect time for outdoor sightseeing']
-          : hour >= 18
-              ? ['Find great dinner spots nearby', 'Explore evening attractions']
-              : ['Discover nearby attractions', 'Try local restaurants'];
-      
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(
-                Icons.auto_awesome,
-                color: Colors.white.withOpacity(0.9),
-                size: 18,
-              ),
-              const SizedBox(width: 8),
-              Text(
-                'Today\'s Suggestions',
-                style: TextStyle(
-                  color: Colors.white.withOpacity(0.9),
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          ...fallbackSuggestions.take(2).map((suggestion) => Container(
-            margin: const EdgeInsets.only(bottom: 8),
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: Colors.white.withOpacity(0.2)),
-            ),
-            child: Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(6),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.2),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Icon(
-                    Icons.tips_and_updates,
-                    color: Colors.white,
-                    size: 16,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Text(
-                    suggestion,
-                    style: TextStyle(
-                      color: Colors.white.withOpacity(0.95),
-                      fontSize: 13,
-                      fontWeight: FontWeight.w500,
-                    ),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-              ],
-            ),
-          )),
-        ],
-      );
-    }
+        final forecastData = snapshot.data!;
+        final hourlyList = forecastData['hourly'] as List<dynamic>? ?? [];
+        
+        if (hourlyList.isEmpty) {
+          return const SizedBox.shrink();
+        }
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Icon(
-              Icons.auto_awesome,
-              color: Colors.white.withOpacity(0.9),
-              size: 18,
-            ),
-            const SizedBox(width: 8),
             Text(
-              'Today\'s Suggestions',
+              'Today\'s Forecast',
               style: TextStyle(
                 color: Colors.white.withOpacity(0.9),
                 fontSize: 16,
                 fontWeight: FontWeight.w600,
               ),
             ),
-          ],
-        ),
-        const SizedBox(height: 12),
-        ...suggestions.take(2).map((suggestion) => Container(
-          margin: const EdgeInsets.only(bottom: 8),
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.1),
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: Colors.white.withOpacity(0.2)),
-          ),
-          child: Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(6),
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.2),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Icon(
-                  Icons.tips_and_updates,
-                  color: Colors.white,
-                  size: 16,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  suggestion,
-                  style: TextStyle(
-                    color: Colors.white.withOpacity(0.95),
-                    fontSize: 13,
-                    fontWeight: FontWeight.w500,
+            const SizedBox(height: 12),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              children: hourlyList.take(3).map<Widget>((hourly) {
+                final time = DateTime.parse(hourly['time']);
+                final temp = (hourly['temperature'] as num).round();
+                final condition = hourly['condition'] as String;
+                
+                return Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.15),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: Colors.white.withOpacity(0.2)),
                   ),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-            ],
-          ),
-        )),
-      ],
+                  child: Column(
+                    children: [
+                      Text(
+                        '${time.hour}:00',
+                        style: TextStyle(
+                          color: Colors.white.withOpacity(0.8),
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Icon(
+                        _getWeatherIcon(condition),
+                        color: Colors.white,
+                        size: 24,
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        '${temp}°',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              }).toList(),
+            ),
+          ],
+        );
+      },
     );
   }
+
+  Future<Map<String, dynamic>> _fetchRealWeatherForecast(Position location) async {
+    try {
+      final response = await http.get(
+        Uri.parse('http://localhost:3001/api/weather/forecast?lat=${location.latitude}&lng=${location.longitude}'),
+      );
+      
+      if (response.statusCode == 200) {
+        return json.decode(response.body);
+      }
+    } catch (e) {
+      print('Weather forecast API error: $e');
+    }
+    
+    return {'hourly': []};
+  }
+
+
 
 
 
@@ -664,9 +502,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   const SizedBox(height: 16),
                   // Weather Forecast
                   _buildWeatherForecast(appProvider),
-                  const SizedBox(height: 16),
-                  // Daily Suggestions
-                  _buildDailySuggestions(appProvider),
+
                 ],
               ),
             ),

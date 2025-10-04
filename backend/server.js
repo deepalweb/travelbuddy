@@ -689,7 +689,7 @@ app.post('/api/plans/generate-day', async (req, res) => {
     }
 
     // Get coordinates for destination
-    let coordinates = { lat: 7.8731, lng: 80.7718 }; // Default Sri Lanka
+    let coordinates = null;
     try {
       const geocodeUrl = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(destination)}&key=${process.env.GOOGLE_PLACES_API_KEY}`;
       const geocodeResponse = await fetch(geocodeUrl);
@@ -698,7 +698,11 @@ app.post('/api/plans/generate-day', async (req, res) => {
         coordinates = geocodeData.results[0].geometry.location;
       }
     } catch (error) {
-      console.warn('Geocoding failed, using default coordinates');
+      console.warn('Geocoding failed');
+    }
+    
+    if (!coordinates) {
+      return res.status(400).json({ error: 'Unable to find coordinates for destination' });
     }
 
     // Fetch real places based on interests
@@ -2428,6 +2432,52 @@ app.get('/api/weather/forecast', async (req, res) => {
           
           // Parse real weather data
           const hourlyForecast = weatherData.list.slice(0, 8).map(item => ({
+            time: new Date(item.dt * 1000).toISOString(),
+            temperature: Math.round(item.main.temp),
+            condition: item.weather[0].main.toLowerCase(),
+            iconUrl: `https://openweathermap.org/img/w/${item.weather[0].icon}.png`,
+            emoji: getWeatherEmoji(item.weather[0].main),
+            precipitation: item.rain?.['3h'] || 0
+          }));
+          
+          return res.json({
+            hourly: hourlyForecast
+          });
+        }
+      } catch (apiError) {
+        console.warn('⚠️ OpenWeatherMap API failed:', apiError.message);
+      }
+    }
+    
+    // No fallback - return error if all APIs fail
+    console.log('❌ All weather APIs failed');
+    res.status(503).json({ error: 'Weather service unavailable' });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to fetch weather forecast', details: error.message });
+  }
+});
+  try {
+    const { lat, lng } = req.query;
+    if (!lat || !lng) {
+      return res.status(400).json({ error: 'lat and lng are required' });
+    }
+
+    const googleApiKey = process.env.GOOGLE_PLACES_API_KEY;
+    
+    if (googleApiKey) {
+      try {
+        // Try OpenWeatherMap API for real weather data
+        const weatherUrl = `https://api.openweathermap.org/data/2.5/forecast?lat=${lat}&lon=${lng}&appid=${googleApiKey}&units=metric`;
+        console.log('🌤️ Fetching REAL weather forecast from OpenWeatherMap');
+        
+        const weatherResponse = await fetch(weatherUrl);
+        
+        if (weatherResponse.ok) {
+          const weatherData = await weatherResponse.json();
+          console.log('✅ Got REAL weather forecast data');
+          
+          // Parse real weather data
+          const hourlyForecast = weatherData.list.slice(0, 8).map(item => ({
             time: new Date(item.dt * 1000),
             temperature: Math.round(item.main.temp),
             condition: item.weather[0].main.toLowerCase(),
@@ -2541,35 +2591,9 @@ app.get('/api/weather/forecast', async (req, res) => {
       }
     }
     
-    // Final fallback
-    console.log('🎭 Using basic fallback forecast');
-    const baseTemp = 22;
-    const condition = 'sunny';
-    
-    const forecastData = {
-      daily: Array.from({ length: 5 }, (_, i) => ({
-        date: new Date(Date.now() + i * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-        tempMax: baseTemp + 3,
-        tempMin: baseTemp - 5,
-        condition: condition,
-        iconUrl: '',
-        precipitation: 0.0,
-        emoji: '☀️'
-      })),
-      hourly: Array.from({ length: 24 }, (_, i) => {
-        const hour = new Date(Date.now() + i * 60 * 60 * 1000);
-        return {
-          time: hour,
-          temperature: baseTemp + Math.sin(i * Math.PI / 12) * 3,
-          condition: condition,
-          iconUrl: '',
-          emoji: '☀️',
-          precipitation: 0
-        };
-      })
-    };
-    
-    res.json(forecastData);
+    // No fallback - return error if all APIs fail
+    console.log('❌ All weather APIs failed');
+    res.status(503).json({ error: 'Weather service unavailable' });
   } catch (error) {
     res.status(500).json({ error: 'Failed to fetch weather forecast', details: error.message });
   }
@@ -2718,48 +2742,9 @@ app.get('/api/weather/google', async (req, res) => {
       }
     }
     
-    // Final fallback to basic mock data
-    console.log('🎭 Using basic mock weather data as final fallback');
-    const temp = Math.round(15 + Math.random() * 20);
-    const condition = ['sunny', 'cloudy', 'partly_cloudy', 'rainy'][Math.floor(Math.random() * 4)];
-    
-    const mockWeatherData = {
-      location: {
-        lat: parseFloat(lat),
-        lng: parseFloat(lng)
-      },
-      current: {
-        temperature: temp,
-        condition: condition,
-        humidity: Math.round(40 + Math.random() * 40),
-        windSpeed: Math.round(Math.random() * 20),
-        description: 'Current weather conditions',
-        feelsLike: temp + 1.5,
-        precipitation: 0.0,
-        iconUrl: ''
-      },
-      forecast: {
-        daily: Array.from({ length: 5 }, (_, i) => ({
-          date: new Date(Date.now() + i * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-          tempMax: Math.round(18 + Math.random() * 15),
-          tempMin: Math.round(8 + Math.random() * 10),
-          condition: ['sunny', 'cloudy', 'partly_cloudy', 'rainy'][Math.floor(Math.random() * 4)],
-          iconUrl: '',
-          precipitation: 0.0,
-          emoji: condition === 'sunny' ? '☀️' : condition === 'cloudy' ? '☁️' : '🌤️'
-        })),
-        hourly: Array.from({ length: 24 }, (_, i) => ({
-          time: new Date(Date.now() + i * 60 * 60 * 1000).toISOString(),
-          temperature: Math.round(temp + (Math.random() - 0.5) * 4),
-          condition: condition,
-          iconUrl: '',
-          emoji: condition === 'sunny' ? '☀️' : condition === 'cloudy' ? '☁️' : '🌤️',
-          precipitation: 0.0
-        }))
-      }
-    };
-
-    res.json(mockWeatherData);
+    // No fallback - return error if all APIs fail
+    console.log('❌ All weather APIs failed');
+    res.status(503).json({ error: 'Weather service unavailable' });
   } catch (error) {
     res.status(500).json({ error: 'Failed to fetch weather data', details: error.message });
   }
