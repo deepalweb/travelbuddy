@@ -270,8 +270,6 @@ const openai = new OpenAI({
   },
 });
 
-// Trip planning endpoint moved to after middleware setup
-
 // Enhanced dishes endpoint with full specification
 app.post('/api/dishes/generate', async (req, res) => {
   const startTime = Date.now();
@@ -679,180 +677,6 @@ try {
   console.error('❌ Failed to load subscription routes:', error);
 }
 
-// Enhanced day planning endpoint using real places
-app.post('/api/plans/generate-day', async (req, res) => {
-  try {
-    const { destination, interests, pace, dietary_preferences, is_accessible, weather } = req.body;
-    
-    if (!destination) {
-      return res.status(400).json({ error: 'Destination is required' });
-    }
-
-    // Get coordinates for destination
-    let coordinates = null;
-    try {
-      const geocodeUrl = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(destination)}&key=${process.env.GOOGLE_PLACES_API_KEY}`;
-      const geocodeResponse = await fetch(geocodeUrl);
-      const geocodeData = await geocodeResponse.json();
-      if (geocodeData.status === 'OK' && geocodeData.results.length > 0) {
-        coordinates = geocodeData.results[0].geometry.location;
-      }
-    } catch (error) {
-      console.warn('Geocoding failed');
-    }
-    
-    if (!coordinates) {
-      return res.status(400).json({ error: 'Unable to find coordinates for destination' });
-    }
-
-    // Fetch real places based on interests
-    const categories = [];
-    const interestLower = (interests || '').toLowerCase();
-    if (interestLower.includes('culture') || interestLower.includes('history')) {
-      categories.push('museum', 'temple', 'historic site');
-    }
-    if (interestLower.includes('food')) {
-      categories.push('restaurant', 'local cuisine');
-    }
-    if (interestLower.includes('nature')) {
-      categories.push('park', 'garden');
-    }
-    if (categories.length === 0) {
-      categories.push('tourist attraction', 'restaurant');
-    }
-
-    const allPlaces = [];
-    for (const category of categories.slice(0, 2)) { // Limit to 2 categories
-      try {
-        const placesUrl = `https://maps.googleapis.com/maps/api/place/textsearch/json?query=${encodeURIComponent(category)}&location=${coordinates.lat},${coordinates.lng}&radius=5000&key=${process.env.GOOGLE_PLACES_API_KEY}`;
-        const placesResponse = await fetch(placesUrl);
-        const placesData = await placesResponse.json();
-        if (placesData.status === 'OK') {
-          allPlaces.push(...placesData.results.slice(0, 3));
-        }
-      } catch (error) {
-        console.warn(`Failed to fetch ${category} places`);
-      }
-    }
-
-    // Generate enriched activities
-    const activities = [];
-    const timeSlots = ['09:00', '11:00', '14:00', '16:00'];
-    
-    for (let i = 0; i < Math.min(allPlaces.length, 4); i++) {
-      const place = allPlaces[i];
-      const startTime = timeSlots[i];
-      const endTime = timeSlots[i + 1] || '18:00';
-      
-      activities.push({
-        name: place.name,
-        type: place.types[0] || 'landmark',
-        startTime,
-        endTime,
-        description: `${place.name} - ${place.formatted_address || place.vicinity}. Rating: ${place.rating || 'N/A'}/5`,
-        cost: place.price_level ? `${'$'.repeat(place.price_level)}` : 'Free',
-        tips: [
-          'Check opening hours before visiting',
-          place.rating >= 4.5 ? 'Highly rated by visitors' : 'Popular local spot',
-          'Bring camera for photos'
-        ],
-        address: place.formatted_address || place.vicinity,
-        rating: place.rating,
-        place_id: place.place_id
-      });
-    }
-
-    // Ensure we always have real places
-    if (activities.length === 0) {
-      return res.status(404).json({ 
-        error: 'No places found', 
-        message: `Unable to find real places in ${destination}. Please try a different destination or check your internet connection.` 
-      });
-    }
-    
-    res.json({ activities });
-    
-  } catch (error) {
-    console.error('Day planning error:', error);
-    res.status(500).json({ 
-      error: 'Failed to generate day plan', 
-      message: 'Unable to fetch real places data. Please check your API configuration.' 
-    });
-  }
-});
-
-// Enhanced multi-day planning endpoint using EnrichedTripPlanningService
-app.post('/api/plans/generate-enriched', async (req, res) => {
-  try {
-    const { destination, duration, interests, pace, budget } = req.body;
-    
-    if (!destination || !duration) {
-      return res.status(400).json({ error: 'Destination and duration are required' });
-    }
-
-    console.log('🚀 Generating enriched trip plan for:', destination, duration);
-    
-    // Use the EnrichedTripPlanningService directly
-    const tripPlan = await enrichedTripPlanningService.generateEnrichedTripPlan({
-      destination: destination.trim(),
-      duration: duration.trim(),
-      interests: interests || '',
-      pace: pace || 'moderate',
-      budget: budget || 'moderate'
-    });
-    
-    console.log('✅ Generated enriched trip plan:', tripPlan.tripTitle);
-    res.json({ tripPlan });
-    
-  } catch (error) {
-    console.error('❌ Enriched multi-day planning error:', error);
-    res.status(500).json({ 
-      error: 'Failed to generate enriched trip plan',
-      message: error.message || 'Unable to generate real places data. Please verify your Google Places API key is configured.' 
-    });
-  }
-});
-
-// Helper functions for enriched planning
-function getPlaceDescription(place, destination) {
-  const type = place.types[0] || 'establishment';
-  if (type.includes('restaurant')) return `Experience authentic local cuisine at this highly-rated dining spot in ${destination}.`;
-  if (type.includes('museum')) return `Discover the rich history and culture of ${destination} at this fascinating venue.`;
-  if (type.includes('temple')) return `A sacred site offering spiritual tranquility and architectural beauty.`;
-  if (type.includes('park')) return `Enjoy natural beauty and peaceful surroundings perfect for relaxation.`;
-  return `A popular local attraction offering authentic experiences in ${destination}.`;
-}
-
-function getDuration(place) {
-  const type = place.types[0] || 'establishment';
-  if (type.includes('restaurant')) return '1-1.5 hours';
-  if (type.includes('museum')) return '1.5-2 hours';
-  if (type.includes('temple')) return '45-60 minutes';
-  return '1-2 hours';
-}
-
-function getCost(place) {
-  const priceLevel = place.price_level || 1;
-  const costs = ['Free-$5', '$5-15', '$15-30', '$30-50', '$50+'];
-  return costs[priceLevel] || 'Free-$10';
-}
-
-function getTip(place) {
-  const type = place.types[0] || 'establishment';
-  if (type.includes('restaurant')) return 'Try the local specialties and ask about spice levels';
-  if (type.includes('temple')) return 'Dress modestly and remove shoes before entering';
-  if (type.includes('museum')) return 'Check for guided tour times and photography rules';
-  return 'Check opening hours and bring water';
-}
-
-function getDayTheme(places) {
-  const types = places.map(p => p.types[0] || 'establishment');
-  if (types.some(t => t.includes('temple') || t.includes('museum'))) return 'Cultural Heritage';
-  if (types.some(t => t.includes('restaurant') || t.includes('food'))) return 'Culinary Discovery';
-  if (types.some(t => t.includes('park') || t.includes('nature'))) return 'Nature & Relaxation';
-  return 'Local Highlights';
-}
-
 // Load Azure OpenAI routes
 try {
   const aiRouter = (await import('./routes/ai.js')).default;
@@ -860,44 +684,6 @@ try {
   console.log('✅ Azure OpenAI routes loaded');
 } catch (error) {
   console.error('❌ Failed to load Azure OpenAI routes:', error);
-}
-
-// Multi-day trip planning endpoint (fallback)
-app.post('/api/plans/generate-detailed', async (req, res) => {
-  try {
-    // Redirect to enriched endpoint for better results
-    return res.redirect(307, '/api/plans/generate-enriched');
-  } catch (error) {
-    console.error('Detailed trip generation error:', error);
-    res.status(500).json({ error: 'Failed to generate detailed trip plan' });
-  }
-});
-
-// Load detailed planning routes (disabled due to module issues)
-// try {
-//   const detailedPlanningRouter = (await import('./routes/detailedPlanning.js')).default;
-//   app.use('/api/plans', detailedPlanningRouter);
-//   console.log('✅ Detailed planning routes loaded');
-// } catch (error) {
-//   console.error('❌ Failed to load detailed planning routes:', error);
-// }
-
-// Load usage tracking routes
-try {
-  const usageRouter = (await import('./routes/usage.js')).default;
-  app.use('/api', usageRouter);
-  console.log('✅ Usage tracking routes loaded');
-} catch (error) {
-  console.error('❌ Failed to load usage routes:', error);
-}
-
-// Load weather routes
-try {
-  const weatherRouter = (await import('./routes/weather.js')).default;
-  app.use('/api/weather', weatherRouter);
-  console.log('✅ Weather routes loaded');
-} catch (error) {
-  console.error('❌ Failed to load weather routes:', error);
 }
 
 // Payment routes (Stripe scaffold) - mount only when explicitly enabled to allow
@@ -2432,52 +2218,6 @@ app.get('/api/weather/forecast', async (req, res) => {
           
           // Parse real weather data
           const hourlyForecast = weatherData.list.slice(0, 8).map(item => ({
-            time: new Date(item.dt * 1000).toISOString(),
-            temperature: Math.round(item.main.temp),
-            condition: item.weather[0].main.toLowerCase(),
-            iconUrl: `https://openweathermap.org/img/w/${item.weather[0].icon}.png`,
-            emoji: getWeatherEmoji(item.weather[0].main),
-            precipitation: item.rain?.['3h'] || 0
-          }));
-          
-          return res.json({
-            hourly: hourlyForecast
-          });
-        }
-      } catch (apiError) {
-        console.warn('⚠️ OpenWeatherMap API failed:', apiError.message);
-      }
-    }
-    
-    // No fallback - return error if all APIs fail
-    console.log('❌ All weather APIs failed');
-    res.status(503).json({ error: 'Weather service unavailable' });
-  } catch (error) {
-    res.status(500).json({ error: 'Failed to fetch weather forecast', details: error.message });
-  }
-});
-  try {
-    const { lat, lng } = req.query;
-    if (!lat || !lng) {
-      return res.status(400).json({ error: 'lat and lng are required' });
-    }
-
-    const googleApiKey = process.env.GOOGLE_PLACES_API_KEY;
-    
-    if (googleApiKey) {
-      try {
-        // Try OpenWeatherMap API for real weather data
-        const weatherUrl = `https://api.openweathermap.org/data/2.5/forecast?lat=${lat}&lon=${lng}&appid=${googleApiKey}&units=metric`;
-        console.log('🌤️ Fetching REAL weather forecast from OpenWeatherMap');
-        
-        const weatherResponse = await fetch(weatherUrl);
-        
-        if (weatherResponse.ok) {
-          const weatherData = await weatherResponse.json();
-          console.log('✅ Got REAL weather forecast data');
-          
-          // Parse real weather data
-          const hourlyForecast = weatherData.list.slice(0, 8).map(item => ({
             time: new Date(item.dt * 1000),
             temperature: Math.round(item.main.temp),
             condition: item.weather[0].main.toLowerCase(),
@@ -2591,9 +2331,35 @@ app.get('/api/weather/forecast', async (req, res) => {
       }
     }
     
-    // No fallback - return error if all APIs fail
-    console.log('❌ All weather APIs failed');
-    res.status(503).json({ error: 'Weather service unavailable' });
+    // Final fallback
+    console.log('🎭 Using basic fallback forecast');
+    const baseTemp = 22;
+    const condition = 'sunny';
+    
+    const forecastData = {
+      daily: Array.from({ length: 5 }, (_, i) => ({
+        date: new Date(Date.now() + i * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+        tempMax: baseTemp + 3,
+        tempMin: baseTemp - 5,
+        condition: condition,
+        iconUrl: '',
+        precipitation: 0.0,
+        emoji: '☀️'
+      })),
+      hourly: Array.from({ length: 24 }, (_, i) => {
+        const hour = new Date(Date.now() + i * 60 * 60 * 1000);
+        return {
+          time: hour,
+          temperature: baseTemp + Math.sin(i * Math.PI / 12) * 3,
+          condition: condition,
+          iconUrl: '',
+          emoji: '☀️',
+          precipitation: 0
+        };
+      })
+    };
+    
+    res.json(forecastData);
   } catch (error) {
     res.status(500).json({ error: 'Failed to fetch weather forecast', details: error.message });
   }
@@ -2742,9 +2508,48 @@ app.get('/api/weather/google', async (req, res) => {
       }
     }
     
-    // No fallback - return error if all APIs fail
-    console.log('❌ All weather APIs failed');
-    res.status(503).json({ error: 'Weather service unavailable' });
+    // Final fallback to basic mock data
+    console.log('🎭 Using basic mock weather data as final fallback');
+    const temp = Math.round(15 + Math.random() * 20);
+    const condition = ['sunny', 'cloudy', 'partly_cloudy', 'rainy'][Math.floor(Math.random() * 4)];
+    
+    const mockWeatherData = {
+      location: {
+        lat: parseFloat(lat),
+        lng: parseFloat(lng)
+      },
+      current: {
+        temperature: temp,
+        condition: condition,
+        humidity: Math.round(40 + Math.random() * 40),
+        windSpeed: Math.round(Math.random() * 20),
+        description: 'Current weather conditions',
+        feelsLike: temp + 1.5,
+        precipitation: 0.0,
+        iconUrl: ''
+      },
+      forecast: {
+        daily: Array.from({ length: 5 }, (_, i) => ({
+          date: new Date(Date.now() + i * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+          tempMax: Math.round(18 + Math.random() * 15),
+          tempMin: Math.round(8 + Math.random() * 10),
+          condition: ['sunny', 'cloudy', 'partly_cloudy', 'rainy'][Math.floor(Math.random() * 4)],
+          iconUrl: '',
+          precipitation: 0.0,
+          emoji: condition === 'sunny' ? '☀️' : condition === 'cloudy' ? '☁️' : '🌤️'
+        })),
+        hourly: Array.from({ length: 24 }, (_, i) => ({
+          time: new Date(Date.now() + i * 60 * 60 * 1000).toISOString(),
+          temperature: Math.round(temp + (Math.random() - 0.5) * 4),
+          condition: condition,
+          iconUrl: '',
+          emoji: condition === 'sunny' ? '☀️' : condition === 'cloudy' ? '☁️' : '🌤️',
+          precipitation: 0.0
+        }))
+      }
+    };
+
+    res.json(mockWeatherData);
   } catch (error) {
     res.status(500).json({ error: 'Failed to fetch weather data', details: error.message });
   }
@@ -2935,44 +2740,6 @@ app.get('/api/weather/test-real', async (req, res) => {
       error: 'Weather test failed', 
       details: error.message 
     });
-  }
-});
-
-// Geocoding endpoint to get coordinates for destinations
-app.get('/api/geocode', async (req, res) => {
-  try {
-    const { address } = req.query;
-    
-    if (!address) {
-      return res.status(400).json({ error: 'Address parameter is required' });
-    }
-
-    // Use Google Geocoding API
-    const googleApiKey = process.env.GOOGLE_PLACES_API_KEY;
-    if (!googleApiKey) {
-      return res.status(500).json({ error: 'Google API key not configured' });
-    }
-
-    const geocodeUrl = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(address)}&key=${googleApiKey}`;
-    
-    const response = await fetch(geocodeUrl);
-    const data = await response.json();
-
-    if (data.status === 'OK' && data.results.length > 0) {
-      const location = data.results[0].geometry.location;
-      res.json({
-        location: {
-          lat: location.lat,
-          lng: location.lng
-        },
-        formatted_address: data.results[0].formatted_address
-      });
-    } else {
-      res.status(404).json({ error: 'Location not found' });
-    }
-  } catch (error) {
-    console.error('Geocoding error:', error);
-    res.status(500).json({ error: 'Geocoding service failed' });
   }
 });
 

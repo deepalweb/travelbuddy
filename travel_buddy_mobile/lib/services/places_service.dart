@@ -1,4 +1,6 @@
 import 'dart:convert';
+import 'dart:io';
+import 'dart:math';
 import 'package:http/http.dart' as http;
 import '../models/place.dart';
 import '../config/environment.dart';
@@ -43,10 +45,10 @@ class PlacesService {
     final url = '${Environment.backendUrl}/api/places/nearby?lat=$lat&lng=$lng&q=$query&radius=$radius&offset=$offset';
     print('🔍 Fetching places: $url');
     
-    final response = await http.get(
+    final response = await _makeRequestWithRetry(() => http.get(
       Uri.parse(url),
       headers: {'Content-Type': 'application/json'},
-    );
+    ));
     
     print('📡 Places API response: ${response.statusCode}');
     if (response.statusCode == 200) {
@@ -66,14 +68,53 @@ class PlacesService {
     return [];
   }
   
+  Future<http.Response> _makeRequestWithRetry(Future<http.Response> Function() request) async {
+    int retryCount = 0;
+    const maxRetries = 3;
+    
+    while (retryCount < maxRetries) {
+      try {
+        final response = await request();
+        
+        if (response.statusCode == 200) {
+          return response;
+        } else if (response.statusCode == 503) {
+          retryCount++;
+          if (retryCount < maxRetries) {
+            final delay = Duration(seconds: pow(2, retryCount).toInt());
+            print('⏳ Service unavailable (503), retrying in ${delay.inSeconds}s...');
+            await Future.delayed(delay);
+            continue;
+          }
+        }
+        return response;
+      } on SocketException {
+        retryCount++;
+        if (retryCount < maxRetries) {
+          final delay = Duration(seconds: pow(2, retryCount).toInt());
+          print('🌐 Network error, retrying in ${delay.inSeconds}s...');
+          await Future.delayed(delay);
+        } else {
+          rethrow;
+        }
+      } catch (e) {
+        if (retryCount == maxRetries - 1) rethrow;
+        retryCount++;
+        await Future.delayed(Duration(seconds: pow(2, retryCount).toInt()));
+      }
+    }
+    
+    throw Exception('Max retries exceeded');
+  }
+
   Future<List<Map<String, dynamic>>> _enrichPlaces(List<dynamic> places) async {
     try {
       // Check enrichment cache first
-      final enrichResponse = await http.post(
+      final enrichResponse = await _makeRequestWithRetry(() => http.post(
         Uri.parse('${Environment.backendUrl}/api/enrichment/batch'),
         headers: {'Content-Type': 'application/json'},
         body: json.encode({'items': places, 'lang': 'en'}),
-      );
+      ));
       
       if (enrichResponse.statusCode == 200) {
         final enrichData = json.decode(enrichResponse.body);
@@ -102,27 +143,35 @@ class PlacesService {
   }
   
   Future<List<Place>> _fetchOptimizedPlaces(double lat, double lng, String query) async {
-    final response = await http.get(
-      Uri.parse('${Environment.backendUrl}/api/places/search?lat=$lat&lng=$lng&q=$query'),
-      headers: {'Content-Type': 'application/json'},
-    );
-    
-    if (response.statusCode == 200) {
-      final List<dynamic> data = json.decode(response.body);
-      return data.map((json) => Place.fromJson(json)).toList();
+    try {
+      final response = await _makeRequestWithRetry(() => http.get(
+        Uri.parse('${Environment.backendUrl}/api/places/search?lat=$lat&lng=$lng&q=$query'),
+        headers: {'Content-Type': 'application/json'},
+      ));
+      
+      if (response.statusCode == 200) {
+        final List<dynamic> data = json.decode(response.body);
+        return data.map((json) => Place.fromJson(json)).toList();
+      }
+    } catch (e) {
+      print('⚠️ Optimized places failed: $e');
     }
     return [];
   }
   
   Future<List<Place>> _fetchBasicSearch(double lat, double lng, String query, int radius) async {
-    final response = await http.get(
-      Uri.parse('${Environment.backendUrl}/api/places/search?lat=$lat&lng=$lng&q=$query&radius=$radius'),
-      headers: {'Content-Type': 'application/json'},
-    );
-    
-    if (response.statusCode == 200) {
-      final List<dynamic> data = json.decode(response.body);
-      return data.map((json) => Place.fromJson(json)).toList();
+    try {
+      final response = await _makeRequestWithRetry(() => http.get(
+        Uri.parse('${Environment.backendUrl}/api/places/search?lat=$lat&lng=$lng&q=$query&radius=$radius'),
+        headers: {'Content-Type': 'application/json'},
+      ));
+      
+      if (response.statusCode == 200) {
+        final List<dynamic> data = json.decode(response.body);
+        return data.map((json) => Place.fromJson(json)).toList();
+      }
+    } catch (e) {
+      print('⚠️ Basic search failed: $e');
     }
     return [];
   }
