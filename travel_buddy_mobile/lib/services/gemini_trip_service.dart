@@ -180,21 +180,28 @@ Create genuine cultural exchange moments.
   
   static Future<String> _callIntegratedPlanningAPI(Map<String, dynamic> request) async {
     try {
-      print('🌐 Calling integrated planning API');
+      print('🌐 Calling trip plan API');
       
       final response = await http.post(
-        Uri.parse('${AppConstants.baseUrl}/api/plans/generate-day'),
+        Uri.parse('${AppConstants.baseUrl}/api/ai/generate-trip-plan'),
         headers: {'Content-Type': 'application/json'},
-        body: json.encode(request),
+        body: json.encode({
+          'destination': request['destination'],
+          'duration': '1 day',
+          'interests': request['interests'],
+          'pace': request['pace'],
+          'travelStyles': [request['interests']],
+          'budget': 'Mid-Range'
+        }),
       );
       
       if (response.statusCode == 200) {
         return response.body;
       } else {
-        throw Exception('Integrated API failed: ${response.statusCode}');
+        throw Exception('Trip plan API failed: ${response.statusCode}');
       }
     } catch (e) {
-      print('🔴 Integrated API call failed: $e');
+      print('🔴 Trip plan API call failed: $e');
       rethrow;
     }
   }
@@ -331,9 +338,28 @@ WEATHER_NOTE: Indoor kitchen with great ventilation
     final activities = <EnhancedActivity>[];
     
     try {
-      print('🔍 Parsing integrated response: ${response.substring(0, 200)}...');
+      print('🔍 Parsing trip plan response: ${response.substring(0, 200)}...');
       
       final jsonData = json.decode(response);
+      
+      // Parse new trip plan format
+      if (jsonData['dailyPlans'] != null) {
+        final dailyPlans = jsonData['dailyPlans'] as List;
+        
+        for (final day in dailyPlans) {
+          final dayActivities = day['activities'] as List;
+          
+          for (int i = 0; i < dayActivities.length; i++) {
+            final activity = dayActivities[i];
+            activities.add(_createFromTripPlan(activity, i, destination));
+          }
+        }
+        
+        print('✅ Parsed ${activities.length} activities from trip plan');
+        return activities;
+      }
+      
+      // Fallback to old format
       if (jsonData['activities'] != null) {
         final activitiesList = jsonData['activities'] as List;
         
@@ -342,12 +368,11 @@ WEATHER_NOTE: Indoor kitchen with great ventilation
           activities.add(_createActivityFromJson(activityData, i, destination));
         }
         
-        print('✅ Parsed ${activities.length} activities from integrated response');
         return activities;
       }
     } catch (e) {
-      print('❌ Integrated response parsing failed: $e');
-      throw Exception('Failed to parse integrated response: $e');
+      print('❌ Trip plan response parsing failed: $e');
+      throw Exception('Failed to parse trip plan response: $e');
     }
     
     return activities.isNotEmpty ? activities : _createFallbackActivities(destination);
@@ -585,6 +610,100 @@ WEATHER_NOTE: Indoor kitchen with great ventilation
     }
   }
   
+  static EnhancedActivity _createFromTripPlan(Map<String, dynamic> activity, int index, String destination) {
+    return EnhancedActivity(
+      id: 'trip_${index + 1}',
+      title: activity['activityTitle'] ?? 'Activity ${index + 1}',
+      description: activity['description'] ?? 'Explore this location',
+      timeSlot: _parseTimeSlot(activity['timeOfDay']),
+      estimatedDuration: _parseDuration(activity['estimatedDuration']),
+      type: _mapCategory(activity['category']),
+      location: Location(
+        address: '$destination, ${activity['activityTitle']}',
+        latitude: 0.0,
+        longitude: 0.0,
+      ),
+      costInfo: CostInfo(
+        entryFee: 0.0,
+        currency: '\$',
+        mealCosts: activity['category'] == 'Dining' ? {
+          'budget': 15.0,
+          'mid-range': 25.0,
+          'luxury': 45.0,
+        } : {},
+        transportCost: 3.0,
+        paymentMethods: ['Card', 'Cash'],
+        hasDiscounts: false,
+      ),
+      travelInfo: TravelInfo(
+        fromPrevious: index == 0 ? 'Starting Point' : 'Previous Location',
+        travelTime: Duration(minutes: index == 0 ? 0 : 15),
+        recommendedMode: TransportMode.walk,
+        estimatedCost: index == 0 ? 0.0 : 2.0,
+        routeInstructions: 'Navigate to ${activity['activityTitle']}',
+        isAccessible: activity['effortLevel'] == 'Easy',
+      ),
+      images: _getImageForCategory(activity['category']),
+      contextInfo: ContextualInfo(
+        crowdLevel: 'Moderate',
+        bestTimeToVisit: _parseTimeSlot(activity['timeOfDay']),
+        weatherTips: ['Check weather conditions'],
+        localTips: [activity['description'] ?? 'Enjoy your visit'],
+        safetyAlerts: [],
+        isIndoorActivity: activity['category'] == 'Museum' || activity['category'] == 'Dining',
+      ),
+      actionableLinks: [
+        ActionableLink(
+          title: 'Directions',
+          url: 'https://www.google.com/maps/search/?api=1&query=${Uri.encodeComponent('${activity['activityTitle']} $destination')}',
+          type: ActionType.map,
+        ),
+      ],
+    );
+  }
+
+  static String _parseTimeSlot(String? timeOfDay) {
+    if (timeOfDay?.contains('Morning') == true) return '09:00-11:00';
+    if (timeOfDay?.contains('Afternoon') == true) return '14:00-16:00';
+    if (timeOfDay?.contains('Evening') == true) return '18:00-20:00';
+    return timeOfDay ?? '09:00-11:00';
+  }
+
+  static Duration _parseDuration(String? duration) {
+    if (duration?.contains('hour') == true) {
+      final hours = RegExp(r'(\d+)').firstMatch(duration!)?.group(1);
+      return Duration(hours: int.tryParse(hours ?? '2') ?? 2);
+    }
+    return Duration(hours: 2);
+  }
+
+  static ActivityType _mapCategory(String? category) {
+    switch (category?.toLowerCase()) {
+      case 'sightseeing': return ActivityType.landmark;
+      case 'dining': return ActivityType.restaurant;
+      case 'museum': return ActivityType.museum;
+      case 'nature': return ActivityType.nature;
+      case 'shopping': return ActivityType.shopping;
+      case 'entertainment': return ActivityType.entertainment;
+      default: return ActivityType.landmark;
+    }
+  }
+
+  static List<String> _getImageForCategory(String? category) {
+    switch (category?.toLowerCase()) {
+      case 'dining':
+        return ['https://images.unsplash.com/photo-1555396273-367ea4eb4db5'];
+      case 'museum':
+        return ['https://images.unsplash.com/photo-1566127992631-137a642a90f4'];
+      case 'nature':
+        return ['https://images.unsplash.com/photo-1441974231531-c6227db76b6e'];
+      case 'shopping':
+        return ['https://images.unsplash.com/photo-1441986300917-64674bd600d8'];
+      default:
+        return ['https://images.unsplash.com/photo-1449824913935-59a10b8d2000'];
+    }
+  }
+
   static List<EnhancedActivity> _createFallbackActivities(String destination) {
     return [
       EnhancedActivity(

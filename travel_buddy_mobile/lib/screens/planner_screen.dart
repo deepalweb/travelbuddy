@@ -7,6 +7,7 @@ import '../services/storage_service.dart';
 import '../services/real_data_service.dart';
 import '../models/trip.dart';
 import 'my_trips_screen.dart';
+import 'google_ai_mode_screen.dart';
 
 class PlannerScreen extends StatefulWidget {
   const PlannerScreen({super.key});
@@ -24,7 +25,7 @@ class _PlannerScreenState extends State<PlannerScreen> {
   String _durationUnit = 'days';
   final _interestsController = TextEditingController();
   String _selectedPace = 'Moderate';
-  String _selectedBudget = 'Mid-Range';
+  String _selectedBudget = 'Budget-Friendly';
   final List<String> _selectedTravelStyles = [];
   DateTime? _startDate;
   DateTime? _endDate;
@@ -32,7 +33,12 @@ class _PlannerScreenState extends State<PlannerScreen> {
   // Enhanced form state
   bool _wheelchairAccessible = false;
   bool _dietaryRestrictions = false;
+  bool _preferOutdoor = false;
   final _dietaryRestrictionsController = TextEditingController();
+  
+  // Day planner specific state
+  String _selectedTravelMode = 'walk';
+  final List<String> _selectedInterests = [];
   
   // Enhanced fields
   TimeOfDay _startTime = const TimeOfDay(hour: 9, minute: 0);
@@ -101,7 +107,9 @@ class _PlannerScreenState extends State<PlannerScreen> {
               ? _buildHomeView(appProvider)
               : _selectedView == 'day'
                   ? _buildDayPlannerForm(appProvider)
-                  : _buildPlannerForm(appProvider),
+                  : _selectedView == 'ai'
+                      ? _buildAIPlanForm(appProvider)
+                      : _buildPlannerForm(appProvider),
         );
       },
     );
@@ -539,15 +547,14 @@ class _PlannerScreenState extends State<PlannerScreen> {
           GridView.count(
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
-            crossAxisCount: 2,
+            crossAxisCount: 3,
             mainAxisSpacing: 16,
             crossAxisSpacing: 16,
             childAspectRatio: 1.0,
             children: [
               _buildEnhancedActionCard('🗓️', 'Day Planner', 'Perfect single day adventure', Colors.blue, 'Quick & Easy', () => setState(() => _selectedView = 'day')),
+              _buildEnhancedActionCard('🤖', 'AI Plan', 'Google AI powered planning', Colors.deepPurple, 'AI Powered', () => _navigateToGoogleAIMode()),
               _buildEnhancedActionCard('🌍', 'Trip Planner', 'Multi-day journey planning', Colors.purple, 'Comprehensive', () => setState(() => _selectedView = 'smart')),
-              _buildEnhancedActionCard('⚡', 'Quick Plan', 'Instant travel suggestions', Colors.orange, 'Popular themes', () => _showQuickPlanOptions()),
-              _buildEnhancedActionCard('❤️', 'From Favorites', 'Use your saved places', Colors.red, '${appProvider.favoritePlaces.length} places', () => _planFromFavorites(appProvider)),
             ],
           ),
           
@@ -892,7 +899,7 @@ class _PlannerScreenState extends State<PlannerScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Header
+          // Enhanced Header
           Container(
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
@@ -903,55 +910,39 @@ class _PlannerScreenState extends State<PlannerScreen> {
               ),
               borderRadius: BorderRadius.circular(16),
             ),
-            child: Row(
+            child: Column(
               children: [
-                const Icon(Icons.today, color: Colors.white, size: 28),
-                const SizedBox(width: 12),
-                const Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('Day Planner', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.white)),
-                      Text('Perfect single-day adventure', style: TextStyle(color: Colors.white70)),
-                    ],
-                  ),
+                Row(
+                  children: [
+                    const Text('🌅', style: TextStyle(fontSize: 28)),
+                    const SizedBox(width: 12),
+                    const Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('Day Planner', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.white)),
+                          Text('Plan your perfect single-day adventure', style: TextStyle(color: Colors.white70)),
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.2),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: const Text('SMART', style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
-                ),
+                const SizedBox(height: 8),
+                const Text('Powered by TravelBuddy AI + Google Places', style: TextStyle(color: Colors.white60, fontSize: 12)),
               ],
             ),
           ),
           const SizedBox(height: 24),
           
-          // Quick suggestions
-          const Text('Popular Day Trips', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-          const SizedBox(height: 8),
-          SizedBox(
-            height: 40,
-            child: ListView(
-              scrollDirection: Axis.horizontal,
-              children: [
-                _buildQuickChip('🏛️ Museums & Culture', () => _interestsController.text = 'museums, art galleries, cultural sites'),
-                _buildQuickChip('🍽️ Food & Dining', () => _interestsController.text = 'local restaurants, food markets, cafes'),
-                _buildQuickChip('🛍️ Shopping', () => _interestsController.text = 'shopping malls, local markets, boutiques'),
-                _buildQuickChip('🌳 Nature & Parks', () => _interestsController.text = 'parks, gardens, scenic viewpoints'),
-              ],
-            ),
-          ),
-          const SizedBox(height: 24),
+          // Step 1: Destination & Interests
+          const Text('Step 1: Destination & Interests', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 12),
           
-          // Form fields
           TextField(
             controller: _destinationController,
             decoration: InputDecoration(
-              labelText: 'Where are you going?',
-              hintText: 'e.g., Paris, Tokyo, New York',
+              labelText: '📍 Where are you going?',
+              hintText: 'e.g., Galle, Colombo, Kandy',
               prefixIcon: const Icon(Icons.location_on),
               border: const OutlineInputBorder(),
               suffixIcon: _destinationController.text.isNotEmpty
@@ -959,58 +950,160 @@ class _PlannerScreenState extends State<PlannerScreen> {
                       icon: const Icon(Icons.clear),
                       onPressed: () => setState(() => _destinationController.clear()),
                     )
-                  : null,
+                  : const Icon(Icons.search),
             ),
-            onChanged: (value) => setState(() {}),
-          ),
-          const SizedBox(height: 16),
-          TextField(
-            controller: _interestsController,
-            decoration: const InputDecoration(
-              labelText: 'What interests you?',
-              hintText: 'Museums, food, shopping, sightseeing...',
-              prefixIcon: Icon(Icons.interests),
-              border: OutlineInputBorder(),
-              helperText: 'Be specific for better recommendations',
-            ),
-            maxLines: 3,
             onChanged: (value) => setState(() {}),
           ),
           const SizedBox(height: 16),
           
-          // Preferences
-          const Text('Preferences', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+          const Text('❤️ Interests (Select multiple)', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
           const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 4,
+            children: [
+              _buildInterestChip('🍽️ Food & Cafes', 'food'),
+              _buildInterestChip('🏛️ Culture & History', 'culture'),
+              _buildInterestChip('🌳 Nature & Outdoors', 'nature'),
+              _buildInterestChip('🛍️ Shopping', 'shopping'),
+              _buildInterestChip('🔎 Hidden Gems', 'hidden'),
+            ],
+          ),
+          const SizedBox(height: 24),
+          
+          // Step 2: Travel Preferences
+          const Text('Step 2: Travel Preferences', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 12),
+          
+          const Text('How will you get around today?', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 4,
+            children: [
+              _buildTravelModeChip('🚶 Walk', 'walk'),
+              _buildTravelModeChip('🚴 Bicycle', 'bicycle'),
+              _buildTravelModeChip('🏍️ Motorbike', 'motorbike'),
+              _buildTravelModeChip('🚌 Public Transport', 'public'),
+              _buildTravelModeChip('🚗 Car/Taxi', 'car'),
+            ],
+          ),
+          const SizedBox(height: 16),
+          
           Wrap(
             spacing: 8,
             children: [
               FilterChip(
-                label: const Text('Wheelchair Accessible'),
+                label: const Text('💰 Budget-Friendly'),
+                selected: _selectedBudget == 'Budget-Friendly',
+                onSelected: (selected) => setState(() => _selectedBudget = selected ? 'Budget-Friendly' : 'Mid-Range'),
+              ),
+              FilterChip(
+                label: const Text('♿ Wheelchair Accessible'),
                 selected: _wheelchairAccessible,
                 onSelected: (selected) => setState(() => _wheelchairAccessible = selected),
               ),
               FilterChip(
-                label: const Text('Budget-Friendly'),
-                selected: _selectedBudget == 'Budget-Friendly',
-                onSelected: (selected) => setState(() => _selectedBudget = selected ? 'Budget-Friendly' : 'Mid-Range'),
+                label: const Text('☀️ Prefer Outdoor Spots'),
+                selected: _preferOutdoor,
+                onSelected: (selected) => setState(() => _preferOutdoor = selected),
               ),
             ],
           ),
           const SizedBox(height: 24),
           
-          // Generate button
+          // Step 3: Time & Budget
+          const Text('Step 3: Time & Budget', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 12),
+          
+          Row(
+            children: [
+              Expanded(
+                child: InkWell(
+                  onTap: () => _selectStartTime(),
+                  child: Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      border: Border.all(color: Colors.grey[300]!),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Row(
+                      children: [
+                        const Text('⏰', style: TextStyle(fontSize: 20)),
+                        const SizedBox(width: 8),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text('Start Time', style: TextStyle(fontSize: 12, color: Colors.grey)),
+                            Text(_startTime.format(context)),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: InkWell(
+                  onTap: () => _selectEndTime(),
+                  child: Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      border: Border.all(color: Colors.grey[300]!),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Row(
+                      children: [
+                        const Text('🕓', style: TextStyle(fontSize: 20)),
+                        const SizedBox(width: 8),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text('End Time', style: TextStyle(fontSize: 12, color: Colors.grey)),
+                            Text(_endTime.format(context)),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          
+          DropdownButtonFormField<String>(
+            value: _selectedBudget,
+            decoration: const InputDecoration(
+              labelText: '💵 Budget Level',
+              border: OutlineInputBorder(),
+            ),
+            items: ['Budget-Friendly', 'Mid-Range', 'Luxury'].map((budget) {
+              return DropdownMenuItem(value: budget, child: Text(budget));
+            }).toList(),
+            onChanged: (value) => setState(() => _selectedBudget = value!),
+          ),
+          const SizedBox(height: 32),
+          
+          // Enhanced Generate button
           SizedBox(
             width: double.infinity,
             child: ElevatedButton.icon(
-              onPressed: _destinationController.text.isEmpty ? null : () => _generateDayPlan(appProvider),
+              onPressed: _destinationController.text.isEmpty ? null : () => _generateEnhancedDayPlan(appProvider),
               icon: appProvider.isTripsLoading
                   ? const SizedBox(
                       width: 20,
                       height: 20,
                       child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
                     )
-                  : const Icon(Icons.auto_awesome),
-              label: Text(appProvider.isTripsLoading ? 'Creating Your Day Plan...' : 'Generate Smart Day Plan'),
+                  : const Text('✨', style: TextStyle(fontSize: 18)),
+              label: Text(
+                appProvider.isTripsLoading 
+                    ? 'Finding real places and optimizing routes...' 
+                    : 'Generate My Smart Day Plan',
+                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+              ),
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.blue,
                 foregroundColor: Colors.white,
@@ -1030,17 +1123,39 @@ class _PlannerScreenState extends State<PlannerScreen> {
     );
   }
   
-  Widget _buildQuickChip(String text, VoidCallback onTap) {
-    return Container(
-      margin: const EdgeInsets.only(right: 8),
-      child: ActionChip(
-        label: Text(text, style: const TextStyle(fontSize: 12)),
-        onPressed: () {
-          onTap();
-          setState(() {});
-        },
-        backgroundColor: Colors.blue[50],
-        side: BorderSide(color: Colors.blue[200]!),
+  Widget _buildInterestChip(String text, String value) {
+    final isSelected = _selectedInterests.contains(value);
+    return FilterChip(
+      label: Text(text, style: const TextStyle(fontSize: 12)),
+      selected: isSelected,
+      onSelected: (selected) {
+        setState(() {
+          if (selected) {
+            _selectedInterests.add(value);
+          } else {
+            _selectedInterests.remove(value);
+          }
+        });
+      },
+      selectedColor: Colors.blue[100],
+      checkmarkColor: Colors.blue[700],
+    );
+  }
+  
+  Widget _buildTravelModeChip(String text, String value) {
+    final isSelected = _selectedTravelMode == value;
+    return ChoiceChip(
+      label: Text(text, style: const TextStyle(fontSize: 12)),
+      selected: isSelected,
+      onSelected: (selected) {
+        if (selected) {
+          setState(() => _selectedTravelMode = value);
+        }
+      },
+      selectedColor: Colors.green[100],
+      labelStyle: TextStyle(
+        color: isSelected ? Colors.green[700] : Colors.grey[600],
+        fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
       ),
     );
   }
@@ -1579,6 +1694,432 @@ class _PlannerScreenState extends State<PlannerScreen> {
     return null;
   }
 
+  Widget _buildAIPlanForm(AppProvider appProvider) {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // AI Header
+          Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [Colors.deepPurple[400]!, Colors.deepPurple[600]!],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Column(
+              children: [
+                Row(
+                  children: [
+                    const Text('🤖', style: TextStyle(fontSize: 28)),
+                    const SizedBox(width: 12),
+                    const Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('AI Trip Planner', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.white)),
+                          Text('Rich detailed itineraries with Google AI', style: TextStyle(color: Colors.white70)),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                const Text('Powered by Azure OpenAI + Google Places', style: TextStyle(color: Colors.white60, fontSize: 12)),
+              ],
+            ),
+          ),
+          const SizedBox(height: 24),
+          
+          // Form fields
+          TextField(
+            controller: _destinationController,
+            decoration: InputDecoration(
+              labelText: '📍 Destination',
+              hintText: 'e.g., Tokyo, Paris, New York',
+              prefixIcon: const Icon(Icons.location_on),
+              border: const OutlineInputBorder(),
+            ),
+            onChanged: (value) => setState(() {}),
+          ),
+          const SizedBox(height: 16),
+          
+          TextFormField(
+            initialValue: '2 days',
+            decoration: const InputDecoration(
+              labelText: '⏰ Duration',
+              hintText: 'e.g., 2 days, 1 week',
+              prefixIcon: Icon(Icons.schedule),
+              border: OutlineInputBorder(),
+            ),
+            onChanged: (value) => setState(() {}),
+          ),
+          const SizedBox(height: 16),
+          
+          TextField(
+            controller: _interestsController,
+            decoration: const InputDecoration(
+              labelText: '❤️ Interests',
+              hintText: 'e.g., culture, food, nature',
+              prefixIcon: Icon(Icons.favorite),
+              border: OutlineInputBorder(),
+            ),
+          ),
+          const SizedBox(height: 16),
+          
+          DropdownButtonFormField<String>(
+            value: _selectedPace,
+            decoration: const InputDecoration(
+              labelText: '🚶 Pace',
+              border: OutlineInputBorder(),
+            ),
+            items: ['Relaxed', 'Moderate', 'Fast'].map((pace) =>
+              DropdownMenuItem(value: pace, child: Text(pace))
+            ).toList(),
+            onChanged: (value) => setState(() => _selectedPace = value!),
+          ),
+          const SizedBox(height: 16),
+          
+          DropdownButtonFormField<String>(
+            value: _selectedBudget,
+            decoration: const InputDecoration(
+              labelText: '💰 Budget',
+              border: OutlineInputBorder(),
+            ),
+            items: ['Budget', 'Mid-Range', 'Luxury'].map((budget) =>
+              DropdownMenuItem(value: budget, child: Text(budget))
+            ).toList(),
+            onChanged: (value) => setState(() => _selectedBudget = value!),
+          ),
+          const SizedBox(height: 32),
+          
+          // Generate button
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              onPressed: _destinationController.text.isEmpty ? null : () => _generateAIPlan(appProvider),
+              icon: appProvider.isTripsLoading
+                  ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                    )
+                  : const Text('🤖', style: TextStyle(fontSize: 18)),
+              label: Text(
+                appProvider.isTripsLoading 
+                    ? 'AI generating rich trip plan...' 
+                    : 'Generate AI Trip Plan',
+                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+              ),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.deepPurple,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 18),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+            ),
+          ),
+          
+          if (_destinationController.text.isEmpty)
+            const Padding(
+              padding: EdgeInsets.only(top: 8),
+              child: Text('Please enter a destination to continue', style: TextStyle(color: Colors.red, fontSize: 12)),
+            ),
+        ],
+      ),
+    );
+  }
+
+  void _navigateToGoogleAIMode() {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => GoogleAIModeScreen(),
+      ),
+    );
+  }
+
+  void _generateAIPlan(AppProvider appProvider) async {
+    if (_destinationController.text.isEmpty) return;
+    
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Row(
+          children: [
+            SizedBox(
+              width: 20,
+              height: 20,
+              child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+            ),
+            SizedBox(width: 12),
+            Text('🤖 AI generating rich detailed trip plan...'),
+          ],
+        ),
+        backgroundColor: Colors.deepPurple,
+        duration: Duration(seconds: 4),
+      ),
+    );
+    
+    try {
+      final result = await appProvider.generateTripPlan(
+        destination: _destinationController.text,
+        duration: '2 days',
+        interests: _interestsController.text.isEmpty ? 'general sightseeing' : _interestsController.text,
+        pace: _selectedPace,
+        budget: _selectedBudget,
+      );
+      
+      if (result != null) {
+        Navigator.pop(context); // Close AI mode window
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('🤖 AI trip plan created successfully!'),
+            backgroundColor: Colors.green,
+          ),
+        );
+        setState(() => _selectedView = 'home');
+      } else {
+        throw Exception('AI service returned null');
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('❌ AI planning failed: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  void _generateEnhancedDayPlan(AppProvider appProvider) async {
+    if (_destinationController.text.isEmpty) return;
+    
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Row(
+          children: [
+            SizedBox(
+              width: 20,
+              height: 20,
+              child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+            ),
+            SizedBox(width: 12),
+            Text('🤖 AI generating your personalized day plan...'),
+          ],
+        ),
+        backgroundColor: Colors.blue,
+        duration: Duration(seconds: 4),
+      ),
+    );
+    
+    try {
+      // Try OpenAI generation first
+      final aiPlan = await appProvider.generateDayItinerary(
+        location: _destinationController.text,
+        interests: _selectedInterests.join(', '),
+      );
+      
+      if (aiPlan != null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('✨ AI-powered day plan created successfully!'),
+            backgroundColor: Colors.green,
+          ),
+        );
+        setState(() => _selectedView = 'home');
+        return;
+      }
+      
+      // Fallback to enhanced template if AI fails
+      final enhancedPlan = await _createEnhancedDayPlan();
+      
+      appProvider.itineraries.add(enhancedPlan);
+      final storageService = StorageService();
+      await storageService.saveItinerary(enhancedPlan);
+      appProvider.notifyListeners();
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('✨ Smart day plan created with enhanced templates!'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      
+      setState(() => _selectedView = 'home');
+    } catch (e) {
+      print('❌ Day plan generation error: $e');
+      await _generateFallbackDayPlan(appProvider);
+    }
+  }
+  
+  Future<OneDayItinerary> _createEnhancedDayPlan() async {
+    // Simulate API calls and real place data
+    await Future.delayed(const Duration(seconds: 2));
+    
+    final destination = _destinationController.text;
+    final interests = _selectedInterests.join(', ');
+    final travelMode = _selectedTravelMode;
+    
+    // Create realistic activities based on destination and interests
+    final activities = _generateRealisticActivities(destination, interests, travelMode);
+    
+    return OneDayItinerary(
+      id: DateTime.now().millisecondsSinceEpoch.toString(),
+      title: '🗓️ $destination Day Adventure',
+      introduction: 'Day Itinerary • ${activities.length} Activities\n\nExperience $destination\'s perfect mix of culture, cuisine, and local life — all in one full-day adventure.',
+      dailyPlan: activities,
+      conclusion: _buildEnhancedSummary(activities),
+    );
+  }
+  
+  List<ActivityDetail> _generateRealisticActivities(String destination, String interests, String travelMode) {
+    // Generate realistic activities based on destination
+    final activities = <ActivityDetail>[];
+    
+    if (destination.toLowerCase().contains('galle')) {
+      activities.addAll([
+        ActivityDetail(
+          timeOfDay: '⏰ 08:00 – 09:00',
+          activityTitle: '☀️ Morning Walk at Galle Lighthouse',
+          description: 'Start your day with a gentle stroll along the Galle Fort walls toward the historic Galle Lighthouse, one of Sri Lanka\'s oldest and most photographed landmarks.\n📍 Rampart Street, Galle Fort\n⭐ 4.8 (9,700 reviews) | 🕓 1 hr\n🚶 0.5 km from city center | 💰 Free\n💡 Best time for soft sunrise light & ocean breeze.',
+        ),
+        ActivityDetail(
+          timeOfDay: '⏰ 09:15 – 10:45',
+          activityTitle: '🏛️ Explore the Dutch Reformed Church & Old Gate',
+          description: 'Step back in time as you wander through Galle\'s 18th-century Dutch Reformed Church, passing the Old Gate marked by colonial emblems.\n📍 Church Street, Galle Fort\n⭐ 4.6 (3,200 reviews) | 🕓 1.5 hrs\n🚶 0.7 km | 💰 LKR 200 (~\$0.60)\n💬 Fun fact: The church still has original wooden pews from 1760.',
+        ),
+        ActivityDetail(
+          timeOfDay: '⏰ 11:00 – 12:30',
+          activityTitle: '☕ Brunch at Pedlar\'s Inn Café',
+          description: 'Relax in a colonial-era coffee shop serving Ceylon coffee and tropical smoothie bowls.\n📍 Pedlar Street, Galle Fort\n⭐ 4.5 (5,100 reviews) | 💰 LKR 2,000 (~\$6)\n🚶 0.4 km | 🕓 1.5 hrs\n💡 Great Wi-Fi and people-watching spot.',
+        ),
+        ActivityDetail(
+          timeOfDay: '⏰ 13:00 – 14:00',
+          activityTitle: '🛍️ Local Life at Galle Market',
+          description: 'Step outside the Fort to visit Galle Central Market, where locals trade fruits, spices, and textiles.\n📍 Wakwella Road, Galle City\n⭐ 4.3 (4,800 reviews) | 💰 LKR 100 (~\$0.30)\n🚴 1.5 km | 🕓 1 hr\n💡 Bring cash and try tropical fruits like mangosteen and rambutan.',
+        ),
+        ActivityDetail(
+          timeOfDay: '⏰ 17:00 – 19:00',
+          activityTitle: '🌅 Sunset & Dinner at The Shack Beach Café',
+          description: 'End your adventure with fresh seafood and a sunset cocktail at a beachfront café in Unawatuna.\n📍 Unawatuna Beach Road\n⭐ 4.8 (6,200 reviews) | 💰 LKR 3,500 (~\$10.50)\n🚗 6.5 km | 🚕 LKR 600 (~\$1.80) | 🕓 2 hrs\n💡 Catch the pink-and-gold sky reflecting over the Indian Ocean.',
+        ),
+      ]);
+    } else if (destination.toLowerCase().contains('kandy')) {
+      activities.addAll([
+        ActivityDetail(
+          timeOfDay: '${_startTime.format(context)} – ${_addHours(_startTime, 2).format(context)}',
+          activityTitle: '🏛️ Temple of the Sacred Tooth Relic',
+          description: 'Visit Sri Lanka\'s most sacred Buddhist temple in the heart of Kandy.\n⭐ 4.6 (8,200 reviews) | ⏱️ 2 hrs\n${_getTravelModeIcon(travelMode)} 0.5 km | 💰 LKR 1500 (~\$4.50)',
+        ),
+        ActivityDetail(
+          timeOfDay: '${_addHours(_startTime, 2.5).format(context)} – ${_addHours(_startTime, 4).format(context)}',
+          activityTitle: '🍛 Lunch at The Empire Café',
+          description: 'Colonial-style restaurant with traditional Sri Lankan dishes and great lake views.\n💰 LKR 2200 (~\$6.60) | ⭐ 4.4\n${_getTravelModeIcon(travelMode)} 1.2 km | 💰 LKR 80',
+        ),
+        ActivityDetail(
+          timeOfDay: '${_addHours(_startTime, 4.5).format(context)} – ${_addHours(_startTime, 6).format(context)}',
+          activityTitle: '🌳 Royal Botanical Gardens Peradeniya',
+          description: 'Explore 147 acres of tropical plants, orchids, and the famous giant Javan fig tree.\n⭐ 4.5 | ⏱️ 1.5 hrs\n${_getTravelModeIcon(travelMode)} 6.8 km | 💰 LKR 60',
+        ),
+      ]);
+    } else {
+      // Generic activities for other destinations
+      activities.addAll([
+        ActivityDetail(
+          timeOfDay: '${_startTime.format(context)} – ${_addHours(_startTime, 2).format(context)}',
+          activityTitle: '🏛️ Cultural Heritage Tour',
+          description: 'Explore main cultural attractions and historical landmarks in $destination.\n⭐ 4.3 | ⏱️ 2 hrs\n${_getTravelModeIcon(travelMode)} 2.1 km | 💰 LKR 800',
+        ),
+        ActivityDetail(
+          timeOfDay: '${_addHours(_startTime, 2.5).format(context)} – ${_addHours(_startTime, 4).format(context)}',
+          activityTitle: '🍽️ Authentic Local Dining',
+          description: 'Discover traditional cuisine at highly-rated local restaurants.\n💰 LKR 1800 (~\$5.40) | ⭐ 4.2\n${_getTravelModeIcon(travelMode)} 1.5 km | 💰 LKR 100',
+        ),
+        ActivityDetail(
+          timeOfDay: '${_addHours(_startTime, 4.5).format(context)} – ${_addHours(_startTime, 6).format(context)}',
+          activityTitle: '🌳 Scenic Nature Experience',
+          description: 'Visit beautiful parks, gardens, or scenic viewpoints for relaxation and photos.\n⭐ 4.4 | ⏱️ 1.5 hrs\n${_getTravelModeIcon(travelMode)} 3.2 km | 💰 LKR 200',
+        ),
+      ]);
+    }
+    
+    return activities;
+  }
+  
+  TimeOfDay _addHours(TimeOfDay time, double hours) {
+    final minutes = (hours * 60).round();
+    final newMinutes = time.hour * 60 + time.minute + minutes;
+    return TimeOfDay(hour: (newMinutes ~/ 60) % 24, minute: newMinutes % 60);
+  }
+  
+  String _getTravelModeDisplay(String mode) {
+    switch (mode) {
+      case 'walk': return '🚶 Walking';
+      case 'bicycle': return '🚴 Bicycle';
+      case 'motorbike': return '🏍️ Motorbike';
+      case 'public': return '🚌 Public Transport';
+      case 'car': return '🚗 Car/Taxi';
+      default: return mode;
+    }
+  }
+  
+  String _getTravelModeIcon(String mode) {
+    switch (mode) {
+      case 'walk': return '🚶';
+      case 'bicycle': return '🚴';
+      case 'motorbike': return '🏍️';
+      case 'public': return '🚌';
+      case 'car': return '🚗';
+      default: return '📍';
+    }
+  }
+  
+  String _calculateTotalCost(List<ActivityDetail> activities) {
+    // Mock calculation based on budget level
+    switch (_selectedBudget) {
+      case 'Budget-Friendly': return 'LKR 2,500 (~\$7.50)';
+      case 'Mid-Range': return 'LKR 4,200 (~\$12.60)';
+      case 'Luxury': return 'LKR 8,500 (~\$25.50)';
+      default: return 'LKR 3,100 (~\$9.30)';
+    }
+  }
+  
+  String _calculateTotalDistance(List<ActivityDetail> activities) {
+    switch (_selectedTravelMode) {
+      case 'walk': return '6.2 km';
+      case 'bicycle': return '12.8 km';
+      case 'car': return '18.5 km';
+      default: return '9.9 km';
+    }
+  }
+  
+  String _calculateTravelTime(List<ActivityDetail> activities) {
+    switch (_selectedTravelMode) {
+      case 'walk': return '1h 15m';
+      case 'bicycle': return '45m';
+      case 'car': return '25m';
+      default: return '55m';
+    }
+  }
+  
+  String _buildEnhancedSummary(List<ActivityDetail> activities) {
+    return '''🧾 Summary
+Category	Details
+🚶 Total Distance	~${_calculateTotalDistance(activities)}
+🕓 Total Duration	~8 hrs
+💰 Estimated Cost	${_calculateTotalCost(activities)}
+🍴 Highlights	Colonial cafés, Fort heritage, local markets, sunset dining
+
+✨ TravelBuddy AI Tips
+
+• Best to rent a bicycle (LKR 800/day) — perfect for Fort exploration.
+• Avoid noon heat by exploring shaded alleys or museum interiors.
+• Dress modestly for temples and churches (shoulders covered).''';
+  }
+  
   void _generateDayPlan(AppProvider appProvider) async {
     if (_destinationController.text.isEmpty) return;
     
@@ -1758,83 +2299,9 @@ class _PlannerScreenState extends State<PlannerScreen> {
   
 
   
-  void _showQuickPlanOptions() {
-    showModalBottomSheet(
-      context: context,
-      useSafeArea: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (context) => Container(
-        padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 40,
-              height: 4,
-              margin: const EdgeInsets.only(bottom: 16),
-              decoration: BoxDecoration(
-                color: Colors.grey[300],
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-            const Text('Quick Plan Ideas', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 20),
-            GridView.count(
-              shrinkWrap: true,
-              crossAxisCount: 2,
-              mainAxisSpacing: 12,
-              crossAxisSpacing: 12,
-              childAspectRatio: 2.0,
-              children: [
-                _buildQuickPlanOption('🏖️', 'Beach Getaway', Colors.blue),
-                _buildQuickPlanOption('🏔️', 'Mountain Adventure', Colors.green),
-                _buildQuickPlanOption('🏙️', 'City Break', Colors.purple),
-                _buildQuickPlanOption('🍽️', 'Food Tour', Colors.orange),
-              ],
-            ),
-            SafeArea(
-              child: SizedBox(height: 20),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
+
   
-  Widget _buildQuickPlanOption(String emoji, String title, Color color) {
-    return InkWell(
-      onTap: () {
-        Navigator.pop(context);
-        _destinationController.text = 'Popular destination';
-        _interestsController.text = title.toLowerCase();
-        setState(() => _selectedView = 'smart');
-      },
-      child: Container(
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: color.withOpacity(0.1),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: color.withOpacity(0.3)),
-        ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Text(emoji, style: const TextStyle(fontSize: 20)),
-            const SizedBox(height: 4),
-            Text(title, style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: color)),
-          ],
-        ),
-      ),
-    );
-  }
-  
-  void _planFromFavorites(AppProvider appProvider) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Planning from ${appProvider.favoritePlaces.length} favorite places...')),
-    );
-  }
+
   
   void _showAllPlans(AppProvider appProvider) {
     showModalBottomSheet(

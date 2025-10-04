@@ -1,5 +1,5 @@
 import { GoogleGenAI, GenerateContentResponse } from "@google/genai";
-import { Place, TripPlanSuggestion, PlaceSummary, SurpriseSuggestion, TripPace, TravelStyle, BudgetLevel, HospitalInfo, UserInterest, SuggestedEmergencyNumbers, EmbassyInfo, CommunityPhoto, CommunityPhotoUploadData, ItinerarySuggestion, QuickTourPlan, SupportPoint, LocalInfo, LocalAgencyPlan } from '../types.ts';
+import { Place, TripPlanSuggestion, PlaceSummary, SurpriseSuggestion, TripPace, TravelStyle, BudgetLevel, HospitalInfo, UserInterest, SuggestedEmergencyNumbers, EmbassyInfo, CommunityPhoto, CommunityPhotoUploadData, ItinerarySuggestion, SupportPoint, LocalInfo, LocalAgencyPlan } from '../types.ts';
 import { GEMINI_MODEL_TEXT, LOCAL_STORAGE_COMMUNITY_PHOTOS_KEY } from '../constants.ts';
 
 // import { websocketService } from './websocketService';
@@ -531,58 +531,7 @@ Strictly adhere to JSON formatting rules, like using double quotes for keys and 
 `;
 };
 
-const generateQuickTourPrompt = (latitude?: number, longitude?: number, userInterests?: UserInterest[]): string => {
-    let locationContext = "a diverse and vibrant area of San Francisco, California, USA.";
-    if (latitude && longitude) {
-        locationContext = `the area around latitude ${latitude.toFixed(4)} and longitude ${longitude.toFixed(4)}.`;
-    }
 
-    const timeOfDay = new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
-
-    let interestContext = "The user is open to any suggestions.";
-    if (userInterests && userInterests.length > 0) {
-        interestContext = `The user has expressed interest in the following: ${userInterests.join(', ')}. Please try to include places that align with these interests.`;
-    }
-
-    return `
-You are an expert local guide. A traveler has just arrived in ${locationContext} It is currently ${timeOfDay}. ${interestContext}
-Your task is to create a short, efficient walking tour for them that lasts about 2-3 hours. The tour should include 3-4 interesting and authentic stops that are open and suitable for the current time of day.
-
-Please provide a response as a single, valid JSON object with the following structure:
-{
-  "title": "A short, catchy title for the tour (e.g., 'An Afternoon Stroll in the Mission District')",
-  "estimatedCost": "A realistic estimated cost for one person (e.g., 'Free', '$10-20 USD for coffee', 'Approx. $50 USD for entry fees')",
-  "estimatedDuration": "A realistic total duration (e.g., 'Approx. 2 hours', '2.5 - 3 hours')",
-  "stops": [
-    {
-      "placeName": "REAL Name of Stop 1 (e.g., 'Dolores Park')",
-      "description": "A brief, engaging description of what to do or see here (e.g., 'Start here to soak in the local vibe and enjoy city views.')"
-    },
-    {
-      "placeName": "REAL Name of Stop 2 (e.g., 'Tartine Bakery')",
-      "description": "A brief, engaging description (e.g., 'Walk a few blocks to grab a famous pastry and coffee.')"
-    },
-    {
-      "placeName": "REAL Name of Stop 3 (e.g., 'Clarion Alley Mural Project')",
-      "description": "A brief, engaging description (e.g., 'Discover vibrant street art in this iconic alley.')"
-    }
-  ],
-  "placeNamesForMap": [
-    "REAL Name of Stop 1 (e.g., 'Dolores Park')",
-    "REAL Name of Stop 2 (e.g., 'Tartine Bakery')",
-    "REAL Name of Stop 3 (e.g., 'Clarion Alley Mural Project')"
-  ]
-}
-
-IMPORTANT RULES:
-1. The places must be REAL and located near the specified coordinates.
-2. The "placeNamesForMap" array MUST contain the exact, queryable names of the places for use in a mapping API. It should be an array of strings.
-3. The number of stops should be between 3 and 4.
-
-IMPORTANT: The entire response MUST be a single, valid JSON object. Do not include any text, explanations, or conversational text before or after the JSON.
-Strictly adhere to JSON formatting rules (e.g., no trailing commas, double quotes for keys and strings).
-`;
-};
 
 const findSpecificPlacesPrompt = (query: string, latitude: number, longitude: number): string => {
   return `
@@ -1069,22 +1018,7 @@ export const fetchNearbyEmbassies = async (latitude: number, longitude: number, 
   }
 };
 
-export const generateQuickTour = async (latitude?: number, longitude?: number, userInterests?: UserInterest[]): Promise<QuickTourPlan> => {
-  if (!(apiKey as string)) throw new Error("API key is missing.");
-  try {
-    const prompt = generateQuickTourPrompt(latitude, longitude, userInterests);
-    const response = await generateContentWithRetry({
-      model: GEMINI_MODEL_TEXT,
-      contents: prompt,
-      config: {
-        responseMimeType: 'application/json',
-      },
-    });
-    return processResponse<QuickTourPlan>(response, 'generateQuickTour');
-  } catch (error) {
-    throw handleApiError(error, 'generateQuickTour');
-  }
-};
+
 
 export const reverseGeocode = async (latitude: number, longitude: number): Promise<{city: string; country: string; countryCode: string;}> => {
   if (!(apiKey as string)) throw new Error("API key is missing.");

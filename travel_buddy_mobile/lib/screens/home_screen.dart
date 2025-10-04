@@ -358,108 +358,9 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildTravelStatsCard(AppProvider appProvider) {
-    final stats = appProvider.travelStats;
-    if (stats == null) {
-      return const SizedBox.shrink();
-    }
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text(
-          'Your Travel Progress',
-          style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
-        ),
-        const SizedBox(height: 12),
-        Card(
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: _buildStatItem(
-                        icon: Icons.place,
-                        value: stats.placesVisitedThisMonth.toString(),
-                        label: 'This Month',
-                        color: Colors.blue,
-                      ),
-                    ),
-                    Expanded(
-                      child: _buildStatItem(
-                        icon: Icons.route,
-                        value: '${stats.totalDistanceKm.toStringAsFixed(0)}km',
-                        label: 'Distance',
-                        color: Colors.green,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 16),
-                Row(
-                  children: [
-                    Expanded(
-                      child: _buildStatItem(
-                        icon: Icons.local_fire_department,
-                        value: '${stats.currentStreak}',
-                        label: 'Day Streak',
-                        color: Colors.orange,
-                      ),
-                    ),
-                    Expanded(
-                      child: _buildStatItem(
-                        icon: Icons.favorite,
-                        value: stats.favoriteCategory,
-                        label: 'Favorite',
-                        color: Colors.red,
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        ),
-      ],
-    );
-  }
 
-  Widget _buildStatItem({
-    required IconData icon,
-    required String value,
-    required String label,
-    required Color color,
-  }) {
-    return Column(
-      children: [
-        Container(
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: color.withOpacity(0.1),
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: Icon(icon, color: color, size: 24),
-        ),
-        const SizedBox(height: 8),
-        Text(
-          value,
-          style: const TextStyle(
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: 14,
-            color: Colors.grey[600],
-          ),
-        ),
-      ],
-    );
-  }
+
 
   @override
   Widget build(BuildContext context) {
@@ -492,8 +393,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     _buildWelcomeCard(appProvider),
                     const SizedBox(height: 16),
                     _buildLocationCard(appProvider),
-                    const SizedBox(height: 16),
-                    _buildTravelStatsCard(appProvider),
+
                     const SizedBox(height: 16),
                     _buildQuickActions(appProvider),
                     const SizedBox(height: 16),

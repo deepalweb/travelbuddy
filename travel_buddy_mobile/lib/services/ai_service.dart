@@ -135,12 +135,21 @@ class AiService {
     required String interests,
     List<Place> nearbyPlaces = const [],
   }) async {
+    print('🤖 ATTEMPTING OpenAI API call for day itinerary...');
+    print('🌐 Backend URL: ${Environment.backendUrl}');
+    print('📍 Location: $location');
+    print('🎯 Interests: $interests');
+    
     try {
       final response = await _dio.post('/api/ai/generate-text', data: {
         'prompt': 'Generate a day itinerary for $location with interests: $interests. Return JSON format with title, introduction, dailyPlan array with activities (timeOfDay, activityTitle, description), and conclusion.',
       });
       
+      print('📡 API Response Status: ${response.statusCode}');
+      print('📄 API Response Data: ${response.data}');
+      
       if (response.statusCode == 200 && response.data['itinerary'] != null) {
+        print('✅ SUCCESS: OpenAI generated day itinerary!');
         final itineraryData = response.data['itinerary'];
         return OneDayItinerary(
           id: DateTime.now().millisecondsSinceEpoch.toString(),
@@ -155,11 +164,21 @@ class AiService {
           ).toList(),
           conclusion: itineraryData['conclusion'] ?? 'Have a great day!',
         );
+      } else {
+        print('⚠️ API returned success but no itinerary data');
       }
     } catch (e) {
-      print('AI day itinerary error: $e');
+      print('❌ OpenAI API FAILED: $e');
+      if (e.toString().contains('SocketException')) {
+        print('🌐 Network error - backend unreachable');
+      } else if (e.toString().contains('TimeoutException')) {
+        print('⏰ Timeout - backend too slow');
+      } else if (e.toString().contains('404')) {
+        print('🔍 Endpoint not found - /api/ai/generate-text missing');
+      }
     }
     
+    print('🔄 FALLING BACK to enhanced templates');
     return _generateFallbackDayItinerary(location, interests, nearbyPlaces);
   }
 

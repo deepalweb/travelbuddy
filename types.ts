@@ -271,19 +271,7 @@ export interface TripPlanSuggestion {
   updatedAt?: string;
 }
 
-// --- Type for Quick Tour ---
-export interface QuickTourStop {
-    placeName: string;
-    description: string; // e.g., "Start here for amazing views"
-}
 
-export interface QuickTourPlan {
-    title: string;
-    estimatedCost: string; // e.g., "$10-20 USD", "Free"
-    estimatedDuration: string; // e.g., "Approx. 2.5 hours"
-    stops: QuickTourStop[];
-    placeNamesForMap: string[]; // For generating Google Maps link
-}
 
 // --- Local Agency Planner Types ---
 export interface LocalAgencyActivity {

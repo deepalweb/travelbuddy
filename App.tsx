@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 // Some environments reported useCallback not being bound; alias from React to be robust
 const useCallback = React.useCallback;
-import { Place, Deal, TripPlanSuggestion, TripPace, TravelStyle, BudgetLevel, PlaceSummary, SurpriseSuggestion, EmergencyContact, HospitalInfo, CurrentUser, SubscriptionStatus, SubscriptionTier, ExchangeRatesResponse, ExchangeRates, UserInterest, CommunityPhoto, CommunityPhotoUploadData, ActiveTab, PortalView, PlaceExplorerView as PlaceExplorerViewType, ItinerarySuggestion, UserReview, Post, QuickTourPlan, SupportPoint, LocalInfo, ChatMessage, PlannerView, LocalAgencyPlan, SpeechRecognition, SpeechRecognitionEvent, SpeechRecognitionErrorEvent, PostCategory, ProfileType } from './types.ts';
+import { Place, Deal, TripPlanSuggestion, TripPace, TravelStyle, BudgetLevel, PlaceSummary, SurpriseSuggestion, EmergencyContact, HospitalInfo, CurrentUser, SubscriptionStatus, SubscriptionTier, ExchangeRatesResponse, ExchangeRates, UserInterest, CommunityPhoto, CommunityPhotoUploadData, ActiveTab, PortalView, PlaceExplorerView as PlaceExplorerViewType, ItinerarySuggestion, UserReview, Post, SupportPoint, LocalInfo, ChatMessage, PlannerView, LocalAgencyPlan, SpeechRecognition, SpeechRecognitionEvent, SpeechRecognitionErrorEvent, PostCategory, ProfileType } from './types.ts';
 import { Colors as lightColors, LOCAL_STORAGE_FAVORITE_PLACES_KEY, LOCAL_STORAGE_SAVED_TRIP_PLANS_KEY, LOCAL_STORAGE_SAVED_ONE_DAY_ITINERARIES_KEY, LOCAL_STORAGE_EMERGENCY_CONTACTS_KEY, LOCAL_STORAGE_CURRENT_USER_KEY, DEFAULT_LANGUAGE, SUPPORTED_LANGUAGES, SUBSCRIPTION_TIERS, LOCAL_STORAGE_USER_REVIEWS_KEY, LOCAL_STORAGE_COMMUNITY_POSTS_KEY, GEMINI_MODEL_TEXT, DEFAULT_PLACES_RADIUS_M, LOCAL_STORAGE_SELECTED_RADIUS_M } from './constants.ts';
 import { GoogleGenAI, Chat } from "@google/genai";
 import { 
@@ -12,7 +12,6 @@ import {
   fetchNearbyHospitals,
   fetchCommunityPhotos,
   uploadCommunityPhoto,
-  generateQuickTour,
   reverseGeocode,
   fetchSupportLocations,
   fetchLocalInfo,
@@ -311,9 +310,7 @@ const App: React.FC = () => {
   const [isBottomNavVisible, setIsBottomNavVisible] = useState(true);
   const [isFooterVisible, setIsFooterVisible] = useState(false);
 
-  const [quickTourPlan, setQuickTourPlan] = useState<QuickTourPlan | null>(null);
-  const [isGeneratingQuickTour, setIsGeneratingQuickTour] = useState<boolean>(false);
-  const [quickTourError, setQuickTourError] = useState<string | null>(null);
+
 
   const [userCity, setUserCity] = useState<string | null>(null);
   const [userCountryCode, setUserCountryCode] = useState<string | null>(null);

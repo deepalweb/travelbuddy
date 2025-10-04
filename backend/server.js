@@ -887,6 +887,15 @@ try {
   console.error('❌ Failed to load usage routes:', error);
 }
 
+// Load weather routes
+try {
+  const weatherRouter = (await import('./routes/weather.js')).default;
+  app.use('/api/weather', weatherRouter);
+  console.log('✅ Weather routes loaded');
+} catch (error) {
+  console.error('❌ Failed to load weather routes:', error);
+}
+
 // Payment routes (Stripe scaffold) - mount only when explicitly enabled to allow
 // running the app without the `stripe` package or Stripe env vars.
 if (String(process.env.ENABLE_STRIPE || '').toLowerCase() === 'true') {
