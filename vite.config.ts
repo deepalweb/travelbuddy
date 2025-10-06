@@ -8,12 +8,7 @@ export default defineConfig(({ mode }) => {
   
   return {
     plugins: [
-      react({
-        // Remove PropTypes in production
-        babel: isProduction ? {
-          plugins: [['babel-plugin-react-remove-properties', { properties: ['data-testid'] }]]
-        } : undefined
-      })
+      react()
     ],
     publicDir: 'public',
     resolve: {
@@ -34,7 +29,7 @@ export default defineConfig(({ mode }) => {
       minify: isProduction ? 'terser' : false,
       // Optimize chunk splitting
       rollupOptions: {
-        input: path.resolve(__dirname, 'index.html'),
+        input: path.resolve(__dirname, 'index-simple.html'),
         output: {
           // Dynamic chunk splitting with function for better Firebase handling
           manualChunks(id) {
