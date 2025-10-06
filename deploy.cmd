@@ -80,11 +80,11 @@ IF EXIST "%DEPLOYMENT_TARGET%\package.json" (
   IF !ERRORLEVEL! NEQ 0 goto error
   
   :: Verify build output
-  IF NOT EXIST "%DEPLOYMENT_TARGET%\dist\index.html" (
-    echo ERROR: Build completed but dist/index.html not found
+  IF NOT EXIST "%DEPLOYMENT_TARGET%\dist\index-simple.html" (
+    echo ERROR: Build completed but dist/index-simple.html not found
     goto error
   )
-  echo Build verification: dist/index.html exists
+  echo Build verification: dist/index-simple.html exists
   popd
 )
 
