@@ -8,7 +8,17 @@ export default defineConfig(({ mode }) => {
   
   return {
     plugins: [
-      react()
+      react(),
+      {
+        name: 'rename-html',
+        generateBundle(options, bundle) {
+          const htmlFile = bundle['index-simple.html'];
+          if (htmlFile) {
+            bundle['index.html'] = htmlFile;
+            delete bundle['index-simple.html'];
+          }
+        }
+      }
     ],
     publicDir: 'public',
     resolve: {
