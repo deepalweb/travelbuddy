@@ -3583,15 +3583,15 @@ app.use((req, res, next) => {
     return res.status(404).json({ error: 'API endpoint not found' });
   }
   
-  const indexPath = path.join(__dirname, '../dist/index-simple.html');
-  const altIndexPath = path.join(process.cwd(), 'dist/index-simple.html');
-  const wwwrootIndexPath = path.join('/home/site/wwwroot/dist/index-simple.html');
-  const siteIndexPath = path.join('/home/site/dist/index-simple.html');
+  const indexPath = path.join(__dirname, '../dist/index.html');
+  const altIndexPath = path.join(process.cwd(), 'dist/index.html');
+  const wwwrootIndexPath = path.join('/home/site/wwwroot/dist/index.html');
+  const siteIndexPath = path.join('/home/site/dist/index.html');
   
-  console.log('Trying index-simple.html from:', indexPath);
-  console.log('Alt index-simple.html from:', altIndexPath);
-  console.log('Wwwroot index-simple.html from:', wwwrootIndexPath);
-  console.log('Site index-simple.html from:', siteIndexPath);
+  console.log('Trying index.html from:', indexPath);
+  console.log('Alt index.html from:', altIndexPath);
+  console.log('Wwwroot index.html from:', wwwrootIndexPath);
+  console.log('Site index.html from:', siteIndexPath);
   
   // Check all possible paths, prioritizing Azure paths
   if (existsSync(wwwrootIndexPath)) {
@@ -3607,7 +3607,7 @@ app.use((req, res, next) => {
     console.log('Serving from cwd path');
     res.sendFile(altIndexPath);
   } else {
-    console.error('index-simple.html not found at any of:', wwwrootIndexPath, siteIndexPath, indexPath, altIndexPath);
+    console.error('index.html not found at any of:', wwwrootIndexPath, siteIndexPath, indexPath, altIndexPath);
     res.status(404).send('Application not built. Please run npm run build.');
   }
 });
