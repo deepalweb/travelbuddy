@@ -66,7 +66,7 @@ class _AIPlanScreenState extends State<AIPlanScreen> {
           ),
           SizedBox(height: 16),
           DropdownButtonFormField<String>(
-            value: _pace,
+            initialValue: _pace,
             decoration: InputDecoration(labelText: 'Pace'),
             items: ['Relaxed', 'Moderate', 'Fast'].map((pace) =>
               DropdownMenuItem(value: pace, child: Text(pace))
@@ -75,7 +75,7 @@ class _AIPlanScreenState extends State<AIPlanScreen> {
           ),
           SizedBox(height: 16),
           DropdownButtonFormField<String>(
-            value: _budget,
+            initialValue: _budget,
             decoration: InputDecoration(labelText: 'Budget'),
             items: ['Budget', 'Mid-Range', 'Luxury'].map((budget) =>
               DropdownMenuItem(value: budget, child: Text(budget))

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { Place } from '../../../types';
 
 interface PlaceCardProps {
@@ -6,105 +6,37 @@ interface PlaceCardProps {
 }
 
 const PlaceCard: React.FC<PlaceCardProps> = ({ place }) => {
-  const [isFavorite, setIsFavorite] = useState(false);
-  const [imageError, setImageError] = useState(false);
-
-  const getPriceLevelText = (level?: number) => {
-    if (!level) return 'Free';
-    return '$'.repeat(level);
-  };
-
-  const handleFavoriteClick = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    setIsFavorite(!isFavorite);
-  };
-
-  const handleCardClick = () => {
-    // Handle place detail view
-    console.log('View place details:', place.id);
-  };
-
   return (
-    <div 
-      onClick={handleCardClick}
-      className="bg-white dark:bg-gray-800 rounded-xl shadow-sm hover:shadow-md transition-shadow duration-200 overflow-hidden cursor-pointer border border-gray-200 dark:border-gray-700"
-    >
-      {/* Image */}
-      <div className="relative h-48 bg-gray-200 dark:bg-gray-600">
-        {place.photos?.[0] && !imageError ? (
+    <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden hover:shadow-md transition-shadow">
+      <div className="aspect-w-16 aspect-h-9 bg-gray-200 dark:bg-gray-600">
+        {place.photos?.[0] ? (
           <img
             src={place.photos[0]}
             alt={place.name}
-            className="w-full h-full object-cover"
-            onError={() => setImageError(true)}
+            className="w-full h-48 object-cover"
           />
         ) : (
-          <div className="w-full h-full flex items-center justify-center">
+          <div className="w-full h-48 flex items-center justify-center">
             <svg className="w-12 h-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
             </svg>
           </div>
         )}
-
-        {/* Favorite Button */}
-        <button
-          onClick={handleFavoriteClick}
-          className="absolute top-3 right-3 p-2 bg-white/90 dark:bg-gray-800/90 rounded-full shadow-sm hover:bg-white dark:hover:bg-gray-800 transition-colors"
-        >
-          <svg 
-            className={`w-5 h-5 ${isFavorite ? 'text-red-500 fill-current' : 'text-gray-600 dark:text-gray-400'}`} 
-            fill={isFavorite ? 'currentColor' : 'none'} 
-            stroke="currentColor" 
-            viewBox="0 0 24 24"
-          >
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
-          </svg>
-        </button>
-
-        {/* Status Badge */}
-        {place.opening_hours && (
-          <div className="absolute top-3 left-3">
-            <span className={`px-2 py-1 text-xs font-medium rounded-full ${
-              place.opening_hours.open_now
-                ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
-                : 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
-            }`}>
-              {place.opening_hours.open_now ? 'Open' : 'Closed'}
-            </span>
-          </div>
-        )}
-
-        {/* Deal Badge */}
-        {place.deal && (
-          <div className="absolute bottom-3 left-3">
-            <span className="px-2 py-1 text-xs font-medium rounded-full bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200">
-              Deal Available
-            </span>
-          </div>
-        )}
       </div>
-
-      {/* Content */}
+      
       <div className="p-4">
-        <div className="flex items-start justify-between mb-2">
-          <h3 className="font-semibold text-gray-900 dark:text-gray-100 text-lg truncate">
-            {place.name}
-          </h3>
-          <span className="text-sm font-medium text-gray-600 dark:text-gray-400 ml-2">
-            {getPriceLevelText(place.price_level)}
-          </span>
-        </div>
-
-        <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">
-          {place.type}
+        <h3 className="font-semibold text-gray-900 dark:text-gray-100 mb-1">
+          {place.name}
+        </h3>
+        
+        <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">
+          {place.type.replace('_', ' ')}
         </p>
-
-        <p className="text-sm text-gray-500 dark:text-gray-500 mb-3 truncate">
+        
+        <p className="text-sm text-gray-600 dark:text-gray-300 mb-3 line-clamp-2">
           {place.formatted_address}
         </p>
-
-        {/* Rating */}
+        
         {place.rating && (
           <div className="flex items-center">
             <div className="flex items-center">
@@ -112,7 +44,7 @@ const PlaceCard: React.FC<PlaceCardProps> = ({ place }) => {
                 <svg
                   key={i}
                   className={`w-4 h-4 ${
-                    i < Math.floor(place.rating!)
+                    i < Math.floor(place.rating || 0)
                       ? 'text-yellow-400'
                       : 'text-gray-300 dark:text-gray-600'
                   }`}
@@ -123,8 +55,8 @@ const PlaceCard: React.FC<PlaceCardProps> = ({ place }) => {
                 </svg>
               ))}
             </div>
-            <span className="ml-2 text-sm text-gray-600 dark:text-gray-400">
-              {place.rating} ({Math.floor(Math.random() * 500) + 50} reviews)
+            <span className="ml-2 text-sm text-gray-500 dark:text-gray-400">
+              {place.rating}
             </span>
           </div>
         )}

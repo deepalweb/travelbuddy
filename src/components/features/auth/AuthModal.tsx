@@ -9,17 +9,15 @@ interface AuthModalProps {
 }
 
 const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
-  const { signIn, signUp, resetPassword } = useAuth();
+  const [isLogin, setIsLogin] = useState(true);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [username, setUsername] = useState('');
+  const [loading, setLoading] = useState(false);
+  
+  const { signIn, signUp } = useAuth();
   const { addToast } = useToast();
   const { t } = useLanguage();
-  const [mode, setMode] = useState<'signin' | 'signup' | 'reset'>('signin');
-  const [loading, setLoading] = useState(false);
-  const [formData, setFormData] = useState({
-    email: '',
-    password: '',
-    username: '',
-    confirmPassword: '',
-  });
 
   if (!isOpen) return null;
 
@@ -28,54 +26,31 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
     setLoading(true);
 
     try {
-      if (mode === 'signin') {
-        await signIn(formData.email, formData.password);
-        addToast({ message: 'Welcome back!', type: 'success' });
-        onClose();
-      } else if (mode === 'signup') {
-        if (formData.password !== formData.confirmPassword) {
-          throw new Error('Passwords do not match');
-        }
-        await signUp(formData.email, formData.password, formData.username);
-        addToast({ message: 'Account created successfully!', type: 'success' });
-        onClose();
-      } else if (mode === 'reset') {
-        await resetPassword(formData.email);
-        addToast({ message: 'Password reset email sent!', type: 'success' });
-        setMode('signin');
+      if (isLogin) {
+        await signIn(email, password);
+        addToast({ type: 'success', message: 'Successfully signed in!' });
+      } else {
+        await signUp(email, password, username);
+        addToast({ type: 'success', message: 'Account created successfully!' });
       }
+      onClose();
     } catch (error: any) {
-      addToast({ message: error.message || 'An error occurred', type: 'error' });
+      addToast({ type: 'error', message: error.message });
     } finally {
       setLoading(false);
     }
   };
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setFormData(prev => ({
-      ...prev,
-      [e.target.name]: e.target.value,
-    }));
-  };
-
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto">
       <div className="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
-        {/* Background overlay */}
-        <div 
-          className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity"
-          onClick={onClose}
-        ></div>
+        <div className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" onClick={onClose}></div>
 
-        {/* Modal */}
         <div className="inline-block align-bottom bg-white dark:bg-gray-800 rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
           <div className="bg-white dark:bg-gray-800 px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
-            {/* Header */}
-            <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100">
-                {mode === 'signin' && t('auth.signIn')}
-                {mode === 'signup' && t('auth.signUp')}
-                {mode === 'reset' && 'Reset Password'}
+                {isLogin ? t('auth.signIn') : t('auth.signUp')}
               </h3>
               <button
                 onClick={onClose}
@@ -87,20 +62,18 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
               </button>
             </div>
 
-            {/* Form */}
             <form onSubmit={handleSubmit} className="space-y-4">
-              {mode === 'signup' && (
+              {!isLogin && (
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                     {t('auth.username')}
                   </label>
                   <input
                     type="text"
-                    name="username"
-                    value={formData.username}
-                    onChange={handleInputChange}
+                    value={username}
+                    onChange={(e) => setUsername(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
                     required
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-700 dark:text-gray-100"
                   />
                 </div>
               )}
@@ -111,109 +84,42 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
                 </label>
                 <input
                   type="email"
-                  name="email"
-                  value={formData.email}
-                  onChange={handleInputChange}
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
                   required
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-700 dark:text-gray-100"
                 />
               </div>
 
-              {mode !== 'reset' && (
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    {t('auth.password')}
-                  </label>
-                  <input
-                    type="password"
-                    name="password"
-                    value={formData.password}
-                    onChange={handleInputChange}
-                    required
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-700 dark:text-gray-100"
-                  />
-                </div>
-              )}
-
-              {mode === 'signup' && (
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    Confirm Password
-                  </label>
-                  <input
-                    type="password"
-                    name="confirmPassword"
-                    value={formData.confirmPassword}
-                    onChange={handleInputChange}
-                    required
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-700 dark:text-gray-100"
-                  />
-                </div>
-              )}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  {t('auth.password')}
+                </label>
+                <input
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                  required
+                />
+              </div>
 
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-400 text-white py-2 px-4 rounded-lg font-medium transition-colors"
               >
-                {loading ? (
-                  <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
-                ) : (
-                  <>
-                    {mode === 'signin' && t('auth.signIn')}
-                    {mode === 'signup' && t('auth.signUp')}
-                    {mode === 'reset' && 'Send Reset Email'}
-                  </>
-                )}
+                {loading ? 'Loading...' : (isLogin ? t('auth.signIn') : t('auth.signUp'))}
               </button>
             </form>
 
-            {/* Footer links */}
-            <div className="mt-6 text-center space-y-2">
-              {mode === 'signin' && (
-                <>
-                  <button
-                    onClick={() => setMode('reset')}
-                    className="text-sm text-indigo-600 dark:text-indigo-400 hover:text-indigo-500"
-                  >
-                    Forgot your password?
-                  </button>
-                  <div>
-                    <span className="text-sm text-gray-600 dark:text-gray-400">
-                      Don't have an account?{' '}
-                    </span>
-                    <button
-                      onClick={() => setMode('signup')}
-                      className="text-sm text-indigo-600 dark:text-indigo-400 hover:text-indigo-500"
-                    >
-                      Sign up
-                    </button>
-                  </div>
-                </>
-              )}
-
-              {mode === 'signup' && (
-                <div>
-                  <span className="text-sm text-gray-600 dark:text-gray-400">
-                    Already have an account?{' '}
-                  </span>
-                  <button
-                    onClick={() => setMode('signin')}
-                    className="text-sm text-indigo-600 dark:text-indigo-400 hover:text-indigo-500"
-                  >
-                    Sign in
-                  </button>
-                </div>
-              )}
-
-              {mode === 'reset' && (
-                <button
-                  onClick={() => setMode('signin')}
-                  className="text-sm text-indigo-600 dark:text-indigo-400 hover:text-indigo-500"
-                >
-                  Back to sign in
-                </button>
-              )}
+            <div className="mt-4 text-center">
+              <button
+                onClick={() => setIsLogin(!isLogin)}
+                className="text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 text-sm"
+              >
+                {isLogin ? "Don't have an account? Sign up" : "Already have an account? Sign in"}
+              </button>
             </div>
           </div>
         </div>

@@ -1074,7 +1074,7 @@ class _PlannerScreenState extends State<PlannerScreen> {
           const SizedBox(height: 16),
           
           DropdownButtonFormField<String>(
-            value: _selectedBudget,
+            initialValue: _selectedBudget,
             decoration: const InputDecoration(
               labelText: '💵 Budget Level',
               border: OutlineInputBorder(),
@@ -1772,7 +1772,7 @@ class _PlannerScreenState extends State<PlannerScreen> {
           const SizedBox(height: 16),
           
           DropdownButtonFormField<String>(
-            value: _selectedPace,
+            initialValue: _selectedPace,
             decoration: const InputDecoration(
               labelText: '🚶 Pace',
               border: OutlineInputBorder(),
@@ -1785,7 +1785,7 @@ class _PlannerScreenState extends State<PlannerScreen> {
           const SizedBox(height: 16),
           
           DropdownButtonFormField<String>(
-            value: _selectedBudget,
+            initialValue: _selectedBudget,
             decoration: const InputDecoration(
               labelText: '💰 Budget',
               border: OutlineInputBorder(),

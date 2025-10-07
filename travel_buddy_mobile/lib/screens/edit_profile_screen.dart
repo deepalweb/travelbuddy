@@ -468,7 +468,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         subtitle: Text(subtitle),
         value: value,
         onChanged: onChanged,
-        activeColor: const Color(0xFF3797EF),
+        activeThumbColor: const Color(0xFF3797EF),
       ),
     );
   }

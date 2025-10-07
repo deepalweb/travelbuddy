@@ -123,7 +123,7 @@ class _GoogleAIModeScreenState extends State<GoogleAIModeScreen> {
                   const SizedBox(height: 16),
                   
                   DropdownButtonFormField<String>(
-                    value: _duration,
+                    initialValue: _duration,
                     decoration: InputDecoration(
                       labelText: '⏰ Duration',
                       prefixIcon: const Icon(Icons.schedule, color: Colors.deepPurple),
@@ -163,7 +163,7 @@ class _GoogleAIModeScreenState extends State<GoogleAIModeScreen> {
                     children: [
                       Expanded(
                         child: DropdownButtonFormField<String>(
-                          value: _pace,
+                          initialValue: _pace,
                           decoration: InputDecoration(
                             labelText: '🚶 Pace',
                             border: OutlineInputBorder(
@@ -183,7 +183,7 @@ class _GoogleAIModeScreenState extends State<GoogleAIModeScreen> {
                       const SizedBox(width: 16),
                       Expanded(
                         child: DropdownButtonFormField<String>(
-                          value: _budget,
+                          initialValue: _budget,
                           decoration: InputDecoration(
                             labelText: '💰 Budget',
                             border: OutlineInputBorder(
@@ -323,16 +323,14 @@ class _GoogleAIModeScreenState extends State<GoogleAIModeScreen> {
         budget: _budget,
       );
       
-      if (result != null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('🤖 AI trip plan created successfully!'),
-            backgroundColor: Colors.green,
-          ),
-        );
-        Navigator.pop(context); // Return to planner
-      }
-    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('🤖 AI trip plan created successfully!'),
+          backgroundColor: Colors.green,
+        ),
+      );
+      Navigator.pop(context); // Return to planner
+        } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('❌ AI planning failed: $e'),

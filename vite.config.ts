@@ -39,7 +39,7 @@ export default defineConfig(({ mode }) => {
       minify: isProduction ? 'terser' : false,
       // Optimize chunk splitting
       rollupOptions: {
-        input: path.resolve(__dirname, 'index-simple.html'),
+        input: path.resolve(__dirname, 'index.html'),
         output: {
           // Dynamic chunk splitting with function for better Firebase handling
           manualChunks(id) {
