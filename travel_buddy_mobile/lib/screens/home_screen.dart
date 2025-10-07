@@ -3,6 +3,8 @@ import 'package:provider/provider.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+import 'dart:typed_data';
+import 'dart:async';
 import '../providers/app_provider.dart';
 import '../widgets/safe_widget.dart';
 import '../widgets/subscription_status_widget.dart';
@@ -17,13 +19,36 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
+  PageController _dealsPageController = PageController();
+  Timer? _dealsTimer;
+  int _currentDealIndex = 0;
 
-  
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _loadData();
+      _startDealsAutoScroll();
+    });
+  }
+
+  @override
+  void dispose() {
+    _dealsTimer?.cancel();
+    _dealsPageController.dispose();
+    super.dispose();
+  }
+
+  void _startDealsAutoScroll() {
+    _dealsTimer = Timer.periodic(const Duration(seconds: 4), (timer) {
+      if (_dealsPageController.hasClients) {
+        final nextIndex = (_currentDealIndex + 1) % 3; // Assuming 3 deals
+        _dealsPageController.animateToPage(
+          nextIndex,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeInOut,
+        );
+      }
     });
   }
 
@@ -45,13 +70,107 @@ class _HomeScreenState extends State<HomeScreen> {
     if (hour < 17) return 'Good Afternoon';
     return 'Good Evening';
   }
+
+  List<Color> _getDynamicGradient() {
+    final hour = DateTime.now().hour;
+    if (hour >= 6 && hour < 12) {
+      return [Color(0xFFFFDEE9), Color(0xFFB5FFFC)]; // Morning
+    } else if (hour >= 12 && hour < 18) {
+      return [Color(0xFF667eea), Color(0xFF764ba2)]; // Afternoon
+    } else {
+      return [Color(0xFF141E30), Color(0xFF243B55)]; // Evening/Night
+    }
+  }
+
+  String _getMotivationalQuote() {
+    final quotes = [
+      "Adventure awaits just beyond your doorstep 🌍",
+      "Perfect day to explore the hidden gems nearby!",
+      "Every journey begins with a single step 🚶‍♂️",
+      "The world is your playground today! 🎯",
+    ];
+    return quotes[DateTime.now().day % quotes.length];
+  }
   
   String _getCurrentLocationName(AppProvider appProvider) {
     if (appProvider.currentLocation == null) {
       return 'Location not available';
     }
     
-    // Default location display
+    return 'Getting location name...';
+  }
+
+  Future<String> _getLocationName(double lat, double lng) async {
+    print('🔍 Geocoding: $lat, $lng');
+    
+    // Try Nominatim (OpenStreetMap) first - more accurate for Sri Lanka
+    try {
+      final osmUrl = 'https://nominatim.openstreetmap.org/reverse?format=json&lat=$lat&lon=$lng&zoom=18&addressdetails=1';
+      final osmResponse = await http.get(
+        Uri.parse(osmUrl),
+        headers: {'User-Agent': 'TravelBuddy-Mobile/1.0'},
+      );
+      
+      if (osmResponse.statusCode == 200) {
+        final osmData = json.decode(osmResponse.body);
+        final address = osmData['address'] ?? {};
+        
+        final suburb = address['suburb'] ?? '';
+        final city = address['city'] ?? address['town'] ?? address['village'] ?? '';
+        final country = address['country'] ?? '';
+        
+        print('🌍 OSM result: suburb=$suburb, city=$city, country=$country');
+        
+        if (suburb.isNotEmpty && country.isNotEmpty) {
+          return '$suburb, $country';
+        } else if (city.isNotEmpty && country.isNotEmpty) {
+          return '$city, $country';
+        }
+      }
+    } catch (e) {
+      print('⚠️ OSM geocoding failed: $e');
+    }
+    
+    // Fallback to BigDataCloud
+    try {
+      final url = 'https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=$lat&longitude=$lng&localityLanguage=en';
+      final response = await http.get(Uri.parse(url));
+      
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        final city = data['city'] ?? data['locality'] ?? '';
+        final country = data['countryName'] ?? '';
+        
+        print('📍 BigData result: city=$city, country=$country');
+        
+        if (city.isNotEmpty && country.isNotEmpty) {
+          return '$city, $country';
+        }
+      }
+    } catch (e) {
+      print('❌ BigData geocoding error: $e');
+    }
+    
+    // Offline fallback for Sri Lankan coordinates
+    return _getOfflineLocationName(lat, lng);
+  }
+
+  String _getOfflineLocationName(double lat, double lng) {
+    // Sri Lankan major cities/areas (approximate boundaries)
+    if (lat >= 6.88 && lat <= 6.92 && lng >= 79.90 && lng <= 79.92) {
+      return 'Sri Jayawardenepura Kotte, Sri Lanka';
+    } else if (lat >= 6.84 && lat <= 6.86 && lng >= 79.92 && lng <= 79.94) {
+      return 'Maharagama, Sri Lanka';
+    } else if (lat >= 6.90 && lat <= 6.96 && lng >= 79.84 && lng <= 79.88) {
+      return 'Colombo, Sri Lanka';
+    } else if (lat >= 7.28 && lat <= 7.32 && lng >= 80.62 && lng <= 80.66) {
+      return 'Kandy, Sri Lanka';
+    } else if (lat >= 6.04 && lat <= 6.08 && lng >= 80.21 && lng <= 80.25) {
+      return 'Galle, Sri Lanka';
+    } else if (lat >= 6.0 && lat <= 8.0 && lng >= 79.5 && lng <= 81.5) {
+      return 'Sri Lanka';
+    }
+    
     return 'Current Location';
   }
   
@@ -206,7 +325,26 @@ class _HomeScreenState extends State<HomeScreen> {
       builder: (context, appProvider, child) {
         return Scaffold(
           appBar: AppBar(
-            title: const Text('For You'),
+            title: Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.1),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: const Icon(
+                Icons.travel_explore,
+                size: 24,
+                color: Color(0xFF6366F1),
+              ),
+            ),
             actions: [
               IconButton(
                 icon: const Icon(Icons.notifications_outlined),
@@ -231,7 +369,8 @@ class _HomeScreenState extends State<HomeScreen> {
                     _buildWelcomeCard(appProvider),
                     const SizedBox(height: 16),
                     _buildLocationCard(appProvider),
-
+                    const SizedBox(height: 16),
+                    _buildHotDealsSlideshow(appProvider),
                     const SizedBox(height: 16),
                     _buildQuickActions(appProvider),
                     const SizedBox(height: 16),
@@ -361,7 +500,7 @@ class _HomeScreenState extends State<HomeScreen> {
         margin: const EdgeInsets.symmetric(horizontal: 4),
         decoration: BoxDecoration(
           gradient: LinearGradient(
-            colors: [Color(0xFF667eea), Color(0xFF764ba2)],
+            colors: _getDynamicGradient(),
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ),
@@ -420,15 +559,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         ),
                         child: ClipOval(
                           child: appProvider.currentUser?.profilePicture?.isNotEmpty == true
-                              ? Image.network(
-                                  appProvider.currentUser!.profilePicture!,
-                                  fit: BoxFit.cover,
-                                  errorBuilder: (_, __, ___) => Icon(
-                                    Icons.person,
-                                    color: Colors.white.withOpacity(0.8),
-                                    size: 24,
-                                  ),
-                                )
+                              ? _buildProfileImage(appProvider.currentUser!.profilePicture!)
                               : Icon(
                                   Icons.person,
                                   color: Colors.white.withOpacity(0.8),
@@ -485,23 +616,41 @@ class _HomeScreenState extends State<HomeScreen> {
                         Icon(Icons.location_on, color: Colors.white.withOpacity(0.9), size: 18),
                         const SizedBox(width: 8),
                         Expanded(
-                          child: Text(
-                            _getCurrentLocationName(appProvider),
-                            style: TextStyle(
-                              color: Colors.white.withOpacity(0.95),
-                              fontSize: 15,
-                              fontWeight: FontWeight.w500,
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
+                          child: FutureBuilder<String>(
+                            future: appProvider.currentLocation != null 
+                                ? _getLocationName(
+                                    appProvider.currentLocation!.latitude,
+                                    appProvider.currentLocation!.longitude,
+                                  )
+                                : Future.value('Location not available'),
+                            builder: (context, snapshot) {
+                              return Text(
+                                snapshot.data ?? _getCurrentLocationName(appProvider),
+                                style: TextStyle(
+                                  color: Colors.white.withOpacity(0.95),
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              );
+                            },
                           ),
                         ),
                       ],
                     ),
                   ),
                   const SizedBox(height: 16),
-                  // Weather Forecast
-                  _buildWeatherForecast(appProvider),
+                  // Motivational Quote
+                  const SizedBox(height: 12),
+                  Text(
+                    _getMotivationalQuote(),
+                    style: TextStyle(
+                      color: Colors.white.withOpacity(0.9),
+                      fontSize: 13,
+                      fontStyle: FontStyle.italic,
+                    ),
+                  ),
 
                 ],
               ),
@@ -981,5 +1130,327 @@ class _HomeScreenState extends State<HomeScreen> {
     }
     
     return score;
+  }
+
+  Widget _buildQuickActionIcon(IconData icon, String label, VoidCallback onTap) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Column(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.2),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(icon, color: Colors.white, size: 20),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            label,
+            style: TextStyle(
+              color: Colors.white.withOpacity(0.8),
+              fontSize: 11,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildHotDealsSlideshow(AppProvider appProvider) {
+    // Load real deals
+    if (appProvider.deals.isEmpty && !appProvider.isDealsLoading) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        appProvider.loadDeals();
+      });
+    }
+
+    final realDeals = appProvider.deals.where((deal) => deal.isActive).take(3).toList();
+    final hasRealDeals = realDeals.isNotEmpty;
+    
+    final dealsToShow = hasRealDeals ? realDeals.map((deal) => {
+      'title': deal.title,
+      'business': deal.businessName,
+      'discount': deal.discount,
+      'image': deal.images.isNotEmpty ? deal.images.first : 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=400',
+      'color': _getDealColor(deal.discount),
+      'dealId': deal.id,
+    }).toList() : [
+      {
+        'title': '50% OFF Local Restaurant',
+        'business': 'Spice Garden',
+        'discount': '50% OFF',
+        'image': 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=400',
+        'color': Colors.red,
+        'dealId': 'mock_1',
+      },
+      {
+        'title': 'Free Dessert with Meal',
+        'business': 'Cafe Mocha',
+        'discount': 'FREE',
+        'image': 'https://images.unsplash.com/photo-1554118811-1e0d58224f24?w=400',
+        'color': Colors.green,
+        'dealId': 'mock_2',
+      },
+      {
+        'title': '30% OFF Spa Treatment',
+        'business': 'Wellness Center',
+        'discount': '30% OFF',
+        'image': 'https://images.unsplash.com/photo-1544161515-4ab6ce6db874?w=400',
+        'color': Colors.purple,
+        'dealId': 'mock_3',
+      },
+    ];
+
+    print('🔥 Hot Deals: ${hasRealDeals ? 'REAL' : 'MOCK'} data (${dealsToShow.length} deals)');
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.red.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const Icon(
+                Icons.local_fire_department,
+                color: Colors.red,
+                size: 20,
+              ),
+            ),
+            const SizedBox(width: 12),
+            const Text(
+              'Hot Deals',
+              style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+            ),
+            const Spacer(),
+            Text(
+              'Limited Time',
+              style: TextStyle(
+                fontSize: 12,
+                color: Colors.red[600],
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
+        SizedBox(
+          height: 200,
+          child: PageView.builder(
+            controller: _dealsPageController,
+            onPageChanged: (index) {
+              setState(() {
+                _currentDealIndex = index;
+              });
+            },
+            itemCount: dealsToShow.length,
+            itemBuilder: (context, index) {
+              final deal = dealsToShow[index];
+              return Container(
+                margin: const EdgeInsets.symmetric(horizontal: 8),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.1),
+                      blurRadius: 8,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(16),
+                  child: Stack(
+                    children: [
+                      Container(
+                        width: double.infinity,
+                        height: double.infinity,
+                        decoration: BoxDecoration(
+                          image: DecorationImage(
+                            image: NetworkImage(deal['image'] as String),
+                            fit: BoxFit.cover,
+                            onError: (_, __) {},
+                          ),
+                          color: Colors.grey[300],
+                        ),
+                      ),
+                      Container(
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment.topCenter,
+                            end: Alignment.bottomCenter,
+                            colors: [
+                              Colors.transparent,
+                              Colors.black.withOpacity(0.7),
+                            ],
+                          ),
+                        ),
+                      ),
+                      Positioned(
+                        top: 16,
+                        right: 16,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: deal['color'] as Color,
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: Text(
+                            deal['discount'] as String,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ),
+                      Positioned(
+                        bottom: 16,
+                        left: 16,
+                        right: 16,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              deal['title'] as String,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              deal['business'] as String,
+                              style: TextStyle(
+                                color: Colors.white.withOpacity(0.9),
+                                fontSize: 14,
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                            ElevatedButton(
+                              onPressed: () async {
+                                final dealId = deal['dealId'] as String;
+                                final success = hasRealDeals 
+                                    ? await appProvider.claimDeal(dealId)
+                                    : true;
+                                
+                                if (success) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text('Claimed: ${deal['title']}'),
+                                      backgroundColor: Colors.green,
+                                    ),
+                                  );
+                                } else {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text('Failed to claim deal'),
+                                      backgroundColor: Colors.red,
+                                    ),
+                                  );
+                                }
+                              },
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.white,
+                                foregroundColor: deal['color'] as Color,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(20),
+                                ),
+                                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+                              ),
+                              child: const Text(
+                                'Claim Deal',
+                                style: TextStyle(fontWeight: FontWeight.bold),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+        const SizedBox(height: 12),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: List.generate(
+            dealsToShow.length,
+            (index) => Container(
+              margin: const EdgeInsets.symmetric(horizontal: 4),
+              width: _currentDealIndex == index ? 12 : 8,
+              height: 8,
+              decoration: BoxDecoration(
+                color: _currentDealIndex == index 
+                    ? Colors.red 
+                    : Colors.grey.withOpacity(0.4),
+                borderRadius: BorderRadius.circular(4),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Color _getDealColor(String discount) {
+    if (discount.contains('50%') || discount.contains('FREE')) {
+      return Colors.red;
+    } else if (discount.contains('30%') || discount.contains('25%')) {
+      return Colors.orange;
+    } else if (discount.contains('20%') || discount.contains('15%')) {
+      return Colors.purple;
+    }
+    return Colors.blue;
+  }
+
+  Widget _buildProfileImage(String imageUrl) {
+    if (imageUrl.startsWith('data:image/')) {
+      // Handle base64 data URI
+      try {
+        final base64String = imageUrl.split(',')[1];
+        final Uint8List bytes = base64Decode(base64String);
+        return Image.memory(
+          bytes,
+          fit: BoxFit.cover,
+          errorBuilder: (context, error, stackTrace) {
+            return Icon(
+              Icons.person,
+              color: Colors.white.withOpacity(0.8),
+              size: 24,
+            );
+          },
+        );
+      } catch (e) {
+        return Icon(
+          Icons.person,
+          color: Colors.white.withOpacity(0.8),
+          size: 24,
+        );
+      }
+    } else {
+      // Handle network URL
+      return Image.network(
+        imageUrl,
+        fit: BoxFit.cover,
+        errorBuilder: (context, error, stackTrace) {
+          return Icon(
+            Icons.person,
+            color: Colors.white.withOpacity(0.8),
+            size: 24,
+          );
+        },
+      );
+    }
   }
 }

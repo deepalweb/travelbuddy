@@ -171,6 +171,8 @@ class HomeViewModel extends ChangeNotifier {
           'emoji': weatherInfo.emoji,
           'description': weatherInfo.description,
         };
+        print('✅ Weather loaded: ${weatherInfo.temperature}°C, ${weatherInfo.condition}');
+        print('🌤️ Weather source: ${weatherInfo.description.contains('mock') ? 'MOCK' : 'REAL'}');
       } else {
         throw Exception('Location not available');
       }

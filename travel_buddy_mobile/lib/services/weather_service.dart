@@ -185,22 +185,26 @@ class WeatherService {
     required double longitude,
   }) async {
     print('🌤️ Starting weather fetch for: $latitude, $longitude');
+    print('🔗 Backend URL: ${AppConstants.baseUrl}');
     
     try {
       // Try Google Weather API via backend first
       final realWeather = await _fetchGoogleWeather(latitude, longitude);
       if (realWeather != null) {
-        print('✅ Using real Google Weather data');
+        print('✅ SUCCESS: Using REAL Google Weather data');
+        print('🌡️ Real temp: ${realWeather.temperature}°C, condition: ${realWeather.condition}');
         return realWeather;
       }
       print('⚠️ Google Weather API returned null, trying fallbacks...');
     } catch (e) {
-      print('⚠️ Weather API error: $e');
+      print('❌ Weather API error: $e');
     }
     
     // Final fallback to smart mock data
-    print('🎭 Using smart mock weather data (time-aware) as final fallback');
-    return _getMockWeatherInfo();
+    print('🎭 FALLBACK: Using smart mock weather data (time-aware)');
+    final mockWeather = _getMockWeatherInfo();
+    print('🎭 Mock temp: ${mockWeather.temperature}°C, condition: ${mockWeather.condition}');
+    return mockWeather;
   }
   
   Future<WeatherInfo?> _fetchGoogleWeather(double latitude, double longitude) async {

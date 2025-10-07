@@ -3541,6 +3541,15 @@ app.use('/api/roles', (await import('./routes/roles.js')).default);
 app.use('/api/services', (await import('./routes/services.js')).default);
 app.use('/api/bookings', (await import('./routes/bookings.js')).default);
 
+// Deals routes
+try {
+  const dealsRouter = (await import('./routes/deals.js')).default;
+  app.use('/api/deals', dealsRouter);
+  console.log('✅ Deals routes loaded');
+} catch (error) {
+  console.error('❌ Failed to load deals routes:', error);
+}
+
 
 
 // Handle static assets explicitly before catch-all
