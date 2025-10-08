@@ -1914,6 +1914,8 @@ app.post('/api/reviews', async (req, res) => {
       placeId: place_id,
       rating: parseInt(rating),
       text: text,
+      author_name: author_name || 'Anonymous User',
+      time: Math.floor(Date.now() / 1000),
       createdAt: new Date()
     });
     
@@ -1933,10 +1935,10 @@ app.get('/api/reviews', async (req, res) => {
     const reviews = await Review.find({ placeId }).populate('userId', 'username').sort({ createdAt: -1 });
     
     const formatted = reviews.map(r => ({
-      author_name: r.userId?.username || 'Anonymous User',
+      author_name: r.author_name || r.userId?.username || 'Anonymous User',
       rating: r.rating,
       text: r.text,
-      time: Math.floor(r.createdAt.getTime() / 1000)
+      time: r.time || Math.floor(r.createdAt.getTime() / 1000)
     }));
     
     res.json(formatted);
