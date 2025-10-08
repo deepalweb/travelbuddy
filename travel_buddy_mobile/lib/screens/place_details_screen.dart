@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -41,6 +42,14 @@ class _PlaceDetailsScreenState extends State<PlaceDetailsScreen> with TickerProv
   List<String> _photoAttributions = [];
   Map<String, dynamic>? _placeDetails;
   
+  // Enhanced description state
+  String? _enhancedDescription;
+  bool _isLoadingEnhancedDescription = false;
+  
+  // Local tip state
+  String? _aiLocalTip;
+  bool _isLoadingLocalTip = false;
+  
   // Reviews state
   List<Map<String, dynamic>> _reviews = [];
   bool _isLoadingReviews = false;
@@ -67,6 +76,8 @@ class _PlaceDetailsScreenState extends State<PlaceDetailsScreen> with TickerProv
     _loadPlaceDetails();
     _loadReviews();
     _loadNearbyPlaces();
+    _loadEnhancedDescription();
+    _loadLocalTip();
   }
   
   @override
@@ -418,9 +429,9 @@ class _PlaceDetailsScreenState extends State<PlaceDetailsScreen> with TickerProv
                           const SizedBox(width: 8),
                           Expanded(
                             child: _buildQuickInfoCard(
-                              Icons.category,
-                              widget.place.type,
-                              'Type',
+                              Icons.location_on,
+                              _getDistanceText(),
+                              'Distance',
                               Color(AppConstants.colors['primary']!),
                             ),
                           ),
@@ -437,40 +448,13 @@ class _PlaceDetailsScreenState extends State<PlaceDetailsScreen> with TickerProv
                       ),
                       
                       // Local Tip Section
-                      if (widget.place.localTip.isNotEmpty) ..._buildSection(
+                      ..._buildSection(
                         'Local Tip',
                         Icons.lightbulb_outline,
-                        Container(
-                          padding: const EdgeInsets.all(16),
-                          decoration: BoxDecoration(
-                            color: Colors.blue[50],
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: Colors.blue[200]!),
-                          ),
-                          child: Text(
-                            widget.place.localTip,
-                            style: const TextStyle(fontSize: 14),
-                          ),
-                        ),
+                        _buildLocalTipSection(),
                       ),
                       
-                      // Handy Phrase Section
-                      if (widget.place.handyPhrase.isNotEmpty) ..._buildSection(
-                        'Handy Phrase',
-                        Icons.translate,
-                        Container(
-                          padding: const EdgeInsets.all(16),
-                          decoration: BoxDecoration(
-                            color: Colors.green[50],
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: Colors.green[200]!),
-                          ),
-                          child: Text(
-                            '"${widget.place.handyPhrase}"',
-                            style: const TextStyle(fontSize: 14, fontStyle: FontStyle.italic),
-                          ),
-                        ),
-                      ),
+
                       
                       // AI Assistant Section
                       ..._buildSection(
@@ -1059,22 +1043,90 @@ class _PlaceDetailsScreenState extends State<PlaceDetailsScreen> with TickerProv
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        // Main description
         Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: Colors.grey[50],
+            gradient: LinearGradient(
+              colors: [Colors.grey[50]!, Colors.white],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
             borderRadius: BorderRadius.circular(12),
             border: Border.all(color: Colors.grey[200]!),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.grey.withOpacity(0.1),
+                spreadRadius: 1,
+                blurRadius: 3,
+                offset: const Offset(0, 1),
+              ),
+            ],
           ),
-          child: Text(
-            widget.place.description,
-            style: const TextStyle(
-              fontSize: 16, 
-              height: 1.6,
-              color: Colors.black87,
-            ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(Icons.description, color: Color(AppConstants.colors['primary']!), size: 20),
+                  const SizedBox(width: 8),
+                  const Text(
+                    'About This Place',
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              _isLoadingEnhancedDescription
+                  ? const Row(
+                      children: [
+                        SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        ),
+                        SizedBox(width: 8),
+                        Text('Generating rich description...', style: TextStyle(fontStyle: FontStyle.italic)),
+                      ],
+                    )
+                  : Text(
+                      _getDisplayDescription(),
+                      style: const TextStyle(
+                        fontSize: 16, 
+                        height: 1.6,
+                        color: Colors.black87,
+                      ),
+                    ),
+              if (_enhancedDescription != null && _enhancedDescription != widget.place.description) ...[
+                const SizedBox(height: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: Colors.purple[100],
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.auto_awesome, size: 12, color: Colors.purple[700]),
+                      const SizedBox(width: 4),
+                      Text(
+                        'AI Enhanced',
+                        style: TextStyle(
+                          fontSize: 10,
+                          color: Colors.purple[700],
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ],
           ),
         ),
+        
+        // Google Editorial Summary
         if (_placeDetails != null && _placeDetails!['editorial_summary'] != null) ...[
           const SizedBox(height: 12),
           Container(
@@ -1117,8 +1169,448 @@ class _PlaceDetailsScreenState extends State<PlaceDetailsScreen> with TickerProv
             ),
           ),
         ],
+        
+        // Quick Facts Section
+        const SizedBox(height: 12),
+        Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: Colors.green[50],
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: Colors.green[200]!),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(Icons.lightbulb, color: Colors.green[600], size: 18),
+                  const SizedBox(width: 6),
+                  Text(
+                    'Quick Facts',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: Colors.green[800],
+                      fontSize: 12,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                runSpacing: 4,
+                children: [
+                  _buildFactChip('⭐ ${widget.place.rating}/5 Rating'),
+                  _buildFactChip('📍 ${widget.place.type}'),
+                  if (_placeDetails?['price_level'] != null)
+                    _buildFactChip('💰 ${_getPriceLevelText(_placeDetails!['price_level'])}'),
+                  if (_placeDetails?['opening_hours']?['open_now'] != null)
+                    _buildFactChip(_placeDetails!['opening_hours']['open_now'] == true ? '🟢 Open Now' : '🔴 Closed'),
+                ],
+              ),
+            ],
+          ),
+        ),
+        
+        // AI-Generated Insights Button
+        const SizedBox(height: 12),
+        SizedBox(
+          width: double.infinity,
+          child: OutlinedButton.icon(
+            onPressed: _generateAIInsights,
+            icon: const Icon(Icons.auto_awesome, size: 18),
+            label: const Text('Get AI Insights'),
+            style: OutlinedButton.styleFrom(
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              side: BorderSide(color: Color(AppConstants.colors['accent']!)),
+              foregroundColor: Color(AppConstants.colors['accent']!),
+            ),
+          ),
+        ),
       ],
     );
+  }
+  
+  Widget _buildFactChip(String text) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.green[300]!),
+      ),
+      child: Text(
+        text,
+        style: TextStyle(
+          fontSize: 11,
+          color: Colors.green[700],
+          fontWeight: FontWeight.w500,
+        ),
+      ),
+    );
+  }
+  
+  void _generateAIInsights() async {
+    final insights = await _getAIInsights();
+    if (insights != null && mounted) {
+      showModalBottomSheet(
+        context: context,
+        isScrollControlled: true,
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        builder: (context) => Container(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(Icons.auto_awesome, color: Color(AppConstants.colors['accent']!)),
+                  const SizedBox(width: 8),
+                  const Text(
+                    'AI Insights',
+                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.purple[50],
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.purple[200]!),
+                ),
+                child: Text(
+                  insights,
+                  style: const TextStyle(fontSize: 14, height: 1.5),
+                ),
+              ),
+              const SizedBox(height: 20),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('Close'),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+  }
+  
+  Future<String?> _getAIInsights() async {
+    try {
+      final response = await http.post(
+        Uri.parse('${AppConstants.baseUrl}/api/ai/ask'),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({
+          'question': 'Provide interesting insights, hidden gems, best times to visit, and insider tips for this place. Make it engaging and informative.',
+          'place': {
+            'name': widget.place.name,
+            'type': widget.place.type,
+            'address': widget.place.address,
+            'description': widget.place.description,
+          },
+        }),
+      ).timeout(const Duration(seconds: 15));
+      
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        return data['answer'];
+      }
+    } catch (e) {
+      print('Failed to get AI insights: $e');
+    }
+    return null;
+  }
+  
+  Widget _buildLocalTipSection() {
+    final hasLocalTip = widget.place.localTip.isNotEmpty;
+    final hasAITip = _aiLocalTip != null && _aiLocalTip!.isNotEmpty;
+    
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [Colors.orange[50]!, Colors.amber[50]!],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.orange[200]!),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.tips_and_updates, color: Colors.orange[700], size: 20),
+              const SizedBox(width: 8),
+              Text(
+                hasLocalTip ? 'Insider Tip' : 'Local Insights',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  color: Colors.orange[800],
+                  fontSize: 14,
+                ),
+              ),
+              const Spacer(),
+              if (hasLocalTip)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: Colors.green[100],
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    'VERIFIED',
+                    style: TextStyle(
+                      fontSize: 9,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.green[700],
+                    ),
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          if (_isLoadingLocalTip)
+            const Row(
+              children: [
+                SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
+                SizedBox(width: 8),
+                Text('Getting local insights...', style: TextStyle(fontStyle: FontStyle.italic)),
+              ],
+            )
+          else if (hasLocalTip)
+            Text(
+              widget.place.localTip,
+              style: TextStyle(
+                fontSize: 14,
+                height: 1.5,
+                color: Colors.orange[800],
+              ),
+            )
+          else if (hasAITip)
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  _aiLocalTip!,
+                  style: TextStyle(
+                    fontSize: 14,
+                    height: 1.5,
+                    color: Colors.orange[800],
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: Colors.purple[100],
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.auto_awesome, size: 10, color: Colors.purple[700]),
+                      const SizedBox(width: 4),
+                      Text(
+                        'AI Generated',
+                        style: TextStyle(
+                          fontSize: 9,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.purple[700],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            )
+          else
+            Column(
+              children: [
+                Text(
+                  'No local tips available yet.',
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: Colors.orange[600],
+                    fontStyle: FontStyle.italic,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    onPressed: _generateLocalTip,
+                    icon: const Icon(Icons.auto_awesome, size: 16),
+                    label: const Text('Generate AI Tip'),
+                    style: OutlinedButton.styleFrom(
+                      side: BorderSide(color: Colors.orange[400]!),
+                      foregroundColor: Colors.orange[700],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+        ],
+      ),
+    );
+  }
+  
+  Future<void> _loadLocalTip() async {
+    if (widget.place.localTip.isNotEmpty) return;
+    
+    setState(() => _isLoadingLocalTip = true);
+    
+    try {
+      final response = await http.post(
+        Uri.parse('${AppConstants.baseUrl}/api/ai/ask'),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({
+          'question': 'Provide a practical local tip for visiting this place. Include insider knowledge like best times to visit, how to avoid crowds, local customs, money-saving tips, or hidden features. Keep it concise (50-80 words) and actionable.',
+          'place': {
+            'name': widget.place.name,
+            'type': widget.place.type,
+            'address': widget.place.address,
+            'description': widget.place.description,
+          },
+        }),
+      ).timeout(const Duration(seconds: 10));
+      
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        final aiTip = data['answer'];
+        if (aiTip != null && aiTip.isNotEmpty) {
+          setState(() => _aiLocalTip = aiTip);
+        }
+      }
+    } catch (e) {
+      print('Failed to load local tip: $e');
+    } finally {
+      setState(() => _isLoadingLocalTip = false);
+    }
+  }
+  
+  void _generateLocalTip() async {
+    setState(() => _isLoadingLocalTip = true);
+    
+    try {
+      final response = await http.post(
+        Uri.parse('${AppConstants.baseUrl}/api/ai/ask'),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({
+          'question': 'Generate a helpful local tip for this place. Focus on practical advice like best visiting hours, local etiquette, cost-saving tips, or insider secrets. Make it specific and actionable (50-80 words).',
+          'place': {
+            'name': widget.place.name,
+            'type': widget.place.type,
+            'address': widget.place.address,
+            'description': widget.place.description,
+          },
+        }),
+      ).timeout(const Duration(seconds: 10));
+      
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        final aiTip = data['answer'];
+        if (aiTip != null && aiTip.isNotEmpty) {
+          setState(() => _aiLocalTip = aiTip);
+        }
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Failed to generate tip. Please try again.')),
+      );
+    } finally {
+      setState(() => _isLoadingLocalTip = false);
+    }
+  }
+  
+  Future<void> _loadEnhancedDescription() async {
+    // Skip if description is already rich (more than 100 characters)
+    if (widget.place.description.length > 100) {
+      _enhancedDescription = widget.place.description;
+      return;
+    }
+    
+    setState(() => _isLoadingEnhancedDescription = true);
+    
+    try {
+      final response = await http.post(
+        Uri.parse('${AppConstants.baseUrl}/api/ai/ask'),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({
+          'question': 'Create a rich, informative description (150-200 words) about this place. Include its significance, what makes it special, visitor experience, historical context if relevant, and what people can expect. Make it engaging and informative.',
+          'place': {
+            'name': widget.place.name,
+            'type': widget.place.type,
+            'address': widget.place.address,
+            'description': widget.place.description,
+          },
+        }),
+      ).timeout(const Duration(seconds: 15));
+      
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        final aiDescription = data['answer'];
+        if (aiDescription != null && aiDescription.length > widget.place.description.length) {
+          setState(() {
+            _enhancedDescription = aiDescription;
+          });
+        }
+      }
+    } catch (e) {
+      print('Failed to load enhanced description: $e');
+    } finally {
+      setState(() => _isLoadingEnhancedDescription = false);
+    }
+  }
+  
+  String _getDisplayDescription() {
+    if (_enhancedDescription != null && _enhancedDescription!.isNotEmpty) {
+      return _enhancedDescription!;
+    }
+    return widget.place.description.isNotEmpty 
+        ? widget.place.description 
+        : 'A ${widget.place.type} located at ${widget.place.address}. Discover what makes this place special!';
+  }
+  
+  String _getDistanceText() {
+    if (widget.place.latitude != null && widget.place.longitude != null) {
+      final appProvider = Provider.of<AppProvider>(context, listen: false);
+      if (appProvider.currentLocation != null) {
+        final distance = _calculateDistance(
+          appProvider.currentLocation!.latitude,
+          appProvider.currentLocation!.longitude,
+          widget.place.latitude!,
+          widget.place.longitude!,
+        );
+        return distance < 1000 ? '${distance.round()}m' : '${(distance / 1000).toStringAsFixed(1)}km';
+      }
+    }
+    return 'N/A';
+  }
+  
+  double _calculateDistance(double lat1, double lon1, double lat2, double lon2) {
+    const double earthRadius = 6371000; // meters
+    final double dLat = (lat2 - lat1) * (pi / 180);
+    final double dLon = (lon2 - lon1) * (pi / 180);
+    final double a = sin(dLat / 2) * sin(dLat / 2) +
+        cos(lat1 * (pi / 180)) * cos(lat2 * (pi / 180)) *
+        sin(dLon / 2) * sin(dLon / 2);
+    final double c = 2 * atan2(sqrt(a), sqrt(1 - a));
+    return earthRadius * c;
   }
   
   void _showPhotoSlideView() {

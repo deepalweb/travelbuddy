@@ -1055,10 +1055,11 @@ const Post = mongoose.model('Post', postSchema);
 
 // Review Schema
 const reviewSchema = new mongoose.Schema({
-  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
-  placeId: String,
-  rating: Number,
-  text: String,
+  placeId: { type: String, required: true },
+  rating: { type: Number, required: true },
+  text: { type: String, required: true },
+  author_name: { type: String, default: 'Anonymous User' },
+  time: { type: Number, default: () => Math.floor(Date.now() / 1000) },
   createdAt: { type: Date, default: Date.now }
 });
 
@@ -1903,22 +1904,48 @@ app.put('/api/posts/:id', async (req, res) => {
 // Reviews
 app.post('/api/reviews', async (req, res) => {
   try {
-    const review = new Review(req.body);
+    const { place_id, rating, text, author_name } = req.body;
+    
+    if (!place_id || !rating || !text) {
+      return res.status(400).json({ error: 'Missing required fields' });
+    }
+    
+    const review = new Review({
+      placeId: place_id,
+      rating: parseInt(rating),
+      text: text,
+      createdAt: new Date()
+    });
+    
     await review.save();
-    res.json(review);
+    res.json({ success: true });
   } catch (error) {
     res.status(400).json({ error: error.message });
   }
 });
 
-app.get('/api/reviews/:placeId', async (req, res) => {
+// Get reviews by place ID
+app.get('/api/reviews', async (req, res) => {
   try {
-    const reviews = await Review.find({ placeId: req.params.placeId }).populate('userId', 'username');
-    res.json(reviews);
+    const placeId = req.query.place_id;
+    if (!placeId) return res.json([]);
+    
+    const reviews = await Review.find({ placeId }).populate('userId', 'username').sort({ createdAt: -1 });
+    
+    const formatted = reviews.map(r => ({
+      author_name: r.userId?.username || 'Anonymous User',
+      rating: r.rating,
+      text: r.text,
+      time: Math.floor(r.createdAt.getTime() / 1000)
+    }));
+    
+    res.json(formatted);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    res.json([]);
   }
 });
+
+
 
 // Trip Plans
 app.post('/api/trips', async (req, res) => {
@@ -2070,15 +2097,7 @@ app.post('/api/reports', async (req, res) => {
   }
 });
 
-// Get all reviews
-app.get('/api/reviews', async (req, res) => {
-  try {
-    const reviews = await Review.find().populate('userId', 'username').sort({ createdAt: -1 });
-    res.json(reviews);
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
+
 
 // Delete review
 app.delete('/api/reviews/:id', async (req, res) => {
