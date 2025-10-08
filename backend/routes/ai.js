@@ -272,4 +272,68 @@ function _getFallbackResponse() {
 }`;
 }
 
+// Ask AI about specific places endpoint
+router.post('/ask', async (req, res) => {
+  const startTime = Date.now();
+  
+  try {
+    const { question, place } = req.body;
+    
+    if (!question) {
+      return res.status(400).json({ error: 'Question is required' });
+    }
+
+    const prompt = `You are a travel expert. Answer this question about the place: "${question}"
+
+Place Information:
+- Name: ${place?.name || 'Unknown'}
+- Type: ${place?.type || 'Unknown'}
+- Address: ${place?.address || 'Unknown'}
+- Description: ${place?.description || 'No description available'}
+
+Provide a helpful, accurate response in 2-3 sentences.`;
+
+    const response = await fetch(
+      `${AZURE_OPENAI_ENDPOINT}/openai/deployments/${AZURE_OPENAI_DEPLOYMENT_NAME}/chat/completions?api-version=${AZURE_API_VERSION}`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'api-key': AZURE_OPENAI_API_KEY,
+        },
+        body: JSON.stringify({
+          messages: [
+            {
+              role: 'system',
+              content: 'You are a helpful travel assistant. Provide concise, accurate information about places.'
+            },
+            {
+              role: 'user',
+              content: prompt
+            }
+          ],
+          max_tokens: 300,
+          temperature: 0.7
+        })
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error(`Azure AI API failed: ${response.status}`);
+    }
+
+    const data = await response.json();
+    const answer = data.choices[0].message.content;
+    
+    res.json({ answer });
+
+  } catch (error) {
+    console.error('❌ AI ask error:', error);
+    res.status(500).json({
+      error: 'Failed to get AI response',
+      answer: 'I\'m sorry, I\'m having trouble connecting right now. Please try again later.'
+    });
+  }
+});
+
 export default router;

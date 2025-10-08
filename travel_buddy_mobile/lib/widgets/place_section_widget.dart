@@ -68,7 +68,7 @@ class PlaceSectionWidget extends StatelessWidget {
           
           // Horizontal Places List
           SizedBox(
-            height: 280,
+            height: 300,
             child: ListView.builder(
               scrollDirection: Axis.horizontal,
               padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -80,6 +80,7 @@ class PlaceSectionWidget extends StatelessWidget {
                   margin: const EdgeInsets.only(right: 12),
                   child: PlaceCard(
                     place: place,
+                    compact: true,
                     isFavorite: false, // Will be updated by parent
                     onFavoriteToggle: () => onFavoriteToggle(place.id),
                     onTap: () {

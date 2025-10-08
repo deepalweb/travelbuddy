@@ -146,10 +146,15 @@ class PriceInfo extends HiveObject {
   });
 
   factory PriceInfo.fromJson(Map<String, dynamic> json) {
-    return PriceInfo(
-      amount: (json['amount'] as num?)?.toDouble() ?? 0.0,
-      currencyCode: json['currencyCode'] ?? 'USD',
-    );
+    try {
+      return PriceInfo(
+        amount: (json['amount'] as num?)?.toDouble() ?? 0.0,
+        currencyCode: json['currencyCode']?.toString() ?? 'USD',
+      );
+    } catch (e) {
+      print('Error parsing PriceInfo from JSON: $e');
+      return PriceInfo(amount: 0.0, currencyCode: 'USD');
+    }
   }
 
   Map<String, dynamic> toJson() {
@@ -248,29 +253,54 @@ class Deal extends HiveObject {
   });
 
   factory Deal.fromJson(Map<String, dynamic> json) {
-    return Deal(
-      id: json['_id'] ?? json['id'] ?? '',
-      title: json['title'] ?? '',
-      description: json['description'] ?? '',
-      discount: json['discount'] ?? '0%',
-      placeName: json['placeName'] ?? json['businessName'] ?? '',
-      businessType: json['businessType'] ?? json['category'] ?? 'general',
-      businessName: json['businessName'] ?? json['placeName'] ?? '',
-      images: List<String>.from(json['images'] ?? [json['imageUrl']].where((e) => e != null)),
-      validUntil: DateTime.parse(json['validUntil'] ?? DateTime.now().add(const Duration(days: 30)).toIso8601String()),
-      isActive: json['isActive'] ?? true,
-      views: json['views'] ?? 0,
-      claims: json['claims'] ?? 0,
-      merchantId: json['merchantId'],
-      price: json['price'] != null ? PriceInfo.fromJson(json['price']) : null,
-      isPremium: json['isPremium'] ?? false,
-      // Legacy support
-      category: json['category'],
-      imageUrl: json['imageUrl'],
-      originalPrice: _parsePrice(json['originalPrice']),
-      discountedPrice: _parsePrice(json['discountedPrice']),
-      currency: json['currency'],
-    );
+    try {
+      // Handle MongoDB _id field
+      final String dealId = json['_id']?.toString() ?? json['id']?.toString() ?? '';
+      
+      // Parse validUntil date safely
+      DateTime validUntilDate;
+      try {
+        validUntilDate = DateTime.parse(json['validUntil'] ?? DateTime.now().add(const Duration(days: 30)).toIso8601String());
+      } catch (e) {
+        validUntilDate = DateTime.now().add(const Duration(days: 30));
+      }
+      
+      // Handle images array safely
+      List<String> imagesList = [];
+      if (json['images'] != null && json['images'] is List) {
+        imagesList = List<String>.from(json['images']);
+      } else if (json['imageUrl'] != null) {
+        imagesList = [json['imageUrl'].toString()];
+      }
+      
+      return Deal(
+        id: dealId,
+        title: json['title']?.toString() ?? '',
+        description: json['description']?.toString() ?? '',
+        discount: json['discount']?.toString() ?? '0%',
+        placeName: json['placeName']?.toString() ?? json['businessName']?.toString() ?? '',
+        businessType: json['businessType']?.toString() ?? json['category']?.toString() ?? 'general',
+        businessName: json['businessName']?.toString() ?? json['placeName']?.toString() ?? '',
+        images: imagesList,
+        validUntil: validUntilDate,
+        isActive: json['isActive'] ?? true,
+        views: (json['views'] as num?)?.toInt() ?? 0,
+        claims: (json['claims'] as num?)?.toInt() ?? 0,
+        merchantId: json['merchantId']?.toString(),
+        price: json['price'] != null ? PriceInfo.fromJson(json['price']) : null,
+        isPremium: json['isPremium'] ?? false,
+        // Legacy support
+        category: json['category']?.toString(),
+        imageUrl: json['imageUrl']?.toString(),
+        originalPrice: _parsePrice(json['originalPrice']),
+        discountedPrice: _parsePrice(json['discountedPrice']),
+        currency: json['currency']?.toString(),
+      );
+    } catch (e) {
+      print('Error parsing Deal from JSON: $e');
+      print('JSON data: $json');
+      rethrow;
+    }
   }
 
   Map<String, dynamic> toJson() {

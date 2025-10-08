@@ -83,16 +83,10 @@ class _SectionPlacesScreenState extends State<SectionPlacesScreen> {
                 ),
               ),
               
-              // Places Grid
+              // Places List
               Expanded(
-                child: GridView.builder(
+                child: ListView.builder(
                   padding: const EdgeInsets.symmetric(horizontal: 16),
-                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 2,
-                    childAspectRatio: 0.75,
-                    crossAxisSpacing: 12,
-                    mainAxisSpacing: 12,
-                  ),
                   itemCount: _places.length + (_hasMore ? 1 : 0),
                   itemBuilder: (context, index) {
                     if (index == _places.length) {
@@ -101,20 +95,24 @@ class _SectionPlacesScreenState extends State<SectionPlacesScreen> {
                     }
                     
                     final place = _places[index];
-                    return PlaceCard(
-                      place: place,
-                      isFavorite: appProvider.favoriteIds.contains(place.id),
-                      onFavoriteToggle: () async {
-                        await appProvider.toggleFavorite(place.id);
-                      },
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => PlaceDetailsScreen(place: place),
-                          ),
-                        );
-                      },
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 16),
+                      child: PlaceCard(
+                        place: place,
+                        compact: false, // Use full card
+                        isFavorite: appProvider.favoriteIds.contains(place.id),
+                        onFavoriteToggle: () async {
+                          await appProvider.toggleFavorite(place.id);
+                        },
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => PlaceDetailsScreen(place: place),
+                            ),
+                          );
+                        },
+                      ),
                     );
                   },
                 ),
@@ -127,35 +125,38 @@ class _SectionPlacesScreenState extends State<SectionPlacesScreen> {
   }
 
   Widget _buildLoadMoreButton(AppProvider appProvider) {
-    return Card(
-      child: InkWell(
-        onTap: _isLoading ? null : () => _loadMorePlaces(appProvider),
-        child: Container(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              if (_isLoading)
-                const CircularProgressIndicator()
-              else ...[
-                const Icon(Icons.add, size: 32, color: Colors.grey),
-                const SizedBox(height: 8),
-                const Text(
-                  'Load More',
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    color: Colors.grey,
+    return Container(
+      margin: const EdgeInsets.only(bottom: 100), // Add bottom margin for navigation
+      child: Card(
+        child: InkWell(
+          onTap: _isLoading ? null : () => _loadMorePlaces(appProvider),
+          child: Container(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                if (_isLoading)
+                  const CircularProgressIndicator()
+                else ...[
+                  const Icon(Icons.add, size: 32, color: Colors.grey),
+                  const SizedBox(height: 8),
+                  const Text(
+                    'Load More',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: Colors.grey,
+                    ),
                   ),
-                ),
-                Text(
-                  '10 more places',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: Colors.grey[600],
+                  Text(
+                    '${_hasMore ? "More places" : "No more places"}',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.grey[600],
+                    ),
                   ),
-                ),
+                ],
               ],
-            ],
+            ),
           ),
         ),
       ),
@@ -176,10 +177,14 @@ class _SectionPlacesScreenState extends State<SectionPlacesScreen> {
       );
       
       if (newPlaces.isNotEmpty) {
+        // Deduplicate places by ID
+        final existingIds = _places.map((p) => p.id).toSet();
+        final uniqueNewPlaces = newPlaces.where((p) => !existingIds.contains(p.id)).toList();
+        
         setState(() {
-          _places.addAll(newPlaces);
+          _places.addAll(uniqueNewPlaces);
           _currentPage++;
-          _hasMore = newPlaces.length >= 10;
+          _hasMore = uniqueNewPlaces.length >= 5; // Adjusted threshold
         });
       } else {
         setState(() {

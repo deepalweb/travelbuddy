@@ -38,95 +38,102 @@ class PlaceCard extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Image
-        Container(
-          height: 120,
-          width: double.infinity,
-          decoration: BoxDecoration(
-            color: Colors.grey[300],
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
-          ),
-          child: Stack(
-            children: [
-              if (place.photoUrl.isNotEmpty)
-                ClipRRect(
-                  borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
-                  child: Image.network(
-                    place.photoUrl,
-                    width: double.infinity,
-                    height: 120,
-                    fit: BoxFit.cover,
-                    loadingBuilder: (context, child, loadingProgress) {
-                      if (loadingProgress == null) return child;
-                      return Container(
-                        width: double.infinity,
-                        height: 120,
-                        color: Colors.grey[200],
-                        child: const Center(
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        ),
-                      );
-                    },
-                    errorBuilder: (context, error, stackTrace) {
-                      return _buildPlaceholder();
-                    },
+        Expanded(
+          flex: 3,
+          child: Container(
+            width: double.infinity,
+            decoration: BoxDecoration(
+              color: Colors.grey[300],
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
+              image: place.photoUrl.isNotEmpty
+                  ? DecorationImage(
+                      image: NetworkImage(place.photoUrl),
+                      fit: BoxFit.cover,
+                      onError: (_, __) {},
+                    )
+                  : null,
+            ),
+            child: Stack(
+              children: [
+                if (place.photoUrl.isEmpty)
+                  Center(
+                    child: Icon(Icons.place, size: 32, color: Colors.grey[600]),
                   ),
-                )
-              else
-                _buildPlaceholder(),
-              
-              // Favorite Button
-              Positioned(
-                top: 8,
-                right: 8,
-                child: GestureDetector(
-                  onTap: onFavoriteToggle,
-                  child: Container(
-                    padding: const EdgeInsets.all(6),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.9),
-                      shape: BoxShape.circle,
-                    ),
-                    child: Icon(
-                      isFavorite ? Icons.favorite : Icons.favorite_border,
-                      color: isFavorite ? Colors.red : Colors.grey,
-                      size: 16,
+                // Favorite Button
+                Positioned(
+                  top: 8,
+                  right: 8,
+                  child: GestureDetector(
+                    onTap: onFavoriteToggle,
+                    child: Container(
+                      padding: const EdgeInsets.all(4),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.9),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(
+                        isFavorite ? Icons.favorite : Icons.favorite_border,
+                        color: isFavorite ? Colors.red : Colors.grey,
+                        size: 14,
+                      ),
                     ),
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
-        
-        // Content - Dynamic height
-        Padding(
-          padding: const EdgeInsets.all(8),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                place.name,
-                style: const TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 10,
-                ),
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-              ),
-              const SizedBox(height: 4),
-              Row(
-                children: [
-                  const Icon(Icons.star, color: Colors.amber, size: 10),
-                  const SizedBox(width: 2),
-                  Text(
-                    place.rating.toStringAsFixed(1),
-                    style: const TextStyle(fontSize: 9),
+        Expanded(
+          flex: 2,
+          child: Padding(
+            padding: const EdgeInsets.all(8),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  place.name,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 14,
                   ),
-                ],
-              ),
-            ],
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 6),
+                Row(
+                  children: [
+                    Icon(Icons.star, size: 14, color: Colors.amber),
+                    const SizedBox(width: 4),
+                    Text(
+                      place.rating.toStringAsFixed(1),
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    const Spacer(),
+                    if (place.description.contains('km away'))
+                      Text(
+                        place.description.split('•').last.trim(),
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: Colors.grey[600],
+                        ),
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  place.type,
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: Colors.grey[600],
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
           ),
         ),
       ],
@@ -215,68 +222,36 @@ class PlaceCard extends StatelessWidget {
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 4),
               
-              // Enhanced Rating, Distance, and Context Info
-              Wrap(
-                spacing: 6,
-                runSpacing: 4,
+              // Rating and Distance - Compact
+              Row(
                 children: [
-                  // Rating
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: Colors.amber[50],
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: Colors.amber[200]!),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Icon(Icons.star, color: Colors.amber, size: 14),
-                        const SizedBox(width: 2),
-                        Text(
-                          place.rating.toStringAsFixed(1),
-                          style: const TextStyle(
-                            fontWeight: FontWeight.w600,
-                            fontSize: 14,
-                          ),
-                        ),
-                      ],
+                  const Icon(Icons.star, color: Colors.amber, size: 16),
+                  const SizedBox(width: 4),
+                  Text(
+                    place.rating.toStringAsFixed(1),
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w600,
+                      fontSize: 14,
                     ),
                   ),
-                  // Distance
-                  if (place.description.contains('km away'))
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: Colors.blue[50],
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(Icons.directions_walk, size: 12, color: Colors.blue[600]),
-                          const SizedBox(width: 2),
-                          Text(
-                            place.description.split('•').last.trim(),
-                            style: TextStyle(
-                              fontSize: 11,
-                              color: Colors.blue[700],
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        ],
+                  if (place.description.contains('km away')) ...[
+                    const SizedBox(width: 12),
+                    Icon(Icons.directions_walk, size: 14, color: Colors.grey[600]),
+                    const SizedBox(width: 4),
+                    Text(
+                      place.description.split('•').last.trim(),
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.grey[600],
                       ),
                     ),
-                  // Estimated Time
-                  _buildEstimatedTime(),
-                  // Price Range (if available)
-                  _buildPriceRange(),
+                  ],
                 ],
               ),
               
-              const SizedBox(height: 8),
+              const SizedBox(height: 6),
               
               // Address
               Row(
@@ -300,164 +275,35 @@ class PlaceCard extends StatelessWidget {
                 ],
               ),
               
-              const SizedBox(height: 8),
-              
-              // Description with useful info
+              // Description - Compact
               if (place.description.isNotEmpty)
                 Text(
                   place.description.split('•').first.trim(),
                   style: TextStyle(
                     color: Color(AppConstants.colors['textSecondary']!),
-                    fontSize: 15,
-                    height: 1.3,
+                    fontSize: 13,
                   ),
-                  maxLines: 2,
+                  maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
               
               const SizedBox(height: 8),
               
-              // Type, Local Tip, and AI Context
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: Color(AppConstants.colors['primary']!).withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Text(
-                          place.type,
-                          style: TextStyle(
-                            color: Color(AppConstants.colors['primary']!),
-                            fontSize: 11,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ),
-                      if (place.localTip.isNotEmpty) ...[
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: Colors.green[50],
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Row(
-                              children: [
-                                Icon(Icons.lightbulb_outline, size: 12, color: Colors.green[600]),
-                                const SizedBox(width: 4),
-                                Expanded(
-                                  child: Text(
-                                    place.localTip,
-                                    style: TextStyle(
-                                      fontSize: 10,
-                                      color: Colors.green[700],
-                                    ),
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ]
-                    ],
+              // Simple Action Button
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: onTap,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Color(AppConstants.colors['primary']!),
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    padding: const EdgeInsets.symmetric(vertical: 10),
                   ),
-                  const SizedBox(height: 6),
-                  // AI-Enhanced Context
-                  _buildAIContext(),
-                ],
-              ),
-              
-              const SizedBox(height: 12),
-              
-              // Enhanced Action Buttons
-              Column(
-                children: [
-                  // Primary Actions
-                  Row(
-                    children: [
-                      Expanded(
-                        child: ElevatedButton.icon(
-                          onPressed: onTap,
-                          icon: const Icon(Icons.info_outline, size: 16),
-                          label: const Text('Details', style: TextStyle(fontSize: 16)),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Color(AppConstants.colors['primary']!),
-                            foregroundColor: Colors.white,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            padding: const EdgeInsets.symmetric(vertical: 8),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: OutlinedButton.icon(
-                          onPressed: () {
-                            showDialog(
-                              context: context,
-                              builder: (dialogContext) => AddToTripDialog(place: place),
-                            );
-                          },
-                          icon: const Icon(Icons.add_location, size: 16),
-                          label: const Text('Add Trip', style: TextStyle(fontSize: 16)),
-                          style: OutlinedButton.styleFrom(
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            padding: const EdgeInsets.symmetric(vertical: 8),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  // Quick Action Buttons
-                  Row(
-                    children: [
-                      Expanded(
-                        child: _buildQuickAction(
-                          context,
-                          Icons.thumb_down_outlined,
-                          'Not Interested',
-                          Colors.red[100]!,
-                          Colors.red[700]!,
-                          () => _handleNotInterested(context),
-                        ),
-                      ),
-                      const SizedBox(width: 6),
-                      Expanded(
-                        child: _buildQuickAction(
-                          context,
-                          Icons.bookmark_outline,
-                          'Save Later',
-                          Colors.blue[100]!,
-                          Colors.blue[700]!,
-                          () => _handleSaveForLater(context),
-                        ),
-                      ),
-                      const SizedBox(width: 6),
-                      Expanded(
-                        child: _buildQuickAction(
-                          context,
-                          Icons.check_circle_outline,
-                          'Been Here',
-                          Colors.green[100]!,
-                          Colors.green[700]!,
-                          () => _handleBeenHere(context),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
+                  child: const Text('View Details'),
+                ),
               ),
             ],
           ),
@@ -703,4 +549,6 @@ class PlaceCard extends StatelessWidget {
     
     return '';
   }
+  
+
 }

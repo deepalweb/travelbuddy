@@ -91,6 +91,7 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
   int _selectedRadius = 20000;
   bool _hasMorePlaces = true;
   int _currentPage = 1;
+  bool _showFavoritesOnly = false;
 
   // Trips State
   List<TripPlan> _tripPlans = [];
@@ -135,6 +136,7 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
   int get selectedRadius => _selectedRadius;
   bool get hasMorePlaces => _hasMorePlaces;
   int get currentPage => _currentPage;
+  bool get showFavoritesOnly => _showFavoritesOnly;
   
   List<TripPlan> get tripPlans => _tripPlans;
   List<OneDayItinerary> get itineraries => _itineraries;
@@ -1176,7 +1178,7 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
         final seen = <String>{};
         places = allPlaces
             .where((place) {
-              final key = place.id.isNotEmpty ? place.id : place.name;
+              final key = place.id.isNotEmpty ? place.id : '${place.name}_${place.latitude}_${place.longitude}';
               if (seen.contains(key)) return false;
               seen.add(key);
               return place.rating >= 3.5; // Only show well-rated places
@@ -1388,6 +1390,8 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
         return _expandKeywords(['parks', 'nature']);
       case 'shopping':
         return _expandKeywords(['shopping', 'markets']);
+      case 'spa':
+        return _expandKeywords(['spa', 'wellness']);
       case 'all':
       default:
         return _expandKeywords(['attractions']);
@@ -1437,6 +1441,10 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
           break;
         case 'fine dining':
           expanded.addAll(['fine dining', 'upscale restaurant', 'gourmet']);
+          break;
+        case 'spa':
+        case 'wellness':
+          expanded.addAll(['spa', 'wellness center', 'massage', 'beauty salon']);
           break;
         default:
           expanded.add(keyword);
@@ -1614,6 +1622,7 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
         _loadCultureAndMuseums(),
         _loadOutdoorAndNature(),
         _loadShoppingAndMarkets(),
+        _loadSpaAndWellness(),
       ]);
       
       _placeSections = sections.where((s) => s.places.isNotEmpty).toList();
@@ -1691,6 +1700,19 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
     );
   }
   
+  Future<PlaceSection> _loadSpaAndWellness() async {
+    final places = await _fetchPlacesForSection('spa wellness massage therapy beauty salon', 5);
+    return PlaceSection(
+      id: 'spa',
+      title: 'SPA & Wellness',
+      subtitle: 'Spas, wellness centers, massage therapy',
+      emoji: '🧘‍♀️',
+      places: places,
+      category: 'spa',
+      query: 'spa wellness massage therapy beauty salon',
+    );
+  }
+  
   Future<List<Place>> _fetchPlacesForSection(String query, int count) async {
     try {
       final placesService = PlacesService();
@@ -1743,8 +1765,52 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
   // Load more places for a specific section
   Future<List<Place>> loadMoreForSection(String sectionId, int page) async {
     final section = _placeSections.firstWhere((s) => s.id == sectionId);
-    final places = await _fetchPlacesForSection(section.query, 10);
-    return places;
+    
+    // Use proper pagination with offset
+    final placesService = PlacesService();
+    final offset = (page - 1) * 10; // Calculate offset based on page
+    
+    final places = await placesService.fetchPlacesPipeline(
+      latitude: _currentLocation!.latitude,
+      longitude: _currentLocation!.longitude,
+      query: section.query,
+      radius: _selectedRadius,
+      topN: 10,
+      offset: offset,
+    );
+    
+    // Filter by rating and add distance
+    final filteredPlaces = places.where((p) => p.rating >= 3.5).toList();
+    
+    // Add distance info
+    for (int i = 0; i < filteredPlaces.length; i++) {
+      final place = filteredPlaces[i];
+      final distance = Geolocator.distanceBetween(
+        _currentLocation!.latitude,
+        _currentLocation!.longitude,
+        place.latitude ?? 0.0,
+        place.longitude ?? 0.0,
+      );
+      final distanceKm = (distance / 1000).toStringAsFixed(1);
+      
+      filteredPlaces[i] = Place(
+        id: place.id,
+        name: place.name,
+        address: place.address,
+        latitude: place.latitude,
+        longitude: place.longitude,
+        rating: place.rating,
+        type: place.type,
+        photoUrl: place.photoUrl,
+        description: '${place.description} • ${distanceKm}km away',
+        localTip: place.localTip,
+        handyPhrase: place.handyPhrase,
+        phoneNumber: place.phoneNumber,
+        website: place.website,
+      );
+    }
+    
+    return filteredPlaces;
   }
 
   Future<void> searchPlaces(String query) async {
@@ -1787,6 +1853,23 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
     _storageService.setSelectedRadius(radius);
     notifyListeners();
     loadNearbyPlaces();
+  }
+
+  void setShowFavoritesOnly() {
+    _showFavoritesOnly = true;
+    notifyListeners();
+  }
+
+  void clearFavoritesFilter() {
+    _showFavoritesOnly = false;
+    notifyListeners();
+  }
+
+  List<Place> get filteredPlaces {
+    if (_showFavoritesOnly) {
+      return _places.where((place) => _favoriteIds.contains(place.id)).toList();
+    }
+    return _places;
   }
 
   // Trip Methods
@@ -1928,36 +2011,20 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
     notifyListeners();
 
     try {
-      List<Deal> deals = [];
-      
-      // Skip real API for now - endpoint not available
-      print('⚠️ Skipping real deals API - endpoint not implemented');
-      
-      // Skip fallback deals service too - not needed for places-based deals page
-      print('⚠️ Skipping fallback deals service - using places data instead');
-      _deals = [];
+      // Try real deals API first
+      final realDeals = await DealsService.getActiveDeals();
+      if (realDeals.isNotEmpty) {
+        _deals = realDeals;
+        print('✅ Loaded ${realDeals.length} REAL deals from backend');
+      } else {
+        print('⚠️ No real deals found, using mock data');
+        _deals = [];
+      }
       
     } catch (e) {
       print('❌ Error loading deals: $e');
       _dealsError = 'Failed to load deals: ${e.toString()}';
-      // Final fallback to inline mock deals
-      _deals = [
-        Deal(
-          id: 'mock_deal_1',
-          title: '50% Off Local Restaurant',
-          description: 'Great dining experience with local cuisine',
-          discount: '50% OFF',
-          placeName: 'Local Bistro',
-          businessType: 'restaurant',
-          businessName: 'Local Bistro',
-          images: ['https://via.placeholder.com/300x200'],
-          validUntil: DateTime.now().add(const Duration(days: 7)),
-          views: 150,
-          claims: 12,
-          price: PriceInfo(amount: 25.0, currencyCode: 'USD'),
-        ),
-      ];
-      print('🎭 Loaded final fallback mock deals');
+      _deals = [];
     } finally {
       _isDealsLoading = false;
       notifyListeners();

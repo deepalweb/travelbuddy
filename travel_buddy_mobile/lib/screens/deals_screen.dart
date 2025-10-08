@@ -6,6 +6,7 @@ import '../models/place.dart';
 import '../screens/deal_detail_screen.dart';
 import '../services/places_service.dart';
 import '../services/location_service.dart';
+import '../services/deals_service.dart';
 
 class DealsScreen extends StatefulWidget {
   const DealsScreen({super.key});
@@ -16,19 +17,63 @@ class DealsScreen extends StatefulWidget {
 
 class _DealsScreenState extends State<DealsScreen> {
   String _selectedFilter = 'all';
+  List<Deal> _deals = [];
   List<Place> _places = [];
+  bool _isLoadingDeals = false;
   bool _isLoadingPlaces = false;
+  String? _dealsError;
   String? _placesError;
   Map<String, int> _categoryLimits = {};
   int _allDealsLimit = 12;
   static const int _initialLimit = 4;
+  bool _useRealDeals = true; // Toggle between real deals and place-based deals
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _loadRealPlacesData();
+      _loadDealsData();
     });
+  }
+  
+  Future<void> _loadDealsData() async {
+    if (_useRealDeals) {
+      await _loadRealDeals();
+    } else {
+      await _loadRealPlacesData();
+    }
+  }
+  
+  Future<void> _loadRealDeals() async {
+    setState(() {
+      _isLoadingDeals = true;
+      _dealsError = null;
+    });
+    
+    try {
+      print('🎯 Loading real deals from API...');
+      final deals = await DealsService.getActiveDeals();
+      
+      setState(() {
+        _deals = deals;
+        _isLoadingDeals = false;
+      });
+      
+      print('✅ Loaded ${deals.length} real deals');
+      if (deals.isNotEmpty) {
+        print('🎉 Real deals API is working! First deal: ${deals.first.title}');
+      }
+    } catch (e) {
+      print('❌ Error loading real deals: $e');
+      setState(() {
+        _dealsError = e.toString();
+        _isLoadingDeals = false;
+        _useRealDeals = false; // Fallback to places-based deals
+      });
+      
+      // Fallback to places-based deals
+      await _loadRealPlacesData();
+    }
   }
   
   Future<void> _loadRealPlacesData() async {
@@ -125,7 +170,23 @@ class _DealsScreenState extends State<DealsScreen> {
             actions: [
               IconButton(
                 icon: const Icon(Icons.refresh),
-                onPressed: _loadRealPlacesData,
+                onPressed: _loadDealsData,
+              ),
+              PopupMenuButton<String>(
+                onSelected: (value) {
+                  if (value == 'toggle_source') {
+                    setState(() {
+                      _useRealDeals = !_useRealDeals;
+                    });
+                    _loadDealsData();
+                  }
+                },
+                itemBuilder: (context) => [
+                  PopupMenuItem(
+                    value: 'toggle_source',
+                    child: Text(_useRealDeals ? 'Use Places Data' : 'Use Real Deals'),
+                  ),
+                ],
               ),
             ],
           ),
@@ -150,7 +211,7 @@ class _DealsScreenState extends State<DealsScreen> {
                       selected: isSelected,
                       onSelected: (selected) {
                         setState(() => _selectedFilter = filter);
-                        _loadRealPlacesData();
+                        _loadDealsData();
                       },
                       backgroundColor: isSelected ? Color(AppConstants.colors['primary']!) : Colors.white,
                       selectedColor: Color(AppConstants.colors['primary']!),
@@ -165,7 +226,7 @@ class _DealsScreenState extends State<DealsScreen> {
               // Deals Content
               Expanded(
                 child: RefreshIndicator(
-                  onRefresh: _loadRealPlacesData,
+                  onRefresh: _loadDealsData,
                   child: _buildDealsContent(appProvider),
                 ),
               ),
@@ -177,20 +238,25 @@ class _DealsScreenState extends State<DealsScreen> {
   }
 
   Widget _buildDealsContent(AppProvider appProvider) {
-    if (_isLoadingPlaces) {
-      return const Center(
+    if (_isLoadingDeals || _isLoadingPlaces) {
+      return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            CircularProgressIndicator(),
-            SizedBox(height: 16),
-            Text('Finding the best deals for you...'),
+            const CircularProgressIndicator(),
+            const SizedBox(height: 16),
+            Text(_useRealDeals ? 'Loading real deals...' : 'Finding the best deals for you...'),
+            if (_useRealDeals) ...[
+              const SizedBox(height: 8),
+              const Text('Using real deals API', style: TextStyle(color: Colors.green, fontSize: 12)),
+            ]
           ],
         ),
       );
     }
 
-    if (_placesError != null) {
+    final error = _useRealDeals ? _dealsError : _placesError;
+    if (error != null) {
       return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -199,15 +265,20 @@ class _DealsScreenState extends State<DealsScreen> {
             const SizedBox(height: 16),
             const Text('Failed to load deals', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
             const SizedBox(height: 8),
-            Text(_placesError!, textAlign: TextAlign.center),
+            Text(error, textAlign: TextAlign.center),
             const SizedBox(height: 16),
             ElevatedButton(
-              onPressed: () => _loadRealPlacesData(),
+              onPressed: () => _loadDealsData(),
               child: const Text('Retry'),
             ),
           ],
         ),
       );
+    }
+
+    // Use real deals if available, otherwise use places-based deals
+    if (_useRealDeals && _deals.isNotEmpty) {
+      return _buildRealDealsContent();
     }
 
     final filteredPlaces = _getFilteredPlaces(_places);
@@ -696,6 +767,190 @@ class _DealsScreenState extends State<DealsScreen> {
         _isLoadingPlaces = false;
       });
     }
+  }
+  
+  Widget _buildRealDealsContent() {
+    final filteredDeals = _getFilteredDeals(_deals);
+    
+    return ListView(
+      padding: const EdgeInsets.all(16),
+      children: [
+        Row(
+          children: [
+            Text(
+              'Real Deals (${filteredDeals.length} available)',
+              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(width: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+              decoration: BoxDecoration(
+                color: Colors.green,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const Text(
+                'LIVE',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
+        GridView.builder(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: 2,
+            childAspectRatio: 0.8,
+            crossAxisSpacing: 12,
+            mainAxisSpacing: 12,
+          ),
+          itemCount: filteredDeals.length,
+          itemBuilder: (context, index) => _buildRealDealCard(filteredDeals[index]),
+        ),
+      ],
+    );
+  }
+  
+  Widget _buildRealDealCard(Deal deal) {
+    return Card(
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: () => _showDealDetails(deal),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: Stack(
+                children: [
+                  Container(
+                    width: double.infinity,
+                    color: Colors.grey[300],
+                    child: deal.images.isNotEmpty
+                        ? Image.network(
+                            deal.images.first,
+                            fit: BoxFit.cover,
+                            loadingBuilder: (context, child, loadingProgress) {
+                              if (loadingProgress == null) return child;
+                              return const Center(
+                                child: CircularProgressIndicator(strokeWidth: 2),
+                              );
+                            },
+                            errorBuilder: (context, error, stackTrace) => 
+                                _buildPlaceholderImage(deal.businessType),
+                          )
+                        : _buildPlaceholderImage(deal.businessType),
+                  ),
+                  Positioned(
+                    top: 8,
+                    right: 8,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: Colors.red,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        deal.discount,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ),
+                  if (deal.isPremium)
+                    Positioned(
+                      top: 8,
+                      left: 8,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: Colors.amber,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: const Text(
+                          'PREMIUM',
+                          style: TextStyle(
+                            color: Colors.black,
+                            fontSize: 8,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.all(8),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    deal.title,
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  Text(
+                    'at ${deal.businessName}',
+                    style: TextStyle(
+                      color: Color(AppConstants.colors['textSecondary']!),
+                      fontSize: 10,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  Row(
+                    children: [
+                      const Icon(Icons.local_offer, color: Colors.green, size: 12),
+                      Text(
+                        ' \$${deal.price?.amount.toInt() ?? 25}',
+                        style: const TextStyle(fontSize: 10, color: Colors.green, fontWeight: FontWeight.bold),
+                      ),
+                      const Spacer(),
+                      const Icon(Icons.visibility, color: Colors.grey, size: 12),
+                      Text(
+                        ' ${deal.views}',
+                        style: const TextStyle(fontSize: 10, color: Colors.grey),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+  
+  List<Deal> _getFilteredDeals(List<Deal> deals) {
+    if (_selectedFilter == 'all') return deals;
+    
+    return deals.where((deal) {
+      final businessType = deal.businessType.toLowerCase();
+      switch (_selectedFilter) {
+        case 'restaurant':
+          return businessType.contains('restaurant');
+        case 'hotel':
+          return businessType.contains('hotel');
+        case 'cafe':
+          return businessType.contains('cafe');
+        case 'shop':
+          return businessType.contains('shop') || businessType.contains('store');
+        case 'attraction':
+          return businessType.contains('attraction') || businessType.contains('museum');
+        default:
+          return true;
+      }
+    }).toList();
   }
   
   void _showDealDetails(Deal deal) {

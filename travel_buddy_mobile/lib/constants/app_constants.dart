@@ -87,6 +87,7 @@ class AppConstants {
     {'value': 'culture', 'label': 'Culture & Museums'},
     {'value': 'nature', 'label': 'Outdoor & Nature'},
     {'value': 'shopping', 'label': 'Shopping & Markets'},
+    {'value': 'spa', 'label': 'SPA & Wellness'},
   ];
   
   // App Theme Colors

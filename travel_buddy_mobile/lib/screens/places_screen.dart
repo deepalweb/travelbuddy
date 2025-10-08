@@ -56,147 +56,160 @@ class _PlacesScreenState extends State<PlacesScreen> {
       builder: (context, appProvider, child) {
         return Scaffold(
           appBar: AppBar(
-            title: const Text('Explore Places'),
+            title: Text(appProvider.showFavoritesOnly ? 'Favorite Places' : 'Explore Places'),
+            leading: appProvider.showFavoritesOnly 
+                ? IconButton(
+                    icon: const Icon(Icons.arrow_back),
+                    onPressed: () {
+                      appProvider.clearFavoritesFilter();
+                    },
+                  )
+                : null,
             actions: [
-              IconButton(
-                icon: const Icon(Icons.filter_list),
-                onPressed: () => _showFilterBottomSheet(context, appProvider),
-              ),
+              if (!appProvider.showFavoritesOnly)
+                IconButton(
+                  icon: const Icon(Icons.filter_list),
+                  onPressed: () => _showFilterBottomSheet(context, appProvider),
+                ),
             ],
           ),
           body: Column(
             children: [
-              // Personalized Header
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      _getPersonalizedGreeting(appProvider),
-                      style: const TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w600,
+              // Personalized Header (hide in favorites mode)
+              if (!appProvider.showFavoritesOnly)
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        _getPersonalizedGreeting(appProvider),
+                        style: const TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 8),
-                    if (_getSmartSuggestion().isNotEmpty)
-                      GestureDetector(
-                        onTap: () => _applySuggestionFilter(appProvider),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                          decoration: BoxDecoration(
-                            color: Colors.blue[50],
-                            borderRadius: BorderRadius.circular(20),
-                            border: Border.all(color: Colors.blue[200]!),
-                          ),
-                          child: Text(
-                            _getSmartSuggestion(),
-                            style: TextStyle(
-                              fontSize: 13,
-                              color: Colors.blue[700],
-                              fontWeight: FontWeight.w500,
+                      const SizedBox(height: 8),
+                      if (_getSmartSuggestion().isNotEmpty)
+                        GestureDetector(
+                          onTap: () => _applySuggestionFilter(appProvider),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                            decoration: BoxDecoration(
+                              color: Colors.blue[50],
+                              borderRadius: BorderRadius.circular(20),
+                              border: Border.all(color: Colors.blue[200]!),
                             ),
-                          ),
-                        ),
-                      ),
-                  ],
-                ),
-              ),
-              
-              // Search Bar
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: SearchBarWidget(
-                  controller: _searchController,
-                  onSearch: (query) {
-                    print('🔍 Search submitted: "$query"');
-                    if (query.trim().isNotEmpty) {
-                      // Show search results instantly
-                      appProvider.performInstantSearch(query.trim());
-                    } else {
-                      // Clear search - show sections
-                      appProvider.clearSearchAndShowSections();
-                    }
-                  },
-                ),
-              ),
-              
-              // Smart category filter with time-based suggestions
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.center,
-                      children: [
-                        Text(
-                          'Categories',
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
-                            color: Color(AppConstants.colors['text']!),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        if (_getTimeBasedSuggestion().isNotEmpty)
-                          Flexible(
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                              decoration: BoxDecoration(
-                                color: Colors.orange[100],
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: Text(
-                                _getTimeBasedSuggestion(),
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  color: Colors.orange[800],
-                                  fontWeight: FontWeight.w500,
-                                ),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
+                            child: Text(
+                              _getSmartSuggestion(),
+                              style: TextStyle(
+                                fontSize: 13,
+                                color: Colors.blue[700],
+                                fontWeight: FontWeight.w500,
                               ),
                             ),
                           ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                  ],
+                        ),
+                    ],
+                  ),
                 ),
-              ),
-              SizedBox(
-                height: 40,
-                child: ListView.builder(
-                  scrollDirection: Axis.horizontal,
+              
+              // Search Bar (hide in favorites mode)
+              if (!appProvider.showFavoritesOnly)
+                Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 16),
-                  itemCount: AppConstants.placeCategories.length,
-                  itemBuilder: (context, index) {
-                    final category = AppConstants.placeCategories[index];
-                    final isSelected = appProvider.selectedCategory == category['value'];
-                    
-                    return Padding(
-                      padding: const EdgeInsets.only(right: 8),
-                      child: FilterChip(
-                        label: Text(
-                          category['label']!,
-                          style: const TextStyle(fontSize: 13),
-                        ),
-                        selected: isSelected,
-                        onSelected: (selected) {
-                          appProvider.setSelectedCategory(category['value']!);
-                        },
-                        selectedColor: Color(AppConstants.colors['primary']!).withOpacity(0.2),
-                        checkmarkColor: Color(AppConstants.colors['primary']!),
-                        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                        visualDensity: VisualDensity.compact,
-                      ),
-                    );
-                  },
+                  child: SearchBarWidget(
+                    controller: _searchController,
+                    onSearch: (query) {
+                      print('🔍 Search submitted: "$query"');
+                      if (query.trim().isNotEmpty) {
+                        // Show search results instantly
+                        appProvider.performInstantSearch(query.trim());
+                      } else {
+                        // Clear search - show sections
+                        appProvider.clearSearchAndShowSections();
+                      }
+                    },
+                  ),
                 ),
-              ),
+              
+              // Smart category filter with time-based suggestions (hide in favorites mode)
+              if (!appProvider.showFavoritesOnly)
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          Text(
+                            'Categories',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                              color: Color(AppConstants.colors['text']!),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          if (_getTimeBasedSuggestion().isNotEmpty)
+                            Flexible(
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                decoration: BoxDecoration(
+                                  color: Colors.orange[100],
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: Text(
+                                  _getTimeBasedSuggestion(),
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    color: Colors.orange[800],
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                    ],
+                  ),
+                ),
+              if (!appProvider.showFavoritesOnly)
+                SizedBox(
+                  height: 40,
+                  child: ListView.builder(
+                    scrollDirection: Axis.horizontal,
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    itemCount: AppConstants.placeCategories.length,
+                    itemBuilder: (context, index) {
+                      final category = AppConstants.placeCategories[index];
+                      final isSelected = appProvider.selectedCategory == category['value'];
+                      
+                      return Padding(
+                        padding: const EdgeInsets.only(right: 8),
+                        child: FilterChip(
+                          label: Text(
+                            category['label']!,
+                            style: const TextStyle(fontSize: 13),
+                          ),
+                          selected: isSelected,
+                          onSelected: (selected) {
+                            appProvider.setSelectedCategory(category['value']!);
+                          },
+                          selectedColor: Color(AppConstants.colors['primary']!).withOpacity(0.2),
+                          checkmarkColor: Color(AppConstants.colors['primary']!),
+                          materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          visualDensity: VisualDensity.compact,
+                        ),
+                      );
+                    },
+                  ),
+                ),
               
               const SizedBox(height: 20),
               
@@ -282,20 +295,25 @@ class _PlacesScreenState extends State<PlacesScreen> {
                   ),
                 ),
               
-              // Search Results or Sectioned Places List
+              // Search Results, Sectioned Places List, or Favorites List
               Expanded(
                 child: RefreshIndicator(
                   onRefresh: () async {
-                    if (_searchController.text.isNotEmpty) {
+                    if (appProvider.showFavoritesOnly) {
+                      // Refresh favorites by reloading places
+                      await appProvider.loadNearbyPlaces();
+                    } else if (_searchController.text.isNotEmpty) {
                       await appProvider.performInstantSearch(_searchController.text.trim());
                     } else {
                       await appProvider.forceRefreshPlaces();
                       await appProvider.loadPlaceSections();
                     }
                   },
-                  child: _searchController.text.isNotEmpty 
-                      ? _buildSearchResults(appProvider)
-                      : _buildSectionedPlacesList(appProvider),
+                  child: appProvider.showFavoritesOnly
+                      ? _buildFavoritesList(appProvider)
+                      : _searchController.text.isNotEmpty 
+                          ? _buildSearchResults(appProvider)
+                          : _buildSectionedPlacesList(appProvider),
                 ),
               ),
             ],
@@ -915,6 +933,104 @@ class _PlacesScreenState extends State<PlacesScreen> {
         // Search results list
         Expanded(
           child: _buildPlacesListView(appProvider),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildFavoritesList(AppProvider appProvider) {
+    final favoritePlaces = appProvider.filteredPlaces;
+    
+    if (favoritePlaces.isEmpty) {
+      return ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        children: [
+          SizedBox(height: MediaQuery.of(context).size.height * 0.3),
+          Center(
+            child: Column(
+              children: [
+                Icon(Icons.favorite_border, size: 64, color: Colors.grey[400]),
+                const SizedBox(height: 16),
+                const Text(
+                  'No Favorite Places Yet',
+                  style: TextStyle(fontSize: 18, color: Colors.grey),
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  'Start exploring and save places you love!',
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 16),
+                ElevatedButton.icon(
+                  onPressed: () {
+                    appProvider.clearFavoritesFilter();
+                  },
+                  icon: const Icon(Icons.explore),
+                  label: const Text('Explore Places'),
+                ),
+              ],
+            ),
+          ),
+        ],
+      );
+    }
+    
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Favorites header
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          child: Row(
+            children: [
+              Icon(Icons.favorite, color: Colors.red[600], size: 20),
+              const SizedBox(width: 8),
+              Text(
+                'Your Favorites (${favoritePlaces.length})',
+                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+            ],
+          ),
+        ),
+        // Favorites grid
+        Expanded(
+          child: CustomScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            slivers: [
+              SliverPadding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                sliver: SliverGrid(
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 2,
+                    childAspectRatio: 0.75,
+                    crossAxisSpacing: 12,
+                    mainAxisSpacing: 12,
+                  ),
+                  delegate: SliverChildBuilderDelegate(
+                    (context, index) {
+                      final place = favoritePlaces[index];
+                      return PlaceCard(
+                        place: place,
+                        compact: true,
+                        isFavorite: true, // All places in this list are favorites
+                        onFavoriteToggle: () async {
+                          await appProvider.toggleFavorite(place.id);
+                        },
+                        onTap: () {
+                          Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (context) => PlaceDetailsScreen(place: place),
+                            ),
+                          );
+                        },
+                      );
+                    },
+                    childCount: favoritePlaces.length,
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ],
     );
