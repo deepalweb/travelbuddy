@@ -185,6 +185,8 @@ class _PlannerScreenState extends State<PlannerScreen> {
     
     // Add trip plans (limit to display count)
     for (final plan in appProvider.tripPlans.take(_displayCount)) {
+      final statusInfo = _calculatePlanStatus(plan);
+      
       planWidgets.add(Card(
         margin: const EdgeInsets.only(bottom: 8),
         child: ListTile(
@@ -192,8 +194,20 @@ class _PlannerScreenState extends State<PlannerScreen> {
             backgroundColor: Colors.purple[100],
             child: Icon(Icons.map, color: Colors.purple[700]),
           ),
-          title: Text(plan.tripTitle ?? 'Trip Plan'),
-          subtitle: Text('${plan.destination} • ${plan.duration}'),
+          title: Row(
+            children: [
+              Expanded(child: Text(plan.tripTitle ?? 'Trip Plan')),
+              _buildStatusBadge(statusInfo),
+            ],
+          ),
+          subtitle: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('${plan.destination} • ${plan.duration}'),
+              const SizedBox(height: 4),
+              _buildProgressBar(statusInfo),
+            ],
+          ),
           trailing: PopupMenuButton<String>(
             icon: const Icon(Icons.more_vert, size: 20),
             onSelected: (value) => _handlePlanAction(value, plan, appProvider),
@@ -227,6 +241,8 @@ class _PlannerScreenState extends State<PlannerScreen> {
     
     // Add day itineraries (limit to display count)
     for (final itinerary in appProvider.itineraries.take(_displayCount)) {
+      final statusInfo = _calculateItineraryStatus(itinerary);
+      
       planWidgets.add(Card(
         margin: const EdgeInsets.only(bottom: 8),
         child: ListTile(
@@ -234,8 +250,20 @@ class _PlannerScreenState extends State<PlannerScreen> {
             backgroundColor: Colors.blue[100],
             child: Icon(Icons.today, color: Colors.blue[700]),
           ),
-          title: Text(itinerary.title),
-          subtitle: Text('Day itinerary • ${itinerary.dailyPlan.length} activities'),
+          title: Row(
+            children: [
+              Expanded(child: Text(itinerary.title)),
+              _buildStatusBadge(statusInfo),
+            ],
+          ),
+          subtitle: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Day itinerary • ${itinerary.dailyPlan.length} activities'),
+              const SizedBox(height: 4),
+              _buildProgressBar(statusInfo),
+            ],
+          ),
           trailing: PopupMenuButton<String>(
             icon: const Icon(Icons.more_vert, size: 20),
             onSelected: (value) => _handlePlanAction(value, itinerary, appProvider),
@@ -488,6 +516,120 @@ class _PlannerScreenState extends State<PlannerScreen> {
       return hours > 0 ? '${days}d ${hours}h' : '${days}d';
     }
     return '${totalHours}h';
+  }
+
+  Map<String, dynamic> _calculatePlanStatus(TripPlan plan) {
+    int totalActivities = 0;
+    int visitedActivities = 0;
+    
+    for (final day in plan.dailyPlans) {
+      for (final activity in day.activities) {
+        totalActivities++;
+        if (activity.isVisited) {
+          visitedActivities++;
+        }
+      }
+    }
+    
+    final progress = totalActivities > 0 ? visitedActivities / totalActivities : 0.0;
+    String status;
+    Color statusColor;
+    
+    if (progress == 0) {
+      status = 'Not Started';
+      statusColor = Colors.grey;
+    } else if (progress < 1.0) {
+      status = 'In Progress';
+      statusColor = Colors.orange;
+    } else {
+      status = 'Completed';
+      statusColor = Colors.green;
+    }
+    
+    return {
+      'total': totalActivities,
+      'visited': visitedActivities,
+      'progress': progress,
+      'status': status,
+      'color': statusColor,
+    };
+  }
+  
+  Map<String, dynamic> _calculateItineraryStatus(OneDayItinerary itinerary) {
+    int totalActivities = itinerary.dailyPlan.length;
+    int visitedActivities = 0;
+    
+    for (final activity in itinerary.dailyPlan) {
+      if (activity.isVisited) {
+        visitedActivities++;
+      }
+    }
+    
+    final progress = totalActivities > 0 ? visitedActivities / totalActivities : 0.0;
+    String status;
+    Color statusColor;
+    
+    if (progress == 0) {
+      status = 'Not Started';
+      statusColor = Colors.grey;
+    } else if (progress < 1.0) {
+      status = 'In Progress';
+      statusColor = Colors.orange;
+    } else {
+      status = 'Completed';
+      statusColor = Colors.green;
+    }
+    
+    return {
+      'total': totalActivities,
+      'visited': visitedActivities,
+      'progress': progress,
+      'status': status,
+      'color': statusColor,
+    };
+  }
+  
+  Widget _buildStatusBadge(Map<String, dynamic> statusInfo) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: statusInfo['color'].withOpacity(0.1),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: statusInfo['color'], width: 1),
+      ),
+      child: Text(
+        statusInfo['status'],
+        style: TextStyle(
+          fontSize: 10,
+          fontWeight: FontWeight.bold,
+          color: statusInfo['color'],
+        ),
+      ),
+    );
+  }
+  
+  Widget _buildProgressBar(Map<String, dynamic> statusInfo) {
+    return Row(
+      children: [
+        Expanded(
+          child: LinearProgressIndicator(
+            value: statusInfo['progress'],
+            backgroundColor: Colors.grey[300],
+            valueColor: AlwaysStoppedAnimation<Color>(statusInfo['color']),
+            minHeight: 4,
+          ),
+        ),
+        const SizedBox(width: 8),
+        Text(
+          '${statusInfo['visited']}/${statusInfo['total']}',
+          style: TextStyle(
+            fontSize: 11,
+            color: Colors.grey[600],
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+      ],
+    );
   }
 
   void _showHowToCreatePlans() {

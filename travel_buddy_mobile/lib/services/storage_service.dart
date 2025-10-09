@@ -515,6 +515,115 @@ class StorageService {
     await _prefs.setString('usage_$date', json.encode(usage));
   }
 
+  // Visit Status Methods
+  Future<void> updateActivityVisitStatus(String tripPlanId, String activityTitle, bool isVisited) async {
+    try {
+      // Update local storage
+      final tripPlan = _tripPlansBox.get(tripPlanId);
+      if (tripPlan != null) {
+        // Find and update the activity
+        for (final day in tripPlan.dailyPlans) {
+          for (int i = 0; i < day.activities.length; i++) {
+            if (day.activities[i].activityTitle == activityTitle) {
+              final updatedActivity = ActivityDetail(
+                timeOfDay: day.activities[i].timeOfDay,
+                activityTitle: day.activities[i].activityTitle,
+                description: day.activities[i].description,
+                fullAddress: day.activities[i].fullAddress,
+                rating: day.activities[i].rating,
+                duration: day.activities[i].duration,
+                estimatedCost: day.activities[i].estimatedCost,
+                isVisited: isVisited,
+                visitedDate: isVisited ? DateTime.now().toIso8601String() : null,
+              );
+              day.activities[i] = updatedActivity;
+            }
+          }
+        }
+        await _tripPlansBox.put(tripPlanId, tripPlan);
+      }
+      
+      // Update itinerary if it's a day plan
+      final itinerary = _itinerariesBox.values.firstWhere(
+        (itinerary) => itinerary.dailyPlan.any((activity) => activity.activityTitle == activityTitle),
+        orElse: () => OneDayItinerary(id: '', title: '', introduction: '', dailyPlan: [], conclusion: ''),
+      );
+      
+      if (itinerary.id.isNotEmpty) {
+        for (int i = 0; i < itinerary.dailyPlan.length; i++) {
+          if (itinerary.dailyPlan[i].activityTitle == activityTitle) {
+            final updatedActivity = ActivityDetail(
+              timeOfDay: itinerary.dailyPlan[i].timeOfDay,
+              activityTitle: itinerary.dailyPlan[i].activityTitle,
+              description: itinerary.dailyPlan[i].description,
+              fullAddress: itinerary.dailyPlan[i].fullAddress,
+              rating: itinerary.dailyPlan[i].rating,
+              duration: itinerary.dailyPlan[i].duration,
+              estimatedCost: itinerary.dailyPlan[i].estimatedCost,
+              isVisited: isVisited,
+              visitedDate: isVisited ? DateTime.now().toIso8601String() : null,
+            );
+            itinerary.dailyPlan[i] = updatedActivity;
+          }
+        }
+        await _itinerariesBox.put(itinerary.id, itinerary);
+      }
+      
+    } catch (e) {
+      print('❌ Error updating visit status: $e');
+    }
+  }
+  
+  Future<void> removeActivityFromPlan(String tripPlanId, String activityTitle) async {
+    try {
+      // Remove from trip plan
+      final tripPlan = _tripPlansBox.get(tripPlanId);
+      if (tripPlan != null) {
+        for (final day in tripPlan.dailyPlans) {
+          day.activities.removeWhere((activity) => activity.activityTitle == activityTitle);
+        }
+        await _tripPlansBox.put(tripPlanId, tripPlan);
+      }
+      
+      // Remove from itinerary
+      final itinerary = _itinerariesBox.values.firstWhere(
+        (itinerary) => itinerary.dailyPlan.any((activity) => activity.activityTitle == activityTitle),
+        orElse: () => OneDayItinerary(id: '', title: '', introduction: '', dailyPlan: [], conclusion: ''),
+      );
+      
+      if (itinerary.id.isNotEmpty) {
+        itinerary.dailyPlan.removeWhere((activity) => activity.activityTitle == activityTitle);
+        await _itinerariesBox.put(itinerary.id, itinerary);
+      }
+      
+    } catch (e) {
+      print('❌ Error removing activity: $e');
+    }
+  }
+  
+  Map<String, bool> getVisitStatusForPlan(String tripPlanId) {
+    final visitStatus = <String, bool>{};
+    
+    // Get from trip plan
+    final tripPlan = _tripPlansBox.get(tripPlanId);
+    if (tripPlan != null) {
+      for (final day in tripPlan.dailyPlans) {
+        for (final activity in day.activities) {
+          visitStatus[activity.activityTitle] = activity.isVisited;
+        }
+      }
+    }
+    
+    // Get from itineraries
+    for (final itinerary in _itinerariesBox.values) {
+      for (final activity in itinerary.dailyPlan) {
+        visitStatus[activity.activityTitle] = activity.isVisited;
+      }
+    }
+    
+    return visitStatus;
+  }
+
   // Clear all data
   Future<void> clearAllData() async {
     await _userBox.clear();

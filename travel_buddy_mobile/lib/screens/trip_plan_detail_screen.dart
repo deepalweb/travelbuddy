@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../models/trip.dart';
 import '../services/azure_openai_service.dart';
+import '../services/storage_service.dart';
 
 class TripPlanDetailScreen extends StatefulWidget {
   final TripPlan tripPlan;
@@ -24,27 +25,61 @@ class _TripPlanDetailScreenState extends State<TripPlanDetailScreen> {
     _loadVisitStatus();
   }
 
-  void _loadVisitStatus() {
-    // Initialize all activities as pending (false)
-    for (final day in widget.tripPlan.dailyPlans) {
+  void _loadVisitStatus() async {
+    // Load the latest trip plan from storage to get updated visit status
+    final storageService = StorageService();
+    
+    // Try to get updated trip plan from storage
+    final updatedTripPlan = await storageService.getTripPlans()
+        .then((plans) => plans.firstWhere(
+              (plan) => plan.id == widget.tripPlan.id,
+              orElse: () => widget.tripPlan,
+            ));
+    
+    // Also check itineraries
+    final updatedItineraries = await storageService.getItineraries();
+    
+    // Load visit status from the updated data
+    for (final day in updatedTripPlan.dailyPlans) {
       for (final activity in day.activities) {
-        _visitedActivities[activity.activityTitle] = false;
+        _visitedActivities[activity.activityTitle] = activity.isVisited;
       }
+    }
+    
+    // Also load from itineraries
+    for (final itinerary in updatedItineraries) {
+      for (final activity in itinerary.dailyPlan) {
+        _visitedActivities[activity.activityTitle] = activity.isVisited;
+      }
+    }
+    
+    // Update the UI
+    if (mounted) {
+      setState(() {});
     }
   }
 
-  void _toggleVisitStatus(String activityTitle) {
+  void _toggleVisitStatus(String activityTitle) async {
+    final newStatus = !(_visitedActivities[activityTitle] ?? false);
+    
     setState(() {
-      _visitedActivities[activityTitle] = !(_visitedActivities[activityTitle] ?? false);
+      _visitedActivities[activityTitle] = newStatus;
     });
     
-    final isVisited = _visitedActivities[activityTitle] ?? false;
+    // Save to backend
+    final storageService = StorageService();
+    await storageService.updateActivityVisitStatus(
+      widget.tripPlan.id,
+      activityTitle,
+      newStatus,
+    );
+    
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
-          isVisited ? '✅ Marked as visited' : '⏳ Marked as pending',
+          newStatus ? '✅ Marked as visited & saved' : '⏳ Marked as pending & saved',
         ),
-        backgroundColor: isVisited ? Colors.green : Colors.blue,
+        backgroundColor: newStatus ? Colors.green : Colors.blue,
         duration: const Duration(seconds: 1),
       ),
     );
@@ -77,7 +112,7 @@ class _TripPlanDetailScreenState extends State<TripPlanDetailScreen> {
     );
   }
 
-  void _removeActivity(ActivityDetail activity) {
+  void _removeActivity(ActivityDetail activity) async {
     setState(() {
       // Remove from all days
       for (final day in widget.tripPlan.dailyPlans) {
@@ -87,9 +122,16 @@ class _TripPlanDetailScreenState extends State<TripPlanDetailScreen> {
       _visitedActivities.remove(activity.activityTitle);
     });
     
+    // Save to backend
+    final storageService = StorageService();
+    await storageService.removeActivityFromPlan(
+      widget.tripPlan.id,
+      activity.activityTitle,
+    );
+    
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text('🗑️ Removed "${activity.activityTitle}" from plan'),
+        content: Text('🗑️ Removed "${activity.activityTitle}" from plan & saved'),
         backgroundColor: Colors.orange,
       ),
     );

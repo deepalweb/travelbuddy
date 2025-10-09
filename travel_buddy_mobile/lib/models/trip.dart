@@ -299,6 +299,13 @@ class ActivityDetail extends HiveObject {
   
   @HiveField(36)
   final String? bookingLink;
+  
+  // Visit status tracking
+  @HiveField(37)
+  final bool isVisited;
+  
+  @HiveField(38)
+  final String? visitedDate;
 
   ActivityDetail({
     required this.timeOfDay,
@@ -340,6 +347,8 @@ class ActivityDetail extends HiveObject {
     this.weatherNote,
     this.tags = const [],
     this.bookingLink,
+    this.isVisited = false,
+    this.visitedDate,
   });
 
   factory ActivityDetail.fromJson(Map<String, dynamic> json) {
@@ -364,6 +373,8 @@ class ActivityDetail extends HiveObject {
       travelMode: json['travel_mode'] ?? 'walking',
       travelTimeMin: json['travel_time_min'] ?? 0,
       estimatedVisitDurationMin: json['estimated_visit_duration_min'] ?? 60,
+      isVisited: json['is_visited'] ?? false,
+      visitedDate: json['visited_date'],
     );
   }
 
@@ -388,6 +399,8 @@ class ActivityDetail extends HiveObject {
       'travel_mode': travelMode,
       'travel_time_min': travelTimeMin,
       'estimated_visit_duration_min': estimatedVisitDurationMin,
+      'is_visited': isVisited,
+      'visited_date': visitedDate,
     };
   }
 }
