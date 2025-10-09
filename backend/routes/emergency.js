@@ -1,4 +1,4 @@
-const express = require('express');
+import express from 'express';
 const router = express.Router();
 
 // Emergency numbers API endpoint using Azure OpenAI
@@ -11,7 +11,7 @@ router.post('/emergency-numbers', async (req, res) => {
     }
     
     // Use Azure OpenAI to get emergency numbers
-    const { AzureOpenAI } = require('openai');
+    const { AzureOpenAI } = await import('openai');
     
     const client = new AzureOpenAI({
       apiKey: process.env.AZURE_OPENAI_API_KEY,
@@ -168,4 +168,4 @@ function getFallbackEmergencyNumbers(lat, lng, location) {
   };
 }
 
-module.exports = router;
+export default router;

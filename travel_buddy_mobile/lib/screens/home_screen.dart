@@ -1560,7 +1560,7 @@ class _HomeScreenState extends State<HomeScreen> {
       
       // Use Azure OpenAI to get emergency numbers
       final response = await http.post(
-        Uri.parse('http://localhost:3001/api/ai/emergency-numbers'),
+        Uri.parse('http://localhost:3001/api/emergency/emergency-numbers'),
         headers: {'Content-Type': 'application/json'},
         body: json.encode({
           'location': locationName,

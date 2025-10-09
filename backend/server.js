@@ -691,7 +691,7 @@ try {
 // Load Emergency routes
 try {
   const emergencyRouter = (await import('./routes/emergency.js')).default;
-  app.use('/api/ai', emergencyRouter);
+  app.use('/api/emergency', emergencyRouter);
   console.log('✅ Emergency routes loaded');
 } catch (error) {
   console.error('❌ Failed to load emergency routes:', error);

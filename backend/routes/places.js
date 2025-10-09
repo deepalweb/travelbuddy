@@ -1,4 +1,5 @@
 import express from 'express';
+import fetch from 'node-fetch';
 import { EnhancedPlacesSearch } from '../enhanced-places-search.js';
 import { PlacesOptimizer } from '../places-optimization.js';
 
@@ -10,7 +11,10 @@ router.get('/mobile/nearby', async (req, res) => {
     const { lat, lng, q, radius = 25000, limit = 60 } = req.query;
     const apiKey = process.env.GOOGLE_PLACES_API_KEY;
     
+    console.log(`🔍 Mobile API Key Check: ${apiKey ? 'Present' : 'Missing'} (length: ${apiKey?.length || 0})`);
+    
     if (!apiKey) {
+      console.error('❌ GOOGLE_PLACES_API_KEY not configured');
       return res.status(500).json({ error: 'GOOGLE_PLACES_API_KEY not configured' });
     }
 
@@ -24,6 +28,24 @@ router.get('/mobile/nearby', async (req, res) => {
 
     console.log(`🔍 Mobile places search: ${query} within ${searchRadius}m, limit: ${maxResults}`);
 
+    // Try simple nearby search first to test API
+    const testUrl = `https://maps.googleapis.com/maps/api/place/nearbysearch/json?location=${lat},${lng}&radius=${searchRadius}&type=establishment&key=${apiKey}`;
+    console.log(`🧪 Testing API with: ${testUrl.replace(apiKey, 'API_KEY_HIDDEN')}`);
+    
+    const testResponse = await fetch(testUrl);
+    const testData = await testResponse.json();
+    
+    console.log(`🧪 API Test Response: Status=${testData.status}, Results=${testData.results?.length || 0}`);
+    
+    if (testData.status !== 'OK') {
+      console.error(`❌ Google Places API Error: ${testData.status} - ${testData.error_message}`);
+      return res.status(502).json({ 
+        error: 'Google Places API Error', 
+        status: testData.status,
+        message: testData.error_message
+      });
+    }
+
     const enhancedSearch = new EnhancedPlacesSearch(apiKey);
     
     // Use comprehensive search for better mobile results
@@ -33,6 +55,13 @@ router.get('/mobile/nearby', async (req, res) => {
       query, 
       searchRadius
     );
+    
+    console.log(`🔍 Enhanced search returned: ${results.length} raw results`);
+    
+    if (results.length === 0) {
+      console.warn('⚠️ Enhanced search returned 0 results, using test results');
+      results = testData.results || [];
+    }
     
     // Apply mobile-optimized filtering
     results = PlacesOptimizer.filterQualityResults(results, { minRating: 3.0 });
@@ -53,7 +82,7 @@ router.get('/mobile/nearby', async (req, res) => {
     });
     
   } catch (error) {
-    console.error('Mobile places search error:', error);
+    console.error('❌ Mobile places search error:', error);
     res.status(500).json({ 
       error: 'Failed to fetch places', 
       details: error.message 
@@ -67,7 +96,10 @@ router.post('/mobile/batch', async (req, res) => {
     const { lat, lng, queries, radius = 20000 } = req.body;
     const apiKey = process.env.GOOGLE_PLACES_API_KEY;
     
+    console.log(`🔍 Batch API Key Check: ${apiKey ? 'Present' : 'Missing'}`);
+    
     if (!apiKey) {
+      console.error('❌ GOOGLE_PLACES_API_KEY not configured for batch');
       return res.status(500).json({ error: 'GOOGLE_PLACES_API_KEY not configured' });
     }
 
@@ -85,12 +117,16 @@ router.post('/mobile/batch', async (req, res) => {
       const { category, query, limit = 15 } = queryObj;
       
       try {
+        console.log(`🔍 Searching ${category}: ${query}`);
+        
         let places = await enhancedSearch.searchPlacesComprehensive(
           parseFloat(lat), 
           parseFloat(lng), 
           query, 
           radius
         );
+        
+        console.log(`🔍 ${category} raw results: ${places.length}`);
         
         // Apply category-specific filtering
         places = PlacesOptimizer.filterQualityResults(places, { minRating: 3.5 });
@@ -118,7 +154,7 @@ router.post('/mobile/batch', async (req, res) => {
     });
     
   } catch (error) {
-    console.error('Mobile batch search error:', error);
+    console.error('❌ Mobile batch search error:', error);
     res.status(500).json({ 
       error: 'Failed to fetch batch places', 
       details: error.message 
