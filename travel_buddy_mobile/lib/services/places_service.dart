@@ -1,6 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
-import 'dart:math';
+import 'dart:math' as math;
 import 'package:http/http.dart' as http;
 import '../models/place.dart';
 import '../config/environment.dart';
@@ -16,19 +16,24 @@ class PlacesService {
     required double longitude,
     required String query,
     int radius = 20000,
-    int topN = 12,
+    int topN = 150, // Further increased for mobile comprehensive results
     int offset = 0,
   }) async {
     try {
-      // 1. Try real places API (primary)
+      // 1. Try real places API (primary) - get comprehensive results
       final realPlaces = await _fetchRealPlaces(latitude, longitude, query, radius, offset);
       if (realPlaces.isNotEmpty) {
-        return realPlaces.take(topN).toList();
+        print('✅ Got ${realPlaces.length} real places from API');
+        // Filter and return quality places from enhanced backend
+        final qualityPlaces = realPlaces.where((p) => p.rating >= 3.0).toList();
+        print('✅ Filtered to ${qualityPlaces.length} quality places (rating >= 3.0)');
+        return qualityPlaces.take(topN).toList();
       }
       
       // 2. Fallback to optimized places
       final optimizedPlaces = await _fetchOptimizedPlaces(latitude, longitude, query);
       if (optimizedPlaces.isNotEmpty) {
+        print('✅ Got ${optimizedPlaces.length} optimized places');
         return optimizedPlaces.take(topN).toList();
       }
       
@@ -37,13 +42,44 @@ class PlacesService {
       
     } catch (e) {
       print('Places pipeline error: $e');
-      return _generateMockPlaces(latitude, longitude, query, topN);
+      // Generate more comprehensive mock places as final fallback
+      return _generateMockPlaces(latitude, longitude, query, math.min(150, 20));
     }
   }
   
   Future<List<Place>> _fetchRealPlaces(double lat, double lng, String query, int radius, [int offset = 0]) async {
+    // Try mobile-optimized endpoint first
+    final mobileUrl = '${Environment.backendUrl}/api/places/mobile/nearby?lat=$lat&lng=$lng&q=$query&radius=$radius&limit=60';
+    print('🔍 Fetching places (mobile): $mobileUrl');
+    
+    try {
+      final mobileResponse = await _makeRequestWithRetry(() => http.get(
+        Uri.parse(mobileUrl),
+        headers: {'Content-Type': 'application/json'},
+      ));
+      
+      if (mobileResponse.statusCode == 200) {
+        final mobileData = json.decode(mobileResponse.body);
+        if (mobileData['status'] == 'OK' && mobileData['results'] != null) {
+          final List<dynamic> data = mobileData['results'];
+          print('✅ Got ${data.length} places from mobile API');
+          
+          if (data.isNotEmpty) {
+            print('📍 Sample place: ${data.first['name']} - ID: ${data.first['place_id'] ?? data.first['id']}');
+          }
+          
+          // Enrich places with AI-generated content
+          final enrichedPlaces = await _enrichPlaces(data);
+          return enrichedPlaces.map((json) => Place.fromJson(json)).toList();
+        }
+      }
+    } catch (e) {
+      print('⚠️ Mobile API failed, trying fallback: $e');
+    }
+    
+    // Fallback to original endpoint
     final url = '${Environment.backendUrl}/api/places/nearby?lat=$lat&lng=$lng&q=$query&radius=$radius&offset=$offset';
-    print('🔍 Fetching places: $url');
+    print('🔍 Fetching places (fallback): $url');
     
     final response = await _makeRequestWithRetry(() => http.get(
       Uri.parse(url),
@@ -53,7 +89,7 @@ class PlacesService {
     print('📡 Places API response: ${response.statusCode}');
     if (response.statusCode == 200) {
       final List<dynamic> data = json.decode(response.body);
-      print('✅ Got ${data.length} real places from API');
+      print('✅ Got ${data.length} real places from fallback API');
       
       if (data.isNotEmpty) {
         print('📍 Sample place from API: ${data.first['name']} - ID: ${data.first['place_id'] ?? data.first['id']}');
@@ -81,7 +117,7 @@ class PlacesService {
         } else if (response.statusCode == 503) {
           retryCount++;
           if (retryCount < maxRetries) {
-            final delay = Duration(seconds: pow(2, retryCount).toInt());
+            final delay = Duration(seconds: math.pow(2, retryCount).toInt());
             print('⏳ Service unavailable (503), retrying in ${delay.inSeconds}s...');
             await Future.delayed(delay);
             continue;
@@ -91,7 +127,7 @@ class PlacesService {
       } on SocketException {
         retryCount++;
         if (retryCount < maxRetries) {
-          final delay = Duration(seconds: pow(2, retryCount).toInt());
+          final delay = Duration(seconds: math.pow(2, retryCount).toInt());
           print('🌐 Network error, retrying in ${delay.inSeconds}s...');
           await Future.delayed(delay);
         } else {
@@ -100,7 +136,7 @@ class PlacesService {
       } catch (e) {
         if (retryCount == maxRetries - 1) rethrow;
         retryCount++;
-        await Future.delayed(Duration(seconds: pow(2, retryCount).toInt()));
+        await Future.delayed(Duration(seconds: math.pow(2, retryCount).toInt()));
       }
     }
     
@@ -199,10 +235,19 @@ class PlacesService {
     
     final names = baseNames[category] ?? baseNames['attraction']!;
     
-    for (int i = 0; i < count && i < names.length; i++) {
+    // Generate multiple variations of each base name for more variety
+    final expandedNames = <String>[];
+    for (final baseName in names) {
+      expandedNames.add(baseName);
+      expandedNames.add('$baseName Downtown');
+      expandedNames.add('$baseName Plaza');
+      expandedNames.add('New $baseName');
+    }
+    
+    for (int i = 0; i < count && i < expandedNames.length; i++) {
       mockPlaces.add(Place(
         id: 'mock_${DateTime.now().millisecondsSinceEpoch}_$i',
-        name: names[i],
+        name: expandedNames[i],
         address: 'Near your location',
         latitude: lat + (i * 0.001),
         longitude: lng + (i * 0.001),
@@ -252,5 +297,77 @@ class PlacesService {
       query: query,
       radius: radius,
     );
+  }
+  
+  // Batch fetch places for multiple categories (for mobile sections)
+  Future<Map<String, List<Place>>> fetchPlacesBatch({
+    required double latitude,
+    required double longitude,
+    required Map<String, String> categories, // category -> query mapping
+    int radius = 20000,
+  }) async {
+    try {
+      final batchUrl = '${Environment.backendUrl}/api/places/mobile/batch';
+      print('🔍 Batch fetching places: $batchUrl');
+      
+      final queries = categories.entries.map((entry) => {
+        'category': entry.key,
+        'query': entry.value,
+        'limit': 15
+      }).toList();
+      
+      final response = await _makeRequestWithRetry(() => http.post(
+        Uri.parse(batchUrl),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({
+          'lat': latitude,
+          'lng': longitude,
+          'queries': queries,
+          'radius': radius,
+        }),
+      ));
+      
+      if (response.statusCode == 200) {
+        final batchData = json.decode(response.body);
+        if (batchData['status'] == 'OK' && batchData['results'] != null) {
+          final Map<String, dynamic> results = batchData['results'];
+          final Map<String, List<Place>> placesMap = {};
+          
+          for (final entry in results.entries) {
+            final categoryPlaces = (entry.value as List<dynamic>)
+                .map((json) => Place.fromJson(json))
+                .toList();
+            placesMap[entry.key] = categoryPlaces;
+            print('✅ ${entry.key}: ${categoryPlaces.length} places');
+          }
+          
+          return placesMap;
+        }
+      }
+      
+      print('⚠️ Batch API failed, using individual requests');
+    } catch (e) {
+      print('❌ Batch fetch error: $e');
+    }
+    
+    // Fallback: fetch each category individually
+    final Map<String, List<Place>> results = {};
+    for (final entry in categories.entries) {
+      try {
+        final places = await fetchPlacesPipeline(
+          latitude: latitude,
+          longitude: longitude,
+          query: entry.value,
+          radius: radius,
+          topN: 15,
+        );
+        results[entry.key] = places;
+      } catch (e) {
+        print('❌ Error fetching ${entry.key}: $e');
+        results[entry.key] = [];
+      }
+    }
+    
+    return results;
   }
 }

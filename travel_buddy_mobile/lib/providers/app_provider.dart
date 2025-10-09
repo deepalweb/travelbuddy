@@ -643,7 +643,7 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
       _travelStats = null;
     }
   }
-  static const int _placesPerPage = 12;
+  static const int _placesPerPage = 30; // Further increased to show more places per page
 
 
 
@@ -706,48 +706,50 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
     notifyListeners();
 
     try {
-      // Check if Google Sign-In is available first
-      final isAvailable = await _authService.isGoogleSignInAvailable();
-      if (!isAvailable) {
-        print('Google Sign-In not available, trying fallback');
-        final user = await _authService.signInWithGoogleFallback();
-        if (user != null) {
-          _currentUser = user;
-          _isAuthenticated = true;
-          await _loadUserData();
-          return true;
-        }
-        return false;
+      // Try silent sign-in first for returning users
+      final silentUser = await _authService.signInWithGoogleSilent();
+      if (silentUser != null) {
+        _currentUser = silentUser;
+        _isAuthenticated = true;
+        await _loadUserData();
+        print('✅ Google Sign-In successful (silent)');
+        return true;
       }
       
+      // Check if Google Sign-In is available
+      final isAvailable = await _authService.isGoogleSignInAvailable();
+      if (!isAvailable) {
+        print('❌ Google Sign-In not available - PigeonUserDetails compatibility issue');
+        throw 'Google Sign-In is currently unavailable. Please use email sign-in instead.';
+      }
+      
+      // Attempt regular Google Sign-In
       final user = await _authService.signInWithGoogle();
       if (user != null) {
         _currentUser = user;
         _isAuthenticated = true;
         await _loadUserData();
+        print('✅ Google Sign-In successful');
         return true;
       }
       return false;
     } catch (e) {
       print('Google Sign in error: $e');
       
-      // Handle specific PigeonUserDetails error
-      if (e.toString().contains('PigeonUserDetails') || e.toString().contains('type cast')) {
-        print('Attempting fallback Google Sign-In method');
-        try {
-          final user = await _authService.signInWithGoogleFallback();
-          if (user != null) {
-            _currentUser = user;
-            _isAuthenticated = true;
-            await _loadUserData();
-            return true;
-          }
-        } catch (fallbackError) {
-          print('Fallback Google Sign-In also failed: $fallbackError');
-        }
+      // Handle specific error types
+      final errorString = e.toString().toLowerCase();
+      if (errorString.contains('pigeonuserdetails') || 
+          errorString.contains('list<object?>') ||
+          errorString.contains('type cast')) {
+        print('❌ PigeonUserDetails casting error detected');
+        throw 'Google Sign-In service error. Please try again or use email sign-in.';
       }
       
-      return false;
+      if (errorString.contains('network') || errorString.contains('timeout')) {
+        throw 'Network error. Please check your connection and try again.';
+      }
+      
+      throw e.toString();
     } finally {
       _isLoading = false;
       notifyListeners();
@@ -1069,7 +1071,7 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
           longitude: _currentLocation!.longitude,
           query: query,
           radius: _selectedRadius,
-          topN: 12,
+          topN: 25,
           offset: loadMore ? _places.length : 0,
         );
         print('🔍 Search results for: $query');
@@ -1080,7 +1082,7 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
           longitude: _currentLocation!.longitude,
           query: query,
           radius: _selectedRadius,
-          topN: 12,
+          topN: 25,
           offset: loadMore ? _places.length : 0,
         );
         print('📂 Category results for: $_selectedCategory');
@@ -1097,9 +1099,9 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
         
         if (isEvening) {
           // Evening: dining + nightlife + attractions (adjusted for day of week)
-          final restaurantCount = isWeekend ? 7 : 6; // More restaurants on weekends
-          final nightlifeCount = isWeekend ? 4 : 2; // More nightlife on weekends
-          final attractionCount = isWeekend ? 2 : 4; // Fewer attractions on weekend evenings
+          final restaurantCount = isWeekend ? 18 : 15; // Further increased restaurant count
+          final nightlifeCount = isWeekend ? 12 : 8; // Further increased nightlife count
+          final attractionCount = isWeekend ? 10 : 12; // Further increased attraction count
           
           final restaurants = await placesService.fetchPlacesPipeline(
             latitude: _currentLocation!.latitude,
@@ -1125,10 +1127,10 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
           allPlaces = [...restaurants, ...bars, ...attractions];
         } else if (isMorning) {
           // Morning: cafes + attractions + culture + nature (adjusted for day of week)
-          final cafeCount = isWeekend ? 3 : 5; // Fewer cafes on weekends (people sleep in)
-          final attractionCount = isWeekend ? 5 : 3; // More attractions on weekends
-          final cultureCount = isWeekend ? 3 : 2; // More culture on weekends
-          final natureCount = isWeekend ? 1 : 2; // Slightly less nature focus on weekends
+          final cafeCount = isWeekend ? 10 : 12; // Further increased cafe count
+          final attractionCount = isWeekend ? 15 : 12; // Further increased attraction count
+          final cultureCount = isWeekend ? 10 : 8; // Further increased culture count
+          final natureCount = isWeekend ? 8 : 10; // Further increased nature count
           
           final cafes = await placesService.fetchPlacesPipeline(
             latitude: _currentLocation!.latitude,
@@ -1161,11 +1163,11 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
           allPlaces = [...cafes, ...attractions, ...culture, ...nature];
         } else {
           // Afternoon: balanced mix of everything (adjusted for day of week)
-          final attractionCount = isWeekend ? 5 : 4; // More attractions on weekends
-          final restaurantCount = isWeekend ? 3 : 3; // Same restaurants
-          final cultureCount = isWeekend ? 2 : 2; // Same culture
-          final natureCount = isWeekend ? 1 : 2; // Less nature on weekends
-          final shoppingCount = isWeekend ? 1 : 1; // Same shopping
+          final attractionCount = isWeekend ? 15 : 12; // Further increased attraction count
+          final restaurantCount = isWeekend ? 10 : 10; // Further increased restaurant count
+          final cultureCount = isWeekend ? 8 : 8; // Further increased culture count
+          final natureCount = isWeekend ? 8 : 10; // Further increased nature count
+          final shoppingCount = isWeekend ? 6 : 6; // Further increased shopping count
           
           final attractions = await placesService.fetchPlacesPipeline(
             latitude: _currentLocation!.latitude,
@@ -1397,8 +1399,15 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
     _selectedCategory = category;
     _currentPage = 1;
     _hasMorePlaces = true;
+    _places.clear(); // Clear existing places
     notifyListeners();
-    loadNearbyPlaces();
+    
+    // Load places with the selected category
+    if (category == 'all') {
+      loadPlaceSections(); // Load sections for 'all'
+    } else {
+      loadNearbyPlaces(); // Load filtered places for specific category
+    }
   }
   
   Future<void> loadMorePlaces() async {
@@ -1636,7 +1645,7 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
     }
   }
 
-  // Load places in sections
+  // Load places in sections using batch API for better performance
   Future<void> loadPlaceSections() async {
     if (!_isAppActive || _currentLocation == null) {
       print('🚫 Skipping sections load - app inactive or no location');
@@ -1646,6 +1655,122 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
     _isSectionsLoading = true;
     notifyListeners();
     
+    try {
+      final placesService = PlacesService();
+      
+      // Try batch loading first for better performance
+      final categories = {
+        'food': 'restaurants cafes bars coffee shops',
+        'landmarks': 'tourist attractions monuments historical sites landmarks',
+        'culture': 'museums art galleries cultural centers theaters',
+        'nature': 'parks gardens hiking trails nature spots',
+        'shopping': 'shopping malls local markets bazaars shops',
+        'spa': 'spa wellness massage therapy beauty salon',
+      };
+      
+      final batchResults = await placesService.fetchPlacesBatch(
+        latitude: _currentLocation!.latitude,
+        longitude: _currentLocation!.longitude,
+        categories: categories,
+        radius: _selectedRadius,
+      );
+      
+      // Convert batch results to sections
+      final sections = <PlaceSection>[];
+      
+      if (batchResults['food']?.isNotEmpty == true) {
+        sections.add(PlaceSection(
+          id: 'food',
+          title: 'Food & Drink',
+          subtitle: 'Restaurants, cafes, bars, coffee shops',
+          emoji: '🍽️',
+          places: batchResults['food']!,
+          category: 'food',
+          query: categories['food']!,
+        ));
+      }
+      
+      if (batchResults['landmarks']?.isNotEmpty == true) {
+        sections.add(PlaceSection(
+          id: 'landmarks',
+          title: 'Landmarks & Attractions',
+          subtitle: 'Tourist attractions, monuments, historical sites',
+          emoji: '🏛️',
+          places: batchResults['landmarks']!,
+          category: 'landmarks',
+          query: categories['landmarks']!,
+        ));
+      }
+      
+      if (batchResults['culture']?.isNotEmpty == true) {
+        sections.add(PlaceSection(
+          id: 'culture',
+          title: 'Culture & Museums',
+          subtitle: 'Museums, art galleries, cultural centers',
+          emoji: '🎨',
+          places: batchResults['culture']!,
+          category: 'culture',
+          query: categories['culture']!,
+        ));
+      }
+      
+      if (batchResults['nature']?.isNotEmpty == true) {
+        sections.add(PlaceSection(
+          id: 'nature',
+          title: 'Outdoor & Nature',
+          subtitle: 'Parks, gardens, hiking trails, nature spots',
+          emoji: '🌳',
+          places: batchResults['nature']!,
+          category: 'nature',
+          query: categories['nature']!,
+        ));
+      }
+      
+      if (batchResults['shopping']?.isNotEmpty == true) {
+        sections.add(PlaceSection(
+          id: 'shopping',
+          title: 'Shopping & Markets',
+          subtitle: 'Shopping malls, local markets, bazaars',
+          emoji: '🛍️',
+          places: batchResults['shopping']!,
+          category: 'shopping',
+          query: categories['shopping']!,
+        ));
+      }
+      
+      if (batchResults['spa']?.isNotEmpty == true) {
+        sections.add(PlaceSection(
+          id: 'spa',
+          title: 'SPA & Wellness',
+          subtitle: 'Spas, wellness centers, massage therapy',
+          emoji: '🧘‍♀️',
+          places: batchResults['spa']!,
+          category: 'spa',
+          query: categories['spa']!,
+        ));
+      }
+      
+      _placeSections = sections;
+      print('✅ Loaded ${_placeSections.length} place sections via batch API');
+      
+      // If batch didn't work well, fallback to individual loading
+      if (_placeSections.length < 3) {
+        print('⚠️ Batch results insufficient, trying individual loading');
+        await _loadSectionsIndividually();
+      }
+      
+    } catch (e) {
+      print('❌ Error loading place sections: $e');
+      // Fallback to individual loading
+      await _loadSectionsIndividually();
+    } finally {
+      _isSectionsLoading = false;
+      notifyListeners();
+    }
+  }
+  
+  // Fallback method for individual section loading
+  Future<void> _loadSectionsIndividually() async {
     try {
       final sections = await Future.wait([
         _loadFoodAndDrink(),
@@ -1657,12 +1782,9 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
       ]);
       
       _placeSections = sections.where((s) => s.places.isNotEmpty).toList();
-      print('✅ Loaded ${_placeSections.length} place sections');
+      print('✅ Loaded ${_placeSections.length} place sections individually');
     } catch (e) {
-      print('❌ Error loading place sections: $e');
-    } finally {
-      _isSectionsLoading = false;
-      notifyListeners();
+      print('❌ Error in individual section loading: $e');
     }
   }
   

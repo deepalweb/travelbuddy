@@ -94,20 +94,31 @@ export class PlacesOptimizer {
     return overlap / queryWords.length * 0.6;
   }
   
-  // Filter out low-quality results
-  static filterQualityResults(places) {
+  // Filter out low-quality results with configurable options
+  static filterQualityResults(places, options = {}) {
+    const {
+      minRating = 2.0,
+      minReviews = 3,
+      allowUnrated = true,
+      excludeClosed = true
+    } = options;
+    
     return places.filter(place => {
       // Remove places without names
       if (!place.name || place.name.trim().length === 0) return false;
       
       // Remove places with very low ratings (unless no rating)
-      if (place.rating && place.rating < 2.0) return false;
+      if (place.rating) {
+        if (place.rating < minRating) return false;
+      } else if (!allowUnrated) {
+        return false;
+      }
       
       // Remove permanently closed places
-      if (place.business_status === 'CLOSED_PERMANENTLY') return false;
+      if (excludeClosed && place.business_status === 'CLOSED_PERMANENTLY') return false;
       
       // Keep places with good review counts or no reviews yet
-      if (place.user_ratings_total && place.user_ratings_total < 3 && place.rating && place.rating < 3.5) {
+      if (place.user_ratings_total && place.user_ratings_total < minReviews && place.rating && place.rating < (minRating + 1.5)) {
         return false;
       }
       
@@ -144,5 +155,61 @@ export class PlacesOptimizer {
       
       return { ...place, types };
     });
+  }
+  
+  // Ensure variety in results by diversifying place types
+  static ensureVariety(places, maxResults = 50) {
+    if (places.length <= maxResults) return places;
+    
+    const typeGroups = new Map();
+    const diverseResults = [];
+    const maxPerType = Math.max(3, Math.floor(maxResults / 8)); // Allow max 3-6 per type
+    
+    // Group places by primary type
+    places.forEach(place => {
+      const primaryType = this.getPrimaryType(place.types || []);
+      if (!typeGroups.has(primaryType)) {
+        typeGroups.set(primaryType, []);
+      }
+      typeGroups.get(primaryType).push(place);
+    });
+    
+    // First pass: take top places from each type
+    typeGroups.forEach((typePlaces, type) => {
+      const topPlaces = typePlaces.slice(0, maxPerType);
+      diverseResults.push(...topPlaces);
+    });
+    
+    // Second pass: fill remaining slots with highest-scored places
+    if (diverseResults.length < maxResults) {
+      const remaining = places.filter(p => !diverseResults.includes(p));
+      const needed = maxResults - diverseResults.length;
+      diverseResults.push(...remaining.slice(0, needed));
+    }
+    
+    // Sort final results by relevance score
+    return diverseResults
+      .sort((a, b) => (b.relevance_score || 0) - (a.relevance_score || 0))
+      .slice(0, maxResults);
+  }
+  
+  // Get primary type for categorization
+  static getPrimaryType(types) {
+    const priorityTypes = [
+      'restaurant', 'food', 'meal_takeaway',
+      'tourist_attraction', 'museum', 'park',
+      'lodging', 'hotel',
+      'shopping_mall', 'store',
+      'hospital', 'pharmacy',
+      'gas_station', 'bank', 'atm'
+    ];
+    
+    for (const type of types) {
+      if (priorityTypes.includes(type)) {
+        return type;
+      }
+    }
+    
+    return types[0] || 'establishment';
   }
 }

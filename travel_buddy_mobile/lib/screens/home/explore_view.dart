@@ -1,9 +1,28 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'home_viewmodel.dart';
+import '../../providers/app_provider.dart';
+import '../../widgets/place_card.dart';
+import '../place_details_screen.dart';
 
-class ExploreView extends StatelessWidget {
+class ExploreView extends StatefulWidget {
   const ExploreView({super.key});
+
+  @override
+  State<ExploreView> createState() => _ExploreViewState();
+}
+
+class _ExploreViewState extends State<ExploreView> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final appProvider = Provider.of<AppProvider>(context, listen: false);
+      if (appProvider.placeSections.isEmpty) {
+        appProvider.loadPlaceSections();
+      }
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -13,8 +32,7 @@ class ExploreView extends StatelessWidget {
         _buildProfileCard(),
         _buildSafetyAlert(),
         _buildQuickActions(),
-
-
+        _buildCategoryPlaces(),
         // Extra space for bottom nav
         const SliverPadding(padding: EdgeInsets.only(bottom: 80)),
       ],
@@ -351,6 +369,94 @@ class ExploreView extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildCategoryPlaces() {
+    return Consumer<AppProvider>(
+      builder: (context, appProvider, child) {
+        if (appProvider.placeSections.isEmpty) {
+          return const SliverToBoxAdapter(child: SizedBox.shrink());
+        }
+
+        return SliverList(
+          delegate: SliverChildBuilderDelegate(
+            (context, index) {
+              final section = appProvider.placeSections[index];
+              return Container(
+                margin: const EdgeInsets.only(top: 24),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: Row(
+                        children: [
+                          Text(
+                            section.emoji,
+                            style: const TextStyle(fontSize: 24),
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            section.title,
+                            style: const TextStyle(
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
+                            ),
+                          ),
+                          const Spacer(),
+                          TextButton(
+                            onPressed: () {
+                              appProvider.setSelectedCategory(section.category);
+                              Navigator.pushNamed(context, '/places');
+                            },
+                            child: const Text(
+                              'See All',
+                              style: TextStyle(color: Color(0xFF38E07B)),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    SizedBox(
+                      height: 200,
+                      child: ListView.builder(
+                        scrollDirection: Axis.horizontal,
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        itemCount: section.places.take(5).length,
+                        itemBuilder: (context, placeIndex) {
+                          final place = section.places[placeIndex];
+                          return Container(
+                            width: 160,
+                            margin: const EdgeInsets.only(right: 12),
+                            child: PlaceCard(
+                              place: place,
+                              compact: true,
+                              isFavorite: appProvider.favoriteIds.contains(place.id),
+                              onFavoriteToggle: () => appProvider.toggleFavorite(place.id),
+                              onTap: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => PlaceDetailsScreen(place: place),
+                                  ),
+                                );
+                              },
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            },
+            childCount: appProvider.placeSections.length,
+          ),
+        );
+      },
     );
   }
 

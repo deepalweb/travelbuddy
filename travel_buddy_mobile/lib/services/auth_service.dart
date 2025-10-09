@@ -67,19 +67,17 @@ class AuthService {
     await _storage.clearUser();
   }
 
-  Future<CurrentUser?> signInWithGoogleFallback() async {
+  Future<CurrentUser?> signInWithGoogleSilent() async {
     try {
-      // Clear any existing sign-in state
-      await _googleSignIn.disconnect();
-    } catch (e) {
-      print('Disconnect error (expected): $e');
-    }
-    
-    try {
-      final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
+      // Try silent sign-in first (for returning users)
+      final GoogleSignInAccount? googleUser = await _googleSignIn.signInSilently();
       if (googleUser == null) return null;
 
       final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
+      if (googleAuth.accessToken == null || googleAuth.idToken == null) {
+        return null;
+      }
+      
       final credential = GoogleAuthProvider.credential(
         accessToken: googleAuth.accessToken,
         idToken: googleAuth.idToken,
@@ -91,15 +89,19 @@ class AuthService {
       }
       return null;
     } catch (e) {
-      print('Fallback Google Sign-In error: $e');
-      throw 'Google Sign-In is currently unavailable. Please use email sign-in instead.';
+      print('Silent Google Sign-In failed: $e');
+      return null;
     }
   }
 
   Future<CurrentUser?> signInWithGoogle() async {
     try {
-      // Sign out first to ensure clean state
-      await _googleSignIn.signOut();
+      // Clear any existing state first
+      try {
+        await _googleSignIn.disconnect();
+      } catch (e) {
+        // Ignore disconnect errors
+      }
       
       final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
       if (googleUser == null) {
@@ -128,20 +130,37 @@ class AuthService {
       throw _handleAuthException(e);
     } catch (e) {
       print('Google Sign-In error: $e');
-      // Handle the specific PigeonUserDetails casting error
-      if (e.toString().contains('PigeonUserDetails')) {
+      
+      // Handle specific error types
+      final errorString = e.toString().toLowerCase();
+      if (errorString.contains('pigeonuserdetails') || 
+          errorString.contains('list<object?>') ||
+          errorString.contains('type cast')) {
         throw 'Google Sign-In service error. Please try again or use email sign-in.';
       }
+      
+      if (errorString.contains('network') || errorString.contains('timeout')) {
+        throw 'Network error. Please check your connection and try again.';
+      }
+      
       throw 'Google Sign-In failed: ${e.toString()}';
     }
   }
 
   Future<bool> isGoogleSignInAvailable() async {
     try {
-      await _googleSignIn.isSignedIn();
-      return true;
+      // Try to check if Google Sign-In is available
+      final isSignedIn = await _googleSignIn.isSignedIn();
+      return true; // If we can check status, it's available
     } catch (e) {
       print('Google Sign-In not available: $e');
+      // Check for specific errors that indicate unavailability
+      final errorString = e.toString().toLowerCase();
+      if (errorString.contains('pigeonuserdetails') || 
+          errorString.contains('list<object?>') ||
+          errorString.contains('type cast')) {
+        return false; // Plugin compatibility issue
+      }
       return false;
     }
   }

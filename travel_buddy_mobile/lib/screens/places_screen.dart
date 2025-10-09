@@ -313,7 +313,9 @@ class _PlacesScreenState extends State<PlacesScreen> {
                       ? _buildFavoritesList(appProvider)
                       : _searchController.text.isNotEmpty 
                           ? _buildSearchResults(appProvider)
-                          : _buildSectionedPlacesList(appProvider),
+                          : appProvider.selectedCategory != 'all'
+                              ? _buildCategoryResults(appProvider)
+                              : _buildSectionedPlacesList(appProvider),
                 ),
               ),
             ],
@@ -1034,6 +1036,96 @@ class _PlacesScreenState extends State<PlacesScreen> {
         ),
       ],
     );
+  }
+
+  Widget _buildCategoryResults(AppProvider appProvider) {
+    if (appProvider.isPlacesLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    if (appProvider.placesError != null) {
+      return _buildErrorState(appProvider);
+    }
+
+    if (appProvider.places.isEmpty) {
+      return ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        children: [
+          SizedBox(height: MediaQuery.of(context).size.height * 0.3),
+          Center(
+            child: Column(
+              children: [
+                const Icon(Icons.category_outlined, size: 64, color: Colors.grey),
+                const SizedBox(height: 16),
+                Text(
+                  'No ${_getCategoryDisplayName(appProvider.selectedCategory)} found nearby',
+                  style: const TextStyle(fontSize: 18, color: Colors.grey),
+                ),
+                const SizedBox(height: 8),
+                const Text('Try expanding search radius or choose different category'),
+                const SizedBox(height: 16),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    ElevatedButton.icon(
+                      onPressed: () => appProvider.setSelectedCategory('all'),
+                      icon: const Icon(Icons.clear),
+                      label: const Text('Show All'),
+                    ),
+                    const SizedBox(width: 12),
+                    ElevatedButton.icon(
+                      onPressed: () => appProvider.loadNearbyPlaces(),
+                      icon: const Icon(Icons.refresh),
+                      label: const Text('Try Again'),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Category results header
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          child: Row(
+            children: [
+              Text(
+                _getCategoryDisplayName(appProvider.selectedCategory),
+                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+              const Spacer(),
+              Text(
+                '${appProvider.places.length} found',
+                style: TextStyle(color: Colors.grey[600]),
+              ),
+            ],
+          ),
+        ),
+        // Category results list
+        Expanded(
+          child: _buildPlacesListView(appProvider),
+        ),
+      ],
+    );
+  }
+  
+  String _getCategoryDisplayName(String category) {
+    final categoryMap = {
+      'food': 'Restaurants & Food',
+      'landmarks': 'Landmarks & Attractions', 
+      'culture': 'Culture & Museums',
+      'nature': 'Nature & Parks',
+      'shopping': 'Shopping',
+      'spa': 'Spa & Wellness',
+      'all': 'All Places'
+    };
+    return categoryMap[category] ?? category.toUpperCase();
   }
 
   Future<void> _testGeminiAI() async {

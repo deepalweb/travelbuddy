@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:http/http.dart' as http;
+import 'package:url_launcher/url_launcher.dart';
 import 'dart:convert';
 import 'dart:typed_data';
 import 'dart:async';
@@ -722,7 +723,7 @@ class _HomeScreenState extends State<HomeScreen> {
         'activeIcon': Icons.map,
         'color': const Color(0xFF4CAF50),
         'gradient': [const Color(0xFF4CAF50), const Color(0xFF45A049)],
-        'tab': 3,
+        'action': 'trip',
       },
       {
         'label': 'Deals',
@@ -730,7 +731,7 @@ class _HomeScreenState extends State<HomeScreen> {
         'activeIcon': Icons.local_offer,
         'color': const Color(0xFFFF9800),
         'gradient': [const Color(0xFFFF9800), const Color(0xFFFF8F00)],
-        'tab': 2,
+        'action': 'deals',
       },
       {
         'label': 'Community',
@@ -738,7 +739,7 @@ class _HomeScreenState extends State<HomeScreen> {
         'activeIcon': Icons.group,
         'color': const Color(0xFF9C27B0),
         'gradient': [const Color(0xFF9C27B0), const Color(0xFF8E24AA)],
-        'tab': 4,
+        'action': 'community',
       },
       {
         'label': 'Weather',
@@ -746,15 +747,15 @@ class _HomeScreenState extends State<HomeScreen> {
         'activeIcon': Icons.wb_sunny,
         'color': const Color(0xFF2196F3),
         'gradient': [const Color(0xFF2196F3), const Color(0xFF1976D2)],
-        'tab': 1,
+        'action': 'weather',
       },
       {
         'label': 'Emergency',
-        'icon': Icons.local_hospital_outlined,
-        'activeIcon': Icons.local_hospital,
+        'icon': Icons.emergency_outlined,
+        'activeIcon': Icons.emergency,
         'color': const Color(0xFFF44336),
         'gradient': [const Color(0xFFF44336), const Color(0xFFD32F2F)],
-        'tab': 1,
+        'action': 'emergency',
       },
       {
         'label': 'Favorites',
@@ -762,7 +763,7 @@ class _HomeScreenState extends State<HomeScreen> {
         'activeIcon': Icons.favorite,
         'color': const Color(0xFFE91E63),
         'gradient': [const Color(0xFFE91E63), const Color(0xFFC2185B)],
-        'tab': 1,
+        'action': 'favorites',
       },
     ];
 
@@ -810,7 +811,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 borderRadius: BorderRadius.circular(16),
               ),
               child: InkWell(
-                onTap: () => appProvider.setCurrentTabIndex(action['tab'] as int),
+                onTap: () => _handleQuickAction(action['label'] as String, appProvider),
                 borderRadius: BorderRadius.circular(16),
                 child: Padding(
                   padding: const EdgeInsets.all(12),
@@ -1389,6 +1390,249 @@ class _HomeScreenState extends State<HomeScreen> {
   void _navigateToFavorites(AppProvider appProvider) {
     appProvider.setShowFavoritesOnly();
     appProvider.setCurrentTabIndex(1);
+  }
+
+  void _handleQuickAction(String action, AppProvider appProvider) {
+    switch (action) {
+      case 'Emergency':
+        _showEmergencyDialog();
+        break;
+      case 'Plan Trip':
+        appProvider.setCurrentTabIndex(3);
+        break;
+      case 'Deals':
+        appProvider.setCurrentTabIndex(2);
+        break;
+      case 'Community':
+        appProvider.setCurrentTabIndex(4);
+        break;
+      case 'Weather':
+      case 'Favorites':
+      default:
+        appProvider.setCurrentTabIndex(1);
+        break;
+    }
+  }
+
+  void _showEmergencyDialog() async {
+    final appProvider = context.read<AppProvider>();
+    
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Row(
+          children: [
+            Icon(Icons.emergency, color: Colors.red, size: 24),
+            SizedBox(width: 8),
+            Text('Emergency Services'),
+          ],
+        ),
+        content: FutureBuilder<Map<String, dynamic>>(
+          future: _getLocationBasedEmergencyNumbers(appProvider),
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  CircularProgressIndicator(),
+                  SizedBox(height: 16),
+                  Text('Getting emergency numbers for your location...'),
+                ],
+              );
+            }
+            
+            final emergencyData = snapshot.data ?? _getDefaultEmergencyNumbers();
+            
+            return Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.red.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    'Emergency Services - ${emergencyData['country']}',
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: Colors.red,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                _buildEmergencyButton(
+                  'Call Police (${emergencyData['police']})',
+                  Icons.local_police,
+                  Colors.blue,
+                  () => _makeEmergencyCall(emergencyData['police']),
+                ),
+                const SizedBox(height: 8),
+                _buildEmergencyButton(
+                  'Call Ambulance (${emergencyData['ambulance']})',
+                  Icons.local_hospital,
+                  Colors.red,
+                  () => _makeEmergencyCall(emergencyData['ambulance']),
+                ),
+                const SizedBox(height: 8),
+                _buildEmergencyButton(
+                  'Call Fire Dept (${emergencyData['fire']})',
+                  Icons.local_fire_department,
+                  Colors.orange,
+                  () => _makeEmergencyCall(emergencyData['fire']),
+                ),
+                const SizedBox(height: 16),
+                _buildEmergencyButton(
+                  'Share Location',
+                  Icons.share_location,
+                  Colors.green,
+                  () => _shareEmergencyLocation(),
+                ),
+              ],
+            );
+          },
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Close'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEmergencyButton(
+    String label,
+    IconData icon,
+    Color color,
+    VoidCallback onPressed,
+  ) {
+    return SizedBox(
+      width: double.infinity,
+      child: ElevatedButton.icon(
+        onPressed: onPressed,
+        icon: Icon(icon, color: Colors.white),
+        label: Text(label, style: const TextStyle(color: Colors.white)),
+        style: ElevatedButton.styleFrom(
+          backgroundColor: color,
+          padding: const EdgeInsets.symmetric(vertical: 12),
+        ),
+      ),
+    );
+  }
+
+  void _makeEmergencyCall(String number) async {
+    Navigator.pop(context);
+    try {
+      final Uri phoneUri = Uri(scheme: 'tel', path: number);
+      if (await canLaunchUrl(phoneUri)) {
+        await launchUrl(phoneUri);
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Cannot make call to $number'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error calling $number: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  Future<Map<String, dynamic>> _getLocationBasedEmergencyNumbers(AppProvider appProvider) async {
+    if (appProvider.currentLocation == null) {
+      return _getDefaultEmergencyNumbers();
+    }
+    
+    try {
+      final lat = appProvider.currentLocation!.latitude;
+      final lng = appProvider.currentLocation!.longitude;
+      
+      // Get location name first
+      final locationName = await _getLocationName(lat, lng);
+      
+      // Use Azure OpenAI to get emergency numbers
+      final response = await http.post(
+        Uri.parse('http://localhost:3001/api/ai/emergency-numbers'),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({
+          'location': locationName,
+          'latitude': lat,
+          'longitude': lng,
+        }),
+      );
+      
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        return {
+          'country': data['country'] ?? 'Unknown',
+          'police': data['police'] ?? '911',
+          'ambulance': data['ambulance'] ?? '911',
+          'fire': data['fire'] ?? '911',
+        };
+      }
+    } catch (e) {
+      print('Error getting emergency numbers: $e');
+    }
+    
+    return _getDefaultEmergencyNumbers();
+  }
+  
+  Map<String, dynamic> _getDefaultEmergencyNumbers() {
+    return {
+      'country': 'Sri Lanka',
+      'police': '119',
+      'ambulance': '110', 
+      'fire': '111',
+    };
+  }
+  
+  void _shareEmergencyLocation() async {
+    Navigator.pop(context);
+    final appProvider = context.read<AppProvider>();
+    if (appProvider.currentLocation != null) {
+      final lat = appProvider.currentLocation!.latitude;
+      final lng = appProvider.currentLocation!.longitude;
+      final locationText = 'Emergency! My location: https://maps.google.com/?q=$lat,$lng';
+      
+      try {
+        final Uri smsUri = Uri(
+          scheme: 'sms',
+          queryParameters: {'body': locationText},
+        );
+        if (await canLaunchUrl(smsUri)) {
+          await launchUrl(smsUri);
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Location copied to clipboard'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }
+      } catch (e) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Error sharing location'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Location not available'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+    }
   }
 
   Widget _buildProfileImage(String imageUrl) {

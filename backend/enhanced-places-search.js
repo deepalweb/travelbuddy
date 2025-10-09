@@ -29,7 +29,7 @@ export class EnhancedPlacesSearch {
       const categoryResults = await this.categoryBasedSearch(lat, lng, query, radius);
       categoryResults.forEach(place => results.set(place.place_id, place));
 
-      return Array.from(results.values()).slice(0, 60); // Return up to 60 places
+      return Array.from(results.values()).slice(0, 100); // Return up to 100 places for mobile
     } catch (error) {
       console.error('Enhanced search failed:', error);
       return [];
@@ -160,7 +160,7 @@ export class EnhancedPlacesSearch {
       queries.push(`${term} ${originalQuery}`);
     });
 
-    return [...new Set([...queries, ...variations])].slice(0, 5); // Limit to 5 queries
+    return [...new Set([...queries, ...variations])].slice(0, 8); // Increased to 8 queries for better coverage
   }
 
   // Get relevant Google Places types based on query
@@ -191,7 +191,7 @@ export class EnhancedPlacesSearch {
       }
     });
 
-    return [...new Set(types)].slice(0, 3); // Limit to 3 types
+    return [...new Set(types)].slice(0, 5); // Increased to 5 types for better coverage
   }
 
   // Get category-specific keywords for broader search

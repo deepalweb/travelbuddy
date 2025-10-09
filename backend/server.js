@@ -88,8 +88,8 @@ function normalizeAndFilter(results, centerLat, centerLng, radiusMeters, options
     filtered = filtered.sort((a, b) => (a.distance_m ?? Infinity) - (b.distance_m ?? Infinity));
   }
   
-  // Return more results for comprehensive coverage (increased from 10 to 50)
-  return filtered.slice(0, 50);
+  // Return more results for comprehensive coverage (increased to 100 for better mobile experience)
+  return filtered.slice(0, 100);
 }
 
 const __filename = fileURLToPath(import.meta.url);
@@ -446,25 +446,25 @@ const TIER_POLICY = {
     places: { daily: 50, perMin: 5 },
     maps: { daily: 150, perMin: 15 },
     openai: { daily: 10, perMin: 2 },
-    features: { dynamicMap: false, resultsPerSearch: 20, photosPerPlace: 1, radiusMaxM: 10000 }
+    features: { dynamicMap: false, resultsPerSearch: 40, photosPerPlace: 1, radiusMaxM: 10000 }
   },
   basic: {
     places: { daily: 200, perMin: 10 },
     maps: { daily: 500, perMin: 30 },
     openai: { daily: 50, perMin: 5 },
-    features: { dynamicMap: true, resultsPerSearch: 30, photosPerPlace: 2, radiusMaxM: 20000 }
+    features: { dynamicMap: true, resultsPerSearch: 60, photosPerPlace: 2, radiusMaxM: 20000 }
   },
   premium: {
     places: { daily: 1000, perMin: 20 },
     maps: { daily: 2000, perMin: 60 },
     openai: { daily: 200, perMin: 15 },
-    features: { dynamicMap: true, resultsPerSearch: 40, photosPerPlace: 3, radiusMaxM: 40000 }
+    features: { dynamicMap: true, resultsPerSearch: 80, photosPerPlace: 3, radiusMaxM: 40000 }
   },
   pro: {
     places: { daily: 5000, perMin: 60 },
     maps: { daily: 10000, perMin: 120 },
     openai: { daily: 1000, perMin: 60 },
-    features: { dynamicMap: true, resultsPerSearch: 50, photosPerPlace: 6, radiusMaxM: 50000 }
+    features: { dynamicMap: true, resultsPerSearch: 100, photosPerPlace: 6, radiusMaxM: 50000 }
   }
 };
 
@@ -686,6 +686,15 @@ try {
   console.log('✅ Azure OpenAI routes loaded');
 } catch (error) {
   console.error('❌ Failed to load Azure OpenAI routes:', error);
+}
+
+// Load Emergency routes
+try {
+  const emergencyRouter = (await import('./routes/emergency.js')).default;
+  app.use('/api/ai', emergencyRouter);
+  console.log('✅ Emergency routes loaded');
+} catch (error) {
+  console.error('❌ Failed to load emergency routes:', error);
 }
 
 // Payment routes (Stripe scaffold) - mount only when explicitly enabled to allow
@@ -1574,7 +1583,7 @@ app.get('/api/places/nearby', enforcePolicy('places'), async (req, res) => {
     recordUsage({ api: 'places', action: 'nearby', status: 'success', durationMs: Date.now() - start, meta: { cache: 'set', enhanced: true } });
     
     // Return more results for comprehensive coverage
-    const limit = req._policy?.features?.resultsPerSearch || 30; // Increased default limit
+    const limit = req._policy?.features?.resultsPerSearch || 60; // Increased default limit for mobile
     const sendList = normalized.slice(0, limit);
     
     console.log(`✅ Enhanced search returned ${sendList.length} places for query: ${query}`);
@@ -3554,6 +3563,15 @@ app.use('/api/roles', (await import('./routes/roles.js')).default);
 // Service Provider routes
 app.use('/api/services', (await import('./routes/services.js')).default);
 app.use('/api/bookings', (await import('./routes/bookings.js')).default);
+
+// Places routes
+try {
+  const placesRouter = (await import('./routes/places.js')).default;
+  app.use('/api/places', placesRouter);
+  console.log('✅ Places routes loaded');
+} catch (error) {
+  console.error('❌ Failed to load places routes:', error);
+}
 
 // Deals routes
 try {
