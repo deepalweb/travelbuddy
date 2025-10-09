@@ -11,7 +11,9 @@ class AuthService {
   AuthService._internal();
 
   final FirebaseAuth _auth = FirebaseAuth.instance;
-  final GoogleSignIn _googleSignIn = GoogleSignIn();
+  final GoogleSignIn _googleSignIn = GoogleSignIn(
+    scopes: ['email', 'profile'],
+  );
   final StorageService _storage = StorageService();
   final ApiService _api = ApiService();
 
@@ -56,11 +58,23 @@ class AuthService {
   }
 
   Future<void> signOut() async {
+    try {
+      await _googleSignIn.signOut();
+    } catch (e) {
+      print('Google sign out error: $e');
+    }
     await _auth.signOut();
     await _storage.clearUser();
   }
 
-  Future<CurrentUser?> signInWithGoogle() async {
+  Future<CurrentUser?> signInWithGoogleFallback() async {
+    try {
+      // Clear any existing sign-in state
+      await _googleSignIn.disconnect();
+    } catch (e) {
+      print('Disconnect error (expected): $e');
+    }
+    
     try {
       final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
       if (googleUser == null) return null;
@@ -77,9 +91,98 @@ class AuthService {
       }
       return null;
     } catch (e) {
+      print('Fallback Google Sign-In error: $e');
+      throw 'Google Sign-In is currently unavailable. Please use email sign-in instead.';
+    }
+  }
+
+  Future<CurrentUser?> signInWithGoogle() async {
+    try {
+      // Sign out first to ensure clean state
+      await _googleSignIn.signOut();
+      
+      final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
+      if (googleUser == null) {
+        print('Google Sign-In cancelled by user');
+        return null;
+      }
+
+      final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
+      
+      if (googleAuth.accessToken == null || googleAuth.idToken == null) {
+        throw 'Failed to get Google authentication tokens';
+      }
+      
+      final credential = GoogleAuthProvider.credential(
+        accessToken: googleAuth.accessToken,
+        idToken: googleAuth.idToken,
+      );
+
+      final userCredential = await _auth.signInWithCredential(credential);
+      if (userCredential.user != null) {
+        return await _createOrUpdateUser(userCredential.user!);
+      }
+      return null;
+    } on FirebaseAuthException catch (e) {
+      print('Firebase Auth error: ${e.code} - ${e.message}');
+      throw _handleAuthException(e);
+    } catch (e) {
       print('Google Sign-In error: $e');
+      // Handle the specific PigeonUserDetails casting error
+      if (e.toString().contains('PigeonUserDetails')) {
+        throw 'Google Sign-In service error. Please try again or use email sign-in.';
+      }
       throw 'Google Sign-In failed: ${e.toString()}';
     }
+  }
+
+  Future<bool> isGoogleSignInAvailable() async {
+    try {
+      await _googleSignIn.isSignedIn();
+      return true;
+    } catch (e) {
+      print('Google Sign-In not available: $e');
+      return false;
+    }
+  }
+
+  Future<Map<String, dynamic>> getGoogleSignInDiagnostics() async {
+    final diagnostics = <String, dynamic>{};
+    
+    try {
+      // Check if user is already signed in
+      final isSignedIn = await _googleSignIn.isSignedIn();
+      diagnostics['isSignedIn'] = isSignedIn;
+      
+      // Check current account
+      final currentAccount = _googleSignIn.currentUser;
+      diagnostics['hasCurrentAccount'] = currentAccount != null;
+      
+      // Check if we can access account info
+      if (currentAccount != null) {
+        diagnostics['accountEmail'] = currentAccount.email;
+        diagnostics['accountId'] = currentAccount.id;
+      }
+      
+      diagnostics['status'] = 'available';
+    } catch (e) {
+      diagnostics['status'] = 'error';
+      diagnostics['error'] = e.toString();
+      
+      // Check for specific error types
+      if (e.toString().contains('PigeonUserDetails')) {
+        diagnostics['errorType'] = 'pigeon_user_details';
+        diagnostics['suggestion'] = 'Update Google Play Services or try email sign-in';
+      } else if (e.toString().contains('SIGN_IN_REQUIRED')) {
+        diagnostics['errorType'] = 'sign_in_required';
+        diagnostics['suggestion'] = 'User needs to sign in first';
+      } else {
+        diagnostics['errorType'] = 'unknown';
+        diagnostics['suggestion'] = 'Check Google Play Services and app configuration';
+      }
+    }
+    
+    return diagnostics;
   }
 
   Future<void> resetPassword(String email) async {

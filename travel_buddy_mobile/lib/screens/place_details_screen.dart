@@ -638,10 +638,14 @@ class _PlaceDetailsScreenState extends State<PlaceDetailsScreen> with TickerProv
                           ),
                         ],
                       ),
-                      
-                      const SizedBox(height: 20),
                     ],
                   ),
+                ),
+              ),
+              // Add safe area padding at the bottom
+              SliverToBoxAdapter(
+                child: SizedBox(
+                  height: MediaQuery.of(context).padding.bottom + 20,
                 ),
               ),
             ],

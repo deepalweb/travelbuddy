@@ -50,10 +50,23 @@ class _AuthScreenState extends State<AuthScreen> {
       }
     } catch (e) {
       if (mounted) {
+        String errorMessage = e.toString();
+        
+        // Handle specific PigeonUserDetails error
+        if (errorMessage.contains('PigeonUserDetails') || errorMessage.contains('type cast')) {
+          errorMessage = 'Google Sign-In is temporarily unavailable. Please use email sign-in instead.';
+        }
+        
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(e.toString()),
+            content: Text(errorMessage),
             backgroundColor: Color(AppConstants.colors['error']!),
+            duration: const Duration(seconds: 4),
+            action: SnackBarAction(
+              label: 'OK',
+              textColor: Colors.white,
+              onPressed: () {},
+            ),
           ),
         );
       }

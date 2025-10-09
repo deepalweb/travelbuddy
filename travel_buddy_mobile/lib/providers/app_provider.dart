@@ -706,6 +706,20 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
     notifyListeners();
 
     try {
+      // Check if Google Sign-In is available first
+      final isAvailable = await _authService.isGoogleSignInAvailable();
+      if (!isAvailable) {
+        print('Google Sign-In not available, trying fallback');
+        final user = await _authService.signInWithGoogleFallback();
+        if (user != null) {
+          _currentUser = user;
+          _isAuthenticated = true;
+          await _loadUserData();
+          return true;
+        }
+        return false;
+      }
+      
       final user = await _authService.signInWithGoogle();
       if (user != null) {
         _currentUser = user;
@@ -716,6 +730,23 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
       return false;
     } catch (e) {
       print('Google Sign in error: $e');
+      
+      // Handle specific PigeonUserDetails error
+      if (e.toString().contains('PigeonUserDetails') || e.toString().contains('type cast')) {
+        print('Attempting fallback Google Sign-In method');
+        try {
+          final user = await _authService.signInWithGoogleFallback();
+          if (user != null) {
+            _currentUser = user;
+            _isAuthenticated = true;
+            await _loadUserData();
+            return true;
+          }
+        } catch (fallbackError) {
+          print('Fallback Google Sign-In also failed: $fallbackError');
+        }
+      }
+      
       return false;
     } finally {
       _isLoading = false;

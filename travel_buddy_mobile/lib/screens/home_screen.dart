@@ -560,10 +560,15 @@ class _HomeScreenState extends State<HomeScreen> {
                         child: ClipOval(
                           child: appProvider.currentUser?.profilePicture?.isNotEmpty == true
                               ? _buildProfileImage(appProvider.currentUser!.profilePicture!)
-                              : Icon(
-                                  Icons.person,
-                                  color: Colors.white.withOpacity(0.8),
-                                  size: 24,
+                              : Container(
+                                  width: 50,
+                                  height: 50,
+                                  color: Colors.white.withOpacity(0.1),
+                                  child: Icon(
+                                    Icons.person,
+                                    color: Colors.white.withOpacity(0.8),
+                                    size: 24,
+                                  ),
                                 ),
                         ),
                       ),
@@ -1387,6 +1392,19 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildProfileImage(String imageUrl) {
+    if (imageUrl.isEmpty) {
+      return Container(
+        width: 50,
+        height: 50,
+        color: Colors.white.withOpacity(0.1),
+        child: Icon(
+          Icons.person,
+          color: Colors.white.withOpacity(0.8),
+          size: 24,
+        ),
+      );
+    }
+    
     if (imageUrl.startsWith('data:image/')) {
       // Handle base64 data URI
       try {
@@ -1394,32 +1412,68 @@ class _HomeScreenState extends State<HomeScreen> {
         final Uint8List bytes = base64Decode(base64String);
         return Image.memory(
           bytes,
+          width: 50,
+          height: 50,
           fit: BoxFit.cover,
           errorBuilder: (context, error, stackTrace) {
-            return Icon(
-              Icons.person,
-              color: Colors.white.withOpacity(0.8),
-              size: 24,
+            return Container(
+              width: 50,
+              height: 50,
+              color: Colors.white.withOpacity(0.1),
+              child: Icon(
+                Icons.person,
+                color: Colors.white.withOpacity(0.8),
+                size: 24,
+              ),
             );
           },
         );
       } catch (e) {
-        return Icon(
-          Icons.person,
-          color: Colors.white.withOpacity(0.8),
-          size: 24,
+        return Container(
+          width: 50,
+          height: 50,
+          color: Colors.white.withOpacity(0.1),
+          child: Icon(
+            Icons.person,
+            color: Colors.white.withOpacity(0.8),
+            size: 24,
+          ),
         );
       }
     } else {
       // Handle network URL
       return Image.network(
         imageUrl,
+        width: 50,
+        height: 50,
         fit: BoxFit.cover,
+        loadingBuilder: (context, child, loadingProgress) {
+          if (loadingProgress == null) return child;
+          return Container(
+            width: 50,
+            height: 50,
+            color: Colors.white.withOpacity(0.1),
+            child: Center(
+              child: CircularProgressIndicator(
+                value: loadingProgress.expectedTotalBytes != null
+                    ? loadingProgress.cumulativeBytesLoaded / loadingProgress.expectedTotalBytes!
+                    : null,
+                strokeWidth: 2,
+                valueColor: AlwaysStoppedAnimation<Color>(Colors.white.withOpacity(0.8)),
+              ),
+            ),
+          );
+        },
         errorBuilder: (context, error, stackTrace) {
-          return Icon(
-            Icons.person,
-            color: Colors.white.withOpacity(0.8),
-            size: 24,
+          return Container(
+            width: 50,
+            height: 50,
+            color: Colors.white.withOpacity(0.1),
+            child: Icon(
+              Icons.person,
+              color: Colors.white.withOpacity(0.8),
+              size: 24,
+            ),
           );
         },
       );

@@ -29,12 +29,12 @@ class PlaceCard extends StatelessWidget {
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(12),
-        child: compact ? _buildCompactCard() : _buildFullCard(),
+        child: compact ? _buildCompactCard(context) : _buildFullCard(context),
       ),
     );
   }
 
-  Widget _buildCompactCard() {
+  Widget _buildCompactCard(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -59,24 +59,44 @@ class PlaceCard extends StatelessWidget {
                   Center(
                     child: Icon(Icons.place, size: 32, color: Colors.grey[600]),
                   ),
-                // Favorite Button
+                // Action Buttons
                 Positioned(
                   top: 8,
                   right: 8,
-                  child: GestureDetector(
-                    onTap: onFavoriteToggle,
-                    child: Container(
-                      padding: const EdgeInsets.all(4),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.9),
-                        shape: BoxShape.circle,
+                  child: Column(
+                    children: [
+                      GestureDetector(
+                        onTap: onFavoriteToggle,
+                        child: Container(
+                          padding: const EdgeInsets.all(4),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.9),
+                            shape: BoxShape.circle,
+                          ),
+                          child: Icon(
+                            isFavorite ? Icons.favorite : Icons.favorite_border,
+                            color: isFavorite ? Colors.red : Colors.grey,
+                            size: 14,
+                          ),
+                        ),
                       ),
-                      child: Icon(
-                        isFavorite ? Icons.favorite : Icons.favorite_border,
-                        color: isFavorite ? Colors.red : Colors.grey,
-                        size: 14,
+                      const SizedBox(height: 4),
+                      GestureDetector(
+                        onTap: () => _showAddToTripDialog(context),
+                        child: Container(
+                          padding: const EdgeInsets.all(4),
+                          decoration: BoxDecoration(
+                            color: Colors.blue.withOpacity(0.9),
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(
+                            Icons.add,
+                            color: Colors.white,
+                            size: 14,
+                          ),
+                        ),
                       ),
-                    ),
+                    ],
                   ),
                 ),
               ],
@@ -140,9 +160,8 @@ class PlaceCard extends StatelessWidget {
     );
   }
 
-  Widget _buildFullCard() {
-    return Builder(
-      builder: (context) => Column(
+  Widget _buildFullCard(BuildContext context) {
+    return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         // Image
@@ -183,24 +202,44 @@ class PlaceCard extends StatelessWidget {
               else
                 _buildPlaceholder(),
               
-              // Favorite Button
+              // Action Buttons
               Positioned(
                 top: 12,
                 right: 12,
-                child: GestureDetector(
-                  onTap: onFavoriteToggle,
-                  child: Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.9),
-                      shape: BoxShape.circle,
+                child: Column(
+                  children: [
+                    GestureDetector(
+                      onTap: onFavoriteToggle,
+                      child: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.9),
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(
+                          isFavorite ? Icons.favorite : Icons.favorite_border,
+                          color: isFavorite ? Colors.red : Colors.grey,
+                          size: 20,
+                        ),
+                      ),
                     ),
-                    child: Icon(
-                      isFavorite ? Icons.favorite : Icons.favorite_border,
-                      color: isFavorite ? Colors.red : Colors.grey,
-                      size: 20,
+                    const SizedBox(height: 8),
+                    GestureDetector(
+                      onTap: () => _showAddToTripDialog(context),
+                      child: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: Colors.blue.withOpacity(0.9),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(
+                          Icons.add,
+                          color: Colors.white,
+                          size: 20,
+                        ),
+                      ),
                     ),
-                  ),
+                  ],
                 ),
               ),
             ],
@@ -289,27 +328,46 @@ class PlaceCard extends StatelessWidget {
               
               const SizedBox(height: 8),
               
-              // Simple Action Button
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: onTap,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Color(AppConstants.colors['primary']!),
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
+              // Action Buttons
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: () => _showAddToTripDialog(context),
+                      icon: const Icon(Icons.add, size: 16),
+                      label: const Text('Add Trip'),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: Colors.blue,
+                        side: const BorderSide(color: Colors.blue),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        padding: const EdgeInsets.symmetric(vertical: 8),
+                      ),
                     ),
-                    padding: const EdgeInsets.symmetric(vertical: 10),
                   ),
-                  child: const Text('View Details'),
-                ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: onTap,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Color(AppConstants.colors['primary']!),
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        padding: const EdgeInsets.symmetric(vertical: 8),
+                      ),
+                      child: const Text('Details'),
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
         ),
       ],
-    ));
+    );
   }
 
   Widget _buildPlaceholder() {
@@ -548,6 +606,13 @@ class PlaceCard extends StatelessWidget {
     if (place.rating >= 4.0) return 'Popular local spot 👍';
     
     return '';
+  }
+  
+  void _showAddToTripDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => AddToTripDialog(place: place),
+    );
   }
   
 
