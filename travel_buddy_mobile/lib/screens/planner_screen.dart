@@ -100,11 +100,11 @@ class _PlannerScreenState extends State<PlannerScreen> {
                 const SizedBox(height: 16),
                 Row(
                   children: [
-                    _buildHomeStatItem('${appProvider.tripPlans.length}', 'Trip Plans', Icons.map),
+                    _buildHomeStatItem('${appProvider.tripPlans.length + appProvider.itineraries.length}', 'Total Plans', Icons.map),
                     const SizedBox(width: 20),
-                    _buildHomeStatItem('${appProvider.itineraries.length}', 'Day Plans', Icons.today),
+                    _buildHomeStatItem(_calculateTotalDistance(appProvider), 'Total KMs', Icons.directions_walk),
                     const SizedBox(width: 20),
-                    _buildHomeStatItem('Easy', 'Creation', Icons.add_circle),
+                    _buildHomeStatItem(_calculateTotalTime(appProvider), 'Total Time', Icons.schedule),
                   ],
                 ),
               ],
@@ -419,6 +419,77 @@ class _PlannerScreenState extends State<PlannerScreen> {
     navigator.popUntil((route) => route.isFirst);
   }
   
+  String _calculateTotalDistance(AppProvider appProvider) {
+    double totalKm = 0;
+    
+    // Calculate from trip plans
+    for (final plan in appProvider.tripPlans) {
+      if (plan.estimatedWalkingDistance.isNotEmpty && plan.estimatedWalkingDistance != '0 km') {
+        final match = RegExp(r'(\d+(?:\.\d+)?)').firstMatch(plan.estimatedWalkingDistance);
+        if (match != null) {
+          totalKm += double.parse(match.group(1)!);
+        }
+      } else {
+        // Default estimate per trip plan
+        totalKm += 8; // 8km average per trip
+      }
+    }
+    
+    // Calculate from day itineraries
+    for (final itinerary in appProvider.itineraries) {
+      totalKm += 5; // 5km average per day plan
+    }
+    
+    if (totalKm >= 1000) {
+      return '${(totalKm / 1000).toStringAsFixed(1)}K';
+    }
+    return '${totalKm.toInt()}';
+  }
+
+  String _calculateTotalTime(AppProvider appProvider) {
+    int totalHours = 0;
+    
+    // Calculate from trip plans
+    for (final plan in appProvider.tripPlans) {
+      for (final day in plan.dailyPlans) {
+        for (final activity in day.activities) {
+          final duration = activity.duration;
+          if (duration.contains('hr')) {
+            final match = RegExp(r'(\d+)').firstMatch(duration);
+            if (match != null) {
+              totalHours += int.parse(match.group(1)!);
+            }
+          }
+        }
+      }
+    }
+    
+    // Calculate from day itineraries
+    for (final itinerary in appProvider.itineraries) {
+      for (final activity in itinerary.dailyPlan) {
+        final duration = activity.duration;
+        if (duration.contains('hr')) {
+          final match = RegExp(r'(\d+)').firstMatch(duration);
+          if (match != null) {
+            totalHours += int.parse(match.group(1)!);
+          }
+        }
+      }
+    }
+    
+    // Default estimates if no data
+    if (totalHours == 0) {
+      totalHours = (appProvider.tripPlans.length * 12) + (appProvider.itineraries.length * 6);
+    }
+    
+    if (totalHours >= 24) {
+      final days = totalHours ~/ 24;
+      final hours = totalHours % 24;
+      return hours > 0 ? '${days}d ${hours}h' : '${days}d';
+    }
+    return '${totalHours}h';
+  }
+
   void _showHowToCreatePlans() {
     showDialog(
       context: context,
