@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:http/http.dart' as http;
+import 'dart:math' as math;
+import '../config/environment.dart';
 import '../models/user.dart';
 import '../models/place.dart';
 import '../models/trip.dart';
@@ -1064,6 +1067,21 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
         query = _getCategoryQuery(_selectedCategory);
       }
       
+      print('🔍 DEBUG: About to call places service with:');
+      print('  - Lat: ${_currentLocation!.latitude}');
+      print('  - Lng: ${_currentLocation!.longitude}');
+      print('  - Query: $query');
+      print('  - Radius: $_selectedRadius');
+      print('  - App Active: $_isAppActive');
+      
+      // Test network connectivity
+      try {
+        final testResponse = await http.get(Uri.parse('${Environment.backendUrl}/health'));
+        print('🌐 Network test: ${testResponse.statusCode} - Backend reachable');
+      } catch (e) {
+        print('❌ Network test failed: $e');
+      }
+      
       if (searchQuery.isNotEmpty) {
         // Search query takes priority
         places = await placesService.fetchPlacesPipeline(
@@ -1753,11 +1771,24 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
       _placeSections = sections;
       print('✅ Loaded ${_placeSections.length} place sections via batch API');
       
-      // If batch didn't work well, fallback to individual loading
-      if (_placeSections.length < 3) {
-        print('⚠️ Batch results insufficient, trying individual loading');
-        await _loadSectionsIndividually();
+      // Debug: Check if places have real data
+      for (final section in _placeSections) {
+        final realPlaces = section.places.where((p) => 
+          p.id.isNotEmpty && 
+          !p.id.startsWith('mock_') && 
+          !p.name.contains('Local') && 
+          p.address != 'Near your location'
+        ).length;
+        print('📊 ${section.title}: ${realPlaces}/${section.places.length} real places');
+        if (section.places.isNotEmpty) {
+          final sample = section.places.first;
+          print('   Sample: ${sample.name} (ID: ${sample.id.substring(0, math.min(20, sample.id.length))})'); 
+        }
       }
+      
+      // Always try individual loading for better location accuracy
+      print('🔄 Using individual loading for better location filtering');
+      await _loadSectionsIndividually();
       
     } catch (e) {
       print('❌ Error loading place sections: $e');

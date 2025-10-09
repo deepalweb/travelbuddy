@@ -29,7 +29,14 @@ export class EnhancedPlacesSearch {
       const categoryResults = await this.categoryBasedSearch(lat, lng, query, radius);
       categoryResults.forEach(place => results.set(place.place_id, place));
 
-      return Array.from(results.values()).slice(0, 100); // Return up to 100 places for mobile
+      // Filter by distance to ensure only nearby places
+      const filteredResults = Array.from(results.values()).filter(place => {
+        if (!place.geometry?.location) return false;
+        const distance = this.calculateDistance(lat, lng, place.geometry.location.lat, place.geometry.location.lng);
+        return distance <= (radius / 1000); // Convert radius to km
+      });
+      
+      return filteredResults.slice(0, 100); // Return up to 100 places for mobile
     } catch (error) {
       console.error('Enhanced search failed:', error);
       return [];
@@ -44,9 +51,10 @@ export class EnhancedPlacesSearch {
     for (const searchQuery of enhancedQueries) {
       try {
         const url = new URL('https://maps.googleapis.com/maps/api/place/textsearch/json');
-        url.searchParams.set('query', searchQuery);
+        url.searchParams.set('query', `${searchQuery} near ${lat},${lng}`);
         url.searchParams.set('location', `${lat},${lng}`);
         url.searchParams.set('radius', String(radius));
+        url.searchParams.set('locationbias', `circle:${radius}@${lat},${lng}`);
         url.searchParams.set('key', this.apiKey);
 
         const response = await fetch(url.toString());
@@ -96,7 +104,7 @@ export class EnhancedPlacesSearch {
       const url = new URL('https://maps.googleapis.com/maps/api/place/findplacefromtext/json');
       url.searchParams.set('input', query);
       url.searchParams.set('inputtype', 'textquery');
-      url.searchParams.set('locationbias', `circle:20000@${lat},${lng}`);
+      url.searchParams.set('locationbias', `circle:${Math.min(20000, 10000)}@${lat},${lng}`);
       url.searchParams.set('fields', 'place_id,name,geometry,rating,types,formatted_address,photos');
       url.searchParams.set('key', this.apiKey);
 
@@ -119,9 +127,10 @@ export class EnhancedPlacesSearch {
       try {
         // Search with category-specific keywords
         const url = new URL('https://maps.googleapis.com/maps/api/place/textsearch/json');
-        url.searchParams.set('query', `${category} near ${lat},${lng}`);
+        url.searchParams.set('query', `${category}`);
         url.searchParams.set('location', `${lat},${lng}`);
         url.searchParams.set('radius', String(radius));
+        url.searchParams.set('locationbias', `circle:${radius}@${lat},${lng}`);
         url.searchParams.set('key', this.apiKey);
 
         const response = await fetch(url.toString());
@@ -223,5 +232,17 @@ export class EnhancedPlacesSearch {
       seen.add(place.place_id);
       return true;
     });
+  }
+  
+  // Calculate distance between two points in kilometers
+  calculateDistance(lat1, lng1, lat2, lng2) {
+    const R = 6371; // Earth's radius in kilometers
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLng = (lng2 - lng1) * Math.PI / 180;
+    const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+              Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+              Math.sin(dLng/2) * Math.sin(dLng/2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    return R * c;
   }
 }

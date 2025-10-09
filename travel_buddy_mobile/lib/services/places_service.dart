@@ -60,18 +60,24 @@ class PlacesService {
       
       if (mobileResponse.statusCode == 200) {
         final mobileData = json.decode(mobileResponse.body);
+        print('📱 Mobile API response status: ${mobileData['status']}');
+        print('📱 Mobile API response keys: ${mobileData.keys.toList()}');
+        
         if (mobileData['status'] == 'OK' && mobileData['results'] != null) {
           final List<dynamic> data = mobileData['results'];
           print('✅ Got ${data.length} places from mobile API');
           
           if (data.isNotEmpty) {
             print('📍 Sample place: ${data.first['name']} - ID: ${data.first['place_id'] ?? data.first['id']}');
+            return await _enrichPlaces(data).then((enriched) => 
+              enriched.map((json) => Place.fromJson(json)).toList());
           }
-          
-          // Enrich places with AI-generated content
-          final enrichedPlaces = await _enrichPlaces(data);
-          return enrichedPlaces.map((json) => Place.fromJson(json)).toList();
+        } else {
+          print('❌ Mobile API returned status: ${mobileData['status']} or no results');
         }
+      } else {
+        print('❌ Mobile API HTTP error: ${mobileResponse.statusCode}');
+        print('❌ Mobile API response body: ${mobileResponse.body}');
       }
     } catch (e) {
       print('⚠️ Mobile API failed, trying fallback: $e');
@@ -86,20 +92,40 @@ class PlacesService {
       headers: {'Content-Type': 'application/json'},
     ));
     
-    print('📡 Places API response: ${response.statusCode}');
+    print('📡 Fallback API response: ${response.statusCode}');
     if (response.statusCode == 200) {
-      final List<dynamic> data = json.decode(response.body);
-      print('✅ Got ${data.length} real places from fallback API');
+      final responseBody = response.body;
+      print('📡 Fallback API raw response: ${responseBody.substring(0, math.min(200, responseBody.length))}...');
       
-      if (data.isNotEmpty) {
-        print('📍 Sample place from API: ${data.first['name']} - ID: ${data.first['place_id'] ?? data.first['id']}');
+      try {
+        final decoded = json.decode(responseBody);
+        
+        // Handle both array and object responses
+        List<dynamic> data;
+        if (decoded is List) {
+          data = decoded;
+          print('📡 Fallback API returned direct array');
+        } else if (decoded is Map && decoded['results'] != null) {
+          data = decoded['results'];
+          print('📡 Fallback API returned object with results');
+        } else {
+          print('❌ Fallback API returned unexpected format: ${decoded.runtimeType}');
+          return [];
+        }
+        
+        print('✅ Got ${data.length} real places from fallback API');
+        
+        if (data.isNotEmpty) {
+          print('📍 Sample place from fallback: ${data.first['name']} - ID: ${data.first['place_id'] ?? data.first['id']}');
+          final enrichedPlaces = await _enrichPlaces(data);
+          return enrichedPlaces.map((json) => Place.fromJson(json)).toList();
+        }
+      } catch (e) {
+        print('❌ Failed to parse fallback API response: $e');
+        print('❌ Raw response: $responseBody');
       }
-      
-      // Enrich places with AI-generated content like web app
-      final enrichedPlaces = await _enrichPlaces(data);
-      return enrichedPlaces.map((json) => Place.fromJson(json)).toList();
     } else {
-      print('❌ Places API error (${response.statusCode}): ${response.body}');
+      print('❌ Fallback API error (${response.statusCode}): ${response.body}');
     }
     return [];
   }
