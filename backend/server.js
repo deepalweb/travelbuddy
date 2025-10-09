@@ -87,7 +87,9 @@ function normalizeAndFilter(results, centerLat, centerLng, radiusMeters, options
   if (options.sortByDistance) {
     filtered = filtered.sort((a, b) => (a.distance_m ?? Infinity) - (b.distance_m ?? Infinity));
   }
-  return filtered.slice(0, 10);
+  
+  // Return more results for comprehensive coverage (increased from 10 to 50)
+  return filtered.slice(0, 50);
 }
 
 const __filename = fileURLToPath(import.meta.url);
@@ -444,25 +446,25 @@ const TIER_POLICY = {
     places: { daily: 50, perMin: 5 },
     maps: { daily: 150, perMin: 15 },
     openai: { daily: 10, perMin: 2 },
-    features: { dynamicMap: false, resultsPerSearch: 10, photosPerPlace: 1, radiusMaxM: 10000 }
+    features: { dynamicMap: false, resultsPerSearch: 20, photosPerPlace: 1, radiusMaxM: 10000 }
   },
   basic: {
     places: { daily: 200, perMin: 10 },
     maps: { daily: 500, perMin: 30 },
     openai: { daily: 50, perMin: 5 },
-    features: { dynamicMap: true, resultsPerSearch: 15, photosPerPlace: 2, radiusMaxM: 20000 }
+    features: { dynamicMap: true, resultsPerSearch: 30, photosPerPlace: 2, radiusMaxM: 20000 }
   },
   premium: {
     places: { daily: 1000, perMin: 20 },
     maps: { daily: 2000, perMin: 60 },
     openai: { daily: 200, perMin: 15 },
-    features: { dynamicMap: true, resultsPerSearch: 25, photosPerPlace: 3, radiusMaxM: 40000 }
+    features: { dynamicMap: true, resultsPerSearch: 40, photosPerPlace: 3, radiusMaxM: 40000 }
   },
   pro: {
     places: { daily: 5000, perMin: 60 },
     maps: { daily: 10000, perMin: 120 },
     openai: { daily: 1000, perMin: 60 },
-    features: { dynamicMap: true, resultsPerSearch: 30, photosPerPlace: 6, radiusMaxM: 50000 }
+    features: { dynamicMap: true, resultsPerSearch: 50, photosPerPlace: 6, radiusMaxM: 50000 }
   }
 };
 
@@ -1491,10 +1493,13 @@ app.post('/api/usage/cost/config', async (req, res) => {
     res.status(400).json({ error: 'Failed to update cost config', details: e?.message || String(e) });
   }
 });
-// Places API proxy - fetch factual places from Google Places Text Search
+import { EnhancedPlacesSearch } from './enhanced-places-search.js';
+import { PlacesOptimizer } from './places-optimization.js';
+
+// Enhanced Places API proxy - comprehensive search like Google Maps
 app.get('/api/places/nearby', enforcePolicy('places'), async (req, res) => {
   try {
-  const { lat, lng, q, radius, enforceRadius, sort } = req.query;
+    const { lat, lng, q, radius, enforceRadius, sort } = req.query;
     const apiKey = process.env.GOOGLE_PLACES_API_KEY;
     if (!apiKey) {
       recordUsage({ api: 'places', action: 'nearby', status: 'error', meta: { reason: 'missing_key' } });
@@ -1506,12 +1511,12 @@ app.get('/api/places/nearby', enforcePolicy('places'), async (req, res) => {
     }
 
     const query = (q || '').toString().trim() || 'points of interest';
-  const DEFAULT_RADIUS = parseInt(process.env.DEFAULT_PLACES_RADIUS_M || '20000', 10);
-  let searchRadius = parseInt((radius || String(DEFAULT_RADIUS)).toString(), 10);
-  const maxR = req._policy?.features?.radiusMaxM;
-  if (maxR && Number.isFinite(maxR)) searchRadius = Math.min(searchRadius, maxR);
-  const enforce = String(enforceRadius ?? 'true').toLowerCase() !== 'false';
-  const sortByDistance = String(sort || 'distance').toLowerCase() === 'distance';
+    const DEFAULT_RADIUS = parseInt(process.env.DEFAULT_PLACES_RADIUS_M || '20000', 10);
+    let searchRadius = parseInt((radius || String(DEFAULT_RADIUS)).toString(), 10);
+    const maxR = req._policy?.features?.radiusMaxM;
+    if (maxR && Number.isFinite(maxR)) searchRadius = Math.min(searchRadius, maxR);
+    const enforce = String(enforceRadius ?? 'true').toLowerCase() !== 'false';
+    const sortByDistance = String(sort || 'distance').toLowerCase() === 'distance';
 
     const key = makePlacesKey(lat, lng, query, searchRadius);
     const cached = getFromPlacesCache(key);
@@ -1523,70 +1528,58 @@ app.get('/api/places/nearby', enforcePolicy('places'), async (req, res) => {
       return res.json(cached.data);
     }
 
-  const url = new URL('https://maps.googleapis.com/maps/api/place/textsearch/json');
-    url.searchParams.set('query', query);
-    url.searchParams.set('location', `${lat},${lng}`);
-    url.searchParams.set('radius', String(searchRadius));
-    url.searchParams.set('key', apiKey);
-
-    const doFetch = async () => {
-      const response = await fetch(url.toString());
-      if (!response.ok) {
-        const text = await response.text();
-        throw new Error(text);
-      }
-      return await response.json();
+    const enhancedSearch = new EnhancedPlacesSearch(apiKey);
+    
+    const doEnhancedFetch = async () => {
+      // Use comprehensive search for better results
+      let results = await enhancedSearch.searchPlacesComprehensive(
+        parseFloat(lat), 
+        parseFloat(lng), 
+        query, 
+        searchRadius
+      );
+      
+      // Apply quality filtering and optimization
+      results = PlacesOptimizer.filterQualityResults(results);
+      results = PlacesOptimizer.enrichPlaceTypes(results);
+      results = PlacesOptimizer.rankResults(results, parseFloat(lat), parseFloat(lng), query);
+      
+      return { status: 'OK', results };
     };
 
     // If we have stale cache, return it immediately and refresh in background (SWR)
     if (cached && !isFresh) {
-    res.json(cached.data);
+      res.json(cached.data);
       // background refresh
       const started = Date.now();
-      doFetch()
+      doEnhancedFetch()
         .then((data) => {
-          if (data.status && data.status !== 'OK') {
-            if (data.status === 'ZERO_RESULTS') {
-              setPlacesCache(key, []);
-              recordUsage({ api: 'places', action: 'nearby', status: 'success', durationMs: Date.now() - started, meta: { swr: true, zero: true } });
-              return;
-            }
-            console.error('Places API error (bg):', data.status, data.error_message);
-            recordUsage({ api: 'places', action: 'nearby', status: 'error', durationMs: Date.now() - started, meta: { swr: true, status: data.status } });
-            return;
-          }
-      const normalized = normalizeAndFilter(data.results, lat, lng, searchRadius, { enforceRadius: enforce, sortByDistance });
+          const normalized = normalizeAndFilter(data.results, lat, lng, searchRadius, { enforceRadius: enforce, sortByDistance });
           setPlacesCache(key, normalized);
-          recordUsage({ api: 'places', action: 'nearby', status: 'success', durationMs: Date.now() - started, meta: { swr: true, cache: 'set' } });
+          recordUsage({ api: 'places', action: 'nearby', status: 'success', durationMs: Date.now() - started, meta: { swr: true, cache: 'set', enhanced: true } });
         })
         .catch((e) => {
-          console.error('Places SWR refresh failed:', e.message || e);
+          console.error('Enhanced Places SWR refresh failed:', e.message || e);
           recordUsage({ api: 'places', action: 'nearby', status: 'error', meta: { swr: true, err: e?.message || String(e) } });
         });
       return;
     }
 
     const start = Date.now();
-    const data = await doFetch();
+    const data = await doEnhancedFetch();
 
-    if (data.status && data.status !== 'OK') {
-      if (data.status === 'ZERO_RESULTS') {
-        setPlacesCache(key, []);
-        recordUsage({ api: 'places', action: 'nearby', status: 'success', durationMs: Date.now() - start, meta: { zero: true } });
-        return res.json([]);
-      }
-      console.error('Places API error:', data.status, data.error_message);
-      recordUsage({ api: 'places', action: 'nearby', status: 'error', durationMs: Date.now() - start, meta: { status: data.status } });
-      return res.status(502).json({ error: 'Places API status not OK', details: data.status, message: data.error_message });
-    }
+    let normalized = normalizeAndFilter(data.results, lat, lng, searchRadius, { enforceRadius: enforce, sortByDistance });
 
-  let normalized = normalizeAndFilter(data.results, lat, lng, searchRadius, { enforceRadius: enforce, sortByDistance });
-
-  setPlacesCache(key, normalized);
-  recordUsage({ api: 'places', action: 'nearby', status: 'success', durationMs: Date.now() - start, meta: { cache: 'set' } });
-  const limit = req._policy?.features?.resultsPerSearch;
-  const sendList = (limit && Number.isFinite(limit)) ? normalized.slice(0, limit) : normalized;
-  res.json(sendList);
+    setPlacesCache(key, normalized);
+    recordUsage({ api: 'places', action: 'nearby', status: 'success', durationMs: Date.now() - start, meta: { cache: 'set', enhanced: true } });
+    
+    // Return more results for comprehensive coverage
+    const limit = req._policy?.features?.resultsPerSearch || 30; // Increased default limit
+    const sendList = normalized.slice(0, limit);
+    
+    console.log(`✅ Enhanced search returned ${sendList.length} places for query: ${query}`);
+    res.json(sendList);
+    
   } catch (error) {
     recordUsage({ api: 'places', action: 'nearby', status: 'error', meta: { err: error?.message || String(error) } });
     res.status(500).json({ error: 'Failed to fetch places', details: error?.message || String(error) });
