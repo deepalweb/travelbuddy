@@ -7,6 +7,7 @@ import {
 import CommunityPostCard from './CommunityPostCard.tsx';
 import SmartCreatePostModal from './SmartCreatePostModal.tsx';
 import LoadingSpinner from './LoadingSpinner.tsx';
+import UserProfileModal from './UserProfileModal.tsx';
 
 interface EnhancedCommunityViewProps {
   currentUser: CurrentUser | null;
@@ -21,6 +22,7 @@ interface EnhancedCommunityViewProps {
   onBlockUser?: (userId: string) => void;
   onHidePost?: (postId: string) => void;
   onDeletePost?: (postId: string) => void;
+  onBookmarkPost?: (postId: string) => void;
   isLoading?: boolean;
 }
 
@@ -35,6 +37,9 @@ const EnhancedCommunityView: React.FC<EnhancedCommunityViewProps> = ({
   const [locationFilter, setLocationFilter] = useState<'all' | 'nearby' | 'destination'>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState<'recent' | 'popular' | 'trending'>('recent');
+  const [showUserProfile, setShowUserProfile] = useState(false);
+  const [selectedUserId, setSelectedUserId] = useState<string | undefined>();
+  const [selectedUsername, setSelectedUsername] = useState<string | undefined>();
 
   // Enhanced tabs with local context
   const tabs = [
@@ -61,6 +66,12 @@ const EnhancedCommunityView: React.FC<EnhancedCommunityViewProps> = ({
   const filteredPosts = posts.sort((a, b) => {
     return new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime();
   });
+
+  const handleUserClick = (userId?: string, username?: string) => {
+    setSelectedUserId(userId);
+    setSelectedUsername(username);
+    setShowUserProfile(true);
+  };
 
 
 
@@ -206,98 +217,17 @@ const EnhancedCommunityView: React.FC<EnhancedCommunityViewProps> = ({
   const renderPostsFeed = () => (
     <div className="space-y-6">
       {filteredPosts.map(post => (
-        <div key={post.id} className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
-          {/* Enhanced Post Header */}
-          <div className="p-4 border-b border-gray-100">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <img
-                  src={post.author?.avatar || '/default-avatar.png'}
-                  alt={post.author?.name}
-                  className="w-10 h-10 rounded-full"
-                />
-                <div>
-                  <div className="flex items-center gap-2">
-                    <span className="font-semibold">{post.author?.name}</span>
-                    {post.author?.verified && (
-                      <Award className="text-blue-500" size={14} />
-                    )}
-                  </div>
-                  <div className="flex items-center gap-2 text-sm text-gray-500">
-                    <Clock size={12} />
-                    <span>2h ago</span>
-                    {post.content?.location && (
-                      <>
-                        <span>•</span>
-                        <MapPin size={12} />
-                        <span>{userCity}</span>
-                      </>
-                    )}
-                  </div>
-                </div>
-              </div>
-              
-              {/* Post Type Badge */}
-              <div className="flex items-center gap-2">
-                {post.category === 'Itinerary' && (
-                  <span className="px-2 py-1 bg-green-100 text-green-800 text-xs rounded-full">
-                    🗺️ Trip Plan
-                  </span>
-                )}
-                {post.tags?.includes('deal') && (
-                  <span className="px-2 py-1 bg-orange-100 text-orange-800 text-xs rounded-full">
-                    💰 Deal
-                  </span>
-                )}
-              </div>
-            </div>
-          </div>
-
-          <div className="p-4">
-            <div className="font-bold">{post.author?.name || 'Anonymous'}</div>
-            <div className="text-gray-600 text-sm">{new Date(post.timestamp).toLocaleString()}</div>
-            <div className="mt-2">{post.content?.text || 'No content'}</div>
-            <div className="mt-2 text-sm text-gray-500">Category: {post.category}</div>
-            {post.content?.images && post.content.images.length > 0 && (
-              <div className="mt-2 grid grid-cols-2 gap-2">
-                {post.content.images.map((img, index) => (
-                  <img key={index} src={img} alt={`Post image ${index + 1}`} className="w-full h-32 object-cover rounded" />
-                ))}
-              </div>
-            )}
-          </div>
-
-          {/* Enhanced Actions */}
-          <div className="px-4 py-3 border-t border-gray-100">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-4">
-                <button className="flex items-center gap-1 text-gray-600 hover:text-red-500 transition-colors">
-                  <Heart size={16} />
-                  <span className="text-sm">{post.engagement?.likes || 0}</span>
-                </button>
-                <button className="flex items-center gap-1 text-gray-600 hover:text-blue-500 transition-colors">
-                  <MessageCircle size={16} />
-                  <span className="text-sm">{post.engagement?.comments || 0}</span>
-                </button>
-                <button className="flex items-center gap-1 text-gray-600 hover:text-green-500 transition-colors">
-                  <Share size={16} />
-                  <span className="text-sm">Share</span>
-                </button>
-              </div>
-              
-              <div className="flex items-center gap-2">
-                <button className="text-gray-600 hover:text-yellow-500 transition-colors">
-                  <Bookmark size={16} />
-                </button>
-                {post.category === 'Itinerary' && (
-                  <button className="px-3 py-1 bg-blue-50 text-blue-700 text-xs rounded-full hover:bg-blue-100 transition-colors">
-                    Clone Trip
-                  </button>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
+        <CommunityPostCard
+          key={post.id}
+          post={post}
+          onLikePost={onLikePost}
+          onBookmarkPost={onBookmarkPost || (() => {})}
+          onSharePost={onSharePost}
+          onCommentPost={onCommentPost}
+          currentUsername={currentUser?.username}
+          currentUserId={currentUser?.mongoId}
+          onUserClick={handleUserClick}
+        />
       ))}
     </div>
   );
@@ -360,6 +290,16 @@ const EnhancedCommunityView: React.FC<EnhancedCommunityViewProps> = ({
           )}
         </div>
       )}
+
+      {/* User Profile Modal */}
+      <UserProfileModal
+        isOpen={showUserProfile}
+        onClose={() => setShowUserProfile(false)}
+        userId={selectedUserId}
+        username={selectedUsername}
+        currentUser={currentUser}
+        posts={posts}
+      />
     </div>
   );
 };

@@ -833,24 +833,47 @@ class _ProfilePicture extends StatelessWidget {
       backgroundColor: Color(AppConstants.colors['primary']!),
       child: user?.profilePicture != null && user!.profilePicture!.isNotEmpty
           ? ClipOval(
-              child: user.profilePicture!.startsWith('data:image')
-                  ? Image.memory(
-                      base64Decode(user.profilePicture!.split(',')[1]),
-                      width: radius * 2,
-                      height: radius * 2,
-                      fit: BoxFit.cover,
-                      errorBuilder: (context, error, stackTrace) => _buildInitials(),
-                    )
-                  : Image.network(
-                      user.profilePicture!,
-                      width: radius * 2,
-                      height: radius * 2,
-                      fit: BoxFit.cover,
-                      errorBuilder: (context, error, stackTrace) => _buildInitials(),
-                    ),
+              child: _buildProfileImage(),
             )
           : _buildInitials(),
     );
+  }
+  
+  Widget _buildProfileImage() {
+    final profilePicture = user.profilePicture!;
+    
+    try {
+      if (profilePicture.startsWith('data:image')) {
+        return Image.memory(
+          base64Decode(profilePicture.split(',')[1]),
+          width: radius * 2,
+          height: radius * 2,
+          fit: BoxFit.cover,
+          errorBuilder: (context, error, stackTrace) {
+            print('❌ [PROFILE] Base64 image error: $error');
+            return _buildInitials();
+          },
+        );
+      } else if (profilePicture.startsWith('http')) {
+        return Image.network(
+          profilePicture,
+          width: radius * 2,
+          height: radius * 2,
+          fit: BoxFit.cover,
+          errorBuilder: (context, error, stackTrace) {
+            print('❌ [PROFILE] Network image error: $error');
+            return _buildInitials();
+          },
+        );
+      } else {
+        // Local file path - use placeholder instead
+        print('⚠️ [PROFILE] Local file detected, using initials: $profilePicture');
+        return _buildInitials();
+      }
+    } catch (e) {
+      print('❌ [PROFILE] Image loading error: $e');
+      return _buildInitials();
+    }
   }
   
   Widget _buildInitials() {

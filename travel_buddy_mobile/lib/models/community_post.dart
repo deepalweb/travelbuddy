@@ -46,19 +46,25 @@ class CommunityPost {
   });
 
   factory CommunityPost.fromJson(Map<String, dynamic> json) {
+    // Handle backend format
+    final content = json['content'] ?? {};
+    final author = json['author'] ?? {};
+    final engagement = json['engagement'] ?? {};
+    
     return CommunityPost(
-      id: json['id'] ?? '',
+      id: json['_id'] ?? json['id'] ?? '',
       userId: json['userId'] ?? '',
-      userName: json['userName'] ?? '',
-      userAvatar: json['userAvatar'] ?? '',
-      content: json['content'] ?? '',
-      images: List<String>.from(json['images'] ?? []),
-      location: json['location'] ?? '',
-      createdAt: DateTime.parse(json['createdAt'] ?? DateTime.now().toIso8601String()),
-      likesCount: json['likesCount'] ?? 0,
-      commentsCount: json['commentsCount'] ?? 0,
+      userName: author['name'] ?? json['userName'] ?? 'User',
+      userAvatar: author['avatar'] ?? json['userAvatar'] ?? '',
+      content: content['text'] ?? json['content'] ?? '',
+      images: List<String>.from(content['images'] ?? json['images'] ?? []),
+      location: author['location'] ?? json['location'] ?? '',
+      createdAt: DateTime.tryParse(json['createdAt'] ?? '') ?? DateTime.now(),
+      likesCount: engagement['likes'] ?? json['likesCount'] ?? 0,
+      commentsCount: engagement['comments'] ?? json['commentsCount'] ?? 0,
       isLiked: json['isLiked'] ?? false,
-      postType: PostType.fromString(json['postType'] ?? 'story'),
+      postType: PostType.fromString(json['category'] ?? json['postType'] ?? 'story'),
+      hashtags: List<String>.from(json['tags'] ?? json['hashtags'] ?? []),
       metadata: json['metadata'],
     );
   }
@@ -103,13 +109,13 @@ class Comment {
 
   factory Comment.fromJson(Map<String, dynamic> json) {
     return Comment(
-      id: json['id'] ?? '',
+      id: json['_id'] ?? json['id'] ?? '',
       postId: json['postId'] ?? '',
       userId: json['userId'] ?? '',
-      userName: json['userName'] ?? '',
+      userName: json['username'] ?? json['userName'] ?? 'User',
       userAvatar: json['userAvatar'] ?? '',
-      content: json['content'] ?? '',
-      createdAt: DateTime.parse(json['createdAt'] ?? DateTime.now().toIso8601String()),
+      content: json['text'] ?? json['content'] ?? '',
+      createdAt: DateTime.tryParse(json['createdAt'] ?? '') ?? DateTime.now(),
     );
   }
 

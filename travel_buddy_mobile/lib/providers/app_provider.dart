@@ -30,6 +30,8 @@ import '../services/real_local_discoveries_service.dart';
 import '../services/deals_service.dart';
 import '../services/payment_service.dart';
 import '../services/real_data_service.dart';
+import '../services/trip_plans_api_service.dart';
+import '../services/trip_analytics_service.dart';
 import '../models/travel_style.dart';
 import '../models/place_section.dart';
 
@@ -2056,7 +2058,7 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
     return _places;
   }
 
-  // Trip Methods
+  // Trip Methods with Backend Sync
   Future<void> loadTripPlans() async {
     _isTripsLoading = true;
     notifyListeners();
@@ -2072,39 +2074,9 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
       print('💾 Loaded ${cachedPlans.length} trip plans from cache');
       print('💾 Loaded ${_itineraries.length} itineraries from cache');
       
-      // Try to sync with backend if user is logged in (but don't overwrite cache on failure)
+      // Sync with backend if user is logged in
       if (_currentUser?.mongoId != null) {
-        try {
-          final backendPlans = await _apiService.getUserTripPlans(_currentUser!.mongoId!);
-          if (backendPlans.isNotEmpty) {
-            // Merge backend and local plans (keep all unique plans)
-            final allPlans = <TripPlan>[];
-            final seenIds = <String>{};
-            
-            // Add backend plans first
-            for (final plan in backendPlans) {
-              if (!seenIds.contains(plan.id)) {
-                allPlans.add(plan);
-                seenIds.add(plan.id);
-              }
-            }
-            
-            // Add local plans that aren't in backend
-            for (final plan in cachedPlans) {
-              if (!seenIds.contains(plan.id)) {
-                allPlans.add(plan);
-                seenIds.add(plan.id);
-              }
-            }
-            
-            _tripPlans = allPlans;
-            print('🌍 Merged: ${backendPlans.length} backend + ${cachedPlans.length} local = ${allPlans.length} total plans');
-          } else {
-            print('🌍 Backend returned 0 plans, keeping ${cachedPlans.length} cached plans');
-          }
-        } catch (e) {
-          print('⚠️ Backend sync failed, using ${cachedPlans.length} cached plans: $e');
-        }
+        await _syncTripPlansWithBackend();
       }
     } catch (e) {
       print('❌ Error loading trip plans: $e');
@@ -2113,26 +2085,116 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
       notifyListeners();
     }
   }
+  
+  Future<void> _syncTripPlansWithBackend() async {
+    try {
+      final userId = _currentUser!.mongoId!;
+      
+      // Get backend plans
+      final backendPlans = await TripPlansApiService.getUserTripPlans(userId);
+      
+      if (backendPlans.isNotEmpty) {
+        // Merge backend and local plans
+        final allPlans = <TripPlan>[];
+        final seenIds = <String>{};
+        
+        // Add backend plans first
+        for (final plan in backendPlans) {
+          if (!seenIds.contains(plan.id)) {
+            allPlans.add(plan);
+            seenIds.add(plan.id);
+          }
+        }
+        
+        // Add local plans that aren't in backend and sync them
+        for (final plan in _tripPlans) {
+          if (!seenIds.contains(plan.id)) {
+            // Upload local plan to backend
+            final savedPlan = await TripPlansApiService.saveTripPlan(userId, plan);
+            if (savedPlan != null) {
+              allPlans.add(savedPlan);
+              seenIds.add(savedPlan.id);
+            }
+          }
+        }
+        
+        _tripPlans = allPlans;
+        
+        // Update local storage with merged plans
+        for (final plan in allPlans) {
+          await _storageService.saveTripPlan(plan);
+        }
+        
+        print('🔄 Synced: ${backendPlans.length} backend + ${_tripPlans.length - backendPlans.length} local = ${allPlans.length} total');
+      } else {
+        // No backend plans, upload all local plans
+        await _uploadLocalPlansToBackend();
+      }
+    } catch (e) {
+      print('⚠️ Backend sync failed: $e');
+    }
+  }
+  
+  Future<void> _uploadLocalPlansToBackend() async {
+    if (_currentUser?.mongoId == null || _tripPlans.isEmpty) return;
+    
+    try {
+      final userId = _currentUser!.mongoId!;
+      
+      for (final plan in _tripPlans) {
+        await TripPlansApiService.saveTripPlan(userId, plan);
+      }
+      
+      print('⬆️ Uploaded ${_tripPlans.length} local plans to backend');
+    } catch (e) {
+      print('❌ Error uploading local plans: $e');
+    }
+  }
 
   Future<void> saveTripPlan(TripPlan tripPlan) async {
-    print('🔍 DEBUG: Saving trip plan: ${tripPlan.tripTitle}');
-    await _storageService.saveTripPlan(tripPlan);
+    print('💾 Saving trip plan: ${tripPlan.tripTitle}');
     
+    // Save locally first
+    await _storageService.saveTripPlan(tripPlan);
+    _tripPlans.add(tripPlan);
+    notifyListeners();
+    
+    // Sync to backend if user is logged in
     if (_currentUser?.mongoId != null) {
-      await _apiService.saveTripPlan(_currentUser!.mongoId!, tripPlan);
+      try {
+        final savedPlan = await TripPlansApiService.saveTripPlan(_currentUser!.mongoId!, tripPlan);
+        if (savedPlan != null) {
+          // Update local plan with backend ID if different
+          final index = _tripPlans.indexWhere((p) => p.id == tripPlan.id);
+          if (index != -1) {
+            _tripPlans[index] = savedPlan;
+            await _storageService.saveTripPlan(savedPlan);
+          }
+          print('☁️ Trip plan synced to backend');
+        }
+      } catch (e) {
+        print('⚠️ Backend save failed, plan saved locally: $e');
+      }
     }
     
-    _tripPlans.add(tripPlan);
-    print('🔍 DEBUG: Trip plan added to list. Total plans: ${_tripPlans.length}');
-    notifyListeners();
+    print('✅ Trip plan saved. Total plans: ${_tripPlans.length}');
   }
 
   Future<void> deleteTripPlan(String tripPlanId) async {
+    // Delete locally first
     await _storageService.deleteTripPlan(tripPlanId);
-    await _apiService.deleteTripPlan(tripPlanId);
-    
     _tripPlans.removeWhere((trip) => trip.id == tripPlanId);
     notifyListeners();
+    
+    // Delete from backend if user is logged in
+    if (_currentUser?.mongoId != null) {
+      try {
+        await TripPlansApiService.deleteTripPlan(_currentUser!.mongoId!, tripPlanId);
+        print('☁️ Trip plan deleted from backend');
+      } catch (e) {
+        print('⚠️ Backend delete failed, plan deleted locally: $e');
+      }
+    }
   }
 
   // Home Screen Methods
@@ -2279,7 +2341,7 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
     }
   }
 
-  // Trip Plan Generation
+  // Trip Plan Generation with Analytics
   Future<TripPlan?> generateTripPlan({
     required String destination,
     required String duration,
@@ -2300,13 +2362,28 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
       );
       
       await saveTripPlan(tripPlan);
+      
+      // Track trip creation analytics
+      if (_currentUser?.mongoId != null) {
+        final activitiesCount = tripPlan.dailyPlans
+            .fold(0, (sum, day) => sum + day.activities.length);
+        
+        await TripAnalyticsService.trackTripCreated(
+          userId: _currentUser!.mongoId!,
+          tripPlanId: tripPlan.id,
+          destination: destination,
+          duration: duration,
+          interests: interests.split(',').map((e) => e.trim()).toList(),
+          activitiesCount: activitiesCount,
+        );
+      }
+      
       await _notificationService.showLocalNotification(
         'Trip Plan Ready!',
         'Your ${tripPlan.tripTitle} has been generated successfully',
       );
       print('✅ Generated and saved trip plan: ${tripPlan.tripTitle}');
       return tripPlan;
-          return null;
     } catch (e) {
       print('❌ Error generating trip plan: $e');
       return null;

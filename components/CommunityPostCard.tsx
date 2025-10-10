@@ -22,9 +22,10 @@ interface PostCardProps {
     currentUsername?: string | null;
     currentUserId?: string | null;
     onEditPost?: (post: Post) => void;
+    onUserClick?: (userId?: string, username?: string) => void;
 }
 
-const CommunityPostCard: React.FC<PostCardProps> = ({ post, onLikePost, onBookmarkPost, onSharePost, onCommentPost, currentUsername, currentUserId, onEditPost }) => {
+const CommunityPostCard: React.FC<PostCardProps> = ({ post, onLikePost, onBookmarkPost, onSharePost, onCommentPost, currentUsername, currentUserId, onEditPost, onUserClick }) => {
     const { t } = useLanguage();
     const [isExpanded, setIsExpanded] = useState(false);
     const [showComments, setShowComments] = useState(false);
@@ -211,7 +212,11 @@ const CommunityPostCard: React.FC<PostCardProps> = ({ post, onLikePost, onBookma
             <div className="flex items-start justify-between mb-4">
                 <div className="flex items-center gap-3">
                     <div className="relative">
-                        <div className="w-12 h-12 rounded-full bg-gradient-to-br from-indigo-400 to-purple-500 flex items-center justify-center font-bold text-white shadow-md" style={{backgroundImage: author.avatar ? `url(${author.avatar})` : undefined, backgroundSize: 'cover'}}>
+                        <div 
+                            className="w-12 h-12 rounded-full bg-gradient-to-br from-indigo-400 to-purple-500 flex items-center justify-center font-bold text-white shadow-md cursor-pointer hover:shadow-lg transition-shadow" 
+                            style={{backgroundImage: author.avatar ? `url(${author.avatar})` : undefined, backgroundSize: 'cover'}}
+                            onClick={() => onUserClick?.((post as any).userId, author.name)}
+                        >
                             {!author.avatar && (author.name ? author.name.charAt(0) : 'U')}
                         </div>
                         {author.verified && (
@@ -222,7 +227,12 @@ const CommunityPostCard: React.FC<PostCardProps> = ({ post, onLikePost, onBookma
                     </div>
                     <div>
                         <div className="flex items-center gap-2">
-                            <span className="font-bold text-base">{author.name || 'User'}</span>
+                            <span 
+                                className="font-bold text-base cursor-pointer hover:text-blue-600 transition-colors"
+                                onClick={() => onUserClick?.((post as any).userId, author.name)}
+                            >
+                                {author.name || 'User'}
+                            </span>
                             {author.verified && <span className="px-2 py-0.5 text-xs font-semibold bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-full shadow-sm">Verified</span>}
                         </div>
                          <p className="text-xs flex items-center gap-1 mt-1" style={{color: 'var(--color-text-secondary)'}}>

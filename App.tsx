@@ -2692,6 +2692,7 @@ const App: React.FC = () => {
           onBlockUser={handleBlockUser}
           onHidePost={handleHidePost}
           onDeletePost={handleDeletePost}
+          onBookmarkPost={handleBookmarkPost}
           isLoading={posts.length === 0 && isLoading}
         />
   </React.Suspense>

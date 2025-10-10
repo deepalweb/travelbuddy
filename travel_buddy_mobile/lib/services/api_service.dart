@@ -7,11 +7,11 @@ import '../models/place.dart';
 import '../models/user.dart';
 import '../models/trip.dart';
 import '../models/travel_stats.dart';
-import '../models/community_post.dart';
+import '../models/community_post.dart' as community;
 import '../models/user_profile.dart';
 import '../models/travel_enums.dart';
 import '../models/safety_info.dart';
-import '../models/community_post.dart';
+import 'mock_backend_service.dart';
 import 'dart:math' as math;
 import 'error_handler_service.dart';
 
@@ -21,20 +21,38 @@ class ApiService {
   
   final Dio _dio = Dio(BaseOptions(
     baseUrl: Environment.backendUrl,
-    connectTimeout: const Duration(seconds: 8),
-    receiveTimeout: const Duration(seconds: 12),
-    sendTimeout: const Duration(seconds: 10),
+    connectTimeout: const Duration(seconds: 15),
+    receiveTimeout: const Duration(seconds: 20),
+    sendTimeout: const Duration(seconds: 15),
     headers: {
       'Content-Type': 'application/json',
       'Accept': 'application/json',
     },
   ))..interceptors.add(LogInterceptor(
-    requestBody: false,
-    responseBody: false,
-    logPrint: (obj) => print(obj),
+    requestBody: true,
+    responseBody: true,
+    logPrint: (obj) => print('🌐 API: $obj'),
   ));
 
-  ApiService._internal();
+  ApiService._internal() {
+    // Test backend connectivity on initialization
+    _testBackendConnectivity();
+  }
+
+  Future<void> _testBackendConnectivity() async {
+    try {
+      print('🌐 Testing backend connectivity...');
+      final response = await _dio.get('/health').timeout(Duration(seconds: 10));
+      if (response.statusCode == 200) {
+        print('✅ Backend is accessible: ${response.data}');
+      } else {
+        print('⚠️ Backend returned: ${response.statusCode}');
+      }
+    } catch (e) {
+      print('❌ Backend connectivity test failed: $e');
+      print('📱 App will use mock data for community features');
+    }
+  }
 
   // Personalized Suggestions API
   Future<List<Map<String, dynamic>>> getPersonalizedSuggestions({
@@ -263,10 +281,15 @@ class ApiService {
 
   Future<bool> updateUser(String userId, Map<String, dynamic> userData) async {
     try {
+      print('👤 Syncing user profile to backend: $userId');
       final response = await _dio.put('/api/users/$userId', data: userData);
-      return response.statusCode == 200;
+      if (response.statusCode == 200) {
+        print('✅ User profile synced successfully');
+        return true;
+      }
+      return false;
     } catch (e) {
-      print('Error updating user: $e');
+      print('❌ Error updating user: $e');
       return false;
     }
   }
@@ -384,19 +407,57 @@ class ApiService {
     return false;
   }
 
-  Future<List<CommunityPost>> getCommunityPosts({int page = 1, int limit = 20}) async {
-    return [];
+  Future<List<community.CommunityPost>> getCommunityPosts({int page = 1, int limit = 20}) async {
+    try {
+      print('🌐 Attempting to fetch posts from: ${Environment.backendUrl}/api/posts');
+      final response = await _dio.get('/api/posts', queryParameters: {
+        'limit': limit,
+      });
+      print('🌐 Backend response status: ${response.statusCode}');
+      if (response.statusCode == 200) {
+        final List<dynamic> data = response.data;
+        print('✅ Backend success: ${data.length} posts loaded');
+        return data.map((json) => community.CommunityPost.fromJson(json)).toList();
+      }
+      return [];
+    } catch (e) {
+      print('❌ Backend error: $e');
+      print('🔄 Falling back to mock database');
+      return await MockBackendService().getCommunityPosts(page: page, limit: limit);
+    }
   }
 
   Future<bool> toggleLike(String postId, {String? userId, String? username}) async {
-    return false;
+    try {
+      print('🌐 Toggling like for post: $postId');
+      final response = await _dio.post('/api/posts/$postId/like', data: {
+        'userId': userId,
+        'username': username,
+      });
+      print('🌐 Like response: ${response.statusCode}');
+      if (response.statusCode == 200) {
+        print('✅ Like synced to backend');
+        return true;
+      }
+      return false;
+    } catch (e) {
+      print('❌ Like backend error: $e');
+      print('🔄 Using mock database for like');
+      return await MockBackendService().toggleLike(postId, userId: userId, username: username);
+    }
   }
 
   Future<bool> toggleBookmark(String postId) async {
-    return false;
+    try {
+      // Backend doesn't have bookmark endpoint yet, use mock for now
+      return await MockBackendService().toggleBookmark(postId);
+    } catch (e) {
+      print('🔄 Real backend unavailable, using mock database');
+      return await MockBackendService().toggleBookmark(postId);
+    }
   }
 
-  Future<CommunityPost?> createPost({
+  Future<community.CommunityPost?> createPost({
     required String content,
     required String location,
     List<String> images = const [],
@@ -407,27 +468,113 @@ class ApiService {
     String? userId,
     String? username,
   }) async {
-    return null;
+    try {
+      final response = await _dio.post('/api/posts', data: {
+        'userId': userId,
+        'content': {
+          'text': content,
+          'images': images,
+        },
+        'author': {
+          'name': username ?? 'Mobile User',
+          'avatar': '', // Backend will use user's profile picture
+          'location': location,
+          'verified': false,
+        },
+        'tags': hashtags,
+        'category': postType,
+      });
+      if (response.statusCode == 200) {
+        return community.CommunityPost.fromJson(response.data);
+      }
+      return null;
+    } catch (e) {
+      print('🔄 Real backend unavailable, using mock database');
+      return await MockBackendService().createPost(
+        content: content,
+        location: location,
+        images: images,
+        postType: postType,
+        hashtags: hashtags,
+        allowComments: allowComments,
+        visibility: visibility,
+        userId: userId,
+        username: username,
+      );
+    }
   }
 
-  Future<List<CommunityPost>> getBookmarkedPosts() async {
-    return [];
+  Future<List<community.CommunityPost>> getBookmarkedPosts() async {
+    try {
+      // Backend doesn't have bookmark endpoint yet, return empty for now
+      return [];
+    } catch (e) {
+      print('Error fetching bookmarked posts: $e');
+      return [];
+    }
   }
 
   Future<List<UserProfile>> getFollowers(String userId) async {
-    return [];
+    try {
+      final response = await _dio.get('/api/users/$userId/followers');
+      if (response.statusCode == 200) {
+        final List<dynamic> data = response.data;
+        return data.map((json) => UserProfile.fromJson(json)).toList();
+      }
+      return [];
+    } catch (e) {
+      print('Error fetching followers: $e');
+      return [];
+    }
   }
 
   Future<List<UserProfile>> getFollowing(String userId) async {
-    return [];
+    try {
+      final response = await _dio.get('/api/users/$userId/following');
+      if (response.statusCode == 200) {
+        final List<dynamic> data = response.data;
+        return data.map((json) => UserProfile.fromJson(json)).toList();
+      }
+      return [];
+    } catch (e) {
+      print('Error fetching following: $e');
+      return [];
+    }
   }
 
-  Future<List<Comment>> getPostComments(String postId) async {
-    return [];
+  Future<List<community.Comment>> getPostComments(String postId) async {
+    try {
+      final response = await _dio.get('/api/posts/$postId/comments');
+      if (response.statusCode == 200) {
+        final data = response.data;
+        final List<dynamic> comments = data['comments'] ?? [];
+        return comments.map((json) => community.Comment.fromJson(json)).toList();
+      }
+      return [];
+    } catch (e) {
+      print('🔄 Real backend unavailable, using mock database');
+      return await MockBackendService().getPostComments(postId);
+    }
   }
 
-  Future<Comment> addComment(String postId, String content) async {
-    throw Exception('Not implemented');
+  Future<community.Comment> addComment(String postId, String content) async {
+    try {
+      final response = await _dio.post('/api/posts/$postId/comments', data: {
+        'text': content,
+        'username': 'Mobile User',
+      });
+      if (response.statusCode == 200) {
+        final data = response.data;
+        final List<dynamic> comments = data['comments'] ?? [];
+        if (comments.isNotEmpty) {
+          return community.Comment.fromJson(comments.last);
+        }
+      }
+      throw Exception('Failed to create comment');
+    } catch (e) {
+      print('🔄 Real backend unavailable, using mock database');
+      return await MockBackendService().addComment(postId, content);
+    }
   }
 
   // Safety API

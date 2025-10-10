@@ -22,7 +22,7 @@ class CommunityProvider with ChangeNotifier {
   String? get error => _error;
   bool get hasMorePosts => _hasMorePosts;
 
-  Future<void> loadPosts({bool refresh = false}) async {
+  Future<void> loadPosts({bool refresh = false, BuildContext? context}) async {
     if (_isLoading) return;
 
     if (refresh) {
@@ -36,34 +36,91 @@ class CommunityProvider with ChangeNotifier {
     notifyListeners();
 
     try {
-      final newPosts = await _apiService.getCommunityPosts(
+      // Try backend API first
+      final backendPosts = await _apiService.getCommunityPosts(
         page: _currentPage,
         limit: 10,
       );
 
-      if (newPosts.isNotEmpty) {
+      if (backendPosts.isNotEmpty) {
+        // Update posts with current user profile data
+        final updatedPosts = await _syncPostsWithUserProfile(backendPosts, context);
+        
+        final localIds = _posts.map((p) => p.id).toSet();
+        final newBackendPosts = updatedPosts.where((p) => !localIds.contains(p.id)).toList();
+        
         if (refresh) {
-          _posts = newPosts;
+          _posts = [...updatedPosts, ..._posts.where((p) => p.id.startsWith('temp_'))];
         } else {
-          _posts.addAll(newPosts);
+          _posts.addAll(newBackendPosts);
         }
         
-        _hasMorePosts = newPosts.length >= 10;
+        _posts.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+        _hasMorePosts = backendPosts.length >= 10;
         _currentPage++;
+        print('✅ Loaded ${backendPosts.length} posts from backend');
       } else {
+        if (_posts.isEmpty) {
+          await loadLocalPosts();
+        }
         _hasMorePosts = false;
+        print('💾 Using local posts only');
       }
     } catch (e) {
       _error = 'Failed to load posts: $e';
-      print('Community provider error: $e');
+      print('❌ Backend API failed: $e');
+      
+      if (_posts.isEmpty) {
+        await loadLocalPosts();
+      }
       
       if (_posts.isNotEmpty) {
-        print('💾 Keeping ${_posts.length} optimistic posts visible despite fetch error');
+        print('💾 Keeping ${_posts.length} local posts visible');
         _error = 'Using offline posts - backend unavailable';
       }
+      _hasMorePosts = false;
     } finally {
       _isLoading = false;
       notifyListeners();
+    }
+  }
+  
+  Future<List<CommunityPost>> _syncPostsWithUserProfile(List<CommunityPost> posts, BuildContext? context) async {
+    if (context == null) return posts;
+    
+    try {
+      final appProvider = Provider.of<AppProvider>(context, listen: false);
+      final currentUser = appProvider.currentUser;
+      
+      if (currentUser == null) return posts;
+      
+      // Update posts from current user with latest profile data
+      return posts.map((post) {
+        if (post.userId == currentUser.mongoId || post.userId == currentUser.uid) {
+          return CommunityPost(
+            id: post.id,
+            userId: post.userId,
+            userName: currentUser.username ?? post.userName,
+            userAvatar: currentUser.profilePicture?.startsWith('http') == true 
+                ? currentUser.profilePicture! 
+                : post.userAvatar,
+            content: post.content,
+            images: post.images,
+            location: post.location,
+            createdAt: post.createdAt,
+            likesCount: post.likesCount,
+            commentsCount: post.commentsCount,
+            isLiked: post.isLiked,
+            postType: post.postType,
+            hashtags: post.hashtags,
+            metadata: post.metadata,
+          );
+        }
+        return post;
+      }).toList();
+    } catch (e) {
+      print('⚠️ Profile sync failed: $e');
+      return posts;
     }
   }
 
@@ -141,6 +198,7 @@ class CommunityProvider with ChangeNotifier {
     final post = _posts[postIndex];
     final wasLiked = post.isLiked;
 
+    // Optimistic update
     _posts[postIndex] = CommunityPost(
       id: post.id,
       userId: post.userId,
@@ -158,44 +216,67 @@ class CommunityProvider with ChangeNotifier {
     );
     notifyListeners();
 
-    try {
-      await _apiService.toggleLike(postId, username: 'mobile_user');
-    } catch (e) {
-      _posts[postIndex] = post;
-      notifyListeners();
+    // Skip backend sync for temporary posts
+    if (!postId.startsWith('temp_')) {
+      try {
+        // Try backend API for real posts only
+        final success = await _apiService.toggleLike(postId, username: 'mobile_user');
+        if (success) {
+          print('✅ Like synced to backend');
+        } else {
+          print('⚠️ Backend like API not available');
+        }
+      } catch (e) {
+        print('⚠️ Backend unavailable - like saved locally');
+      }
+    } else {
+      print('💾 Local-only post - like saved locally');
     }
   }
 
   Future<bool> toggleBookmark(String postId) async {
-    try {
-      final success = await _apiService.toggleBookmark(postId);
-      if (success) {
-        final postIndex = _posts.indexWhere((post) => post.id == postId);
-        if (postIndex != -1) {
-          final post = _posts[postIndex];
-          _posts[postIndex] = CommunityPost(
-            id: post.id,
-            userId: post.userId,
-            userName: post.userName,
-            userAvatar: post.userAvatar,
-            content: post.content,
-            images: post.images,
-            location: post.location,
-            createdAt: post.createdAt,
-            likesCount: post.likesCount,
-            commentsCount: post.commentsCount,
-            isLiked: post.isLiked,
-            postType: post.postType,
-            isSaved: !post.isSaved,
-            metadata: post.metadata,
-          );
-          notifyListeners();
+    final postIndex = _posts.indexWhere((post) => post.id == postId);
+    if (postIndex == -1) return false;
+
+    final post = _posts[postIndex];
+    final wasBookmarked = post.isSaved;
+
+    // Optimistic update
+    _posts[postIndex] = CommunityPost(
+      id: post.id,
+      userId: post.userId,
+      userName: post.userName,
+      userAvatar: post.userAvatar,
+      content: post.content,
+      images: post.images,
+      location: post.location,
+      createdAt: post.createdAt,
+      likesCount: post.likesCount,
+      commentsCount: post.commentsCount,
+      isLiked: post.isLiked,
+      postType: post.postType,
+      isSaved: !wasBookmarked,
+      metadata: post.metadata,
+    );
+    notifyListeners();
+
+    // Skip backend sync for temporary posts
+    if (!postId.startsWith('temp_')) {
+      try {
+        // Try backend API for real posts only
+        final success = await _apiService.toggleBookmark(postId);
+        if (success) {
+          print('✅ Bookmark synced to backend');
+        } else {
+          print('⚠️ Backend bookmark API not available');
         }
+      } catch (e) {
+        print('⚠️ Backend unavailable - bookmark saved locally');
       }
-      return success;
-    } catch (e) {
-      return false;
+    } else {
+      print('💾 Local-only post - bookmark saved locally');
     }
+    return true;
   }
 
   Future<bool> createPost({
@@ -213,20 +294,23 @@ class CommunityProvider with ChangeNotifier {
       if (context != null) {
         final appProvider = Provider.of<AppProvider>(context, listen: false);
         currentUser = appProvider.currentUser;
-        print('👤 [PROVIDER] Current user: ${currentUser?.username}');
-        print('👤 [PROVIDER] Current user UID: ${currentUser?.uid}');
-        print('👤 [PROVIDER] Profile picture: "${currentUser?.profilePicture}"');
-        print('👤 [PROVIDER] Profile picture is empty: ${currentUser?.profilePicture?.isEmpty}');
-        print('👤 [PROVIDER] Profile picture is fallback: ${currentUser?.profilePicture?.contains("unsplash")}');
+      }
+      
+      // Use proper user avatar - network URL or fallback to initials placeholder
+      String userAvatar = 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150';
+      if (currentUser?.profilePicture?.isNotEmpty == true) {
+        final pic = currentUser!.profilePicture!;
+        if (pic.startsWith('http')) {
+          userAvatar = pic;
+        }
+        // Skip local file paths - use default avatar
       }
       
       final optimisticPost = CommunityPost(
         id: 'temp_${DateTime.now().millisecondsSinceEpoch}',
-        userId: currentUser?.uid ?? '507f1f77bcf86cd799439011',
+        userId: currentUser?.mongoId ?? currentUser?.uid ?? '507f1f77bcf86cd799439011',
         userName: currentUser?.username ?? 'Mobile User',
-        userAvatar: (currentUser?.profilePicture?.isNotEmpty == true) 
-            ? currentUser!.profilePicture! 
-            : 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150',
+        userAvatar: userAvatar,
         content: content,
         images: images,
         location: location,
@@ -250,6 +334,11 @@ class CommunityProvider with ChangeNotifier {
       
       await _savePostLocally(optimisticPost);
       _tryBackendSaveInBackground(optimisticPost, currentUser);
+      
+      // Sync user profile data to backend if needed
+      if (currentUser != null) {
+        _syncUserProfileToBackend(currentUser);
+      }
       
       return true;
     } catch (e) {
@@ -292,6 +381,7 @@ class CommunityProvider with ChangeNotifier {
   
   Future<void> _tryBackendSaveInBackground(CommunityPost post, CurrentUser? currentUser) async {
     try {
+      print('🌐 Attempting to sync post to backend...');
       final newPost = await _apiService.createPost(
         content: post.content,
         location: post.location,
@@ -305,14 +395,55 @@ class CommunityProvider with ChangeNotifier {
       );
       
       if (newPost != null && newPost.id.isNotEmpty && !newPost.id.startsWith('temp_')) {
+        // Backend success - replace temp post with real post
         final index = _posts.indexWhere((p) => p.id == post.id);
         if (index != -1) {
           _posts[index] = newPost;
+          await _updateLocalPost(post.id, newPost);
           notifyListeners();
+          print('✅ Post synced to backend with ID: ${newPost.id}');
         }
+      } else {
+        print('⚠️ Backend returned invalid post data');
       }
     } catch (e) {
-      print('⚠️ [PROVIDER] Backend save failed: $e - keeping local post');
+      print('❌ Backend sync failed: $e - keeping local post');
+      // Post remains local-only with temp ID
+    }
+  }
+  
+  Future<void> _updateLocalPost(String tempId, CommunityPost realPost) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final existingPosts = prefs.getStringList('local_posts') ?? [];
+      
+      // Find and replace the temp post
+      for (int i = 0; i < existingPosts.length; i++) {
+        final postData = jsonDecode(existingPosts[i]);
+        if (postData['id'] == tempId) {
+          final updatedPost = {
+            'id': realPost.id,
+            'userId': realPost.userId,
+            'userName': realPost.userName,
+            'userAvatar': realPost.userAvatar,
+            'content': realPost.content,
+            'images': realPost.images,
+            'location': realPost.location,
+            'createdAt': realPost.createdAt.toIso8601String(),
+            'likesCount': realPost.likesCount,
+            'commentsCount': realPost.commentsCount,
+            'isLiked': realPost.isLiked,
+            'postType': realPost.postType.name,
+            'isSaved': realPost.isSaved,
+          };
+          existingPosts[i] = jsonEncode(updatedPost);
+          break;
+        }
+      }
+      
+      await prefs.setStringList('local_posts', existingPosts);
+    } catch (e) {
+      print('❌ Error updating local post: $e');
     }
   }
   
@@ -325,6 +456,23 @@ class CommunityProvider with ChangeNotifier {
       case 'question': return PostType.question;
       case 'tripDiary': return PostType.tripDiary;
       default: return PostType.story;
+    }
+  }
+  
+  Future<void> _syncUserProfileToBackend(CurrentUser user) async {
+    try {
+      final userId = user.mongoId ?? user.uid;
+      if (userId == null) return;
+      
+      await _apiService.updateUser(userId, {
+        'username': user.username,
+        'email': user.email,
+        'profilePicture': user.profilePicture?.startsWith('http') == true ? user.profilePicture : null,
+        'tier': user.tier?.name ?? 'free',
+      });
+      print('✅ User profile synced to backend');
+    } catch (e) {
+      print('⚠️ Profile sync failed: $e');
     }
   }
 }

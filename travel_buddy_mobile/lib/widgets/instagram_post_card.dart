@@ -5,6 +5,7 @@ import '../models/community_post.dart';
 import '../providers/community_provider.dart';
 import '../screens/post_comments_screen.dart';
 import '../screens/user_profile_screen.dart';
+import 'user_profile_modal.dart';
 
 class InstagramPostCard extends StatefulWidget {
   final CommunityPost post;
@@ -66,6 +67,7 @@ class _InstagramPostCardState extends State<InstagramPostCard>
         children: [
           GestureDetector(
             onTap: () => _showUserProfile(),
+            onLongPress: () => _showQuickProfile(),
             child: _buildUserAvatar(),
           ),
           const SizedBox(width: 12),
@@ -75,6 +77,7 @@ class _InstagramPostCardState extends State<InstagramPostCard>
               children: [
                 GestureDetector(
                   onTap: () => _showUserProfile(),
+                  onLongPress: () => _showQuickProfile(),
                   child: Text(
                     widget.post.userName,
                     style: const TextStyle(
@@ -398,6 +401,24 @@ class _InstagramPostCardState extends State<InstagramPostCard>
         builder: (context) => UserProfileScreen(
           userId: widget.post.userId,
           userName: widget.post.userName,
+        ),
+      ),
+    );
+  }
+
+  void _showQuickProfile() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => DraggableScrollableSheet(
+        initialChildSize: 0.6,
+        maxChildSize: 0.8,
+        minChildSize: 0.4,
+        builder: (context, scrollController) => UserProfileModal(
+          userId: widget.post.userId,
+          userName: widget.post.userName,
+          userAvatar: widget.post.userAvatar,
         ),
       ),
     );

@@ -4,8 +4,10 @@ import '../providers/app_provider.dart';
 import '../constants/app_constants.dart';
 import '../services/storage_service.dart';
 import '../models/trip.dart';
+import '../services/trip_analytics_service.dart';
 import 'my_trips_screen.dart';
 import 'trip_plan_detail_screen.dart';
+import 'trip_sharing_screen.dart';
 
 class PlannerScreen extends StatefulWidget {
   const PlannerScreen({super.key});
@@ -110,52 +112,6 @@ class _PlannerScreenState extends State<PlannerScreen> {
               ],
             ),
           ),
-          const SizedBox(height: 24),
-          
-          // How to create plans info
-          Container(
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              color: Colors.blue[50],
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: Colors.blue[200]!),
-            ),
-            child: Column(
-              children: [
-                Icon(Icons.lightbulb_outline, color: Colors.blue[600], size: 32),
-                const SizedBox(height: 12),
-                Text(
-                  'How to Create Trip Plans',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.blue[800],
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  '1. Browse places in the Places tab\n2. Tap on any place you like\n3. Click "Add Trip" button\n4. Create new plan or add to existing',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    color: Colors.blue[700],
-                    fontSize: 14,
-                    height: 1.4,
-                  ),
-                ),
-                const SizedBox(height: 16),
-                ElevatedButton.icon(
-                  onPressed: () => _navigateToPlaces(),
-                  icon: const Icon(Icons.explore),
-                  label: const Text('Browse Places'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.blue,
-                    foregroundColor: Colors.white,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          
           const SizedBox(height: 24),
           
           // My plans section
@@ -341,9 +297,33 @@ class _PlannerScreenState extends State<PlannerScreen> {
           _showItineraryDetails(plan);
         }
         break;
+      case 'share':
+        if (plan is TripPlan) {
+          _shareTripPlan(plan);
+        }
+        break;
       case 'delete':
         _confirmDeletePlan(plan, appProvider);
         break;
+    }
+  }
+  
+  void _shareTripPlan(TripPlan tripPlan) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => TripSharingScreen(tripPlan: tripPlan),
+      ),
+    );
+    
+    // Track sharing analytics
+    final appProvider = context.read<AppProvider>();
+    if (appProvider.currentUser?.mongoId != null) {
+      TripAnalyticsService.trackTripShared(
+        userId: appProvider.currentUser!.mongoId!,
+        tripPlanId: tripPlan.id,
+        shareMethod: 'menu',
+      );
     }
   }
   

@@ -98,9 +98,12 @@ class _UserProfileScreenState extends State<UserProfileScreen>
       }
     }
     
-    // Set bio based on user type
+    // Set bio based on user type and subscription
     if (appProvider.currentUser?.uid == widget.userId) {
-      _userBio = 'Travel Enthusiast • 🌍 Explorer';
+      final tier = appProvider.currentUser?.tier ?? 'free';
+      _userBio = tier == 'premium' 
+          ? 'Premium Travel Enthusiast • 🌍 Explorer'
+          : 'Travel Enthusiast • 🌍 Explorer';
     } else {
       _userBio = 'Fellow Traveler • ✈️ Adventure Seeker';
     }
@@ -177,6 +180,8 @@ class _UserProfileScreenState extends State<UserProfileScreen>
 
   Widget _buildProfileHeader() {
     print('🖼️ [PROFILE] Building header with avatar: $_userAvatar');
+    final currentUser = context.read<AppProvider>().currentUser;
+    final isOwnProfile = currentUser?.uid == widget.userId;
     
     return Container(
       padding: const EdgeInsets.all(20),
@@ -185,13 +190,35 @@ class _UserProfileScreenState extends State<UserProfileScreen>
         children: [
           _buildProfileAvatar(),
           const SizedBox(height: 12),
-          Text(
-            widget.userName,
-            style: const TextStyle(
-              fontSize: 24,
-              fontWeight: FontWeight.bold,
-              color: Colors.white,
-            ),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text(
+                widget.userName,
+                style: const TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                ),
+              ),
+              const SizedBox(width: 8),
+              if (isOwnProfile && currentUser?.tier == 'premium')
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: Colors.yellow.withOpacity(0.2),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.star, color: Colors.yellow, size: 16),
+                      SizedBox(width: 4),
+                      Text('Premium', style: TextStyle(color: Colors.yellow, fontSize: 12)),
+                    ],
+                  ),
+                ),
+            ],
           ),
           const SizedBox(height: 4),
           Text(
@@ -201,21 +228,49 @@ class _UserProfileScreenState extends State<UserProfileScreen>
               color: Colors.white.withOpacity(0.9),
             ),
           ),
+          if (isOwnProfile && currentUser?.email != null)
+            Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: Text(
+                currentUser!.email!,
+                style: TextStyle(
+                  fontSize: 14,
+                  color: Colors.white.withOpacity(0.7),
+                ),
+              ),
+            ),
         ],
       ),
     );
   }
 
   Widget _buildStatsRow() {
+    final totalLikes = _userPosts.fold<int>(0, (sum, post) => sum + post.likesCount);
+    final totalComments = _userPosts.fold<int>(0, (sum, post) => sum + post.commentsCount);
+    
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 20),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+      child: Column(
         children: [
-          _buildStatItem('Posts', '${_userStats['posts']}'),
-          _buildStatItem('Followers', _formatCount(_userStats['followers'])),
-          _buildStatItem('Following', '${_userStats['following']}'),
-          _buildStatItem('Places', '${_userStats['places']}'),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            children: [
+              _buildStatItem('Posts', '${_userStats['posts']}'),
+              _buildStatItem('Followers', _formatCount(_userStats['followers'])),
+              _buildStatItem('Following', '${_userStats['following']}'),
+              _buildStatItem('Places', '${_userStats['places']}'),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            children: [
+              _buildStatItem('Likes', '$totalLikes'),
+              _buildStatItem('Comments', '$totalComments'),
+              _buildStatItem('Photos', '${_userPosts.where((p) => p.images.isNotEmpty).length}'),
+              _buildStatItem('Saved', '${context.read<CommunityProvider>().posts.where((p) => p.isSaved).length}'),
+            ],
+          ),
         ],
       ),
     );
@@ -292,10 +347,10 @@ class _UserProfileScreenState extends State<UserProfileScreen>
         labelColor: Colors.blue[600],
         unselectedLabelColor: Colors.grey[600],
         indicatorColor: Colors.blue[600],
-        tabs: const [
-          Tab(icon: Icon(Icons.grid_on), text: 'Posts'),
-          Tab(icon: Icon(Icons.photo_library), text: 'Photos'),
-          Tab(icon: Icon(Icons.bookmark), text: 'Saved'),
+        tabs: [
+          Tab(icon: const Icon(Icons.grid_on), text: 'Posts (${_userPosts.length})'),
+          Tab(icon: const Icon(Icons.photo_library), text: 'Photos (${_userPosts.where((p) => p.images.isNotEmpty).length})'),
+          Tab(icon: const Icon(Icons.bookmark), text: 'Saved'),
         ],
       ),
     );

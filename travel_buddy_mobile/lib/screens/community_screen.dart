@@ -6,6 +6,7 @@ import '../providers/community_provider.dart';
 import '../widgets/instagram_post_card.dart';
 import '../widgets/instagram_stories.dart';
 import 'create_post_screen.dart';
+import 'user_profile_screen.dart';
 
 class CommunityScreen extends StatefulWidget {
   const CommunityScreen({super.key});
@@ -58,8 +59,8 @@ class _CommunityScreenState extends State<CommunityScreen> {
       ),
       actions: [
         IconButton(
-          icon: const Icon(Icons.favorite_border, color: Colors.black, size: 26),
-          onPressed: () {},
+          icon: const Icon(Icons.search, color: Colors.black, size: 26),
+          onPressed: () => _showUserSearch(),
         ),
         IconButton(
           icon: const Icon(Icons.add_box_outlined, color: Colors.black, size: 26),
@@ -105,7 +106,7 @@ class _CommunityScreenState extends State<CommunityScreen> {
         }
 
         return RefreshIndicator(
-          onRefresh: () => communityProvider.loadPosts(refresh: true),
+          onRefresh: () => communityProvider.loadPosts(refresh: true, context: context),
           child: CustomScrollView(
             slivers: [
               // Stories Section
@@ -126,7 +127,7 @@ class _CommunityScreenState extends State<CommunityScreen> {
                     (context, index) {
                       if (index >= communityProvider.posts.length) {
                         if (communityProvider.hasMorePosts) {
-                          communityProvider.loadPosts();
+                          communityProvider.loadPosts(context: context);
                           return const Padding(
                             padding: EdgeInsets.all(16),
                             child: Center(child: CircularProgressIndicator()),
@@ -223,6 +224,99 @@ class _CommunityScreenState extends State<CommunityScreen> {
           ),
         ],
       ),
+    );
+  }
+
+  void _showUserSearch() {
+    showSearch(
+      context: context,
+      delegate: UserSearchDelegate(),
+    );
+  }
+}
+
+class UserSearchDelegate extends SearchDelegate<String> {
+  @override
+  List<Widget> buildActions(BuildContext context) {
+    return [
+      IconButton(
+        icon: const Icon(Icons.clear),
+        onPressed: () => query = '',
+      ),
+    ];
+  }
+
+  @override
+  Widget buildLeading(BuildContext context) {
+    return IconButton(
+      icon: const Icon(Icons.arrow_back),
+      onPressed: () => close(context, ''),
+    );
+  }
+
+  @override
+  Widget buildResults(BuildContext context) {
+    return _buildSearchResults(context);
+  }
+
+  @override
+  Widget buildSuggestions(BuildContext context) {
+    return _buildSearchResults(context);
+  }
+
+  Widget _buildSearchResults(BuildContext context) {
+    if (query.isEmpty) {
+      return const Center(
+        child: Text('Search for users by name'),
+      );
+    }
+
+    final provider = context.read<CommunityProvider>();
+    final users = provider.posts
+        .where((post) => post.userName.toLowerCase().contains(query.toLowerCase()))
+        .map((post) => {
+              'userId': post.userId,
+              'userName': post.userName,
+              'userAvatar': post.userAvatar,
+            })
+        .toSet()
+        .toList();
+
+    if (users.isEmpty) {
+      return const Center(
+        child: Text('No users found'),
+      );
+    }
+
+    return ListView.builder(
+      itemCount: users.length,
+      itemBuilder: (context, index) {
+        final user = users[index];
+        return ListTile(
+          leading: CircleAvatar(
+            backgroundImage: user['userAvatar']!.isNotEmpty && !user['userAvatar']!.contains('unsplash')
+                ? NetworkImage(user['userAvatar']!)
+                : null,
+            child: user['userAvatar']!.isEmpty || user['userAvatar']!.contains('unsplash')
+                ? Text(user['userName']![0].toUpperCase())
+                : null,
+          ),
+          title: Text(user['userName']!),
+          subtitle: const Text('Traveler'),
+          onTap: () {
+            close(context, '');
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => UserProfileScreen(
+                  userId: user['userId']!,
+                  userName: user['userName']!,
+                ),
+              ),
+            );
+          },
+        );
+      },
     );
   }
 }
