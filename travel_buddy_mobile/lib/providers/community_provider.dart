@@ -9,6 +9,7 @@ import '../services/api_service.dart';
 import 'app_provider.dart';
 
 class CommunityProvider with ChangeNotifier {
+  CurrentUser? _lastKnownUser;
   final ApiService _apiService = ApiService();
   
   List<CommunityPost> _posts = [];
@@ -473,6 +474,41 @@ class CommunityProvider with ChangeNotifier {
       print('✅ User profile synced to backend');
     } catch (e) {
       print('⚠️ Profile sync failed: $e');
+    }
+  }
+  
+  void updateUserProfileInPosts(CurrentUser user) {
+    bool hasChanges = false;
+    
+    for (int i = 0; i < _posts.length; i++) {
+      final post = _posts[i];
+      if (post.userId == user.mongoId || post.userId == user.uid || post.userName == user.username) {
+        _posts[i] = CommunityPost(
+          id: post.id,
+          userId: post.userId,
+          userName: user.username ?? post.userName,
+          userAvatar: user.profilePicture?.startsWith('http') == true 
+              ? user.profilePicture! 
+              : post.userAvatar,
+          content: post.content,
+          images: post.images,
+          location: post.location,
+          createdAt: post.createdAt,
+          likesCount: post.likesCount,
+          commentsCount: post.commentsCount,
+          isLiked: post.isLiked,
+          postType: post.postType,
+          hashtags: post.hashtags,
+          metadata: post.metadata,
+          isSaved: post.isSaved,
+        );
+        hasChanges = true;
+      }
+    }
+    
+    if (hasChanges) {
+      notifyListeners();
+      print('✅ Updated ${_posts.where((p) => p.userId == user.mongoId || p.userId == user.uid).length} posts with new profile data');
     }
   }
 }

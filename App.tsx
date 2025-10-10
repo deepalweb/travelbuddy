@@ -760,6 +760,28 @@ const App: React.FC = () => {
     loadCommunityData();
   }, [loadCommunityData]);
 
+  // Update existing posts when current user profile changes
+  useEffect(() => {
+    if (currentUser && currentUser.mongoId) {
+      setPosts(prevPosts => prevPosts.map(post => {
+        // Update posts authored by current user with latest profile data
+        if (post.userId === currentUser.mongoId || post.author?.name === currentUser.username) {
+          return {
+            ...post,
+            author: {
+              ...post.author,
+              name: currentUser.username,
+              avatar: currentUser.profilePicture,
+              location: userCity || post.author?.location || 'Unknown Location',
+              verified: currentUser.tier === 'pro' || !!currentUser.isAdmin,
+            }
+          };
+        }
+        return post;
+      }));
+    }
+  }, [currentUser?.username, currentUser?.profilePicture, currentUser?.tier, currentUser?.isAdmin, userCity]);
+
   // Reflect Firebase auth -> CurrentUser and load user data
   useEffect(() => {
     if (fbUser) {

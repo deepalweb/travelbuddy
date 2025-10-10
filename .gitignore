@@ -1,35 +1,22 @@
-# Logs
-logs
-*.log
+# PayPal credentials (never commit real keys)
+**/paypal_credentials.json
+**/.env.local
+**/.env.production
+
+# Flutter
+**/build/
+**/android/app/debug
+**/android/app/profile
+**/android/app/release
+
+# Node.js
+node_modules/
 npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-pnpm-debug.log*
-lerna-debug.log*
 
-node_modules
-dist
-dist-ssr
-*.local
-.env
-backend/.env
-.env.production
+# IDE
+.vscode/
+.idea/
 
-# Editor directories and files
-.vscode/*
-!.vscode/extensions.json
-.idea
+# OS
 .DS_Store
-*.suo
-*.ntvs*
-*.njsproj
-*.sln
-*.sw?
-
-# Mobile app (separate repository)
-mobile_app/
-# Security - Sensitive files
-azure-env-vars.txt
-*.key
-*.pem
-credentials.json
+Thumbs.db

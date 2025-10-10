@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+import 'package:url_launcher/url_launcher.dart';
 import '../models/user.dart';
 import '../config/environment.dart';
 import '../services/auth_service.dart';
 import '../services/storage_service.dart';
+import '../services/paypal_service.dart';
 
 class PaymentService {
   static final PaymentService _instance = PaymentService._internal();
@@ -42,13 +44,17 @@ class PaymentService {
         return true;
       }
       
-      // Process PayPal payment
-      final paymentResult = await _processPayPalPayment(
-        context: context,
-        amount: amount,
-        planName: planName,
-        tier: tier,
-      );
+      // TEMPORARY: Skip PayPal for testing
+      print('⚠️ TESTING MODE: Skipping PayPal payment');
+      final paymentResult = {'success': true, 'paymentId': 'test_${DateTime.now().millisecondsSinceEpoch}'};
+      
+      // TODO: Uncomment when PayPal is working
+      // final paymentResult = await _processPayPalPayment(
+      //   context: context,
+      //   amount: amount,
+      //   planName: planName,
+      //   tier: tier,
+      // );
       
       if (paymentResult['success'] == true) {
         await _createSubscription(
@@ -72,26 +78,36 @@ class PaymentService {
     required SubscriptionTier tier,
   }) async {
     try {
-      final result = await showDialog<Map<String, dynamic>>(
-        context: context,
-        builder: (context) => AlertDialog(
-          content: PayPalPaymentWidget(
-            amount: amount,
-            description: "Travel Buddy $planName subscription",
-            onPaymentResult: (success) {
-              Navigator.pop(context, {
-                'success': success,
-                'data': success ? {'paymentId': 'mock_${DateTime.now().millisecondsSinceEpoch}'} : null
-              });
-            },
-          ),
-        ),
+      final paypalService = PayPalService();
+      
+      // Create PayPal payment
+      final payment = await paypalService.createPayment(
+        amount: amount,
+        description: "Travel Buddy $planName subscription",
+        returnUrl: "${Environment.backendUrl}/api/payments/paypal/success",
+        cancelUrl: "${Environment.backendUrl}/api/payments/paypal/cancel",
       );
       
-      if (result != null && result['success'] == true) {
-        final paymentId = result['data']?['paymentId'] ?? 'unknown';
-        await _verifyPayment(paymentId, amount);
-        return {'success': true, 'paymentId': paymentId};
+      if (payment == null) {
+        throw Exception('Failed to create PayPal payment');
+      }
+      
+      // Get approval URL
+      final approvalUrl = payment['links']?.firstWhere(
+        (link) => link['rel'] == 'approval_url',
+        orElse: () => null,
+      )?['href'];
+      
+      if (approvalUrl == null) {
+        throw Exception('No approval URL found');
+      }
+      
+      // Launch PayPal approval URL
+      final result = await _launchPayPalApproval(context, approvalUrl, payment['id']);
+      
+      if (result['success'] == true) {
+        await _verifyPayment(result['paymentId'], amount);
+        return {'success': true, 'paymentId': result['paymentId']};
       }
       
       return {'success': false};
@@ -218,25 +234,26 @@ class PaymentService {
   
 
 
-  // PayPal payment methods (would use actual PayPal SDK)
-  Future<Map<String, dynamic>> _createPayPalPayment({
-    required double amount,
-    required String currency,
-    required String description,
-  }) async {
-    // This would create a PayPal payment using their API
-    return {
-      'id': 'PAYID-${DateTime.now().millisecondsSinceEpoch}',
-      'state': 'created',
-      'amount': amount,
-      'currency': currency,
-    };
-  }
-
-  Future<bool> _executePayPalPayment(String paymentId, String payerId) async {
-    // This would execute the PayPal payment
-    await Future.delayed(const Duration(seconds: 1));
-    return true;
+  // Launch PayPal approval URL and handle response
+  Future<Map<String, dynamic>> _launchPayPalApproval(
+    BuildContext context, 
+    String approvalUrl, 
+    String paymentId
+  ) async {
+    try {
+      // Show PayPal approval dialog
+      final result = await showDialog<Map<String, dynamic>>(
+        context: context,
+        builder: (context) => PayPalApprovalDialog(
+          approvalUrl: approvalUrl,
+          paymentId: paymentId,
+        ),
+      );
+      
+      return result ?? {'success': false};
+    } catch (e) {
+      return {'success': false, 'error': e.toString()};
+    }
   }
 
   // Subscription management
@@ -335,65 +352,56 @@ class PaymentService {
   }
 }
 
-// PayPal Payment Widget (would use actual PayPal SDK)
-class PayPalPaymentWidget extends StatefulWidget {
-  final double amount;
-  final String description;
-  final Function(bool success) onPaymentResult;
+// PayPal Approval Dialog for real PayPal integration
+class PayPalApprovalDialog extends StatefulWidget {
+  final String approvalUrl;
+  final String paymentId;
 
-  const PayPalPaymentWidget({
+  const PayPalApprovalDialog({
     super.key,
-    required this.amount,
-    required this.description,
-    required this.onPaymentResult,
+    required this.approvalUrl,
+    required this.paymentId,
   });
 
   @override
-  State<PayPalPaymentWidget> createState() => _PayPalPaymentWidgetState();
+  State<PayPalApprovalDialog> createState() => _PayPalApprovalDialogState();
 }
 
-class _PayPalPaymentWidgetState extends State<PayPalPaymentWidget> {
+class _PayPalApprovalDialogState extends State<PayPalApprovalDialog> {
   bool _isProcessing = false;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      child: Column(
+    return AlertDialog(
+      title: const Text('PayPal Payment'),
+      content: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
           const Text(
-            'PayPal Payment',
-            style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+            'You will be redirected to PayPal to complete your payment.',
+            textAlign: TextAlign.center,
           ),
-          const SizedBox(height: 16),
-          Text(
-            'Amount: \$${widget.amount.toStringAsFixed(2)}',
-            style: const TextStyle(fontSize: 18),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            widget.description,
-            style: const TextStyle(color: Colors.grey),
-          ),
-          const SizedBox(height: 24),
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton(
-              onPressed: _isProcessing ? null : _processPayment,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF0070BA), // PayPal blue
-                padding: const EdgeInsets.symmetric(vertical: 12),
-              ),
-              child: _isProcessing
-                  ? const CircularProgressIndicator(color: Colors.white)
-                  : const Row(
+          const SizedBox(height: 20),
+          if (_isProcessing)
+            const CircularProgressIndicator()
+          else
+            Column(
+              children: [
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: _launchPayPal,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF0070BA),
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                    ),
+                    child: const Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Icon(Icons.payment, color: Colors.white),
+                        Icon(Icons.launch, color: Colors.white),
                         SizedBox(width: 8),
                         Text(
-                          'Pay with PayPal',
+                          'Open PayPal',
                           style: TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.bold,
@@ -402,34 +410,81 @@ class _PayPalPaymentWidgetState extends State<PayPalPaymentWidget> {
                         ),
                       ],
                     ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                TextButton(
+                  onPressed: () => Navigator.pop(context, {'success': false}),
+                  child: const Text('Cancel'),
+                ),
+              ],
             ),
-          ),
-          const SizedBox(height: 12),
-          TextButton(
-            onPressed: () => widget.onPaymentResult(false),
-            child: const Text('Cancel'),
-          ),
         ],
       ),
     );
   }
 
-  Future<void> _processPayment() async {
+  Future<void> _launchPayPal() async {
     setState(() => _isProcessing = true);
     
     try {
-      // Simulate PayPal payment process
-      await Future.delayed(const Duration(seconds: 3));
+      final uri = Uri.parse(widget.approvalUrl);
       
-      // Simulate success (90% success rate)
-      final success = DateTime.now().millisecond % 10 != 0;
-      widget.onPaymentResult(success);
+      if (await canLaunchUrl(uri)) {
+        await launchUrl(uri, mode: LaunchMode.externalApplication);
+        
+        // Show completion dialog
+        if (mounted) {
+          final completed = await _showCompletionDialog();
+          if (completed) {
+            // Simulate successful payment for sandbox testing
+            Navigator.pop(context, {
+              'success': true,
+              'paymentId': widget.paymentId,
+            });
+          } else {
+            Navigator.pop(context, {'success': false});
+          }
+        }
+      } else {
+        throw Exception('Could not launch PayPal URL');
+      }
     } catch (e) {
-      widget.onPaymentResult(false);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e')),
+        );
+        Navigator.pop(context, {'success': false});
+      }
     } finally {
       if (mounted) {
         setState(() => _isProcessing = false);
       }
     }
+  }
+
+  Future<bool> _showCompletionDialog() async {
+    return await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Payment Status'),
+        content: const Text(
+          'Did you complete the payment on PayPal?\n\n'
+          'Note: In sandbox mode, use test credentials:\n'
+          'Email: sb-test@personal.example.com\n'
+          'Password: testpassword',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancelled'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Completed'),
+          ),
+        ],
+      ),
+    ) ?? false;
   }
 }

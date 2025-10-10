@@ -1,12 +1,13 @@
 class Environment {
-  // Backend configuration - PRODUCTION
+  // Backend configuration - AZURE PRODUCTION WITH SANDBOX PAYPAL
   static const String backendUrl = 'https://travelbuddy-b2c6hgbbgeh4esdh.eastus2-01.azurewebsites.net';
   static const String baseUrl = backendUrl; // Add baseUrl alias
-  static const bool isProduction = true;
+  static const bool isProduction = false; // Sandbox mode for PayPal testing
   
-  // PayPal configuration (production values)
-  static const String paypalClientId = 'AQq4yCVTWy1j8WkcQ_c1Jr0bRdKuQcNGvkj2Q4zeMg5ti53lu5axuoG938MUL6SMIPf54koY8wzcU7LW';
-  static const String paypalSecret = 'EPFfn37B81cgi41YbswVOIC05mPW3JQLiY-MbQ48-GU2neJBvw9m1Mr05SUBuzC2eTVH79Q1fRv4P8gG';
+  // PayPal configuration (sandbox values)
+  static const String paypalClientId = 'YOUR_SANDBOX_CLIENT_ID'; // Replace with your sandbox client ID
+  static const String paypalSecret = 'YOUR_SANDBOX_SECRET'; // Replace with your sandbox secret
+  static const String paypalEnvironment = 'sandbox'; // Sandbox environment
   
   // API Keys
   static const String googleMapsApiKey = 'AIzaSyA89E6gkU7-nUMYk9JPt6xxYHVV4Yevtio';
