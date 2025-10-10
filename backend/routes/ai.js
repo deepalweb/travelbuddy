@@ -336,4 +336,321 @@ Provide a helpful, accurate response in 2-3 sentences.`;
   }
 });
 
+// Safety content generation endpoint
+router.post('/safety-content', async (req, res) => {
+  try {
+    const { location, latitude, longitude, contentType = 'general' } = req.body;
+    
+    if (!location) {
+      return res.status(400).json({ error: 'Location is required' });
+    }
+
+    const prompt = `Generate comprehensive safety information for ${location} (${latitude}, ${longitude}).
+
+Return JSON with this structure:
+{
+  "emergencyTips": [
+    "Specific emergency tip with local context"
+  ],
+  "culturalTips": [
+    "Cultural safety awareness tip"
+  ],
+  "transportSafety": [
+    "Safe transportation advice"
+  ],
+  "medicalInfo": {
+    "hospitals": "Info about nearby hospitals",
+    "pharmacies": "Pharmacy locations and hours",
+    "insurance": "Travel insurance advice"
+  },
+  "scamAwareness": [
+    "Common scam and how to avoid it"
+  ],
+  "emergencyContacts": {
+    "police": "Local police number",
+    "ambulance": "Ambulance number",
+    "fire": "Fire department number",
+    "tourist_police": "Tourist police if available"
+  }
+}`;
+
+    const response = await fetch(
+      `${AZURE_OPENAI_ENDPOINT}/openai/deployments/${AZURE_OPENAI_DEPLOYMENT_NAME}/chat/completions?api-version=${AZURE_API_VERSION}`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'api-key': AZURE_OPENAI_API_KEY,
+        },
+        body: JSON.stringify({
+          messages: [
+            {
+              role: 'system',
+              content: 'You are a travel safety expert. Always respond with valid JSON only. Provide accurate, location-specific safety information.'
+            },
+            {
+              role: 'user',
+              content: prompt
+            }
+          ],
+          max_tokens: 2000,
+          temperature: 0.7
+        })
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error(`Azure AI API failed: ${response.status}`);
+    }
+
+    const data = await response.json();
+    const text = data.choices[0].message.content;
+    
+    let safetyContent;
+    try {
+      const jsonMatch = text.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        safetyContent = JSON.parse(jsonMatch[0]);
+      } else {
+        throw new Error('No JSON found in response');
+      }
+    } catch (e) {
+      console.warn('⚠️ JSON parsing failed, using fallback');
+      safetyContent = _getFallbackSafetyContent(location);
+    }
+
+    res.json(safetyContent);
+
+  } catch (error) {
+    console.error('❌ Safety content generation error:', error);
+    res.json(_getFallbackSafetyContent(req.body.location || 'Unknown Location'));
+  }
+});
+
+function _getFallbackSafetyContent(location) {
+  return {
+    emergencyTips: [
+      "Keep emergency contacts saved in your phone",
+      "Share your location with trusted contacts",
+      "Keep copies of important documents"
+    ],
+    culturalTips: [
+      "Research local customs and dress codes",
+      "Learn basic phrases in the local language",
+      "Respect religious and cultural sites"
+    ],
+    transportSafety: [
+      "Use official taxi services or ride-sharing apps",
+      "Avoid traveling alone at night",
+      "Keep valuables secure while using public transport"
+    ],
+    medicalInfo: {
+      hospitals: "Contact local emergency services for hospital information",
+      pharmacies: "Look for pharmacy signs or ask at your hotel",
+      insurance: "Ensure you have valid travel insurance coverage"
+    },
+    scamAwareness: [
+      "Be cautious of overly friendly strangers",
+      "Verify prices before purchasing",
+      "Don't give personal information to unknown people"
+    ],
+    emergencyContacts: {
+      police: "112",
+      ambulance: "112",
+      fire: "112",
+      tourist_police: "Contact local tourist information"
+    }
+  };
+}
+
+// Translation endpoint using Azure OpenAI
+router.post('/translate', async (req, res) => {
+  try {
+    const { text, targetLanguage, sourceLanguage = 'en' } = req.body;
+    
+    if (!text || !targetLanguage) {
+      return res.status(400).json({ error: 'Text and target language are required' });
+    }
+
+    const prompt = `Translate the following text from ${sourceLanguage} to ${targetLanguage}. Return only the translation, no explanations:
+
+"${text}"`;
+
+    const response = await fetch(
+      `${AZURE_OPENAI_ENDPOINT}/openai/deployments/${AZURE_OPENAI_DEPLOYMENT_NAME}/chat/completions?api-version=${AZURE_API_VERSION}`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'api-key': AZURE_OPENAI_API_KEY,
+        },
+        body: JSON.stringify({
+          messages: [
+            {
+              role: 'system',
+              content: 'You are a professional translator. Provide accurate translations without explanations.'
+            },
+            {
+              role: 'user',
+              content: prompt
+            }
+          ],
+          max_tokens: 500,
+          temperature: 0.3
+        })
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error(`Azure AI API failed: ${response.status}`);
+    }
+
+    const data = await response.json();
+    const translation = data.choices[0].message.content.trim();
+    
+    res.json({ translation });
+
+  } catch (error) {
+    console.error('❌ Translation error:', error);
+    res.status(500).json({
+      error: 'Translation failed',
+      translation: req.body.text // Return original text as fallback
+    });
+  }
+});
+
+// Travel phrases endpoint using Azure OpenAI
+router.get('/travel-phrases/:language', async (req, res) => {
+  try {
+    const { language } = req.params;
+    const { category } = req.query;
+    
+    const prompt = `Generate 10 essential travel phrases in ${language} for category: ${category || 'general'}.
+
+Return JSON array with this structure:
+[
+  {
+    "id": "unique_id",
+    "category": "${category || 'general'}",
+    "english": "English phrase",
+    "translation": "Translation in ${language}",
+    "pronunciation": "Phonetic pronunciation guide"
+  }
+]`;
+
+    const response = await fetch(
+      `${AZURE_OPENAI_ENDPOINT}/openai/deployments/${AZURE_OPENAI_DEPLOYMENT_NAME}/chat/completions?api-version=${AZURE_API_VERSION}`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'api-key': AZURE_OPENAI_API_KEY,
+        },
+        body: JSON.stringify({
+          messages: [
+            {
+              role: 'system',
+              content: 'You are a language expert. Always respond with valid JSON only.'
+            },
+            {
+              role: 'user',
+              content: prompt
+            }
+          ],
+          max_tokens: 1500,
+          temperature: 0.7
+        })
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error(`Azure AI API failed: ${response.status}`);
+    }
+
+    const data = await response.json();
+    const text = data.choices[0].message.content;
+    
+    let phrases;
+    try {
+      const jsonMatch = text.match(/\[[\s\S]*\]/);
+      if (jsonMatch) {
+        phrases = JSON.parse(jsonMatch[0]);
+      } else {
+        throw new Error('No JSON found');
+      }
+    } catch (e) {
+      phrases = _getFallbackPhrases(language, category);
+    }
+    
+    res.json({ phrases });
+
+  } catch (error) {
+    console.error('❌ Travel phrases error:', error);
+    res.json({ phrases: _getFallbackPhrases(req.params.language, req.query.category) });
+  }
+});
+
+// Location language detection
+router.get('/location-language', async (req, res) => {
+  try {
+    const { lat, lng } = req.query;
+    
+    // Simple location-to-language mapping
+    const locationLanguages = {
+      'FR': 'fr', 'ES': 'es', 'DE': 'de', 'IT': 'it', 'PT': 'pt',
+      'JP': 'ja', 'KR': 'ko', 'CN': 'zh', 'SA': 'ar', 'RU': 'ru'
+    };
+    
+    // Mock location detection based on coordinates
+    let detectedLanguage = 'en';
+    if (lat && lng) {
+      const latitude = parseFloat(lat);
+      const longitude = parseFloat(lng);
+      
+      // Europe
+      if (latitude > 35 && latitude < 70 && longitude > -10 && longitude < 40) {
+        if (longitude > 2 && longitude < 8) detectedLanguage = 'fr'; // France
+        else if (longitude > -10 && longitude < 2) detectedLanguage = 'es'; // Spain
+        else if (longitude > 8 && longitude < 15) detectedLanguage = 'de'; // Germany
+        else if (longitude > 6 && longitude < 18) detectedLanguage = 'it'; // Italy
+      }
+      // Asia
+      else if (latitude > 20 && latitude < 50 && longitude > 100 && longitude < 150) {
+        if (longitude > 128 && longitude < 146) detectedLanguage = 'ja'; // Japan
+        else if (longitude > 124 && longitude < 132) detectedLanguage = 'ko'; // Korea
+        else if (longitude > 100 && longitude < 125) detectedLanguage = 'zh'; // China
+      }
+    }
+    
+    res.json({
+      primaryLanguage: detectedLanguage,
+      country: 'Unknown',
+      confidence: 0.8
+    });
+
+  } catch (error) {
+    console.error('❌ Location language error:', error);
+    res.json({ primaryLanguage: 'en', country: 'Unknown', confidence: 0.5 });
+  }
+});
+
+function _getFallbackPhrases(language, category) {
+  return [
+    {
+      id: `help_${language}`,
+      category: category || 'emergency',
+      english: 'Help!',
+      translation: 'Help!',
+      pronunciation: 'help'
+    },
+    {
+      id: `thanks_${language}`,
+      category: category || 'basic',
+      english: 'Thank you',
+      translation: 'Thank you',
+      pronunciation: 'thank you'
+    }
+  ];
+}
+
 export default router;

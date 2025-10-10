@@ -44,13 +44,13 @@ class _ExploreViewState extends State<ExploreView> {
       pinned: true,
       backgroundColor: const Color(0xFF111714).withOpacity(0.8),
       leading: IconButton(
-        icon: const Icon(Icons.sos, color: Colors.white),
+        icon: const Icon(Icons.security, color: Colors.white),
         style: IconButton.styleFrom(
           backgroundColor: Colors.red,
           shape: const CircleBorder(),
         ),
         onPressed: () {
-          // Handle emergency button press
+          Navigator.pushNamed(context, '/safety');
         },
       ),
       title: const Text(
@@ -170,48 +170,55 @@ class _ExploreViewState extends State<ExploreView> {
   }
 
   Widget _buildSafetyAlert() {
-    return SliverToBoxAdapter(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16.0),
-        child: Container(
-          padding: const EdgeInsets.all(12.0),
-          decoration: BoxDecoration(
-            color: Colors.red.withOpacity(0.1),
-            border: Border.all(
-              color: Colors.red.withOpacity(0.5),
+    return Consumer<AppProvider>(
+      builder: (context, appProvider, child) {
+        final location = appProvider.currentLocation;
+        if (location == null) return const SliverToBoxAdapter(child: SizedBox.shrink());
+        
+        return SliverToBoxAdapter(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16.0),
+            child: Container(
+              padding: const EdgeInsets.all(12.0),
+              decoration: BoxDecoration(
+                color: Colors.green.withOpacity(0.1),
+                border: Border.all(
+                  color: Colors.green.withOpacity(0.5),
+                ),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.security, color: Colors.green, size: 24),
+                  const SizedBox(width: 12),
+                  const Expanded(
+                    child: Text(
+                      'Safety Center: Emergency services & contacts',
+                      style: TextStyle(
+                        color: Colors.green,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                  TextButton(
+                    onPressed: () {
+                      Navigator.pushNamed(context, '/safety');
+                    },
+                    child: const Text(
+                      'Open',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
-            borderRadius: BorderRadius.circular(12),
           ),
-          child: Row(
-            children: [
-              const Icon(Icons.warning, color: Colors.red, size: 24),
-              const SizedBox(width: 12),
-              const Expanded(
-                child: Text(
-                  '1 Safety Alert: Area protest nearby',
-                  style: TextStyle(
-                    color: Colors.red,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ),
-              TextButton(
-                onPressed: () {
-                  // Handle view safety alert
-                },
-                child: const Text(
-                  'View',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
+        );
+      },
     );
   }
 
@@ -242,12 +249,13 @@ class _ExploreViewState extends State<ExploreView> {
                 badge: '🔥 2',
               ),
               _buildQuickActionButton(
-                icon: Icons.checklist,
-                label: 'Planner',
+                icon: Icons.security,
+                label: 'Safety Hub',
+                onTap: () => Navigator.pushNamed(context, '/safety'),
               ),
               _buildQuickActionButton(
-                icon: Icons.translate,
-                label: 'Translate',
+                icon: Icons.checklist,
+                label: 'Planner',
               ),
             ],
           ),
@@ -261,17 +269,20 @@ class _ExploreViewState extends State<ExploreView> {
     required String label,
     bool hasNotification = false,
     String? badge,
+    VoidCallback? onTap,
   }) {
     return Padding(
       padding: const EdgeInsets.only(right: 12),
-      child: Container(
-        width: 112,
-        padding: const EdgeInsets.symmetric(vertical: 12),
-        decoration: BoxDecoration(
-          color: const Color(0xFF29382F),
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Column(
+      child: GestureDetector(
+        onTap: onTap,
+        child: Container(
+          width: 112,
+          padding: const EdgeInsets.symmetric(vertical: 12),
+          decoration: BoxDecoration(
+            color: const Color(0xFF29382F),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             Stack(
@@ -327,6 +338,7 @@ class _ExploreViewState extends State<ExploreView> {
             ),
           ],
         ),
+      ),
       ),
     );
   }

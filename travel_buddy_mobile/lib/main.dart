@@ -4,7 +4,9 @@ import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
 import 'providers/app_provider.dart';
 import 'providers/community_provider.dart';
+import 'providers/language_provider.dart';
 import 'screens/splash_screen.dart';
+import 'screens/safety_screen.dart';
 import 'services/storage_service.dart';
 import 'constants/app_constants.dart';
 import 'services/error_handler_service.dart';
@@ -74,6 +76,7 @@ class TravelBuddyApp extends StatelessWidget {
       providers: [
         ChangeNotifierProvider(create: (context) => AppProvider()),
         ChangeNotifierProvider(create: (context) => CommunityProvider()),
+        ChangeNotifierProvider(create: (context) => LanguageProvider()..initialize()),
       ],
       child: Consumer<AppProvider>(
         // Note: CommunityProvider is available throughout the app
@@ -118,7 +121,7 @@ class TravelBuddyApp extends StatelessWidget {
             themeMode: appProvider.isDarkMode ? ThemeMode.dark : ThemeMode.light,
             home: const SplashScreen(),
             routes: {
-
+              '/safety': (context) => const SafetyScreen(),
             },
           );
         },

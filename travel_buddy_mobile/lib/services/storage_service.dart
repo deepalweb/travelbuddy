@@ -7,6 +7,8 @@ import '../models/user.dart';
 import '../models/place.dart';
 import '../models/trip.dart';
 import '../models/travel_style.dart';
+import '../models/safety_info.dart';
+import '../models/safety_enums.dart';
 import '../constants/app_constants.dart';
 
 class StorageService {
@@ -622,6 +624,114 @@ class StorageService {
     }
     
     return visitStatus;
+  }
+
+  // Emergency Contacts Storage
+  Future<List<EmergencyContact>> getEmergencyContacts() async {
+    final contactsJson = _prefs.getStringList('emergency_contacts') ?? [];
+    return contactsJson.map((json) {
+      try {
+        return EmergencyContact.fromJson(Map<String, dynamic>.from(
+          const JsonDecoder().convert(json) as Map
+        ));
+      } catch (e) {
+        return null;
+      }
+    }).where((contact) => contact != null).cast<EmergencyContact>().toList();
+  }
+
+  Future<void> addEmergencyContact(EmergencyContact contact) async {
+    final contacts = await getEmergencyContacts();
+    contacts.add(contact);
+    await _saveEmergencyContacts(contacts);
+  }
+
+  Future<void> removeEmergencyContact(String contactId) async {
+    final contacts = await getEmergencyContacts();
+    contacts.removeWhere((contact) => contact.id == contactId);
+    await _saveEmergencyContacts(contacts);
+  }
+
+  Future<void> _saveEmergencyContacts(List<EmergencyContact> contacts) async {
+    final contactsJson = contacts.map((contact) => 
+      const JsonEncoder().convert(contact.toJson())
+    ).toList();
+    await _prefs.setStringList('emergency_contacts', contactsJson);
+  }
+  
+  // Enhanced Safety Storage
+  Future<void> saveOfflineSafetyInfo(SafetyInfo info) async {
+    await _prefs.setString('offline_safety_info', const JsonEncoder().convert({
+      'country': info.country,
+      'emergencyNumber': info.emergencyNumber,
+      'policeNumber': info.policeNumber,
+      'ambulanceNumber': info.ambulanceNumber,
+      'fireNumber': info.fireNumber,
+      'alternativeNumbers': info.alternativeNumbers,
+      'embassyNumber': info.embassyNumber,
+      'touristHelpline': info.touristHelpline,
+      'taxiSafetyLine': info.taxiSafetyLine,
+    }));
+  }
+  
+  Future<SafetyInfo?> getOfflineSafetyInfo() async {
+    final data = _prefs.getString('offline_safety_info');
+    if (data != null) {
+      try {
+        final json = Map<String, dynamic>.from(const JsonDecoder().convert(data) as Map);
+        return SafetyInfo.fromJson(json);
+      } catch (e) {
+        return null;
+      }
+    }
+    return null;
+  }
+  
+  Future<void> saveMedicalInfo(MedicalInfo info) async {
+    await _prefs.setString('medical_info', const JsonEncoder().convert(info.toJson()));
+  }
+  
+  Future<MedicalInfo?> getMedicalInfo() async {
+    final data = _prefs.getString('medical_info');
+    if (data != null) {
+      try {
+        final json = Map<String, dynamic>.from(const JsonDecoder().convert(data) as Map);
+        return MedicalInfo.fromJson(json);
+      } catch (e) {
+        return null;
+      }
+    }
+    return null;
+  }
+  
+  Future<void> saveActiveTimer(SafetyTimer timer) async {
+    await _prefs.setString('active_safety_timer', const JsonEncoder().convert({
+      'id': timer.id,
+      'startTime': timer.startTime.toIso8601String(),
+      'duration': timer.duration.inMilliseconds,
+      'description': timer.description,
+      'notifyContacts': timer.notifyContacts,
+    }));
+  }
+  
+  Future<void> clearActiveTimer() async {
+    await _prefs.remove('active_safety_timer');
+  }
+  
+  Future<void> saveSOSSettings(Map<String, dynamic> settings) async {
+    await _prefs.setString('sos_settings', const JsonEncoder().convert(settings));
+  }
+  
+  Future<Map<String, dynamic>?> getSOSSettings() async {
+    final data = _prefs.getString('sos_settings');
+    if (data != null) {
+      try {
+        return Map<String, dynamic>.from(const JsonDecoder().convert(data) as Map);
+      } catch (e) {
+        return null;
+      }
+    }
+    return null;
   }
 
   // Clear all data

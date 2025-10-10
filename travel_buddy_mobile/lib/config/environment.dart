@@ -1,6 +1,7 @@
 class Environment {
   // Backend configuration - PRODUCTION
   static const String backendUrl = 'https://travelbuddy-b2c6hgbbgeh4esdh.eastus2-01.azurewebsites.net';
+  static const String baseUrl = backendUrl; // Add baseUrl alias
   static const bool isProduction = true;
   
   // PayPal configuration (production values)

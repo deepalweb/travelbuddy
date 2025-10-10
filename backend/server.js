@@ -686,6 +686,15 @@ try {
   console.error('❌ Failed to load Azure OpenAI routes:', error);
 }
 
+// Load translation routes
+try {
+  const translationRouter = (await import('./routes/translation.js')).default;
+  app.use('/api', translationRouter);
+  console.log('✅ Translation routes loaded');
+} catch (error) {
+  console.error('❌ Failed to load translation routes:', error);
+}
+
 // Payment routes (Stripe scaffold) - mount only when explicitly enabled to allow
 // running the app without the `stripe` package or Stripe env vars.
 if (String(process.env.ENABLE_STRIPE || '').toLowerCase() === 'true') {

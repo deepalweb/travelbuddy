@@ -7,9 +7,11 @@ import 'dart:convert';
 import 'dart:typed_data';
 import 'dart:async';
 import '../providers/app_provider.dart';
+import '../providers/language_provider.dart';
 import '../widgets/safe_widget.dart';
 import '../widgets/subscription_status_widget.dart';
 import '../models/travel_style.dart';
+import '../screens/language_assistant_screen.dart';
 
 
 class HomeScreen extends StatefulWidget {
@@ -351,7 +353,49 @@ class _HomeScreenState extends State<HomeScreen> {
                 icon: const Icon(Icons.notifications_outlined),
                 onPressed: () => _showNotifications(appProvider),
               ),
-
+              // Language Quick Access Button
+              Consumer<LanguageProvider>(
+                builder: (context, languageProvider, child) {
+                  return IconButton(
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const LanguageAssistantScreen(),
+                        ),
+                      );
+                    },
+                    icon: Stack(
+                      children: [
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              languageProvider.currentLanguageInfo.flag,
+                              style: const TextStyle(fontSize: 16),
+                            ),
+                            const SizedBox(width: 2),
+                            const Icon(Icons.translate, size: 16),
+                          ],
+                        ),
+                        if (languageProvider.showLocationSuggestion)
+                          Positioned(
+                            right: 0,
+                            top: 0,
+                            child: Container(
+                              width: 8,
+                              height: 8,
+                              decoration: const BoxDecoration(
+                                color: Colors.red,
+                                shape: BoxShape.circle,
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                  );
+                },
+              ),
               IconButton(
                 icon: const Icon(Icons.refresh),
                 onPressed: _loadData,
@@ -750,12 +794,12 @@ class _HomeScreenState extends State<HomeScreen> {
         'action': 'weather',
       },
       {
-        'label': 'Emergency',
-        'icon': Icons.emergency_outlined,
-        'activeIcon': Icons.emergency,
+        'label': 'Safety Hub',
+        'icon': Icons.security_outlined,
+        'activeIcon': Icons.security,
         'color': const Color(0xFFF44336),
         'gradient': [const Color(0xFFF44336), const Color(0xFFD32F2F)],
-        'action': 'emergency',
+        'action': 'safety',
       },
       {
         'label': 'Favorites',
@@ -1394,8 +1438,9 @@ class _HomeScreenState extends State<HomeScreen> {
 
   void _handleQuickAction(String action, AppProvider appProvider) {
     switch (action) {
-      case 'Emergency':
-        _showEmergencyDialog();
+      case 'Safety Hub':
+      case 'safety':
+        Navigator.pushNamed(context, '/safety');
         break;
       case 'Plan Trip':
         appProvider.setCurrentTabIndex(3);

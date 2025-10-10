@@ -1022,6 +1022,48 @@ export const translations: Record<string, any> = {
         informationSources: "Information Sources",
         noSources: "No specific web sources were cited for this response.",
         flightInfoError: "Could not get flight information. Please check the flight number and your connection.",
+    },
+    // Translation & Language Features
+    phrasebook: {
+      title: "Travel Phrasebook",
+      subtitle: "Essential phrases for",
+      selectLanguage: "Select Language",
+      category: "Category",
+      categories: {
+        emergency: "Emergency",
+        greetings: "Greetings",
+        directions: "Directions",
+        food: "Food & Dining",
+        accommodation: "Accommodation",
+        transportation: "Transportation",
+        shopping: "Shopping",
+        numbers: "Numbers",
+        time: "Time",
+        basic: "Basic Phrases"
+      },
+      playPronunciation: "Play Pronunciation",
+      copyToClipboard: "Copy to Clipboard",
+      noPhrasesFound: "No phrases found for this category.",
+      offlineNote: "Phrases available offline for emergency use."
+    },
+    languageSwitcher: {
+      locationSuggestion: "We detected you're in a new location",
+      switchTo: "Switch to",
+      switch: "Switch",
+      dismiss: "Keep Current"
+    },
+    translation: {
+      title: "Real-Time Translator",
+      inputPlaceholder: "Type text to translate...",
+      translate: "Translate",
+      translating: "Translating...",
+      swapLanguages: "Swap Languages",
+      voiceInput: "Voice Input",
+      voiceNotSupported: "Voice input not supported in this browser",
+      playAudio: "Play Audio",
+      copy: "Copy",
+      poweredBy: "Powered by Travel Buddy Translation Service",
+      error: "Translation failed. Please try again."
     }
   },
   es: {

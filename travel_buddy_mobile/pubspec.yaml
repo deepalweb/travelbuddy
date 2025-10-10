@@ -48,6 +48,12 @@ dependencies:
   # UI Components
   timeago: ^3.5.0
   
+  # Language & Translation
+  flutter_tts: ^3.8.5
+  flutter_localizations:
+    sdk: flutter
+  intl: ^0.20.2
+  
   # Payment (PayPal integration to be added later)
   # flutter_paypal_checkout: ^0.1.2
 

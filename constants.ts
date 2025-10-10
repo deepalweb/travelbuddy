@@ -88,8 +88,31 @@ export const COMMON_CURRENCIES = [
 // i18n constants
 export const DEFAULT_LANGUAGE = 'en';
 export const SUPPORTED_LANGUAGES = [
-  { code: 'en', name: 'English' },
-  { code: 'es', name: 'Español' },
+  { code: 'en', name: 'English', flag: '🇺🇸' },
+  { code: 'es', name: 'Español', flag: '🇪🇸' },
+  { code: 'fr', name: 'Français', flag: '🇫🇷' },
+  { code: 'de', name: 'Deutsch', flag: '🇩🇪' },
+  { code: 'it', name: 'Italiano', flag: '🇮🇹' },
+  { code: 'pt', name: 'Português', flag: '🇵🇹' },
+  { code: 'ja', name: '日本語', flag: '🇯🇵' },
+  { code: 'ko', name: '한국어', flag: '🇰🇷' },
+  { code: 'zh', name: '中文', flag: '🇨🇳' },
+  { code: 'ar', name: 'العربية', flag: '🇸🇦' },
+  { code: 'ru', name: 'Русский', flag: '🇷🇺' },
+];
+
+// Travel phrase categories
+export const TRAVEL_PHRASE_CATEGORIES = [
+  'emergency',
+  'greetings',
+  'directions',
+  'food',
+  'accommodation',
+  'transportation',
+  'shopping',
+  'numbers',
+  'time',
+  'basic'
 ];
 
 // Subscription Tiers

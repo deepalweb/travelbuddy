@@ -52,6 +52,7 @@ class _HomePageState extends State<HomePage> {
         index: _currentIndex,
         children: _pages.map((page) => page.view).toList(),
       ),
+
       bottomNavigationBar: Container(
         decoration: const BoxDecoration(
           border: Border(
