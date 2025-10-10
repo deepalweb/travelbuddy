@@ -1185,6 +1185,62 @@ app.post('/api/enrichment/batch', async (req, res) => {
   }
 });
 
+// Personalized Suggestions API
+app.get('/api/suggestions/personalized', async (req, res) => {
+  try {
+    const { userId, interests, latitude, longitude } = req.query;
+    
+    if (!userId || !latitude || !longitude) {
+      return res.status(400).json({ error: 'userId, latitude, and longitude are required' });
+    }
+
+    let user = await User.findOne({ firebaseUid: userId });
+    if (!user) {
+      user = await User.findById(userId);
+    }
+    
+    const userInterests = interests ? interests.split(',') : (user?.selectedInterests || ['sightseeing']);
+    const suggestions = [];
+    
+    const hour = new Date().getHours();
+    if (hour < 12) {
+      suggestions.push({
+        type: 'activity',
+        title: 'Morning Coffee & Planning',
+        description: 'Start your day with local coffee and plan your adventures',
+        reason: 'Perfect morning activity'
+      });
+    } else if (hour < 17) {
+      suggestions.push({
+        type: 'activity', 
+        title: 'Afternoon Exploration',
+        description: 'Great time to visit museums or outdoor attractions',
+        reason: 'Ideal afternoon timing'
+      });
+    } else {
+      suggestions.push({
+        type: 'activity',
+        title: 'Evening Dining',
+        description: 'Discover local restaurants and nightlife',
+        reason: 'Perfect evening activity'
+      });
+    }
+    
+    for (const interest of userInterests.slice(0, 2)) {
+      suggestions.push({
+        type: 'place',
+        title: `Explore ${interest} spots`,
+        description: `Discover places perfect for ${interest} enthusiasts`,
+        reason: `Based on your interest in ${interest}`
+      });
+    }
+    
+    res.json(suggestions.slice(0, 5));
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // API Usage metrics endpoints
 app.post('/api/usage', async (req, res) => {
   try {
@@ -1657,6 +1713,58 @@ app.get('/api/users/:id', async (req, res) => {
   }
 });
 
+// Get user stats
+app.get('/api/users/:id/stats', async (req, res) => {
+  try {
+    let user = await User.findOne({ firebaseUid: req.params.id });
+    if (!user) {
+      user = await User.findById(req.params.id);
+    }
+    if (!user) return res.status(404).json({ error: 'User not found' });
+
+    const [tripCount, postCount, favoriteCount, itineraryCount] = await Promise.all([
+      TripPlan.countDocuments({ userId: user._id }),
+      Post.countDocuments({ userId: user._id }),
+      user.favoritePlaces ? user.favoritePlaces.length : 0,
+      Itinerary.countDocuments({ userId: user._id })
+    ]);
+
+    const stats = {
+      totalTrips: tripCount,
+      totalPosts: postCount,
+      totalFavorites: favoriteCount,
+      totalItineraries: itineraryCount,
+      memberSince: user.createdAt,
+      profileType: user.profileType || 'traveler',
+      tier: user.tier || 'free',
+      subscriptionStatus: user.subscriptionStatus || 'none',
+      placesVisited: favoriteCount,
+      badgesEarned: _calculateBadges(tripCount, postCount, favoriteCount),
+      travelScore: _calculateTravelScore(tripCount, postCount, favoriteCount, itineraryCount)
+    };
+
+    res.json(stats);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+function _calculateBadges(trips, posts, favorites) {
+  const badges = [];
+  if (trips >= 1) badges.push('First Trip');
+  if (trips >= 5) badges.push('Explorer');
+  if (trips >= 10) badges.push('Travel Expert');
+  if (posts >= 1) badges.push('Storyteller');
+  if (posts >= 10) badges.push('Community Star');
+  if (favorites >= 5) badges.push('Curator');
+  if (favorites >= 20) badges.push('Place Collector');
+  return badges;
+}
+
+function _calculateTravelScore(trips, posts, favorites, itineraries) {
+  return Math.min(1000, (trips * 50) + (posts * 20) + (favorites * 10) + (itineraries * 30));
+}
+
 // Return simple subscription status for a user
 app.get('/api/users/:id/subscription-status', async (req, res) => {
   try {
@@ -1957,6 +2065,22 @@ app.post('/api/trips', async (req, res) => {
     res.json(trip);
   } catch (error) {
     res.status(400).json({ error: error.message });
+  }
+});
+
+// Get recent trips
+app.get('/api/trips/recent', async (req, res) => {
+  try {
+    const limit = Math.min(20, parseInt(req.query.limit || '10', 10));
+    const trips = await TripPlan.find()
+      .populate('userId', 'username profilePicture')
+      .sort({ createdAt: -1 })
+      .limit(limit)
+      .lean();
+    
+    res.json(trips);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
   }
 });
 

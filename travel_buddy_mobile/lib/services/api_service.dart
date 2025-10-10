@@ -43,6 +43,7 @@ class ApiService {
     required Position location,
   }) async {
     try {
+      print('💡 Fetching personalized suggestions for: $userId');
       final response = await _dio.get(
         '/api/suggestions/personalized',
         queryParameters: {
@@ -56,28 +57,72 @@ class ApiService {
       if (response.statusCode == 200 && response.data != null) {
         final data = response.data;
         if (data is List) {
+          print('✅ Loaded ${data.length} personalized suggestions');
           return List<Map<String, dynamic>>.from(data);
         }
       }
-      return [];
+      print('❌ No suggestions data received');
+      return _getMockSuggestions(interests);
     } catch (e) {
-      print('Error getting personalized suggestions: $e');
-      return [];
+      print('❌ Error getting personalized suggestions: $e');
+      return _getMockSuggestions(interests);
     }
+  }
+
+  List<Map<String, dynamic>> _getMockSuggestions(List<String> interests) {
+    final hour = DateTime.now().hour;
+    final suggestions = <Map<String, dynamic>>[];
+    
+    if (hour < 12) {
+      suggestions.add({
+        'type': 'activity',
+        'title': 'Morning Coffee & Planning',
+        'description': 'Start your day with local coffee',
+        'reason': 'Perfect morning activity'
+      });
+    } else if (hour < 17) {
+      suggestions.add({
+        'type': 'activity',
+        'title': 'Afternoon Exploration',
+        'description': 'Great time to visit attractions',
+        'reason': 'Ideal afternoon timing'
+      });
+    } else {
+      suggestions.add({
+        'type': 'activity',
+        'title': 'Evening Dining',
+        'description': 'Discover local restaurants',
+        'reason': 'Perfect evening activity'
+      });
+    }
+    
+    for (final interest in interests.take(2)) {
+      suggestions.add({
+        'type': 'place',
+        'title': 'Explore $interest spots',
+        'description': 'Discover places for $interest enthusiasts',
+        'reason': 'Based on your interest in $interest'
+      });
+    }
+    
+    return suggestions;
   }
 
   // Trips API
   Future<List<TripPlan>> getRecentTrips() async {
     try {
+      print('📅 Fetching recent trips');
       final response = await _dio.get('/api/trips/recent');
       
       if (response.statusCode == 200) {
         final List<dynamic> data = response.data;
+        print('✅ Loaded ${data.length} recent trips');
         return data.map((json) => TripPlan.fromJson(json)).toList();
       }
+      print('❌ No recent trips data');
       return [];
     } catch (e) {
-      print('Error fetching recent trips: $e');
+      print('❌ Error fetching recent trips: $e');
       return [];
     }
   }
@@ -85,19 +130,38 @@ class ApiService {
   // User Stats API
   Future<Map<String, dynamic>> getUserStats(String userId) async {
     try {
+      print('📊 Fetching user stats for: $userId');
       final response = await _dio.get('/api/users/$userId/stats');
       
       if (response.statusCode == 200 && response.data != null) {
         final data = response.data;
         if (data is Map) {
+          print('✅ User stats loaded: ${data.keys.toList()}');
           return Map<String, dynamic>.from(data);
         }
       }
-      return {};
+      print('❌ No user stats data received');
+      return _getMockUserStats();
     } catch (e) {
-      print('Error fetching user stats: $e');
-      return {};
+      print('❌ Error fetching user stats: $e');
+      return _getMockUserStats();
     }
+  }
+
+  Map<String, dynamic> _getMockUserStats() {
+    return {
+      'totalTrips': 0,
+      'totalPosts': 0,
+      'totalFavorites': 0,
+      'totalItineraries': 0,
+      'memberSince': DateTime.now().toIso8601String(),
+      'profileType': 'traveler',
+      'tier': 'free',
+      'subscriptionStatus': 'none',
+      'placesVisited': 0,
+      'badgesEarned': [],
+      'travelScore': 0
+    };
   }
 
   // Places API
@@ -300,6 +364,20 @@ class ApiService {
   }
 
   Future<OneDayItinerary?> saveItinerary(String userId, OneDayItinerary itinerary) async {
+    try {
+      final response = await _dio.post('/api/itineraries', data: {
+        'userId': userId,
+        ...itinerary.toJson(),
+      });
+      if (response.statusCode == 201) {
+        return OneDayItinerary.fromJson(response.data);
+      }
+      return null;
+    } catch (e) {
+      print('Error saving itinerary: $e');
+      return null;
+    }
+  }y) async {
     try {
       final response = await _dio.post('/api/itineraries', data: {
         'userId': userId,
