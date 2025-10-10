@@ -12,6 +12,7 @@ import '../widgets/safe_widget.dart';
 import '../widgets/subscription_status_widget.dart';
 import '../models/travel_style.dart';
 import '../screens/language_assistant_screen.dart';
+import '../screens/deal_detail_screen.dart';
 
 
 class HomeScreen extends StatefulWidget {
@@ -43,16 +44,40 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _startDealsAutoScroll() {
-    _dealsTimer = Timer.periodic(const Duration(seconds: 4), (timer) {
-      if (_dealsPageController.hasClients) {
-        final nextIndex = (_currentDealIndex + 1) % 3; // Assuming 3 deals
-        _dealsPageController.animateToPage(
-          nextIndex,
-          duration: const Duration(milliseconds: 300),
-          curve: Curves.easeInOut,
-        );
-      }
-    });
+    _startDealsAutoScrollWithCount(3); // Default count
+  }
+
+  void _startDealsAutoScrollWithCount(int dealCount) {
+    _dealsTimer?.cancel();
+    if (dealCount > 1) {
+      _dealsTimer = Timer.periodic(const Duration(seconds: 4), (timer) {
+        if (_dealsPageController.hasClients) {
+          final nextIndex = (_currentDealIndex + 1) % dealCount;
+          _dealsPageController.animateToPage(
+            nextIndex,
+            duration: const Duration(milliseconds: 300),
+            curve: Curves.easeInOut,
+          );
+        }
+      });
+    }
+  }
+
+  String _getTimeRemaining(DateTime expiresAt) {
+    final now = DateTime.now();
+    final difference = expiresAt.difference(now);
+    
+    if (difference.isNegative) {
+      return 'Expired';
+    }
+    
+    if (difference.inDays > 0) {
+      return '${difference.inDays}d left';
+    } else if (difference.inHours > 0) {
+      return '${difference.inHours}h left';
+    } else {
+      return '${difference.inMinutes}m left';
+    }
   }
 
   void _loadData() {
@@ -250,49 +275,57 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             ),
             const SizedBox(height: 12),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-              children: hourlyList.take(3).map<Widget>((hourly) {
-                final time = DateTime.parse(hourly['time']);
-                final temp = (hourly['temperature'] as num).round();
-                final condition = hourly['condition'] as String;
-                
-                return Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.15),
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: Colors.white.withOpacity(0.2)),
-                  ),
-                  child: Column(
-                    children: [
-                      Text(
-                        '${time.hour}:00',
-                        style: TextStyle(
-                          color: Colors.white.withOpacity(0.8),
-                          fontSize: 12,
-                          fontWeight: FontWeight.w500,
+            SizedBox(
+              height: 120,
+              child: ListView.builder(
+                scrollDirection: Axis.horizontal,
+                itemCount: 3,
+                itemBuilder: (context, index) {
+                  final now = DateTime.now();
+                  final forecastTime = now.add(Duration(hours: (index + 1) * 3));
+                  final temp = 28 + (index * 2); // Mock data - replace with real API
+                  final condition = index == 0 ? 'sunny' : index == 1 ? 'cloudy' : 'rainy';
+                  
+                  return Container(
+                    width: 80,
+                    margin: const EdgeInsets.only(right: 12),
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.15),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: Colors.white.withOpacity(0.2)),
+                    ),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(
+                          '${forecastTime.hour}:00',
+                          style: TextStyle(
+                            color: Colors.white.withOpacity(0.8),
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: 8),
-                      Icon(
-                        _getWeatherIcon(condition),
-                        color: Colors.white,
-                        size: 24,
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        '${temp}°',
-                        style: const TextStyle(
+                        const SizedBox(height: 8),
+                        Icon(
+                          _getWeatherIcon(condition),
                           color: Colors.white,
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
+                          size: 24,
                         ),
-                      ),
-                    ],
-                  ),
-                );
-              }).toList(),
+                        const SizedBox(height: 8),
+                        Text(
+                          '${temp}°',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              ),
             ),
           ],
         );
@@ -762,36 +795,13 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _buildQuickActions(AppProvider appProvider) {
     final actions = [
       {
-        'label': 'Plan Trip',
-        'icon': Icons.map_outlined,
-        'activeIcon': Icons.map,
-        'color': const Color(0xFF4CAF50),
-        'gradient': [const Color(0xFF4CAF50), const Color(0xFF45A049)],
-        'action': 'trip',
-      },
-      {
-        'label': 'Deals',
-        'icon': Icons.local_offer_outlined,
-        'activeIcon': Icons.local_offer,
-        'color': const Color(0xFFFF9800),
-        'gradient': [const Color(0xFFFF9800), const Color(0xFFFF8F00)],
-        'action': 'deals',
-      },
-      {
-        'label': 'Community',
-        'icon': Icons.group_outlined,
-        'activeIcon': Icons.group,
-        'color': const Color(0xFF9C27B0),
-        'gradient': [const Color(0xFF9C27B0), const Color(0xFF8E24AA)],
-        'action': 'community',
-      },
-      {
         'label': 'Weather',
-        'icon': Icons.wb_sunny_outlined,
-        'activeIcon': Icons.wb_sunny,
+        'icon': _getWeatherIcon(appProvider.weatherInfo?.condition ?? 'sunny'),
+        'activeIcon': _getWeatherIcon(appProvider.weatherInfo?.condition ?? 'sunny'),
         'color': const Color(0xFF2196F3),
         'gradient': [const Color(0xFF2196F3), const Color(0xFF1976D2)],
         'action': 'weather',
+        'subtitle': '${appProvider.weatherInfo?.temperature.round() ?? 28}°',
       },
       {
         'label': 'Safety Hub',
@@ -802,12 +812,12 @@ class _HomeScreenState extends State<HomeScreen> {
         'action': 'safety',
       },
       {
-        'label': 'Favorites',
-        'icon': Icons.favorite_outline,
-        'activeIcon': Icons.favorite,
-        'color': const Color(0xFFE91E63),
-        'gradient': [const Color(0xFFE91E63), const Color(0xFFC2185B)],
-        'action': 'favorites',
+        'label': 'Translator',
+        'icon': Icons.translate_outlined,
+        'activeIcon': Icons.translate,
+        'color': const Color(0xFF4CAF50),
+        'gradient': [const Color(0xFF4CAF50), const Color(0xFF45A049)],
+        'action': 'translator',
       },
     ];
 
@@ -843,7 +853,7 @@ class _HomeScreenState extends State<HomeScreen> {
             crossAxisCount: 3,
             mainAxisSpacing: 12,
             crossAxisSpacing: 12,
-            childAspectRatio: 1.1,
+            childAspectRatio: 0.9,
           ),
           itemCount: actions.length,
           itemBuilder: (context, index) {
@@ -877,17 +887,37 @@ class _HomeScreenState extends State<HomeScreen> {
                         ),
                       ),
                       const SizedBox(height: 8),
-                      Flexible(
-                        child: Text(
-                          action['label'] as String,
-                          style: const TextStyle(
-                            fontWeight: FontWeight.w600,
-                            fontSize: 12,
-                            color: Colors.black87,
-                          ),
-                          textAlign: TextAlign.center,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
+                      Expanded(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              action['label'] as String,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w600,
+                                fontSize: 10,
+                                color: Colors.black87,
+                              ),
+                              textAlign: TextAlign.center,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            if (action['subtitle'] != null)
+                              Column(
+                                children: [
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    action['subtitle'] as String,
+                                    style: TextStyle(
+                                      fontSize: 8,
+                                      color: Colors.grey[600],
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                    textAlign: TextAlign.center,
+                                  ),
+                                ],
+                              ),
+                          ],
                         ),
                       ),
                     ],
@@ -1184,44 +1214,119 @@ class _HomeScreenState extends State<HomeScreen> {
       });
     }
 
-    final realDeals = appProvider.deals.where((deal) => deal.isActive).take(3).toList();
-    final hasRealDeals = realDeals.isNotEmpty;
-    
-    final dealsToShow = hasRealDeals ? realDeals.map((deal) => {
-      'title': deal.title,
-      'business': deal.businessName,
-      'discount': deal.discount,
-      'image': deal.images.isNotEmpty ? deal.images.first : 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=400',
-      'color': _getDealColor(deal.discount),
-      'dealId': deal.id,
-    }).toList() : [
-      {
-        'title': '50% OFF Local Restaurant',
-        'business': 'Spice Garden',
-        'discount': '50% OFF',
-        'image': 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=400',
-        'color': Colors.red,
-        'dealId': 'mock_1',
-      },
-      {
-        'title': 'Free Dessert with Meal',
-        'business': 'Cafe Mocha',
-        'discount': 'FREE',
-        'image': 'https://images.unsplash.com/photo-1554118811-1e0d58224f24?w=400',
-        'color': Colors.green,
-        'dealId': 'mock_2',
-      },
-      {
-        'title': '30% OFF Spa Treatment',
-        'business': 'Wellness Center',
-        'discount': '30% OFF',
-        'image': 'https://images.unsplash.com/photo-1544161515-4ab6ce6db874?w=400',
-        'color': Colors.purple,
-        'dealId': 'mock_3',
-      },
-    ];
+    // Show loading state while deals are being fetched
+    if (appProvider.isDealsLoading) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.red.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(
+                  Icons.local_fire_department,
+                  color: Colors.red,
+                  size: 20,
+                ),
+              ),
+              const SizedBox(width: 12),
+              const Text(
+                'Hot Deals',
+                style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Container(
+            height: 200,
+            decoration: BoxDecoration(
+              color: Colors.grey[100],
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: const Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  CircularProgressIndicator(),
+                  SizedBox(height: 12),
+                  Text('Loading deals...'),
+                ],
+              ),
+            ),
+          ),
+        ],
+      );
+    }
 
-    print('🔥 Hot Deals: ${hasRealDeals ? 'REAL' : 'MOCK'} data (${dealsToShow.length} deals)');
+    final activeDeals = appProvider.deals.where((deal) => deal.isActive).toList();
+    
+    // If no deals available, show empty state
+    if (activeDeals.isEmpty) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.red.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(
+                  Icons.local_fire_department,
+                  color: Colors.red,
+                  size: 20,
+                ),
+              ),
+              const SizedBox(width: 12),
+              const Text(
+                'Hot Deals',
+                style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Container(
+            height: 200,
+            decoration: BoxDecoration(
+              color: Colors.grey[50],
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: Colors.grey[300]!),
+            ),
+            child: Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.local_offer_outlined, size: 48, color: Colors.grey[400]),
+                  const SizedBox(height: 12),
+                  Text(
+                    'No deals available right now',
+                    style: TextStyle(color: Colors.grey[600]),
+                  ),
+                  const SizedBox(height: 8),
+                  ElevatedButton(
+                    onPressed: () => appProvider.loadDeals(),
+                    child: const Text('Refresh'),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      );
+    }
+
+    // Take up to 5 deals for slideshow
+    final dealsToShow = activeDeals.take(5).toList();
+    
+    // Update auto-scroll timer based on actual deal count
+    _dealsTimer?.cancel();
+    _startDealsAutoScrollWithCount(dealsToShow.length);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1246,12 +1351,19 @@ class _HomeScreenState extends State<HomeScreen> {
               style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
             ),
             const Spacer(),
-            Text(
-              'Limited Time',
-              style: TextStyle(
-                fontSize: 12,
-                color: Colors.red[600],
-                fontWeight: FontWeight.w500,
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: Colors.red[50],
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Text(
+                '${dealsToShow.length} Active',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Colors.red[600],
+                  fontWeight: FontWeight.w500,
+                ),
               ),
             ),
           ],
@@ -1269,8 +1381,17 @@ class _HomeScreenState extends State<HomeScreen> {
             itemCount: dealsToShow.length,
             itemBuilder: (context, index) {
               final deal = dealsToShow[index];
-              return Container(
-                margin: const EdgeInsets.symmetric(horizontal: 8),
+              return GestureDetector(
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => DealDetailScreen(deal: deal),
+                    ),
+                  );
+                },
+                child: Container(
+                  margin: const EdgeInsets.symmetric(horizontal: 8),
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(16),
                   boxShadow: [
@@ -1289,13 +1410,18 @@ class _HomeScreenState extends State<HomeScreen> {
                         width: double.infinity,
                         height: double.infinity,
                         decoration: BoxDecoration(
-                          image: DecorationImage(
-                            image: NetworkImage(deal['image'] as String),
-                            fit: BoxFit.cover,
-                            onError: (_, __) {},
-                          ),
+                          image: deal.images.isNotEmpty
+                              ? DecorationImage(
+                                  image: NetworkImage(deal.images.first),
+                                  fit: BoxFit.cover,
+                                  onError: (_, __) {},
+                                )
+                              : null,
                           color: Colors.grey[300],
                         ),
+                        child: deal.images.isEmpty
+                            ? Icon(Icons.local_offer, size: 48, color: Colors.grey[600])
+                            : null,
                       ),
                       Container(
                         decoration: BoxDecoration(
@@ -1315,16 +1441,42 @@ class _HomeScreenState extends State<HomeScreen> {
                         child: Container(
                           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                           decoration: BoxDecoration(
-                            color: deal['color'] as Color,
+                            color: _getDealColor(deal.discount),
                             borderRadius: BorderRadius.circular(20),
                           ),
                           child: Text(
-                            deal['discount'] as String,
+                            deal.discount,
                             style: const TextStyle(
                               color: Colors.white,
                               fontSize: 12,
                               fontWeight: FontWeight.bold,
                             ),
+                          ),
+                        ),
+                      ),
+                      Positioned(
+                        top: 16,
+                        left: 16,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: Colors.orange.withOpacity(0.9),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(Icons.timer, color: Colors.white, size: 12),
+                              const SizedBox(width: 4),
+                              Text(
+                                _getTimeRemaining(deal.validUntil),
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                       ),
@@ -1336,16 +1488,18 @@ class _HomeScreenState extends State<HomeScreen> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              deal['title'] as String,
+                              deal.title,
                               style: const TextStyle(
                                 color: Colors.white,
                                 fontSize: 18,
                                 fontWeight: FontWeight.bold,
                               ),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
                             ),
                             const SizedBox(height: 4),
                             Text(
-                              deal['business'] as String,
+                              deal.businessName,
                               style: TextStyle(
                                 color: Colors.white.withOpacity(0.9),
                                 fontSize: 14,
@@ -1354,15 +1508,12 @@ class _HomeScreenState extends State<HomeScreen> {
                             const SizedBox(height: 12),
                             ElevatedButton(
                               onPressed: () async {
-                                final dealId = deal['dealId'] as String;
-                                final success = hasRealDeals 
-                                    ? await appProvider.claimDeal(dealId)
-                                    : true;
+                                final success = await appProvider.claimDeal(deal.id);
                                 
                                 if (success) {
                                   ScaffoldMessenger.of(context).showSnackBar(
                                     SnackBar(
-                                      content: Text('Claimed: ${deal['title']}'),
+                                      content: Text('Claimed: ${deal.title}'),
                                       backgroundColor: Colors.green,
                                     ),
                                   );
@@ -1377,7 +1528,7 @@ class _HomeScreenState extends State<HomeScreen> {
                               },
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: Colors.white,
-                                foregroundColor: deal['color'] as Color,
+                                foregroundColor: _getDealColor(deal.discount),
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(20),
                                 ),
@@ -1392,6 +1543,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         ),
                       ),
                     ],
+                  ),
                   ),
                 ),
               );
@@ -1442,17 +1594,19 @@ class _HomeScreenState extends State<HomeScreen> {
       case 'safety':
         Navigator.pushNamed(context, '/safety');
         break;
-      case 'Plan Trip':
-        appProvider.setCurrentTabIndex(3);
-        break;
-      case 'Deals':
-        appProvider.setCurrentTabIndex(2);
-        break;
-      case 'Community':
-        appProvider.setCurrentTabIndex(4);
+      case 'Translator':
+      case 'translator':
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => const LanguageAssistantScreen(),
+          ),
+        );
         break;
       case 'Weather':
-      case 'Favorites':
+      case 'weather':
+        _showWeatherModal(appProvider);
+        break;
       default:
         appProvider.setCurrentTabIndex(1);
         break;
@@ -1639,6 +1793,195 @@ class _HomeScreenState extends State<HomeScreen> {
     };
   }
   
+  Widget _build9HourForecast(AppProvider appProvider) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          '9-Hour Forecast',
+          style: TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        const SizedBox(height: 16),
+        Expanded(
+          child: GridView.builder(
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 3,
+              mainAxisSpacing: 12,
+              crossAxisSpacing: 12,
+              childAspectRatio: 0.8,
+            ),
+            itemCount: 3,
+            itemBuilder: (context, index) {
+              final now = DateTime.now();
+              final forecastTime = now.add(Duration(hours: (index + 1) * 3));
+              final temp = 28 + (index * 2); // Mock data
+              final condition = index == 0 ? 'sunny' : index == 1 ? 'cloudy' : 'rainy';
+              
+              return Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.blue[50],
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.blue[200]!),
+                ),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      '${forecastTime.hour}:00',
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Icon(
+                      _getWeatherIcon(condition),
+                      color: Colors.blue[600],
+                      size: 32,
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      '${temp}°C',
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    Text(
+                      condition.toUpperCase(),
+                      style: TextStyle(
+                        fontSize: 10,
+                        color: Colors.grey[600],
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
+  void _showWeatherModal(AppProvider appProvider) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        height: MediaQuery.of(context).size.height * 0.7,
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        child: Column(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [Colors.blue[400]!, Colors.blue[600]!],
+                ),
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+              ),
+              child: Column(
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        'Weather',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 24,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      IconButton(
+                        onPressed: () => Navigator.pop(context),
+                        icon: const Icon(Icons.close, color: Colors.white),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 20),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        _getWeatherIcon(appProvider.weatherInfo?.condition ?? 'sunny'),
+                        color: Colors.white,
+                        size: 60,
+                      ),
+                      const SizedBox(width: 20),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            '${appProvider.weatherInfo?.temperature.round() ?? 28}°C',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 48,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          Text(
+                            appProvider.weatherInfo?.condition.toUpperCase() ?? 'SUNNY',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 16,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.all(20),
+                child: Column(
+                  children: [
+                    if (appProvider.currentLocation != null)
+                      FutureBuilder<String>(
+                        future: _getLocationName(
+                          appProvider.currentLocation!.latitude,
+                          appProvider.currentLocation!.longitude,
+                        ),
+                        builder: (context, snapshot) {
+                          return Row(
+                            children: [
+                              const Icon(Icons.location_on, color: Colors.grey),
+                              const SizedBox(width: 8),
+                              Text(
+                                snapshot.data ?? 'Getting location...',
+                                style: const TextStyle(fontSize: 16),
+                              ),
+                            ],
+                          );
+                        },
+                      ),
+                    const SizedBox(height: 20),
+                    Expanded(
+                      child: _build9HourForecast(appProvider),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   void _shareEmergencyLocation() async {
     Navigator.pop(context);
     final appProvider = context.read<AppProvider>();
