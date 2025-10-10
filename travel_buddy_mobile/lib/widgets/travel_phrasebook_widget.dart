@@ -5,6 +5,8 @@ import '../providers/language_provider.dart';
 import '../models/language_models.dart';
 
 class TravelPhrasebookWidget extends StatefulWidget {
+  const TravelPhrasebookWidget({Key? key}) : super(key: key);
+  
   @override
   State<TravelPhrasebookWidget> createState() => _TravelPhrasebookWidgetState();
 }

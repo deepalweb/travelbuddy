@@ -3,7 +3,7 @@ import 'package:provider/provider.dart';
 import '../providers/language_provider.dart';
 import '../models/language_models.dart';
 import '../widgets/travel_phrasebook_widget.dart';
-import '../widgets/translation_widget.dart';
+import '../widgets/simple_translation_widget.dart';
 import '../widgets/language_selector_widget.dart';
 import 'language_settings_screen.dart';
 
@@ -57,8 +57,8 @@ class _LanguageAssistantScreenState extends State<LanguageAssistantScreen>
                 child: TabBarView(
                   controller: _tabController,
                   children: [
-                    TravelPhrasebookWidget(),
-                    TranslationWidget(),
+                    const TravelPhrasebookWidget(),
+                    const SimpleTranslationWidget(),
                     _buildSettingsTab(languageProvider),
                   ],
                 ),

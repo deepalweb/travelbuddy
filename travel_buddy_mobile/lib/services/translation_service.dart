@@ -18,7 +18,8 @@ class TranslationService {
   // Initialize TTS
   Future<void> initializeTTS() async {
     await _tts.setLanguage('en-US');
-    await _tts.setSpeechRate(0.8);
+    await _tts.setSpeechRate(0.5); // Slower speed for better comprehension
+    await _tts.setPitch(1.0);
   }
 
   // Initialize Speech Recognition
@@ -123,6 +124,7 @@ class TranslationService {
   // Text-to-speech
   Future<void> speak(String text, String language) async {
     await _tts.setLanguage(_getLanguageCode(language));
+    await _tts.setSpeechRate(0.5); // Slower for learning
     await _tts.speak(text);
   }
 

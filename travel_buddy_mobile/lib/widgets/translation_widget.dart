@@ -5,6 +5,8 @@ import '../providers/language_provider.dart';
 import '../models/language_models.dart';
 
 class TranslationWidget extends StatefulWidget {
+  const TranslationWidget({Key? key}) : super(key: key);
+  
   @override
   State<TranslationWidget> createState() => _TranslationWidgetState();
 }
@@ -189,18 +191,7 @@ class _TranslationWidgetState extends State<TranslationWidget> {
             border: OutlineInputBorder(),
             contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           ),
-          items: supportedLanguages
-              .map((lang) => DropdownMenuItem(
-                    value: lang.code,
-                    child: Row(
-                      children: [
-                        Text(lang.flag),
-                        const SizedBox(width: 8),
-                        Expanded(child: Text(lang.name, overflow: TextOverflow.ellipsis)),
-                      ],
-                    ),
-                  ))
-              .toList(),
+          items: _getLanguageItems(),
           onChanged: onChanged,
         ),
       ],
@@ -263,9 +254,36 @@ class _TranslationWidgetState extends State<TranslationWidget> {
   }
 
   String _getLanguageName(String code) {
-    return supportedLanguages
-        .firstWhere((lang) => lang.code == code)
-        .name;
+    try {
+      return supportedLanguages
+          .firstWhere((lang) => lang.code == code)
+          .name;
+    } catch (e) {
+      return code.toUpperCase();
+    }
+  }
+
+  List<DropdownMenuItem<String>> _getLanguageItems() {
+    try {
+      return supportedLanguages
+          .map((lang) => DropdownMenuItem(
+                value: lang.code,
+                child: Row(
+                  children: [
+                    Text(lang.flag),
+                    const SizedBox(width: 8),
+                    Expanded(child: Text(lang.name, overflow: TextOverflow.ellipsis)),
+                  ],
+                ),
+              ))
+          .toList();
+    } catch (e) {
+      return [
+        const DropdownMenuItem(value: 'en', child: Text('🇺🇸 English')),
+        const DropdownMenuItem(value: 'fr', child: Text('🇫🇷 French')),
+        const DropdownMenuItem(value: 'es', child: Text('🇪🇸 Spanish')),
+      ];
+    }
   }
 
   @override
