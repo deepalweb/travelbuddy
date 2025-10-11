@@ -472,8 +472,8 @@ class ApiService {
 
   Future<List<community.CommunityPost>> getCommunityPosts({int page = 1, int limit = 20}) async {
     try {
-      print('🌐 Attempting to fetch posts from: ${Environment.backendUrl}/api/posts');
-      final response = await _dio.get('/api/posts', queryParameters: {
+      print('🌐 Attempting to fetch posts from: ${Environment.backendUrl}/api/community/posts');
+      final response = await _dio.get('/api/community/posts', queryParameters: {
         'limit': limit,
       });
       print('🌐 Backend response status: ${response.statusCode}');
@@ -532,7 +532,7 @@ class ApiService {
     String? username,
   }) async {
     try {
-      final response = await _dio.post('/api/posts', data: {
+      final response = await _dio.post('/api/community/posts', data: {
         'userId': userId,
         'content': {
           'text': content,

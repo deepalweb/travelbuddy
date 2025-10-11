@@ -24,7 +24,7 @@ class CommunityProvider with ChangeNotifier {
   bool get hasMorePosts => _hasMorePosts;
 
   Future<void> loadPosts({bool refresh = false, BuildContext? context}) async {
-    if (_isLoading) return;
+    if (_isLoading && !refresh) return;
 
     if (refresh) {
       _currentPage = 1;
@@ -40,24 +40,25 @@ class CommunityProvider with ChangeNotifier {
       // Try backend API first
       final backendPosts = await _apiService.getCommunityPosts(
         page: _currentPage,
-        limit: 10,
+        limit: 20,
       );
 
       if (backendPosts.isNotEmpty) {
         // Update posts with current user profile data
         final updatedPosts = await _syncPostsWithUserProfile(backendPosts, context);
         
-        final localIds = _posts.map((p) => p.id).toSet();
-        final newBackendPosts = updatedPosts.where((p) => !localIds.contains(p.id)).toList();
-        
         if (refresh) {
-          _posts = [...updatedPosts, ..._posts.where((p) => p.id.startsWith('temp_'))];
+          // On refresh, replace all posts with fresh backend data
+          _posts = updatedPosts;
         } else {
+          // On load more, add new posts
+          final localIds = _posts.map((p) => p.id).toSet();
+          final newBackendPosts = updatedPosts.where((p) => !localIds.contains(p.id)).toList();
           _posts.addAll(newBackendPosts);
         }
         
         _posts.sort((a, b) => b.createdAt.compareTo(a.createdAt));
-        _hasMorePosts = backendPosts.length >= 10;
+        _hasMorePosts = backendPosts.length >= 20;
         _currentPage++;
         print('✅ Loaded ${backendPosts.length} posts from backend');
       } else {
@@ -297,14 +298,38 @@ class CommunityProvider with ChangeNotifier {
         currentUser = appProvider.currentUser;
       }
       
-      // Use proper user avatar - network URL or fallback to initials placeholder
+      // Try backend first for immediate sync
+      try {
+        final newPost = await _apiService.createPost(
+          content: content,
+          location: location,
+          images: images,
+          postType: postType,
+          hashtags: hashtags,
+          allowComments: allowComments,
+          visibility: visibility,
+          userId: currentUser?.uid ?? '507f1f77bcf86cd799439011',
+          username: currentUser?.username ?? 'Mobile User',
+        );
+        
+        if (newPost != null) {
+          _posts.insert(0, newPost);
+          notifyListeners();
+          await _savePostLocally(newPost);
+          print('✅ Post created and synced to backend immediately');
+          return true;
+        }
+      } catch (e) {
+        print('⚠️ Backend create failed, using optimistic update: $e');
+      }
+      
+      // Fallback to optimistic update
       String userAvatar = 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150';
       if (currentUser?.profilePicture?.isNotEmpty == true) {
         final pic = currentUser!.profilePicture!;
         if (pic.startsWith('http')) {
           userAvatar = pic;
         }
-        // Skip local file paths - use default avatar
       }
       
       final optimisticPost = CommunityPost(
@@ -325,26 +350,13 @@ class CommunityProvider with ChangeNotifier {
       );
       
       _posts.insert(0, optimisticPost);
-      print('📺 [FEED] Post added to feed at index 0');
-      print('📺 [FEED] Total posts now: ${_posts.length}');
-      print('📺 [FEED] Post content: "${optimisticPost.content}"');
-      print('📺 [FEED] Post user: ${optimisticPost.userName}');
-      print('📺 [FEED] Post avatar: ${optimisticPost.userAvatar}');
       notifyListeners();
-      print('📺 [FEED] Notified listeners - UI should update');
-      
       await _savePostLocally(optimisticPost);
-      _tryBackendSaveInBackground(optimisticPost, currentUser);
-      
-      // Sync user profile data to backend if needed
-      if (currentUser != null) {
-        _syncUserProfileToBackend(currentUser);
-      }
       
       return true;
     } catch (e) {
       print('❌ [PROVIDER] Error creating post: $e');
-      return true;
+      return false;
     }
   }
   
