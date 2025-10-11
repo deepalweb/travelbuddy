@@ -2501,8 +2501,31 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
       
       // Load user-specific data
       try {
-        final favorites = await _storageService.getFavorites();
-        _favoriteIds = ErrorHandlerService.safeListCast<String>(favorites, 'loadUserData - favorites');
+        // Sync favorites from backend
+        if (_currentUser!.mongoId != null) {
+          try {
+            final backendFavorites = await _apiService.getUserFavorites(_currentUser!.mongoId!);
+            if (backendFavorites.isNotEmpty) {
+              _favoriteIds = backendFavorites;
+              // Save to local storage
+              for (final favoriteId in backendFavorites) {
+                await _storageService.addFavorite(favoriteId);
+              }
+              print('✅ Synced ${backendFavorites.length} favorites from backend');
+            } else {
+              // Fallback to local favorites
+              final favorites = await _storageService.getFavorites();
+              _favoriteIds = ErrorHandlerService.safeListCast<String>(favorites, 'loadUserData - favorites');
+            }
+          } catch (e) {
+            print('⚠️ Failed to sync favorites from backend: $e');
+            final favorites = await _storageService.getFavorites();
+            _favoriteIds = ErrorHandlerService.safeListCast<String>(favorites, 'loadUserData - favorites');
+          }
+        } else {
+          final favorites = await _storageService.getFavorites();
+          _favoriteIds = ErrorHandlerService.safeListCast<String>(favorites, 'loadUserData - favorites');
+        }
         await _updateFavoritePlaces();
         await loadTripPlans();
         

@@ -144,25 +144,23 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
             ),
             const SizedBox(height: 32),
             
-            // Username Field
+            // Display Name Field
             TextFormField(
               controller: _usernameController,
               decoration: InputDecoration(
-                labelText: 'Username',
+                labelText: 'Display Name',
                 prefixIcon: const Icon(Icons.person),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(8),
                 ),
+                hintText: 'Enter your full name',
               ),
               validator: (value) {
                 if (value == null || value.trim().isEmpty) {
-                  return 'Username is required';
+                  return 'Display name is required';
                 }
-                if (value.length < 3) {
-                  return 'Username must be at least 3 characters';
-                }
-                if (!RegExp(r'^[a-zA-Z0-9_]+$').hasMatch(value)) {
-                  return 'Username can only contain letters, numbers, and underscores';
+                if (value.trim().length < 2) {
+                  return 'Display name must be at least 2 characters';
                 }
                 return null;
               },

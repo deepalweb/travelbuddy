@@ -352,11 +352,26 @@ class ApiService {
   }
 
   Future<TravelStats?> getUserTravelStats(String userId) async {
-    return null;
+    try {
+      final response = await _dio.get('/api/users/$userId/travel-stats');
+      if (response.statusCode == 200) {
+        return TravelStats.fromJson(response.data);
+      }
+      return null;
+    } catch (e) {
+      print('Error fetching travel stats: $e');
+      return null;
+    }
   }
 
   Future<bool> updateUserTravelStats(String userId, TravelStats stats) async {
-    return false;
+    try {
+      final response = await _dio.put('/api/users/$userId/travel-stats', data: stats.toJson());
+      return response.statusCode == 200;
+    } catch (e) {
+      print('Error updating travel stats: $e');
+      return false;
+    }
   }
 
   Future<bool> deleteUser(String userId) async {
@@ -364,23 +379,65 @@ class ApiService {
   }
 
   Future<Map<String, dynamic>?> updateUserSubscription(String userId, Map<String, dynamic> subscriptionData) async {
-    return null;
+    try {
+      final response = await _dio.put('/api/users/$userId/subscription', data: subscriptionData);
+      if (response.statusCode == 200) {
+        return Map<String, dynamic>.from(response.data);
+      }
+      return null;
+    } catch (e) {
+      print('Error updating subscription: $e');
+      return null;
+    }
   }
 
   Future<bool> updateUserTravelStyle(String userId, String travelStyle) async {
-    return false;
+    try {
+      final response = await _dio.put('/api/users/$userId/travel-style', data: {
+        'travelStyle': travelStyle,
+      });
+      return response.statusCode == 200;
+    } catch (e) {
+      print('Error updating travel style: $e');
+      return false;
+    }
   }
 
   Future<List<TripPlan>> getUserTripPlans(String userId) async {
-    return [];
+    try {
+      final response = await _dio.get('/api/users/$userId/trip-plans');
+      if (response.statusCode == 200) {
+        final List<dynamic> data = response.data;
+        return data.map((json) => TripPlan.fromJson(json)).toList();
+      }
+      return [];
+    } catch (e) {
+      print('Error fetching trip plans: $e');
+      return [];
+    }
   }
 
   Future<TripPlan?> saveTripPlan(String userId, TripPlan tripPlan) async {
-    return null;
+    try {
+      final response = await _dio.post('/api/users/$userId/trip-plans', data: tripPlan.toJson());
+      if (response.statusCode == 201) {
+        return TripPlan.fromJson(response.data);
+      }
+      return null;
+    } catch (e) {
+      print('Error saving trip plan: $e');
+      return null;
+    }
   }
 
   Future<bool> deleteTripPlan(String tripPlanId) async {
-    return false;
+    try {
+      final response = await _dio.delete('/api/trip-plans/$tripPlanId');
+      return response.statusCode == 200;
+    } catch (e) {
+      print('Error deleting trip plan: $e');
+      return false;
+    }
   }
 
   Future<List<Deal>> getMyDeals(String merchantId) async {
@@ -392,7 +449,16 @@ class ApiService {
   }
 
   Future<String?> getUserTravelStyle(String userId) async {
-    return null;
+    try {
+      final response = await _dio.get('/api/users/$userId/travel-style');
+      if (response.statusCode == 200) {
+        return response.data['travelStyle'];
+      }
+      return null;
+    } catch (e) {
+      print('Error fetching travel style: $e');
+      return null;
+    }
   }
 
   Future<Map<String, String>?> getPlaceAIContent(String placeId) async {
@@ -506,7 +572,11 @@ class ApiService {
 
   Future<List<community.CommunityPost>> getBookmarkedPosts() async {
     try {
-      // Backend doesn't have bookmark endpoint yet, return empty for now
+      final response = await _dio.get('/api/posts/bookmarked');
+      if (response.statusCode == 200) {
+        final List<dynamic> data = response.data;
+        return data.map((json) => community.CommunityPost.fromJson(json)).toList();
+      }
       return [];
     } catch (e) {
       print('Error fetching bookmarked posts: $e');

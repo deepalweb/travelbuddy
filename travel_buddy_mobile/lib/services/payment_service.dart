@@ -60,7 +60,7 @@ class PaymentService {
         await _createSubscription(
           currentUser.mongoId!,
           tier,
-          paymentId: paymentResult['paymentId'],
+          paymentId: paymentResult['paymentId'] as String?,
         );
         return true;
       }

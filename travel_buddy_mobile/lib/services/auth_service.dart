@@ -161,7 +161,7 @@ class AuthService {
           errorString.contains('type cast')) {
         return false; // Plugin compatibility issue
       }
-      return false;
+      return true; // Try anyway for other errors
     }
   }
 
