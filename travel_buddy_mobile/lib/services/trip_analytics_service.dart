@@ -1,7 +1,5 @@
-import 'dart:convert';
 import 'package:dio/dio.dart';
 import '../config/environment.dart';
-import '../models/trip.dart';
 
 class TripAnalyticsService {
   static final Dio _dio = Dio(BaseOptions(

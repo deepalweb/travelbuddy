@@ -1,380 +1,113 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_sign_in/google_sign_in.dart';
-import '../models/user.dart';
-import 'storage_service.dart';
-import 'api_service.dart';
-import 'auth_error_handler.dart';
 
 class AuthService {
-  static final AuthService _instance = AuthService._internal();
-  factory AuthService() => _instance;
-  AuthService._internal();
-
-  final FirebaseAuth _auth = FirebaseAuth.instance;
-  final GoogleSignIn _googleSignIn = GoogleSignIn(
+  static final FirebaseAuth _auth = FirebaseAuth.instance;
+  static final GoogleSignIn _googleSignIn = GoogleSignIn(
     scopes: ['email', 'profile'],
   );
-  final StorageService _storage = StorageService();
-  final ApiService _api = ApiService();
 
-  User? get currentFirebaseUser => _auth.currentUser;
-  Stream<User?> get authStateChanges => _auth.authStateChanges();
-
-  Future<CurrentUser?> signInWithEmail(String email, String password) async {
+  // Email/Password Authentication
+  static Future<UserCredential> signInWithEmail(String email, String password) async {
     try {
-      final credential = await _auth.signInWithEmailAndPassword(
-        email: email,
-        password: password,
-      );
-
-      if (credential.user != null) {
-        return await _createOrUpdateUser(credential.user!);
-      }
-      return null;
-    } on FirebaseAuthException catch (e) {
-      throw _handleAuthException(e);
-    }
-  }
-
-  Future<CurrentUser?> registerWithEmail(
-    String email,
-    String password,
-    String username,
-  ) async {
-    try {
-      final credential = await _auth.createUserWithEmailAndPassword(
-        email: email,
-        password: password,
-      );
-
-      if (credential.user != null) {
-        await credential.user!.updateDisplayName(username);
-        return await _createOrUpdateUser(credential.user!, isNewUser: true);
-      }
-      return null;
-    } on FirebaseAuthException catch (e) {
-      throw _handleAuthException(e);
-    }
-  }
-
-  Future<void> signOut() async {
-    try {
-      await _googleSignIn.signOut();
+      return await _auth.signInWithEmailAndPassword(email: email, password: password);
     } catch (e) {
-      print('Google sign out error: $e');
+      print('Email Sign-In Error: $e');
+      rethrow;
     }
-    await _auth.signOut();
-    await _storage.clearUser();
   }
 
-  Future<CurrentUser?> signInWithGoogleSilent() async {
+  static Future<UserCredential> registerWithEmail(String email, String password, String username) async {
     try {
-      // Try silent sign-in first (for returning users)
+      final credential = await _auth.createUserWithEmailAndPassword(email: email, password: password);
+      await credential.user?.updateDisplayName(username);
+      return credential;
+    } catch (e) {
+      print('Email Registration Error: $e');
+      rethrow;
+    }
+  }
+
+  // Google Authentication
+  static Future<UserCredential?> signInWithGoogle() async {
+    try {
+      final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
+      
+      if (googleUser == null) return null;
+
+      final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
+      final credential = GoogleAuthProvider.credential(
+        accessToken: googleAuth.accessToken,
+        idToken: googleAuth.idToken,
+      );
+
+      return await _auth.signInWithCredential(credential);
+    } catch (e) {
+      print('Google Sign-In Error: $e');
+      rethrow;
+    }
+  }
+
+  static Future<UserCredential?> signInWithGoogleSilent() async {
+    try {
       final GoogleSignInAccount? googleUser = await _googleSignIn.signInSilently();
       if (googleUser == null) return null;
 
       final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
-      if (googleAuth.accessToken == null || googleAuth.idToken == null) {
-        return null;
-      }
-      
       final credential = GoogleAuthProvider.credential(
         accessToken: googleAuth.accessToken,
         idToken: googleAuth.idToken,
       );
 
-      final userCredential = await _auth.signInWithCredential(credential);
-      if (userCredential.user != null) {
-        return await _createOrUpdateUser(userCredential.user!);
-      }
-      return null;
+      return await _auth.signInWithCredential(credential);
     } catch (e) {
-      print('Silent Google Sign-In failed: $e');
+      print('Silent Google Sign-In Error: $e');
       return null;
     }
   }
 
-  Future<CurrentUser?> signInWithGoogle() async {
+  static Future<bool> isGoogleSignInAvailable() async {
     try {
-      // Clear any existing state first
-      try {
-        await _googleSignIn.disconnect();
-      } catch (e) {
-        // Ignore disconnect errors
-      }
-      
-      final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
-      if (googleUser == null) {
-        print('Google Sign-In cancelled by user');
-        return null;
-      }
+      return await _googleSignIn.isSignedIn();
+    } catch (e) {
+      return false;
+    }
+  }
 
-      final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
-      
-      if (googleAuth.accessToken == null || googleAuth.idToken == null) {
-        throw 'Failed to get Google authentication tokens';
-      }
-      
-      final credential = GoogleAuthProvider.credential(
-        accessToken: googleAuth.accessToken,
-        idToken: googleAuth.idToken,
-      );
+  // Sign Out
+  static Future<void> signOut() async {
+    try {
+      await Future.wait([
+        _auth.signOut(),
+        _googleSignIn.signOut(),
+      ]);
+    } catch (e) {
+      print('Sign Out Error: $e');
+      rethrow;
+    }
+  }
 
-      final userCredential = await _auth.signInWithCredential(credential);
-      if (userCredential.user != null) {
-        return await _createOrUpdateUser(userCredential.user!);
+  // User Management
+  static Future<User?> getCurrentUser() async {
+    return _auth.currentUser;
+  }
+
+  static Future<User?> updateUserProfile({String? displayName, String? photoURL}) async {
+    try {
+      final user = _auth.currentUser;
+      if (user != null) {
+        await user.updateDisplayName(displayName);
+        if (photoURL != null) await user.updatePhotoURL(photoURL);
+        await user.reload();
+        return _auth.currentUser;
       }
       return null;
-    } on FirebaseAuthException catch (e) {
-      print('Firebase Auth error: ${e.code} - ${e.message}');
-      throw _handleAuthException(e);
     } catch (e) {
-      print('Google Sign-In error: $e');
-      
-      // Handle specific error types
-      final errorString = e.toString().toLowerCase();
-      if (errorString.contains('pigeonuserdetails') || 
-          errorString.contains('list<object?>') ||
-          errorString.contains('type cast')) {
-        throw 'Google Sign-In service error. Please try again or use email sign-in.';
-      }
-      
-      if (errorString.contains('network') || errorString.contains('timeout')) {
-        throw 'Network error. Please check your connection and try again.';
-      }
-      
-      throw 'Google Sign-In failed: ${e.toString()}';
+      print('Update Profile Error: $e');
+      rethrow;
     }
   }
 
-  Future<bool> isGoogleSignInAvailable() async {
-    try {
-      // Try to check if Google Sign-In is available
-      final isSignedIn = await _googleSignIn.isSignedIn();
-      return true; // If we can check status, it's available
-    } catch (e) {
-      print('Google Sign-In not available: $e');
-      // Check for specific errors that indicate unavailability
-      final errorString = e.toString().toLowerCase();
-      if (errorString.contains('pigeonuserdetails') || 
-          errorString.contains('list<object?>') ||
-          errorString.contains('type cast')) {
-        return false; // Plugin compatibility issue
-      }
-      return true; // Try anyway for other errors
-    }
-  }
-
-  Future<Map<String, dynamic>> getGoogleSignInDiagnostics() async {
-    final diagnostics = <String, dynamic>{};
-    
-    try {
-      // Check if user is already signed in
-      final isSignedIn = await _googleSignIn.isSignedIn();
-      diagnostics['isSignedIn'] = isSignedIn;
-      
-      // Check current account
-      final currentAccount = _googleSignIn.currentUser;
-      diagnostics['hasCurrentAccount'] = currentAccount != null;
-      
-      // Check if we can access account info
-      if (currentAccount != null) {
-        diagnostics['accountEmail'] = currentAccount.email;
-        diagnostics['accountId'] = currentAccount.id;
-      }
-      
-      diagnostics['status'] = 'available';
-    } catch (e) {
-      diagnostics['status'] = 'error';
-      diagnostics['error'] = e.toString();
-      
-      // Check for specific error types
-      if (e.toString().contains('PigeonUserDetails')) {
-        diagnostics['errorType'] = 'pigeon_user_details';
-        diagnostics['suggestion'] = 'Update Google Play Services or try email sign-in';
-      } else if (e.toString().contains('SIGN_IN_REQUIRED')) {
-        diagnostics['errorType'] = 'sign_in_required';
-        diagnostics['suggestion'] = 'User needs to sign in first';
-      } else {
-        diagnostics['errorType'] = 'unknown';
-        diagnostics['suggestion'] = 'Check Google Play Services and app configuration';
-      }
-    }
-    
-    return diagnostics;
-  }
-
-  Future<void> resetPassword(String email) async {
-    try {
-      await _auth.sendPasswordResetEmail(email: email);
-    } on FirebaseAuthException catch (e) {
-      throw _handleAuthException(e);
-    }
-  }
-
-  Future<CurrentUser?> getCurrentUser() async {
-    final firebaseUser = _auth.currentUser;
-    if (firebaseUser != null) {
-      // Try to get from local storage first
-      final localUser = await _storage.getUser();
-      if (localUser != null) {
-        return localUser;
-      }
-      // If not in local storage, create from Firebase user
-      return await _createOrUpdateUser(firebaseUser);
-    }
-    return null;
-  }
-
-  Future<CurrentUser?> updateUserProfile({
-    String? username,
-    String? email,
-    String? bio,
-    String? website,
-    String? location,
-    String? birthday,
-    List<String>? languages,
-    List<String>? interests,
-    List<String>? budgetPreferences,
-    bool? showBirthdayToOthers,
-    bool? showLocationToOthers,
-    String? profilePicture,
-    String? travelStyle,
-  }) async {
-    final firebaseUser = _auth.currentUser;
-    if (firebaseUser == null) return null;
-
-    try {
-      // Update Firebase user if needed (skip photoURL for base64 images)
-      if (username != null && username != firebaseUser.displayName) {
-        await firebaseUser.updateDisplayName(username);
-      }
-      // Skip Firebase photoURL update for base64 images (too long)
-      if (profilePicture != null && !profilePicture.startsWith('data:image') && profilePicture != firebaseUser.photoURL) {
-        await firebaseUser.updatePhotoURL(profilePicture);
-      }
-
-      // Get current local user
-      final currentUser = await _storage.getUser();
-      if (currentUser != null) {
-        // Create updated user with new data
-        final updatedUser = currentUser.copyWith(
-          username: username ?? currentUser.username,
-          email: email ?? currentUser.email,
-          bio: bio ?? currentUser.bio,
-          website: website ?? currentUser.website,
-          location: location ?? currentUser.location,
-          birthday: birthday ?? currentUser.birthday,
-          languages: languages ?? currentUser.languages,
-          interests: interests ?? currentUser.interests,
-          budgetPreferences: budgetPreferences ?? currentUser.budgetPreferences,
-          showBirthdayToOthers: showBirthdayToOthers ?? currentUser.showBirthdayToOthers,
-          showLocationToOthers: showLocationToOthers ?? currentUser.showLocationToOthers,
-          profilePicture: profilePicture ?? currentUser.profilePicture,
-        );
-
-        // Save to local storage
-        await _storage.saveUser(updatedUser);
-
-        // Update backend if possible
-        try {
-          await _api.updateUser(updatedUser.mongoId ?? firebaseUser.uid, {
-            'username': updatedUser.username,
-            'email': updatedUser.email,
-            'bio': updatedUser.bio,
-            'website': updatedUser.website,
-            'location': updatedUser.location,
-            'birthday': updatedUser.birthday,
-            'languages': updatedUser.languages,
-            'interests': updatedUser.interests,
-            'budgetPreferences': updatedUser.budgetPreferences,
-            'showBirthdayToOthers': updatedUser.showBirthdayToOthers,
-            'showLocationToOthers': updatedUser.showLocationToOthers,
-            'profilePicture': updatedUser.profilePicture,
-            'travelStyle': travelStyle,
-          });
-        } catch (e) {
-          print('Backend update failed, but local update succeeded: $e');
-        }
-
-        return updatedUser;
-      }
-    } catch (e) {
-      print('Error updating user profile: $e');
-    }
-    return null;
-  }
-
-  Future<CurrentUser?> _createOrUpdateUser(User firebaseUser, {bool isNewUser = false}) async {
-    try {
-      print('👤 [AUTH] Creating user from Firebase:');
-      print('👤 [AUTH] Display Name: ${firebaseUser.displayName}');
-      print('👤 [AUTH] Email: ${firebaseUser.email}');
-      print('👤 [AUTH] Photo URL: ${firebaseUser.photoURL}');
-      print('👤 [AUTH] Provider Data: ${firebaseUser.providerData.map((p) => '${p.providerId}: ${p.photoURL}').join(', ')}');
-      
-      // Create user data for backend
-      final userData = {
-        'firebaseUid': firebaseUser.uid,
-        'username': firebaseUser.displayName ?? firebaseUser.email?.split('@')[0] ?? 'User',
-        'email': firebaseUser.email,
-        'profilePicture': firebaseUser.photoURL ?? 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150',
-      };
-      
-      print('👤 [AUTH] User data for backend: $userData');
-
-      // Try to create/update user in backend (with timeout)
-      CurrentUser? backendUser;
-      try {
-        backendUser = await _api.createUser(userData).timeout(
-          const Duration(seconds: 10),
-          onTimeout: () => null,
-        );
-      } catch (e) {
-        print('Backend user creation failed: $e');
-        backendUser = null;
-      }
-      
-      // Create local user (always works)
-      final localUser = CurrentUser(
-        username: userData['username']!,
-        email: userData['email'],
-        mongoId: backendUser?.mongoId ?? firebaseUser.uid,
-        uid: firebaseUser.uid,
-        profilePicture: userData['profilePicture'],
-        subscriptionStatus: backendUser?.subscriptionStatus ?? SubscriptionStatus.none,
-        tier: backendUser?.tier ?? SubscriptionTier.free,
-        homeCurrency: backendUser?.homeCurrency ?? 'USD',
-        language: backendUser?.language ?? 'en',
-      );
-      
-      // Save to local storage
-      await _storage.saveUser(localUser);
-      return localUser;
-    } catch (e) {
-      print('Error creating/updating user: $e');
-      throw AuthErrorHandler.getReadableError(e);
-    }
-  }
-
-  String _handleAuthException(FirebaseAuthException e) {
-    switch (e.code) {
-      case 'user-not-found':
-        return 'No user found with this email address.';
-      case 'wrong-password':
-        return 'Incorrect password.';
-      case 'email-already-in-use':
-        return 'An account already exists with this email address.';
-      case 'weak-password':
-        return 'Password is too weak. Please choose a stronger password.';
-      case 'invalid-email':
-        return 'Please enter a valid email address.';
-      case 'user-disabled':
-        return 'This account has been disabled.';
-      case 'too-many-requests':
-        return 'Too many failed attempts. Please try again later.';
-      default:
-        return e.message ?? 'An authentication error occurred.';
-    }
-  }
+  static User? get currentUser => _auth.currentUser;
+  static Stream<User?> get authStateChanges => _auth.authStateChanges();
 }

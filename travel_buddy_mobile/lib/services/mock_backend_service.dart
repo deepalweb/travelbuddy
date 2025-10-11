@@ -214,7 +214,7 @@ class MockBackendService {
       } catch (e) {
         return null;
       }
-    }).where((comment) => comment != null && comment!.postId == postId)
+    }).where((comment) => comment != null && comment.postId == postId)
       .cast<community.Comment>().toList();
     
     comments.sort((a, b) => a.createdAt.compareTo(b.createdAt));

@@ -5,7 +5,6 @@ import '../constants/app_constants.dart';
 import '../services/storage_service.dart';
 import '../models/trip.dart';
 import '../services/trip_analytics_service.dart';
-import 'my_trips_screen.dart';
 import 'trip_plan_detail_screen.dart';
 import 'trip_sharing_screen.dart';
 

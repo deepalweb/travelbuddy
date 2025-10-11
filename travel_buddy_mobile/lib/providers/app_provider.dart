@@ -34,13 +34,13 @@ import '../services/trip_plans_api_service.dart';
 import '../services/trip_analytics_service.dart';
 import '../models/travel_style.dart';
 import '../models/place_section.dart';
+import '../utils/user_converter.dart';
 
 
 
 
 class AppProvider with ChangeNotifier, WidgetsBindingObserver {
-  // Services
-  final AuthService _authService = AuthService();
+  // Services (AuthService is now static)
   final ApiService _apiService = ApiService();
   final AiService _aiService = AiService();
   final ImageService _imageService = ImageService();
@@ -661,9 +661,10 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
       // Ensure storage is initialized first
       await _storageService.initialize();
       
-      final user = await _authService.signInWithEmail(email, password);
+      final userCredential = await AuthService.signInWithEmail(email, password);
+      final user = userCredential.user;
       if (user != null) {
-        _currentUser = user;
+        _currentUser = UserConverter.fromFirebaseUser(user);
         _isAuthenticated = true;
         await _loadUserData();
         return true;
@@ -690,9 +691,10 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
       // Ensure storage is initialized first
       await _storageService.initialize();
       
-      final user = await _authService.registerWithEmail(email, password, username);
+      final userCredential = await AuthService.registerWithEmail(email, password, username);
+      final user = userCredential.user;
       if (user != null) {
-        _currentUser = user;
+        _currentUser = UserConverter.fromFirebaseUser(user);
         _isAuthenticated = true;
         return true;
       }
@@ -712,9 +714,10 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
 
     try {
       // Try silent sign-in first for returning users
-      final silentUser = await _authService.signInWithGoogleSilent();
+      final silentUserCredential = await AuthService.signInWithGoogleSilent();
+      final silentUser = silentUserCredential?.user;
       if (silentUser != null) {
-        _currentUser = silentUser;
+        _currentUser = UserConverter.fromFirebaseUser(silentUser);
         _isAuthenticated = true;
         await _loadUserData();
         print('✅ Google Sign-In successful (silent)');
@@ -722,16 +725,17 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
       }
       
       // Check if Google Sign-In is available
-      final isAvailable = await _authService.isGoogleSignInAvailable();
+      final isAvailable = await AuthService.isGoogleSignInAvailable();
       if (!isAvailable) {
         print('❌ Google Sign-In not available - PigeonUserDetails compatibility issue');
         throw 'Google Sign-In is currently unavailable. Please use email sign-in instead.';
       }
       
       // Attempt regular Google Sign-In
-      final user = await _authService.signInWithGoogle();
+      final userCredential = await AuthService.signInWithGoogle();
+      final user = userCredential?.user;
       if (user != null) {
-        _currentUser = user;
+        _currentUser = UserConverter.fromFirebaseUser(user);
         _isAuthenticated = true;
         await _loadUserData();
         print('✅ Google Sign-In successful');
@@ -762,7 +766,7 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
   }
 
   Future<void> signOut() async {
-    await _authService.signOut();
+    await AuthService.signOut();
     _currentUser = null;
     _isAuthenticated = false;
     _places.clear();
@@ -789,23 +793,20 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
     String? profilePicture,
   }) async {
     try {
-      final updatedUser = await _authService.updateUserProfile(
-        username: username,
-        email: email,
-        bio: bio,
-        website: website,
-        location: location,
-        birthday: birthday,
-        languages: languages,
-        interests: interests,
-        budgetPreferences: budgetPreferences,
-        showBirthdayToOthers: showBirthdayToOthers,
-        showLocationToOthers: showLocationToOthers,
-        profilePicture: profilePicture,
+      final updatedFirebaseUser = await AuthService.updateUserProfile(
+
+
+        displayName: username,
+        photoURL: profilePicture,
       );
       
-      if (updatedUser != null) {
-        _currentUser = updatedUser;
+      if (updatedFirebaseUser != null) {
+        // Update current user with Firebase user data
+        _currentUser = _currentUser?.copyWith(
+          username: username ?? _currentUser?.username,
+          email: email ?? _currentUser?.email,
+          profilePicture: profilePicture ?? _currentUser?.profilePicture,
+        );
         notifyListeners();
         return true;
       }
@@ -2494,9 +2495,9 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
   }
 
   Future<void> _loadUserData() async {
-    final user = await _authService.getCurrentUser();
+    final user = await AuthService.getCurrentUser();
     if (user != null) {
-      _currentUser = user;
+      _currentUser = UserConverter.fromFirebaseUser(user);
       _isAuthenticated = true;
       
       // Load user-specific data

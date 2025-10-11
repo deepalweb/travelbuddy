@@ -469,7 +469,7 @@ class CommunityProvider with ChangeNotifier {
         'username': user.username,
         'email': user.email,
         'profilePicture': user.profilePicture?.startsWith('http') == true ? user.profilePicture : null,
-        'tier': user.tier?.name ?? 'free',
+        'tier': user.tier.name ?? 'free',
       });
       print('✅ User profile synced to backend');
     } catch (e) {

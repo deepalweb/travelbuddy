@@ -46,7 +46,7 @@ class _TravelPhrasebookWidgetState extends State<TravelPhrasebookWidget> {
             children: [
               Expanded(
                 child: DropdownButtonFormField<String>(
-                  value: _selectedLanguage,
+                  initialValue: _selectedLanguage,
                   decoration: const InputDecoration(
                     labelText: 'Language',
                     border: OutlineInputBorder(),
@@ -75,7 +75,7 @@ class _TravelPhrasebookWidgetState extends State<TravelPhrasebookWidget> {
               const SizedBox(width: 16),
               Expanded(
                 child: DropdownButtonFormField<String>(
-                  value: _selectedCategory,
+                  initialValue: _selectedCategory,
                   decoration: const InputDecoration(
                     labelText: 'Category',
                     border: OutlineInputBorder(),

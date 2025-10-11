@@ -1,4 +1,3 @@
-import 'dart:convert';
 import 'package:dio/dio.dart';
 import '../config/environment.dart';
 import '../models/trip.dart';

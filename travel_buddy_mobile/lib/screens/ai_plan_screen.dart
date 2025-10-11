@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
 import '../services/ai_trip_service.dart';
-import '../models/enhanced_activity.dart';
-import '../widgets/enhanced_day_summary_widget.dart';
 
 class AIPlanScreen extends StatefulWidget {
   @override

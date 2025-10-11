@@ -14,15 +14,15 @@
       },
       "oauth_client": [
         {
-          "client_id": "45425409967-c3ct6c4kf46aomammtsfj5ncbcfp9ong.apps.googleusercontent.com",
+          "client_id": "45425409967-abc123def456ghi789jkl012mno345pq.apps.googleusercontent.com",
           "client_type": 1,
           "android_info": {
             "package_name": "com.example.travel_buddy_mobile",
-            "certificate_hash": "a18697c0bc762558dc1b11d564a1cde6cd3e4f74"
+            "certificate_hash": "SHA1_CERTIFICATE_HASH"
           }
         },
         {
-          "client_id": "45425409967-19m9oj4o2frp2081kaeg2ji3gj1k54d4.apps.googleusercontent.com",
+          "client_id": "45425409967-web123client456id789.apps.googleusercontent.com",
           "client_type": 3
         }
       ],
@@ -35,7 +35,7 @@
         "appinvite_service": {
           "other_platform_oauth_client": [
             {
-              "client_id": "45425409967-19m9oj4o2frp2081kaeg2ji3gj1k54d4.apps.googleusercontent.com",
+              "client_id": "45425409967-web123client456id789.apps.googleusercontent.com",
               "client_type": 3
             }
           ]

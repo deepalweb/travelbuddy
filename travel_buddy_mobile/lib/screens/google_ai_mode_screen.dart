@@ -1,6 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
-import '../providers/app_provider.dart';
 import '../services/ai_trip_service.dart';
 
 class GoogleAIModeScreen extends StatefulWidget {

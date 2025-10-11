@@ -8,31 +8,23 @@ import 'providers/language_provider.dart';
 import 'screens/splash_screen.dart';
 import 'screens/safety_screen.dart';
 import 'services/storage_service.dart';
+import 'services/firebase_service.dart';
 import 'constants/app_constants.dart';
 import 'services/error_handler_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
-  // Set up global error handling
-  FlutterError.onError = (FlutterErrorDetails details) {
-    ErrorHandlerService.handleError('Flutter Error', details.exception, details.stack);
-  };
-  
   try {
     // Initialize Storage Service first
     await StorageService().initialize();
     
-    // Initialize Firebase (check if already initialized)
-    if (Firebase.apps.isEmpty) {
-      await Firebase.initializeApp(
-        options: DefaultFirebaseOptions.currentPlatform,
-      );
-    }
+    // Initialize Firebase
+    await FirebaseService.initializeFirebase();
     
     runApp(const TravelBuddyApp());
-  } catch (e, stackTrace) {
-    ErrorHandlerService.handleError('Main initialization', e, stackTrace);
+  } catch (e) {
+    print('Initialization error: $e');
     runApp(const ErrorApp());
   }
 }

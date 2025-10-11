@@ -29,18 +29,18 @@ class PaymentService {
     bool isFreeTrial = true,
   }) async {
     try {
-      final currentUser = await _authService.getCurrentUser();
+      final currentUser = await AuthService.getCurrentUser();
       if (currentUser == null) {
         throw Exception('User not authenticated');
       }
 
       // Handle free trial - no payment required
       if (isFreeTrial) {
-        final hasUsedTrial = await _checkTrialUsage(currentUser.mongoId!);
+        final hasUsedTrial = await _checkTrialUsage(currentUser.uid);
         if (hasUsedTrial) {
           throw Exception('Free trial already used');
         }
-        await _createSubscription(currentUser.mongoId!, tier, isFreeTrial: true);
+        await _createSubscription(currentUser.uid, tier, isFreeTrial: true);
         return true;
       }
       
@@ -58,7 +58,7 @@ class PaymentService {
       
       if (paymentResult['success'] == true) {
         await _createSubscription(
-          currentUser.mongoId!,
+          currentUser.uid,
           tier,
           paymentId: paymentResult['paymentId'] as String?,
         );
@@ -222,8 +222,8 @@ class PaymentService {
   
   Future<String?> _getCurrentUserId() async {
     try {
-      final user = await _authService.getCurrentUser();
-      return user?.mongoId ?? user?.uid;
+      final user = await AuthService.getCurrentUser();
+      return user?.uid;
     } catch (e) {
       print('❌ Error getting current user ID: $e');
       return null;

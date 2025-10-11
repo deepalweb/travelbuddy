@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:geolocator/geolocator.dart';
 import '../models/safety_info.dart';
-import '../models/safety_enums.dart';
 import '../services/safety_service.dart';
 import '../providers/app_provider.dart';
 import '../widgets/panic_button.dart';

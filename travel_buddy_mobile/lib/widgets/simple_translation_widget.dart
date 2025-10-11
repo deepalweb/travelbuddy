@@ -51,7 +51,7 @@ class _SimpleTranslationWidgetState extends State<SimpleTranslationWidget> {
             children: [
               Expanded(
                 child: DropdownButtonFormField<String>(
-                  value: _sourceLanguage,
+                  initialValue: _sourceLanguage,
                   decoration: const InputDecoration(
                     labelText: 'From',
                     border: OutlineInputBorder(),
@@ -74,7 +74,7 @@ class _SimpleTranslationWidgetState extends State<SimpleTranslationWidget> {
               ),
               Expanded(
                 child: DropdownButtonFormField<String>(
-                  value: _targetLanguage,
+                  initialValue: _targetLanguage,
                   decoration: const InputDecoration(
                     labelText: 'To',
                     border: OutlineInputBorder(),

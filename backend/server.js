@@ -677,6 +677,15 @@ try {
   console.error('❌ Failed to load subscription routes:', error);
 }
 
+// Load config routes for mobile app
+try {
+  const configRouter = (await import('./routes/config.js')).default;
+  app.use('/api/config', configRouter);
+  console.log('✅ Config routes loaded');
+} catch (error) {
+  console.error('❌ Failed to load config routes:', error);
+}
+
 // Load Azure OpenAI routes
 try {
   const aiRouter = (await import('./routes/ai.js')).default;
@@ -1863,6 +1872,37 @@ app.put('/api/users/:id/profile-picture', async (req, res) => {
   }
 });
 
+// User travel style API endpoints
+app.get('/api/users/:id/travel-style', async (req, res) => {
+  try {
+    let user = await User.findOne({ firebaseUid: req.params.id });
+    if (!user) {
+      user = await User.findById(req.params.id);
+    }
+    if (!user) return res.status(404).json({ error: 'User not found' });
+    res.json({ travelStyle: user.travelStyle || null });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.put('/api/users/:id/travel-style', async (req, res) => {
+  try {
+    const { travelStyle } = req.body;
+    let user = await User.findOne({ firebaseUid: req.params.id });
+    if (!user) {
+      user = await User.findById(req.params.id);
+    }
+    if (!user) return res.status(404).json({ error: 'User not found' });
+    
+    user.travelStyle = travelStyle;
+    await user.save();
+    res.json({ success: true, travelStyle: user.travelStyle });
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
 // Posts with automated moderation
 app.post('/api/posts', async (req, res) => {
   try {
@@ -1902,6 +1942,43 @@ app.get('/api/posts', async (req, res) => {
     res.json(posts);
   } catch (error) {
     res.status(500).json({ error: error.message });
+  }
+});
+
+// Community posts API alias for mobile app
+app.get('/api/community/posts', async (req, res) => {
+  try {
+    const limit = Math.min(20, parseInt(req.query.limit || '20', 10));
+    const posts = await Post.find({}, {
+      userId: 1,
+      content: 1,
+      author: 1,
+      engagement: 1,
+      tags: 1,
+      category: 1,
+      createdAt: 1,
+    })
+      .sort({ createdAt: -1 })
+      .limit(limit)
+      .lean();
+    res.json(posts);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.post('/api/community/posts', async (req, res) => {
+  try {
+    const body = req.body || {};
+    const images = body?.content?.images;
+    if (Array.isArray(images) && images.length > 2) {
+      return res.status(400).json({ error: 'Max 2 images allowed' });
+    }
+    const post = new Post(body);
+    const saved = await post.save();
+    res.json(saved);
+  } catch (error) {
+    res.status(400).json({ error: error.message });
   }
 });
 
@@ -2077,6 +2154,35 @@ app.post('/api/trips', async (req, res) => {
   }
 });
 
+// Trip Plans API alias for mobile app
+app.post('/api/trip-plans', async (req, res) => {
+  try {
+    const trip = new TripPlan(req.body);
+    await trip.save();
+    res.json(trip);
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
+app.get('/api/trip-plans', async (req, res) => {
+  try {
+    const trips = await TripPlan.find().populate('userId', 'username').sort({ createdAt: -1 }).limit(20);
+    res.json(trips);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.delete('/api/trip-plans/:id', async (req, res) => {
+  try {
+    await TripPlan.findByIdAndDelete(req.params.id);
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Get recent trips
 app.get('/api/trips/recent', async (req, res) => {
   try {
@@ -2106,6 +2212,39 @@ app.get('/api/users/:userId/trips', async (req, res) => {
     res.json(trips);
   } catch (error) {
     res.status(500).json({ error: error.message });
+  }
+});
+
+// User trip plans alias for mobile app
+app.get('/api/users/:userId/trip-plans', async (req, res) => {
+  try {
+    let user = await User.findOne({ firebaseUid: req.params.userId });
+    if (!user) {
+      user = await User.findById(req.params.userId);
+    }
+    if (!user) return res.status(404).json({ error: 'User not found' });
+    
+    const trips = await TripPlan.find({ userId: user._id });
+    res.json(trips);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.post('/api/users/:userId/trip-plans', async (req, res) => {
+  try {
+    let user = await User.findOne({ firebaseUid: req.params.userId });
+    if (!user) {
+      user = await User.findById(req.params.userId);
+    }
+    if (!user) return res.status(404).json({ error: 'User not found' });
+    
+    const tripData = { ...req.body, userId: user._id };
+    const trip = new TripPlan(tripData);
+    await trip.save();
+    res.json(trip);
+  } catch (error) {
+    res.status(400).json({ error: error.message });
   }
 });
 

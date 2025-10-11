@@ -2,18 +2,15 @@ import 'package:dio/dio.dart';
 import 'package:geolocator/geolocator.dart';
 import '../constants/app_constants.dart';
 import '../config/environment.dart';
-import '../config/environment.dart';
 import '../models/place.dart';
 import '../models/user.dart';
 import '../models/trip.dart';
 import '../models/travel_stats.dart';
 import '../models/community_post.dart' as community;
 import '../models/user_profile.dart';
-import '../models/travel_enums.dart';
 import '../models/safety_info.dart';
 import 'mock_backend_service.dart';
 import 'dart:math' as math;
-import 'error_handler_service.dart';
 
 class ApiService {
   static final ApiService _instance = ApiService._internal();
