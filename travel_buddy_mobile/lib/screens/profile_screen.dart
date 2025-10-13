@@ -9,6 +9,7 @@ import '../providers/community_provider.dart';
 import '../constants/app_constants.dart';
 import '../widgets/community_post_card.dart';
 import '../services/api_service.dart';
+import '../models/place.dart';
 
 import 'auth_status_screen.dart';
 import 'app_permissions_screen.dart';
@@ -134,57 +135,57 @@ class ProfileScreen extends StatelessWidget {
                 const SizedBox(height: 16),
                 
                 // Stats Cards
-                Consumer<CommunityProvider>(
-                  builder: (context, communityProvider, child) {
-                    final userPosts = communityProvider.posts.where((post) => post.userId == user?.mongoId).length;
+                FutureBuilder<Map<String, int>>(
+                  future: _getUserStats(context, user),
+                  builder: (context, snapshot) {
+                    final stats = snapshot.data ?? {'posts': 0, 'followers': 0, 'following': 0, 'visited': 0};
+                    final isLoading = snapshot.connectionState == ConnectionState.waiting;
+                    
                     return Row(
                       children: [
                         Expanded(
                           child: _buildStatCard(
                             icon: Icons.article,
-                            count: userPosts,
+                            count: stats['posts']!,
                             label: 'Posts',
                             color: Colors.blue[400]!,
+                            isLoading: isLoading,
                             onTap: () => _showUserPosts(context, user),
                           ),
                         ),
                         const SizedBox(width: 8),
                         Expanded(
-                          child: FutureBuilder<int>(
-                            future: _getFollowersCount(context, user),
-                            builder: (context, snapshot) => _buildStatCard(
-                              icon: Icons.people,
-                              count: snapshot.data ?? 0,
-                              label: 'Followers',
-                              color: Colors.blue[400]!,
-                              onTap: () => _showFollowers(context),
-                            ),
+                          child: _buildStatCard(
+                            icon: Icons.people,
+                            count: stats['followers']!,
+                            label: 'Followers',
+                            color: Colors.blue[400]!,
+                            isLoading: isLoading,
+                            onTap: () => _showFollowers(context),
                           ),
                         ),
                         const SizedBox(width: 8),
                         Expanded(
-                          child: FutureBuilder<int>(
-                            future: _getFollowingCount(context, user),
-                            builder: (context, snapshot) => _buildStatCard(
-                              icon: Icons.person_add,
-                              count: snapshot.data ?? 0,
-                              label: 'Following',
-                              color: Colors.purple[400]!,
-                              onTap: () => _showFollowing(context),
-                            ),
+                          child: _buildStatCard(
+                            icon: Icons.person_add,
+                            count: stats['following']!,
+                            label: 'Following',
+                            color: Colors.purple[400]!,
+                            isLoading: isLoading,
+                            onTap: () => _showFollowing(context),
                           ),
                         ),
                         const SizedBox(width: 8),
                         Expanded(
                           child: _buildStatCard(
                             icon: Icons.place,
-                            count: appProvider.travelStats?.totalPlacesVisited ?? 0,
+                            count: stats['visited']!,
                             label: 'Visited',
                             color: Colors.green[400]!,
+                            isLoading: isLoading,
                             onTap: () => _showTravelInsights(context, appProvider),
                           ),
                         ),
-
                       ],
                     );
                   },
@@ -209,28 +210,7 @@ class ProfileScreen extends StatelessWidget {
                           );
                         },
                       ),
-                      const Divider(height: 1),
-                      ListTile(
-                        leading: const Icon(Icons.map),
-                        title: const Text('My Trip Plans'),
-                        subtitle: Text('${appProvider.tripPlans.length} saved plans'),
-                        trailing: const Icon(Icons.chevron_right),
-                        onTap: () {
-                          Navigator.of(context).push(
-                            MaterialPageRoute(
-                              builder: (context) => const MyTripsScreen(),
-                            ),
-                          );
-                        },
-                      ),
-                      const Divider(height: 1),
-                      ListTile(
-                        leading: const Icon(Icons.article),
-                        title: const Text('My Posts'),
-                        subtitle: const Text('View your travel posts'),
-                        trailing: const Icon(Icons.chevron_right),
-                        onTap: () => _showUserPosts(context, user),
-                      ),
+
                       const Divider(height: 1),
                       ListTile(
                         leading: const Icon(Icons.bookmark),
@@ -384,12 +364,58 @@ class ProfileScreen extends StatelessWidget {
     );
   }
 
+  Future<Map<String, int>> _getUserStats(BuildContext context, user) async {
+    if (user?.mongoId == null) {
+      return {'posts': 0, 'followers': 0, 'following': 0, 'visited': 0};
+    }
+    
+    try {
+      final results = await Future.wait([
+        _getPostsCount(context, user),
+        _getFollowersCount(context, user),
+        _getFollowingCount(context, user),
+        _getPlacesVisitedCount(context, user),
+      ]);
+      
+      return {
+        'posts': results[0],
+        'followers': results[1],
+        'following': results[2],
+        'visited': results[3],
+      };
+    } catch (e) {
+      print('❌ Error fetching user stats: $e');
+      return {'posts': 0, 'followers': 0, 'following': 0, 'visited': 0};
+    }
+  }
+  
+  Future<int> _getPostsCount(BuildContext context, user) async {
+    try {
+      final communityProvider = context.read<CommunityProvider>();
+      await communityProvider.loadPosts(context: context);
+      return communityProvider.posts.where((post) => post.userId == user?.mongoId).length;
+    } catch (e) {
+      return 0;
+    }
+  }
+  
+  Future<int> _getPlacesVisitedCount(BuildContext context, user) async {
+    try {
+      final appProvider = context.read<AppProvider>();
+      final stats = await ApiService().getUserTravelStats();
+      return stats?.totalPlacesVisited ?? appProvider.travelStats?.totalPlacesVisited ?? 0;
+    } catch (e) {
+      return 0;
+    }
+  }
+
   Widget _buildStatCard({
     required IconData icon,
     required int count,
     required String label,
     required Color color,
     required VoidCallback onTap,
+    bool isLoading = false,
   }) {
     return Card(
       child: InkWell(
@@ -400,13 +426,19 @@ class ProfileScreen extends StatelessWidget {
             children: [
               Icon(icon, color: color, size: 24),
               const SizedBox(height: 8),
-              Text(
-                count.toString(),
-                style: const TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
+              isLoading
+                  ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : Text(
+                      count.toString(),
+                      style: const TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
               Text(label, style: const TextStyle(fontSize: 12)),
             ],
           ),
@@ -460,7 +492,7 @@ class ProfileScreen extends StatelessWidget {
             foregroundColor: Colors.white,
           ),
           body: FutureBuilder(
-            future: context.read<ApiService>().getBookmarkedPosts(),
+            future: ApiService().getBookmarkedPosts(),
             builder: (context, snapshot) {
               if (snapshot.connectionState == ConnectionState.waiting) {
                 return const Center(child: CircularProgressIndicator());
@@ -469,14 +501,20 @@ class ProfileScreen extends StatelessWidget {
               final bookmarkedPosts = snapshot.data ?? [];
               
               if (bookmarkedPosts.isEmpty) {
-                return const Center(
+                return Center(
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Icon(Icons.bookmark_outline, size: 64, color: Colors.grey),
-                      SizedBox(height: 16),
-                      Text('No saved posts', style: TextStyle(fontSize: 18)),
-                      Text('Bookmark posts to save them here!'),
+                      const Icon(Icons.bookmark_outline, size: 64, color: Colors.grey),
+                      const SizedBox(height: 16),
+                      const Text('No saved posts', style: TextStyle(fontSize: 18)),
+                      const Text('Bookmark posts to save them here!'),
+                      const SizedBox(height: 24),
+                      if (kDebugMode)
+                        ElevatedButton(
+                          onPressed: () => _createTestBookmarks(context),
+                          child: const Text('Add Test Bookmarks (Debug)'),
+                        ),
                     ],
                   ),
                 );
@@ -497,7 +535,7 @@ class ProfileScreen extends StatelessWidget {
 
   Future<int> _getSavedPostsCount(BuildContext context) async {
     try {
-      final bookmarkedPosts = await context.read<ApiService>().getBookmarkedPosts();
+      final bookmarkedPosts = await ApiService().getBookmarkedPosts();
       return bookmarkedPosts.length;
     } catch (e) {
       return 0;
@@ -507,7 +545,7 @@ class ProfileScreen extends StatelessWidget {
   Future<int> _getFollowersCount(BuildContext context, user) async {
     if (user?.mongoId == null) return 0;
     try {
-      final followers = await context.read<ApiService>().getFollowers(user.mongoId);
+      final followers = await ApiService().getFollowers();
       return followers.length;
     } catch (e) {
       return 0;
@@ -517,7 +555,7 @@ class ProfileScreen extends StatelessWidget {
   Future<int> _getFollowingCount(BuildContext context, user) async {
     if (user?.mongoId == null) return 0;
     try {
-      final following = await context.read<ApiService>().getFollowing(user.mongoId);
+      final following = await ApiService().getFollowing();
       return following.length;
     } catch (e) {
       return 0;
@@ -791,6 +829,60 @@ Join Travel Buddy and discover amazing places together!
     );
   }
   
+  Future<void> _createTestBookmarks(BuildContext context) async {
+    try {
+      final communityProvider = context.read<CommunityProvider>();
+      
+      // Create test posts if none exist
+      if (communityProvider.posts.isEmpty) {
+        await communityProvider.createPost(
+          content: 'Amazing sunset at the beach! Perfect end to a wonderful day exploring the coast.',
+          location: 'Sunset Beach',
+          postType: 'photo',
+          context: context,
+        );
+        
+        await communityProvider.createPost(
+          content: 'Found this hidden gem of a restaurant. The local cuisine is absolutely incredible!',
+          location: 'Downtown Food District',
+          postType: 'review',
+          context: context,
+        );
+        
+        await communityProvider.createPost(
+          content: 'Pro tip: Visit the museum early in the morning to avoid crowds. The lighting is also perfect for photos!',
+          location: 'City Art Museum',
+          postType: 'tip',
+          context: context,
+        );
+      }
+      
+      // Bookmark the first few posts
+      final posts = communityProvider.posts;
+      if (posts.isNotEmpty) {
+        await communityProvider.toggleBookmark(posts[0].id);
+        if (posts.length > 1) {
+          await communityProvider.toggleBookmark(posts[1].id);
+        }
+        if (posts.length > 2) {
+          await communityProvider.toggleBookmark(posts[2].id);
+        }
+      }
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Test bookmarks created!')),
+      );
+      
+      // Refresh the screen
+      Navigator.of(context).pop();
+      _showBookmarkedPosts(context);
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error creating test bookmarks: $e')),
+      );
+    }
+  }
+
   Widget _buildInsightCard(String title, String value, IconData icon, Color color) {
     return Container(
       padding: const EdgeInsets.all(12),

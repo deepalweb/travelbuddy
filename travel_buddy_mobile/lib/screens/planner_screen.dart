@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../providers/app_provider.dart';
 import '../constants/app_constants.dart';
 import '../services/storage_service.dart';
+
 import '../models/trip.dart';
 import '../services/trip_analytics_service.dart';
 import 'trip_plan_detail_screen.dart';
@@ -51,6 +52,11 @@ class _PlannerScreenState extends State<PlannerScreen> {
             ],
           ),
           body: _buildHomeView(appProvider),
+          floatingActionButton: FloatingActionButton.extended(
+            onPressed: () => _showCreatePlanOptions(),
+            icon: const Icon(Icons.add),
+            label: const Text('Create Plan'),
+          ),
         );
       },
     );
@@ -371,7 +377,6 @@ class _PlannerScreenState extends State<PlannerScreen> {
         final storageService = StorageService();
         await storageService.deleteItinerary(plan.id);
         appProvider.notifyListeners();
-        
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('✅ Day itinerary deleted successfully'),
@@ -608,6 +613,40 @@ class _PlannerScreenState extends State<PlannerScreen> {
           ),
         ),
       ],
+    );
+  }
+
+  void _showCreatePlanOptions() {
+    showModalBottomSheet(
+      context: context,
+      builder: (context) => Container(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text('Create New Plan', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 16),
+            ListTile(
+              leading: const Icon(Icons.smart_toy, color: Colors.purple),
+              title: const Text('AI Trip Planner'),
+              subtitle: const Text('Generate plans with AI'),
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.pushNamed(context, '/ai-plan');
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.place, color: Colors.blue),
+              title: const Text('From Favorite Places'),
+              subtitle: const Text('Create from saved places'),
+              onTap: () {
+                Navigator.pop(context);
+                _navigateToPlaces();
+              },
+            ),
+          ],
+        ),
+      ),
     );
   }
 

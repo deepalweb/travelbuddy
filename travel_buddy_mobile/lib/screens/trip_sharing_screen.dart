@@ -184,7 +184,6 @@ class _TripSharingScreenState extends State<TripSharingScreen> {
     
     try {
       final shareUrl = await TripPlansApiService.shareTripPlan(
-        appProvider.currentUser!.mongoId!,
         widget.tripPlan.id,
       );
       

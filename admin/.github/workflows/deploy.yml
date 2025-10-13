@@ -1,0 +1,117 @@
+name: Deploy Travel Buddy Admin Portal
+
+on:
+  push:
+    branches: [ main ]
+    paths: 
+      - 'src/**'
+      - 'public/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'index.html'
+      - 'vite.config.ts'
+  workflow_dispatch:
+
+env:
+  AZURE_WEBAPP_NAME: travel-buddy-admin
+  NODE_VERSION: '18'
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+        cache: 'npm'
+
+    - name: Install dependencies
+      run: npm ci
+
+    - name: Run tests
+      run: npm run test --if-present
+
+    - name: Build application
+      run: npm run build
+      env:
+        VITE_API_BASE_URL: ${{ secrets.API_BASE_URL }}
+        VITE_ENVIRONMENT: production
+        VITE_AUTH_DOMAIN: ${{ secrets.AUTH_DOMAIN }}
+        VITE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+        VITE_TENANT_NAME: ${{ secrets.AZURE_TENANT_NAME }}
+        VITE_POLICY_NAME: ${{ secrets.AZURE_POLICY_NAME }}
+        VITE_APPINSIGHTS_KEY: ${{ secrets.APPINSIGHTS_INSTRUMENTATIONKEY }}
+
+    - name: Create deployment package
+      run: |
+        cp web.config dist/ 2>/dev/null || :
+        cd dist
+        zip -r ../deployment.zip .
+        cd ..
+
+    - name: Deploy to Azure Web App
+      uses: azure/webapps-deploy@v2
+      with:
+        app-name: ${{ env.AZURE_WEBAPP_NAME }}
+        publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
+        package: deployment.zip
+
+    - name: Clean up
+      run: rm deployment.zip
+
+  # Database migration job (optional)
+  migrate-database:
+    runs-on: ubuntu-latest
+    needs: build-and-deploy
+    if: contains(github.event.head_commit.message, '[migrate]')
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Run database migrations
+      run: |
+        # Add your database migration commands here
+        echo "Running database migrations..."
+        # Example: npm run migrate:prod
+
+  # Health check job
+  health-check:
+    runs-on: ubuntu-latest
+    needs: build-and-deploy
+    
+    steps:
+    - name: Wait for deployment
+      run: sleep 30
+
+    - name: Health check
+      run: |
+        response=$(curl -s -o /dev/null -w "%{http_code}" https://${{ env.AZURE_WEBAPP_NAME }}.azurewebsites.net/health)
+        if [ $response -eq 200 ]; then
+          echo "Health check passed"
+        else
+          echo "Health check failed with status code: $response"
+          exit 1
+        fi
+
+  # Notification job
+  notify:
+    runs-on: ubuntu-latest
+    needs: [build-and-deploy, health-check]
+    if: always()
+    
+    steps:
+    - name: Notify deployment status
+      run: |
+        if [ "${{ needs.build-and-deploy.result }}" == "success" ] && [ "${{ needs.health-check.result }}" == "success" ]; then
+          echo "✅ Deployment successful"
+          # Add notification logic here (Slack, Teams, email, etc.)
+        else
+          echo "❌ Deployment failed"
+          # Add failure notification logic here
+        fi

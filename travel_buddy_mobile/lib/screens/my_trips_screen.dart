@@ -5,8 +5,32 @@ import '../models/trip.dart';
 import 'trip_plan_detail_screen.dart';
 import 'trip_plan_edit_screen.dart';
 
-class MyTripsScreen extends StatelessWidget {
+class MyTripsScreen extends StatefulWidget {
   const MyTripsScreen({super.key});
+
+  @override
+  State<MyTripsScreen> createState() => _MyTripsScreenState();
+}
+
+class _MyTripsScreenState extends State<MyTripsScreen> {
+  @override
+  void initState() {
+    super.initState();
+    // Force load trip plans when screen opens
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadTripPlans();
+    });
+  }
+
+  Future<void> _loadTripPlans() async {
+    final appProvider = context.read<AppProvider>();
+    print('🔍 DEBUG: Loading trip plans...');
+    await appProvider.loadTripPlans();
+    print('🔍 DEBUG: Trip plans loaded: ${appProvider.tripPlans.length}');
+    if (appProvider.tripPlans.isNotEmpty) {
+      print('🔍 DEBUG: First trip: ${appProvider.tripPlans.first.tripTitle}');
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -19,6 +43,11 @@ class MyTripsScreen extends StatelessWidget {
       body: Consumer<AppProvider>(
         builder: (context, appProvider, child) {
           final tripPlans = appProvider.tripPlans;
+          final isLoading = appProvider.isTripsLoading;
+
+          if (isLoading) {
+            return const Center(child: CircularProgressIndicator());
+          }
 
           if (tripPlans.isEmpty) {
             return Center(
@@ -48,6 +77,16 @@ class MyTripsScreen extends StatelessWidget {
                     label: const Text('Create Trip Plan'),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.blue[600],
+                      foregroundColor: Colors.white,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  ElevatedButton.icon(
+                    onPressed: () => _createTestTrip(appProvider),
+                    icon: const Icon(Icons.bug_report),
+                    label: const Text('Add Test Trip (Debug)'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.orange[600],
                       foregroundColor: Colors.white,
                     ),
                   ),
@@ -225,6 +264,35 @@ class MyTripsScreen extends StatelessWidget {
     );
   }
   
+  void _createTestTrip(AppProvider appProvider) async {
+    final testTrip = TripPlan(
+      id: 'test_${DateTime.now().millisecondsSinceEpoch}',
+      tripTitle: 'Test Trip to Paris',
+      destination: 'Paris, France',
+      duration: '3 Days',
+      introduction: 'A wonderful test trip to explore Paris',
+      dailyPlans: [
+        DailyTripPlan(
+          day: 1,
+          title: 'Day 1 - Arrival',
+          activities: [
+            ActivityDetail(
+              timeOfDay: '10:00 AM',
+              activityTitle: 'Visit Eiffel Tower',
+              description: 'Iconic landmark of Paris',
+              duration: '2 hours',
+              estimatedCost: '€25',
+            ),
+          ],
+        ),
+      ],
+      conclusion: 'Enjoy your trip!',
+    );
+    
+    await appProvider.saveTripPlan(testTrip);
+    print('✅ Test trip created: ${testTrip.tripTitle}');
+  }
+
   void _showDeleteConfirmation(BuildContext context, AppProvider appProvider, TripPlan tripPlan) {
     showDialog(
       context: context,

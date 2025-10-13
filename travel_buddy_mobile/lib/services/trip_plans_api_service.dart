@@ -1,24 +1,25 @@
 import 'package:dio/dio.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import '../config/environment.dart';
 import '../models/trip.dart';
+import 'auth_api_service.dart';
 
 class TripPlansApiService {
-  static final Dio _dio = Dio(BaseOptions(
-    baseUrl: Environment.backendUrl,
-    connectTimeout: Duration(seconds: 15),
-    receiveTimeout: Duration(seconds: 15),
-    headers: {
-      'Content-Type': 'application/json',
-      'Accept': 'application/json',
-    },
-  ));
+  static final AuthApiService _authApiService = AuthApiService();
+  static Dio get _dio => _authApiService.authenticatedDio;
 
   // Save trip plan to backend
-  static Future<TripPlan?> saveTripPlan(String userId, TripPlan tripPlan) async {
+  static Future<TripPlan?> saveTripPlan(TripPlan tripPlan) async {
     try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) {
+        print('❌ No authenticated user to save trip plan');
+        return null;
+      }
+      
       print('💾 Saving trip plan to backend: ${tripPlan.tripTitle}');
       
-      final response = await _dio.post('/api/users/$userId/trip-plans', 
+      final response = await _dio.post('/api/users/trip-plans', 
         data: tripPlan.toJson()
       );
       
@@ -36,11 +37,17 @@ class TripPlansApiService {
   }
 
   // Get user's trip plans from backend
-  static Future<List<TripPlan>> getUserTripPlans(String userId) async {
+  static Future<List<TripPlan>> getUserTripPlans() async {
     try {
-      print('📥 Fetching trip plans for user: $userId');
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) {
+        print('❌ No authenticated user for trip plans');
+        return [];
+      }
       
-      final response = await _dio.get('/api/users/$userId/trip-plans');
+      print('📥 Fetching trip plans for user: ${user.uid}');
+      
+      final response = await _dio.get('/api/users/trip-plans');
       
       if (response.statusCode == 200 && response.data != null) {
         final List<dynamic> data = response.data;
@@ -58,11 +65,17 @@ class TripPlansApiService {
   }
 
   // Update trip plan
-  static Future<bool> updateTripPlan(String userId, TripPlan tripPlan) async {
+  static Future<bool> updateTripPlan(TripPlan tripPlan) async {
     try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) {
+        print('❌ No authenticated user to update trip plan');
+        return false;
+      }
+      
       print('🔄 Updating trip plan: ${tripPlan.tripTitle}');
       
-      final response = await _dio.put('/api/users/$userId/trip-plans/${tripPlan.id}',
+      final response = await _dio.put('/api/users/trip-plans/${tripPlan.id}',
         data: tripPlan.toJson()
       );
       
@@ -78,12 +91,43 @@ class TripPlansApiService {
     }
   }
 
-  // Delete trip plan
-  static Future<bool> deleteTripPlan(String userId, String tripPlanId) async {
+  // Update activity visited status
+  static Future<bool> updateActivityStatus(String tripPlanId, int dayIndex, int activityIndex, bool isVisited) async {
     try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) {
+        print('❌ No authenticated user to update activity status');
+        return false;
+      }
+      
+      final response = await _dio.patch('/api/users/trip-plans/$tripPlanId/activities',
+        data: {
+          'dayIndex': dayIndex,
+          'activityIndex': activityIndex,
+          'isVisited': isVisited,
+          'visitedDate': isVisited ? DateTime.now().toIso8601String() : null,
+        }
+      );
+      
+      return response.statusCode == 200;
+    } catch (e) {
+      print('❌ Error updating activity status: $e');
+      return false;
+    }
+  }
+
+  // Delete trip plan
+  static Future<bool> deleteTripPlan(String tripPlanId) async {
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) {
+        print('❌ No authenticated user to delete trip plan');
+        return false;
+      }
+      
       print('🗑️ Deleting trip plan: $tripPlanId');
       
-      final response = await _dio.delete('/api/users/$userId/trip-plans/$tripPlanId');
+      final response = await _dio.delete('/api/users/trip-plans/$tripPlanId');
       
       if (response.statusCode == 200 || response.statusCode == 204) {
         print('✅ Trip plan deleted successfully');
@@ -98,11 +142,17 @@ class TripPlansApiService {
   }
 
   // Sync local plans to backend
-  static Future<bool> syncLocalPlansToBackend(String userId, List<TripPlan> localPlans) async {
+  static Future<bool> syncLocalPlansToBackend(List<TripPlan> localPlans) async {
     try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) {
+        print('❌ No authenticated user to sync plans');
+        return false;
+      }
+      
       print('🔄 Syncing ${localPlans.length} local plans to backend');
       
-      final response = await _dio.post('/api/users/$userId/trip-plans/sync',
+      final response = await _dio.post('/api/users/trip-plans/sync',
         data: {'tripPlans': localPlans.map((plan) => plan.toJson()).toList()}
       );
       
@@ -119,11 +169,17 @@ class TripPlansApiService {
   }
 
   // Share trip plan
-  static Future<String?> shareTripPlan(String userId, String tripPlanId) async {
+  static Future<String?> shareTripPlan(String tripPlanId) async {
     try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) {
+        print('❌ No authenticated user to share trip plan');
+        return null;
+      }
+      
       print('🔗 Creating share link for trip plan: $tripPlanId');
       
-      final response = await _dio.post('/api/users/$userId/trip-plans/$tripPlanId/share');
+      final response = await _dio.post('/api/users/trip-plans/$tripPlanId/share');
       
       if (response.statusCode == 200 && response.data != null) {
         final shareUrl = response.data['shareUrl'];
