@@ -1,5 +1,6 @@
 import 'package:dio/dio.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import '../constants/app_constants.dart';
 import '../config/environment.dart';
 import '../models/place.dart';
@@ -10,31 +11,26 @@ import '../models/community_post.dart' as community;
 import '../models/user_profile.dart';
 import '../models/safety_info.dart';
 import 'mock_backend_service.dart';
+import 'auth_api_service.dart';
 import 'dart:math' as math;
 
 class ApiService {
   static final ApiService _instance = ApiService._internal();
   factory ApiService() => _instance;
   
-  final Dio _dio = Dio(BaseOptions(
-    baseUrl: Environment.backendUrl,
-    connectTimeout: const Duration(seconds: 15),
-    receiveTimeout: const Duration(seconds: 20),
-    sendTimeout: const Duration(seconds: 15),
-    headers: {
-      'Content-Type': 'application/json',
-      'Accept': 'application/json',
-    },
-  ))..interceptors.add(LogInterceptor(
-    requestBody: true,
-    responseBody: true,
-    logPrint: (obj) => print('🌐 API: $obj'),
-  ));
+  final AuthApiService _authApiService = AuthApiService();
+  late final Dio _dio;
 
   ApiService._internal() {
-    // Test backend connectivity on initialization
-    _testBackendConnectivity();
+    _dio = _authApiService.authenticatedDio;
+    _dio.interceptors.add(LogInterceptor(
+      requestBody: true,
+      responseBody: true,
+      logPrint: (obj) => print('🌐 API: $obj'),
+    ));
   }
+
+
 
   Future<void> _testBackendConnectivity() async {
     try {
@@ -53,16 +49,20 @@ class ApiService {
 
   // Personalized Suggestions API
   Future<List<Map<String, dynamic>>> getPersonalizedSuggestions({
-    required String userId,
     required List<String> interests,
     required Position location,
   }) async {
     try {
-      print('💡 Fetching personalized suggestions for: $userId');
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) {
+        print('❌ No authenticated user for personalized suggestions');
+        return _getMockSuggestions(interests);
+      }
+      
+      print('💡 Fetching personalized suggestions for: ${user.uid}');
       final response = await _dio.get(
         '/api/suggestions/personalized',
         queryParameters: {
-          'userId': userId,
           'interests': interests.join(','),
           'latitude': location.latitude,
           'longitude': location.longitude,
@@ -143,10 +143,16 @@ class ApiService {
   }
 
   // User Stats API
-  Future<Map<String, dynamic>> getUserStats(String userId) async {
+  Future<Map<String, dynamic>> getUserStats() async {
     try {
-      print('📊 Fetching user stats for: $userId');
-      final response = await _dio.get('/api/users/$userId/stats');
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) {
+        print('❌ No authenticated user for stats');
+        return _getMockUserStats();
+      }
+      
+      print('📊 Fetching user stats for: ${user.uid}');
+      final response = await _dio.get('/api/users/stats');
       
       if (response.statusCode == 200 && response.data != null) {
         final data = response.data;
@@ -250,13 +256,9 @@ class ApiService {
   }
 
   // User API
-  Future<CurrentUser?> getUser(String userId) async {
+  Future<CurrentUser?> getUser() async {
     try {
-      final response = await _dio.get('/api/users/$userId');
-      if (response.statusCode == 200) {
-        return CurrentUser.fromJson(response.data);
-      }
-      return null;
+      return await _authApiService.getUserProfile();
     } catch (e) {
       print('Error fetching user: $e');
       return null;
@@ -276,15 +278,20 @@ class ApiService {
     }
   }
 
-  Future<bool> updateUser(String userId, Map<String, dynamic> userData) async {
+  Future<bool> updateUser(Map<String, dynamic> userData) async {
     try {
-      print('👤 Syncing user profile to backend: $userId');
-      final response = await _dio.put('/api/users/$userId', data: userData);
-      if (response.statusCode == 200) {
-        print('✅ User profile synced successfully');
-        return true;
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) {
+        print('❌ No authenticated user to update');
+        return false;
       }
-      return false;
+      
+      print('👤 Syncing user profile to backend: ${user.uid}');
+      final success = await _authApiService.updateUserProfile(userData);
+      if (success) {
+        print('✅ User profile synced successfully');
+      }
+      return success;
     } catch (e) {
       print('❌ Error updating user: $e');
       return false;
@@ -292,9 +299,15 @@ class ApiService {
   }
 
   // Favorites API
-  Future<List<String>> getUserFavorites(String userId) async {
+  Future<List<String>> getUserFavorites() async {
     try {
-      final response = await _dio.get('/api/users/$userId/favorites');
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) {
+        print('❌ No authenticated user for favorites');
+        return [];
+      }
+      
+      final response = await _dio.get('/api/users/favorites');
       if (response.statusCode == 200) {
         return List<String>.from(response.data);
       }
@@ -305,9 +318,15 @@ class ApiService {
     }
   }
 
-  Future<bool> addFavorite(String userId, String placeId) async {
+  Future<bool> addFavorite(String placeId) async {
     try {
-      final response = await _dio.post('/api/users/$userId/favorites', data: {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) {
+        print('❌ No authenticated user to add favorite');
+        return false;
+      }
+      
+      final response = await _dio.post('/api/users/favorites', data: {
         'placeId': placeId,
       });
       return response.statusCode == 200;
@@ -317,9 +336,15 @@ class ApiService {
     }
   }
 
-  Future<bool> removeFavorite(String userId, String placeId) async {
+  Future<bool> removeFavorite(String placeId) async {
     try {
-      final response = await _dio.delete('/api/users/$userId/favorites/$placeId');
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) {
+        print('❌ No authenticated user to remove favorite');
+        return false;
+      }
+      
+      final response = await _dio.delete('/api/users/favorites/$placeId');
       return response.statusCode == 200;
     } catch (e) {
       print('Error removing favorite: $e');
@@ -348,9 +373,15 @@ class ApiService {
     return null;
   }
 
-  Future<TravelStats?> getUserTravelStats(String userId) async {
+  Future<TravelStats?> getUserTravelStats() async {
     try {
-      final response = await _dio.get('/api/users/$userId/travel-stats');
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) {
+        print('❌ No authenticated user for travel stats');
+        return null;
+      }
+      
+      final response = await _dio.get('/api/users/travel-stats');
       if (response.statusCode == 200) {
         return TravelStats.fromJson(response.data);
       }
@@ -361,9 +392,15 @@ class ApiService {
     }
   }
 
-  Future<bool> updateUserTravelStats(String userId, TravelStats stats) async {
+  Future<bool> updateUserTravelStats(TravelStats stats) async {
     try {
-      final response = await _dio.put('/api/users/$userId/travel-stats', data: stats.toJson());
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) {
+        print('❌ No authenticated user for travel stats update');
+        return false;
+      }
+      
+      final response = await _dio.put('/api/users/travel-stats', data: stats.toJson());
       return response.statusCode == 200;
     } catch (e) {
       print('Error updating travel stats: $e');
@@ -371,13 +408,28 @@ class ApiService {
     }
   }
 
-  Future<bool> deleteUser(String userId) async {
-    return false;
+  Future<bool> deleteUser() async {
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) return false;
+      
+      final response = await _dio.delete('/api/users/profile');
+      return response.statusCode == 200;
+    } catch (e) {
+      print('Error deleting user: $e');
+      return false;
+    }
   }
 
-  Future<Map<String, dynamic>?> updateUserSubscription(String userId, Map<String, dynamic> subscriptionData) async {
+  Future<Map<String, dynamic>?> updateUserSubscription(Map<String, dynamic> subscriptionData) async {
     try {
-      final response = await _dio.put('/api/users/$userId/subscription', data: subscriptionData);
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) {
+        print('❌ No authenticated user for subscription update');
+        return null;
+      }
+      
+      final response = await _dio.put('/api/users/subscription', data: subscriptionData);
       if (response.statusCode == 200) {
         return Map<String, dynamic>.from(response.data);
       }
@@ -388,9 +440,15 @@ class ApiService {
     }
   }
 
-  Future<bool> updateUserTravelStyle(String userId, String travelStyle) async {
+  Future<bool> updateUserTravelStyle(String travelStyle) async {
     try {
-      final response = await _dio.put('/api/users/$userId/travel-style', data: {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) {
+        print('❌ No authenticated user for travel style update');
+        return false;
+      }
+      
+      final response = await _dio.put('/api/users/travel-style', data: {
         'travelStyle': travelStyle,
       });
       return response.statusCode == 200;
@@ -400,9 +458,15 @@ class ApiService {
     }
   }
 
-  Future<List<TripPlan>> getUserTripPlans(String userId) async {
+  Future<List<TripPlan>> getUserTripPlans() async {
     try {
-      final response = await _dio.get('/api/users/$userId/trip-plans');
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) {
+        print('❌ No authenticated user for trip plans');
+        return [];
+      }
+      
+      final response = await _dio.get('/api/users/trip-plans');
       if (response.statusCode == 200) {
         final List<dynamic> data = response.data;
         return data.map((json) => TripPlan.fromJson(json)).toList();
@@ -414,9 +478,15 @@ class ApiService {
     }
   }
 
-  Future<TripPlan?> saveTripPlan(String userId, TripPlan tripPlan) async {
+  Future<TripPlan?> saveTripPlan(TripPlan tripPlan) async {
     try {
-      final response = await _dio.post('/api/users/$userId/trip-plans', data: tripPlan.toJson());
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) {
+        print('❌ No authenticated user to save trip plan');
+        return null;
+      }
+      
+      final response = await _dio.post('/api/users/trip-plans', data: tripPlan.toJson());
       if (response.statusCode == 201) {
         return TripPlan.fromJson(response.data);
       }
@@ -437,17 +507,51 @@ class ApiService {
     }
   }
 
-  Future<List<Deal>> getMyDeals(String merchantId) async {
-    return [];
-  }
-
-  Future<bool> claimDealReal(String dealId, String userId) async {
-    return false;
-  }
-
-  Future<String?> getUserTravelStyle(String userId) async {
+  Future<List<Deal>> getMyDeals() async {
     try {
-      final response = await _dio.get('/api/users/$userId/travel-style');
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) {
+        print('❌ No authenticated user for deals');
+        return [];
+      }
+      
+      final response = await _dio.get('/api/users/deals');
+      if (response.statusCode == 200) {
+        final List<dynamic> data = response.data;
+        return data.map((json) => Deal.fromJson(json)).toList();
+      }
+      return [];
+    } catch (e) {
+      print('Error fetching user deals: $e');
+      return [];
+    }
+  }
+
+  Future<bool> claimDealReal(String dealId) async {
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) {
+        print('❌ No authenticated user to claim deal');
+        return false;
+      }
+      
+      final response = await _dio.post('/api/deals/$dealId/claim');
+      return response.statusCode == 200;
+    } catch (e) {
+      print('Error claiming deal: $e');
+      return false;
+    }
+  }
+
+  Future<String?> getUserTravelStyle() async {
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) {
+        print('❌ No authenticated user for travel style');
+        return null;
+      }
+      
+      final response = await _dio.get('/api/users/travel-style');
       if (response.statusCode == 200) {
         return response.data['travelStyle'];
       }
@@ -490,13 +594,16 @@ class ApiService {
     }
   }
 
-  Future<bool> toggleLike(String postId, {String? userId, String? username}) async {
+  Future<bool> toggleLike(String postId) async {
     try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) {
+        print('❌ No authenticated user to toggle like');
+        return await MockBackendService().toggleLike(postId);
+      }
+      
       print('🌐 Toggling like for post: $postId');
-      final response = await _dio.post('/api/posts/$postId/like', data: {
-        'userId': userId,
-        'username': username,
-      });
+      final response = await _dio.post('/api/posts/$postId/like');
       print('🌐 Like response: ${response.statusCode}');
       if (response.statusCode == 200) {
         print('✅ Like synced to backend');
@@ -506,7 +613,7 @@ class ApiService {
     } catch (e) {
       print('❌ Like backend error: $e');
       print('🔄 Using mock database for like');
-      return await MockBackendService().toggleLike(postId, userId: userId, username: username);
+      return await MockBackendService().toggleLike(postId);
     }
   }
 
@@ -528,19 +635,30 @@ class ApiService {
     List<String> hashtags = const [],
     bool allowComments = true,
     String visibility = 'public',
-    String? userId,
-    String? username,
   }) async {
     try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) {
+        print('❌ No authenticated user to create post');
+        return await MockBackendService().createPost(
+          content: content,
+          location: location,
+          images: images,
+          postType: postType,
+          hashtags: hashtags,
+          allowComments: allowComments,
+          visibility: visibility,
+        );
+      }
+      
       final response = await _dio.post('/api/community/posts', data: {
-        'userId': userId,
         'content': {
           'text': content,
           'images': images,
         },
         'author': {
-          'name': username ?? 'Mobile User',
-          'avatar': '', // Backend will use user's profile picture
+          'name': user.displayName ?? 'Mobile User',
+          'avatar': user.photoURL ?? '',
           'location': location,
           'verified': false,
         },
@@ -561,8 +679,6 @@ class ApiService {
         hashtags: hashtags,
         allowComments: allowComments,
         visibility: visibility,
-        userId: userId,
-        username: username,
       );
     }
   }
@@ -577,13 +693,20 @@ class ApiService {
       return [];
     } catch (e) {
       print('Error fetching bookmarked posts: $e');
-      return [];
+      print('🔄 Falling back to mock database for bookmarked posts');
+      return await MockBackendService().getBookmarkedPosts();
     }
   }
 
-  Future<List<UserProfile>> getFollowers(String userId) async {
+  Future<List<UserProfile>> getFollowers() async {
     try {
-      final response = await _dio.get('/api/users/$userId/followers');
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) {
+        print('❌ No authenticated user for followers');
+        return [];
+      }
+      
+      final response = await _dio.get('/api/users/followers');
       if (response.statusCode == 200) {
         final List<dynamic> data = response.data;
         return data.map((json) => UserProfile.fromJson(json)).toList();
@@ -595,9 +718,15 @@ class ApiService {
     }
   }
 
-  Future<List<UserProfile>> getFollowing(String userId) async {
+  Future<List<UserProfile>> getFollowing() async {
     try {
-      final response = await _dio.get('/api/users/$userId/following');
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) {
+        print('❌ No authenticated user for following');
+        return [];
+      }
+      
+      final response = await _dio.get('/api/users/following');
       if (response.statusCode == 200) {
         final List<dynamic> data = response.data;
         return data.map((json) => UserProfile.fromJson(json)).toList();
@@ -668,7 +797,7 @@ class ApiService {
   }) async {
     try {
       // Try backend API first
-      final response = await _dio.get('/api/safety/emergency-services', queryParameters: {
+      final response = await _dio.get('/api/emergency/services', queryParameters: {
         'lat': latitude,
         'lng': longitude,
         'radius': radius,
@@ -798,6 +927,25 @@ class ApiService {
       return null;
     } catch (e) {
       print('Error with reverse geocoding: $e');
+      return null;
+    }
+  }
+  
+  Future<Map<String, dynamic>?> getAzureEmergencyNumbers(double latitude, double longitude) async {
+    try {
+      print('🤖 Fetching emergency numbers via Azure OpenAI');
+      final response = await _dio.get('/api/emergency/numbers', queryParameters: {
+        'lat': latitude,
+        'lng': longitude,
+      });
+      
+      if (response.statusCode == 200) {
+        print('✅ Got Azure OpenAI emergency numbers: ${response.data}');
+        return Map<String, dynamic>.from(response.data);
+      }
+      return null;
+    } catch (e) {
+      print('❌ Azure OpenAI emergency numbers failed: $e');
       return null;
     }
   }

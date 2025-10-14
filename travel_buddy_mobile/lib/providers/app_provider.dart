@@ -13,6 +13,8 @@ import '../models/local_discovery.dart';
 import '../models/personalized_suggestion.dart';
 import '../services/auth_service.dart';
 import '../services/api_service.dart';
+import '../services/auth_api_service.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import '../services/storage_service.dart';
 import '../services/location_service.dart';
 import '../services/permission_service.dart';
@@ -42,6 +44,7 @@ import '../utils/user_converter.dart';
 class AppProvider with ChangeNotifier, WidgetsBindingObserver {
   // Services (AuthService is now static)
   final ApiService _apiService = ApiService();
+  final AuthApiService _authApiService = AuthApiService();
   final AiService _aiService = AiService();
   final ImageService _imageService = ImageService();
   final NotificationService _notificationService = NotificationService();
@@ -218,17 +221,19 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
       _isAppActive = true;
       _lastActiveTime = DateTime.now();
       
-      // Skip API connection test for now
-      if (_isAppActive) {
-        print('🌐 App is active - ready for API calls');
-      }
+      // Initialize storage service FIRST
+      await _storageService.initialize();
+      print('✅ Storage service initialized');
       
-      // Initialize services
+      // Load cached data IMMEDIATELY after storage init
+      await _loadCachedData();
+      print('✅ Cached data loaded EARLY');
+      
+      // Initialize other services
       _aiService.initialize();
       _imageService.initialize();
       await _notificationService.initialize();
       await SettingsService.initialize();
-      await _storageService.initialize();
       await _usageTrackingService.initialize();
       
       // Load settings
@@ -244,9 +249,6 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
         await getCurrentLocation();
       }
       
-      // Load cached data
-      await _loadCachedData();
-      
       print('✅ App initialization complete');
       
     } catch (e) {
@@ -256,6 +258,7 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
       notifyListeners();
     }
   }
+
   
   @override
   void dispose() {
@@ -615,14 +618,12 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
 
   Future<void> _loadTravelStats() async {
     try {
-      if (_currentUser?.mongoId != null) {
-        // Get real travel stats from backend
-        final backendStats = await _apiService.getUserTravelStats(_currentUser!.mongoId!);
-        if (backendStats != null) {
-          _travelStats = backendStats;
-          print('✅ Loaded REAL travel stats from backend: ${_travelStats!.totalPlacesVisited} places');
-          return;
-        }
+      // Get real travel stats from backend
+      final backendStats = await _apiService.getUserTravelStats();
+      if (backendStats != null) {
+        _travelStats = backendStats;
+        print('✅ Loaded REAL travel stats from backend: ${_travelStats!.totalPlacesVisited} places');
+        return;
       }
       
       // Fallback: Calculate from local data and sync to backend
@@ -637,10 +638,8 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
       );
       
       // Sync calculated stats to backend
-      if (_currentUser?.mongoId != null) {
-        await _apiService.updateUserTravelStats(_currentUser!.mongoId!, _travelStats!);
-        print('✅ Synced travel stats to backend');
-      }
+      await _apiService.updateUserTravelStats(_travelStats!);
+      print('✅ Synced travel stats to backend');
       
       print('✅ Loaded travel stats: ${_travelStats!.totalPlacesVisited} interactions');
     } catch (e) {
@@ -793,33 +792,44 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
     String? profilePicture,
   }) async {
     try {
-      final updatedFirebaseUser = await AuthService.updateUserProfile(
+      if (_currentUser == null) {
+        print('❌ No current user to update');
+        return false;
+      }
 
-
-        displayName: username,
-        photoURL: profilePicture,
+      // Update current user locally first
+      _currentUser = _currentUser!.copyWith(
+        username: username ?? _currentUser?.username,
+        email: email ?? _currentUser?.email,
+        profilePicture: profilePicture ?? _currentUser?.profilePicture,
       );
       
-      if (updatedFirebaseUser != null) {
-        // Update current user with Firebase user data
-        _currentUser = _currentUser?.copyWith(
-          username: username ?? _currentUser?.username,
-          email: email ?? _currentUser?.email,
-          profilePicture: profilePicture ?? _currentUser?.profilePicture,
+      // Save to local storage
+      await _storageService.saveUser(_currentUser!);
+      
+      // Try to update Firebase profile
+      try {
+        await AuthService.updateUserProfile(
+          displayName: username,
+          photoURL: profilePicture,
         );
-        notifyListeners();
-        return true;
+        print('✅ Firebase profile updated');
+      } catch (e) {
+        print('⚠️ Firebase update failed: $e');
+        // Continue - local update succeeded
       }
-      return false;
+      
+      notifyListeners();
+      return true;
     } catch (e) {
-      print('Error updating user profile: $e');
+      print('❌ Error updating user profile: $e');
       return false;
     }
   }
 
-  Future<bool> deleteUserAccount(String userId) async {
+  Future<bool> deleteUserAccount() async {
     try {
-      return await _apiService.deleteUser(userId);
+      return await _apiService.deleteUser();
     } catch (e) {
       print('Error deleting user account: $e');
       return false;
@@ -888,17 +898,12 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
   
   Future<bool> _syncSubscriptionWithBackend(SubscriptionTier tier, bool isFreeTrial) async {
     try {
-      if (_currentUser?.mongoId == null) return false;
-      
-      final response = await _apiService.updateUserSubscription(
-        _currentUser!.mongoId!,
-        {
-          'tier': tier.name,
-          'status': isFreeTrial ? 'trial' : 'active',
-          'trialEndDate': isFreeTrial ? DateTime.now().add(const Duration(days: 7)).toIso8601String() : null,
-          'subscriptionEndDate': !isFreeTrial ? DateTime.now().add(const Duration(days: 30)).toIso8601String() : null,
-        },
-      );
+      final response = await _apiService.updateUserSubscription({
+        'tier': tier.name,
+        'status': isFreeTrial ? 'trial' : 'active',
+        'trialEndDate': isFreeTrial ? DateTime.now().add(const Duration(days: 7)).toIso8601String() : null,
+        'subscriptionEndDate': !isFreeTrial ? DateTime.now().add(const Duration(days: 30)).toIso8601String() : null,
+      });
       
       return response != null;
     } catch (e) {
@@ -1382,9 +1387,7 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
       _favoriteIds.remove(placeId);
       await _storageService.removeFavorite(placeId);
       
-      if (_currentUser?.mongoId != null) {
-        await _apiService.removeFavorite(_currentUser!.mongoId!, placeId);
-      }
+      await _apiService.removeFavorite(placeId);
     } else {
       // Check favorites limit
       final maxFavs = maxFavorites;
@@ -1399,9 +1402,7 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
       _favoriteIds.add(placeId);
       await _storageService.addFavorite(placeId);
       
-      if (_currentUser?.mongoId != null) {
-        await _apiService.addFavorite(_currentUser!.mongoId!, placeId);
-      }
+      await _apiService.addFavorite(placeId);
       
       if (place.name.isNotEmpty) {
         await _notificationService.showLocalNotification(
@@ -1604,21 +1605,16 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
       await _storageService.saveUser(updatedUser);
       _currentUser = updatedUser;
       
-      // Sync with backend if user has mongoId
-      if (_currentUser!.mongoId != null) {
-        try {
-          final backendSuccess = await _apiService.updateUserTravelStyle(
-            _currentUser!.mongoId!,
-            style.name,
-          );
-          if (backendSuccess) {
-            print('✅ Travel style synced with backend: ${style.displayName}');
-          } else {
-            print('⚠️ Backend sync failed, but local update succeeded');
-          }
-        } catch (e) {
-          print('⚠️ Backend sync error: $e');
+      // Sync with backend
+      try {
+        final backendSuccess = await _apiService.updateUserTravelStyle(style.name);
+        if (backendSuccess) {
+          print('✅ Travel style synced with backend: ${style.displayName}');
+        } else {
+          print('⚠️ Backend sync failed, but local update succeeded');
         }
+      } catch (e) {
+        print('⚠️ Backend sync error: $e');
       }
       
       // Track the style selection
@@ -2075,6 +2071,15 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
       print('💾 Loaded ${cachedPlans.length} trip plans from cache');
       print('💾 Loaded ${_itineraries.length} itineraries from cache');
       
+      // Debug: Check visit status in loaded data
+      for (final itinerary in _itineraries) {
+        for (final activity in itinerary.dailyPlan) {
+          if (activity.isVisited) {
+            print('✅ Found visited activity: ${activity.activityTitle}');
+          }
+        }
+      }
+      
       // Sync with backend if user is logged in
       if (_currentUser?.mongoId != null) {
         await _syncTripPlansWithBackend();
@@ -2092,7 +2097,7 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
       final userId = _currentUser!.mongoId!;
       
       // Get backend plans
-      final backendPlans = await TripPlansApiService.getUserTripPlans(userId);
+      final backendPlans = await TripPlansApiService.getUserTripPlans();
       
       if (backendPlans.isNotEmpty) {
         // Merge backend and local plans
@@ -2111,7 +2116,7 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
         for (final plan in _tripPlans) {
           if (!seenIds.contains(plan.id)) {
             // Upload local plan to backend
-            final savedPlan = await TripPlansApiService.saveTripPlan(userId, plan);
+            final savedPlan = await TripPlansApiService.saveTripPlan(plan);
             if (savedPlan != null) {
               allPlans.add(savedPlan);
               seenIds.add(savedPlan.id);
@@ -2143,7 +2148,7 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
       final userId = _currentUser!.mongoId!;
       
       for (final plan in _tripPlans) {
-        await TripPlansApiService.saveTripPlan(userId, plan);
+        await TripPlansApiService.saveTripPlan(plan);
       }
       
       print('⬆️ Uploaded ${_tripPlans.length} local plans to backend');
@@ -2163,7 +2168,7 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
     // Sync to backend if user is logged in
     if (_currentUser?.mongoId != null) {
       try {
-        final savedPlan = await TripPlansApiService.saveTripPlan(_currentUser!.mongoId!, tripPlan);
+        final savedPlan = await TripPlansApiService.saveTripPlan(tripPlan);
         if (savedPlan != null) {
           // Update local plan with backend ID if different
           final index = _tripPlans.indexWhere((p) => p.id == tripPlan.id);
@@ -2190,12 +2195,246 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
     // Delete from backend if user is logged in
     if (_currentUser?.mongoId != null) {
       try {
-        await TripPlansApiService.deleteTripPlan(_currentUser!.mongoId!, tripPlanId);
+        await TripPlansApiService.deleteTripPlan(tripPlanId);
         print('☁️ Trip plan deleted from backend');
       } catch (e) {
         print('⚠️ Backend delete failed, plan deleted locally: $e');
       }
     }
+  }
+
+  // Update activity visited status
+  Future<void> updateActivityVisitedStatus(String tripPlanId, int dayIndex, int activityIndex, bool isVisited) async {
+    final tripIndex = _tripPlans.indexWhere((trip) => trip.id == tripPlanId);
+    if (tripIndex == -1) {
+      print('❌ Trip plan not found: $tripPlanId');
+      return;
+    }
+    
+    final trip = _tripPlans[tripIndex];
+    if (dayIndex >= trip.dailyPlans.length || activityIndex >= trip.dailyPlans[dayIndex].activities.length) {
+      print('❌ Invalid indices: day $dayIndex, activity $activityIndex');
+      return;
+    }
+    
+    // Create a completely new trip plan with updated activity
+    final activity = trip.dailyPlans[dayIndex].activities[activityIndex];
+    
+    // Create new activity with updated status
+    final updatedActivity = ActivityDetail(
+      timeOfDay: activity.timeOfDay,
+      activityTitle: activity.activityTitle,
+      description: activity.description,
+      estimatedDuration: activity.estimatedDuration,
+      location: activity.location,
+      notes: activity.notes,
+      icon: activity.icon,
+      category: activity.category,
+      startTime: activity.startTime,
+      endTime: activity.endTime,
+      duration: activity.duration,
+      place: activity.place,
+      type: activity.type,
+      estimatedCost: activity.estimatedCost,
+      costBreakdown: activity.costBreakdown,
+      transportFromPrev: activity.transportFromPrev,
+      tips: activity.tips,
+      weatherBackup: activity.weatherBackup,
+      crowdLevel: activity.crowdLevel,
+      imageURL: activity.imageURL,
+      bookingLinks: activity.bookingLinks,
+      googlePlaceId: activity.googlePlaceId,
+      highlight: activity.highlight,
+      socialProof: activity.socialProof,
+      rating: activity.rating,
+      userRatingsTotal: activity.userRatingsTotal,
+      practicalTip: activity.practicalTip,
+      travelMode: activity.travelMode,
+      travelTimeMin: activity.travelTimeMin,
+      estimatedVisitDurationMin: activity.estimatedVisitDurationMin,
+      photoThumbnail: activity.photoThumbnail,
+      fullAddress: activity.fullAddress,
+      openingHours: activity.openingHours,
+      isOpenNow: activity.isOpenNow,
+      weatherNote: activity.weatherNote,
+      tags: activity.tags,
+      bookingLink: activity.bookingLink,
+      isVisited: isVisited,
+      visitedDate: isVisited ? DateTime.now().toIso8601String() : activity.visitedDate,
+    );
+    
+    // Create new activities list with updated activity
+    final updatedActivities = List<ActivityDetail>.from(trip.dailyPlans[dayIndex].activities);
+    updatedActivities[activityIndex] = updatedActivity;
+    
+    // Create new daily plan with updated activities
+    final updatedDailyPlan = DailyTripPlan(
+      day: trip.dailyPlans[dayIndex].day,
+      title: trip.dailyPlans[dayIndex].title,
+      theme: trip.dailyPlans[dayIndex].theme,
+      activities: updatedActivities,
+      photoUrl: trip.dailyPlans[dayIndex].photoUrl,
+    );
+    
+    // Create new daily plans list with updated day
+    final updatedDailyPlans = List<DailyTripPlan>.from(trip.dailyPlans);
+    updatedDailyPlans[dayIndex] = updatedDailyPlan;
+    
+    // Create new trip plan with updated daily plans
+    final updatedTrip = TripPlan(
+      id: trip.id,
+      tripTitle: trip.tripTitle,
+      destination: trip.destination,
+      duration: trip.duration,
+      introduction: trip.introduction,
+      dailyPlans: updatedDailyPlans,
+      conclusion: trip.conclusion,
+      accommodationSuggestions: trip.accommodationSuggestions,
+      transportationTips: trip.transportationTips,
+      budgetConsiderations: trip.budgetConsiderations,
+    );
+    
+    // Replace the trip in the list
+    _tripPlans[tripIndex] = updatedTrip;
+    
+    print('💾 STEP A: Saving updated trip plan to local storage...');
+    await _storageService.saveTripPlan(updatedTrip);
+    print('✅ STEP B: Trip plan saved to local storage');
+    
+    // Sync to backend if user is logged in
+    if (_currentUser?.mongoId != null) {
+      try {
+        print('💾 STEP C: Syncing to backend...');
+        await TripPlansApiService.updateTripPlan(updatedTrip);
+        print('✅ STEP D: Trip plan synced to backend successfully');
+      } catch (e) {
+        print('❌ STEP D: Backend sync failed: $e');
+      }
+    } else {
+      print('⚠️ STEP C: No user logged in - skipping backend sync');
+    }
+    
+    print('✅ FINAL: Activity "${activity.activityTitle}" marked as ${isVisited ? "visited" : "pending"}');
+    notifyListeners();
+  }
+
+  // Update itinerary activity visited status
+  Future<void> updateItineraryActivityVisitedStatus(String itineraryId, int activityIndex, bool isVisited) async {
+    final itineraryIndex = _itineraries.indexWhere((itinerary) => itinerary.id == itineraryId);
+    if (itineraryIndex == -1) {
+      print('❌ Itinerary not found: $itineraryId');
+      return;
+    }
+    
+    if (activityIndex >= _itineraries[itineraryIndex].dailyPlan.length) {
+      print('❌ Invalid activity index: $activityIndex');
+      return;
+    }
+    
+    final itinerary = _itineraries[itineraryIndex];
+    final activity = itinerary.dailyPlan[activityIndex];
+    
+    // Create new activity with all fields preserved
+    final updatedActivity = ActivityDetail(
+      timeOfDay: activity.timeOfDay,
+      activityTitle: activity.activityTitle,
+      description: activity.description,
+      estimatedDuration: activity.estimatedDuration,
+      location: activity.location,
+      notes: activity.notes,
+      icon: activity.icon,
+      category: activity.category,
+      startTime: activity.startTime,
+      endTime: activity.endTime,
+      duration: activity.duration,
+      place: activity.place,
+      type: activity.type,
+      estimatedCost: activity.estimatedCost,
+      costBreakdown: activity.costBreakdown,
+      transportFromPrev: activity.transportFromPrev,
+      tips: activity.tips,
+      weatherBackup: activity.weatherBackup,
+      crowdLevel: activity.crowdLevel,
+      imageURL: activity.imageURL,
+      bookingLinks: activity.bookingLinks,
+      googlePlaceId: activity.googlePlaceId,
+      highlight: activity.highlight,
+      socialProof: activity.socialProof,
+      rating: activity.rating,
+      userRatingsTotal: activity.userRatingsTotal,
+      practicalTip: activity.practicalTip,
+      travelMode: activity.travelMode,
+      travelTimeMin: activity.travelTimeMin,
+      estimatedVisitDurationMin: activity.estimatedVisitDurationMin,
+      photoThumbnail: activity.photoThumbnail,
+      fullAddress: activity.fullAddress,
+      openingHours: activity.openingHours,
+      isOpenNow: activity.isOpenNow,
+      weatherNote: activity.weatherNote,
+      tags: activity.tags,
+      bookingLink: activity.bookingLink,
+      isVisited: isVisited,
+      visitedDate: isVisited ? DateTime.now().toIso8601String() : activity.visitedDate,
+    );
+    
+    // Create new daily plan with updated activity
+    final updatedDailyPlan = List<ActivityDetail>.from(itinerary.dailyPlan);
+    updatedDailyPlan[activityIndex] = updatedActivity;
+    
+    // Create new itinerary with updated daily plan
+    final updatedItinerary = OneDayItinerary(
+      id: itinerary.id,
+      title: itinerary.title,
+      introduction: itinerary.introduction,
+      dailyPlan: updatedDailyPlan,
+      conclusion: itinerary.conclusion,
+      travelTips: itinerary.travelTips,
+    );
+    
+    // Replace in the list
+    _itineraries[itineraryIndex] = updatedItinerary;
+    
+    print('💾 STEP A: Saving updated itinerary to local storage...');
+    await _storageService.saveItinerary(updatedItinerary);
+    print('✅ STEP B: Itinerary saved to local storage');
+    
+    // Verify the save worked
+    final verifyItinerary = await _storageService.getItineraries();
+    final savedItinerary = verifyItinerary.firstWhere((i) => i.id == updatedItinerary.id);
+    final savedActivity = savedItinerary.dailyPlan[activityIndex];
+    print('🔍 STEP C: Verification - saved activity isVisited: ${savedActivity.isVisited}');
+    
+    // Sync to backend if user is logged in
+    if (_currentUser?.mongoId != null) {
+      try {
+        print('💾 STEP D: Syncing to backend...');
+        // Convert itinerary to trip plan format for backend
+        final tripPlanForBackend = TripPlan(
+          id: updatedItinerary.id,
+          tripTitle: updatedItinerary.title,
+          destination: 'Day Trip',
+          duration: '1 Day',
+          introduction: updatedItinerary.introduction,
+          dailyPlans: [
+            DailyTripPlan(
+              day: 1,
+              title: updatedItinerary.title,
+              activities: updatedItinerary.dailyPlan,
+            ),
+          ],
+          conclusion: updatedItinerary.conclusion,
+        );
+        await TripPlansApiService.updateTripPlan(tripPlanForBackend);
+        print('✅ STEP E: Itinerary synced to backend successfully');
+      } catch (e) {
+        print('❌ STEP E: Backend sync failed: $e');
+      }
+    } else {
+      print('⚠️ STEP D: No user logged in - skipping backend sync');
+    }
+    
+    print('✅ FINAL: Itinerary activity "${activity.activityTitle}" marked as ${isVisited ? "visited" : "pending"}');
+    notifyListeners();
   }
 
   // Home Screen Methods
@@ -2228,7 +2467,6 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
       // Load personalized suggestions
       if (_currentUser != null && _currentLocation != null) {
         final suggestions = await _apiService.getPersonalizedSuggestions(
-          userId: _currentUser!.uid!,
           interests: _currentUser!.selectedInterests?.map((i) => i.toString().split('.').last).toList() ?? [],
           location: _currentLocation!
         );
@@ -2279,10 +2517,8 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
   }
   
   Future<List<Deal>> getMyDeals() async {
-    if (_currentUser?.mongoId == null) return [];
-    
     try {
-      return await _apiService.getMyDeals(_currentUser!.mongoId!);
+      return await _apiService.getMyDeals();
     } catch (e) {
       print('❌ Error loading my deals: $e');
       return [];
@@ -2292,12 +2528,9 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
   Future<bool> claimDeal(String dealId) async {
     try {
       // Try real API first
-      bool success = false;
-      if (_currentUser?.mongoId != null) {
-        success = await _apiService.claimDealReal(dealId, _currentUser!.mongoId!);
-        if (success) {
-          print('✅ Deal claimed via real API');
-        }
+      bool success = await _apiService.claimDealReal(dealId);
+      if (success) {
+        print('✅ Deal claimed via real API');
       }
       
       // Fallback to existing service
@@ -2365,12 +2598,13 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
       await saveTripPlan(tripPlan);
       
       // Track trip creation analytics
-      if (_currentUser?.mongoId != null) {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user != null) {
         final activitiesCount = tripPlan.dailyPlans
             .fold(0, (sum, day) => sum + day.activities.length);
         
         await TripAnalyticsService.trackTripCreated(
-          userId: _currentUser!.mongoId!,
+          userId: user.uid,
           tripPlanId: tripPlan.id,
           destination: destination,
           duration: duration,
@@ -2497,56 +2731,62 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
   Future<void> _loadUserData() async {
     final user = await AuthService.getCurrentUser();
     if (user != null) {
-      _currentUser = UserConverter.fromFirebaseUser(user);
+      // Try to load from local storage first
+      final storedUser = await _storageService.getUser();
+      if (storedUser != null && storedUser.uid == user.uid) {
+        _currentUser = storedUser;
+        print('✅ Loaded user from local storage');
+      } else {
+        _currentUser = UserConverter.fromFirebaseUser(user);
+        print('✅ Loaded user from Firebase');
+      }
       _isAuthenticated = true;
       
       // Load user-specific data
       try {
+        // DON'T reload trip plans here - already loaded in _loadCachedData
+        print('⚠️ SKIPPING trip plans reload to preserve data');
+        
         // Sync favorites from backend
-        if (_currentUser!.mongoId != null) {
-          try {
-            final backendFavorites = await _apiService.getUserFavorites(_currentUser!.mongoId!);
-            if (backendFavorites.isNotEmpty) {
-              _favoriteIds = backendFavorites;
-              // Save to local storage
-              for (final favoriteId in backendFavorites) {
-                await _storageService.addFavorite(favoriteId);
-              }
-              print('✅ Synced ${backendFavorites.length} favorites from backend');
-            } else {
-              // Fallback to local favorites
-              final favorites = await _storageService.getFavorites();
-              _favoriteIds = ErrorHandlerService.safeListCast<String>(favorites, 'loadUserData - favorites');
+        try {
+          final backendFavorites = await _apiService.getUserFavorites();
+          if (backendFavorites.isNotEmpty) {
+            _favoriteIds = backendFavorites;
+            // Save to local storage
+            for (final favoriteId in backendFavorites) {
+              await _storageService.addFavorite(favoriteId);
             }
-          } catch (e) {
-            print('⚠️ Failed to sync favorites from backend: $e');
+            print('✅ Synced ${backendFavorites.length} favorites from backend');
+          } else {
+            // Fallback to local favorites
             final favorites = await _storageService.getFavorites();
             _favoriteIds = ErrorHandlerService.safeListCast<String>(favorites, 'loadUserData - favorites');
           }
-        } else {
+        } catch (e) {
+          print('⚠️ Failed to sync favorites from backend: $e');
           final favorites = await _storageService.getFavorites();
           _favoriteIds = ErrorHandlerService.safeListCast<String>(favorites, 'loadUserData - favorites');
         }
         await _updateFavoritePlaces();
-        await loadTripPlans();
+        
+        // Save current user to storage if not already saved
+        await _storageService.saveUser(_currentUser!);
         
         // Sync travel style from backend if available
-        if (_currentUser!.mongoId != null) {
-          try {
-            final backendTravelStyle = await _apiService.getUserTravelStyle(_currentUser!.mongoId!);
-            if (backendTravelStyle != null && _currentUser!.travelStyle?.name != backendTravelStyle) {
-              final travelStyle = TravelStyle.values.firstWhere(
-                (style) => style.name == backendTravelStyle,
-                orElse: () => TravelStyle.explorer,
-              );
-              final updatedUser = _currentUser!.copyWith(travelStyle: travelStyle);
-              await _storageService.saveUser(updatedUser);
-              _currentUser = updatedUser;
-              print('✅ Synced travel style from backend: ${travelStyle.displayName}');
-            }
-          } catch (e) {
-            print('⚠️ Failed to sync travel style from backend: $e');
+        try {
+          final backendTravelStyle = await _apiService.getUserTravelStyle();
+          if (backendTravelStyle != null && _currentUser!.travelStyle?.name != backendTravelStyle) {
+            final travelStyle = TravelStyle.values.firstWhere(
+              (style) => style.name == backendTravelStyle,
+              orElse: () => TravelStyle.explorer,
+            );
+            final updatedUser = _currentUser!.copyWith(travelStyle: travelStyle);
+            await _storageService.saveUser(updatedUser);
+            _currentUser = updatedUser;
+            print('✅ Synced travel style from backend: ${travelStyle.displayName}');
           }
+        } catch (e) {
+          print('⚠️ Failed to sync travel style from backend: $e');
         }
       } catch (e) {
         ErrorHandlerService.handleError('loadUserData', e, null);
@@ -2557,16 +2797,53 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
 
   Future<void> _loadCachedData() async {
     try {
-      // Load trip plans and itineraries
-      await loadTripPlans();
-      final loadedItineraries = await _storageService.getItineraries();
-      _itineraries = loadedItineraries ?? [];
+      print('🔍 STEP 1: Loading cached data from storage...');
       
-      print('📱 Loaded ${_tripPlans.length} trip plans and ${_itineraries.length} itineraries');
+      // Force load trip plans and itineraries from storage
+      final cachedPlans = await _storageService.getTripPlans();
+      final cachedItineraries = await _storageService.getItineraries();
+      
+      _tripPlans = cachedPlans;
+      _itineraries = cachedItineraries ?? [];
+      
+      print('📱 STEP 2: Loaded ${_tripPlans.length} trip plans and ${_itineraries.length} itineraries');
       print('🔍 DEBUG: Trip plans: ${_tripPlans.map((t) => t.tripTitle).join(", ")}');
       print('🔍 DEBUG: Itineraries: ${_itineraries.map((i) => i.title).join(", ")}');
+      
+      // Debug visit status in detail
+      int totalActivities = 0;
+      int visitedActivities = 0;
+      
+      for (final itinerary in _itineraries) {
+        print('📝 Checking itinerary: ${itinerary.title}');
+        for (final activity in itinerary.dailyPlan) {
+          totalActivities++;
+          print('   Activity: ${activity.activityTitle} - isVisited: ${activity.isVisited}');
+          if (activity.isVisited) {
+            visitedActivities++;
+            print('✅ FOUND visited activity: ${activity.activityTitle}');
+          }
+        }
+      }
+      
+      for (final tripPlan in _tripPlans) {
+        print('🗺 Checking trip plan: ${tripPlan.tripTitle}');
+        for (final day in tripPlan.dailyPlans) {
+          for (final activity in day.activities) {
+            totalActivities++;
+            print('   Activity: ${activity.activityTitle} - isVisited: ${activity.isVisited}');
+            if (activity.isVisited) {
+              visitedActivities++;
+              print('✅ FOUND visited activity: ${activity.activityTitle}');
+            }
+          }
+        }
+      }
+      
+      print('📊 STEP 3: Total activities: $totalActivities, Visited: $visitedActivities');
+      
     } catch (e) {
-      print('Error loading cached data: $e');
+      print('❌ Error loading cached data: $e');
       _tripPlans = [];
       _itineraries = [];
     }

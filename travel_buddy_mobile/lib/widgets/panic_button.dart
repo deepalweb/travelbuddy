@@ -55,8 +55,8 @@ class _PanicButtonState extends State<PanicButton>
               return Transform.scale(
                 scale: _isPressed ? 0.9 : _pulseAnimation.value,
                 child: Container(
-                  width: 120,
-                  height: 120,
+                  width: 80,
+                  height: 80,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
                     gradient: RadialGradient(
@@ -68,8 +68,8 @@ class _PanicButtonState extends State<PanicButton>
                     boxShadow: [
                       BoxShadow(
                         color: Colors.red.withOpacity(0.4),
-                        blurRadius: 20,
-                        spreadRadius: 5,
+                        blurRadius: 15,
+                        spreadRadius: 3,
                       ),
                     ],
                   ),
@@ -79,14 +79,14 @@ class _PanicButtonState extends State<PanicButton>
                       Icon(
                         Icons.emergency,
                         color: Colors.white,
-                        size: 40,
+                        size: 28,
                       ),
-                      SizedBox(height: 4),
+                      SizedBox(height: 2),
                       Text(
                         'SOS',
                         style: TextStyle(
                           color: Colors.white,
-                          fontSize: 16,
+                          fontSize: 12,
                           fontWeight: FontWeight.bold,
                         ),
                       ),

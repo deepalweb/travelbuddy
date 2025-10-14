@@ -31,6 +31,7 @@ class _ExploreViewState extends State<ExploreView> {
         _buildAppBar(),
         _buildProfileCard(),
         _buildSafetyAlert(),
+        _buildFeatureStatus(),
         _buildQuickActions(),
         _buildCategoryPlaces(),
         // Extra space for bottom nav
@@ -380,6 +381,104 @@ class _ExploreViewState extends State<ExploreView> {
             borderRadius: BorderRadius.circular(24),
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildFeatureStatus() {
+    return SliverToBoxAdapter(
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Container(
+          decoration: BoxDecoration(
+            color: const Color(0xFF1C2620),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: const Color(0xFF29382F)),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Padding(
+                padding: EdgeInsets.all(16.0),
+                child: Row(
+                  children: [
+                    Icon(Icons.analytics, color: Color(0xFF38E07B), size: 24),
+                    SizedBox(width: 12),
+                    Text(
+                      'Feature Status',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              _buildFeatureItem('AI Travel Planning', '✅', 'Active'),
+              _buildFeatureItem('Local Recommendations', '✅', 'Active'),
+              _buildFeatureItem('PayPal Integration', '✅', 'Sandbox Ready'),
+              _buildFeatureItem('Real-time Weather', '🔄', 'Needs Accuracy Fix'),
+              _buildFeatureItem('Emergency Services', '✅', 'Real Numbers + Finder'),
+              _buildFeatureItem('Subscription Plans', '🔄', 'In Progress'),
+              _buildFeatureItem('Azure Backend', '✅', 'Production Ready'),
+              _buildFeatureItem('Community Features', '🔄', 'Beta'),
+              const SizedBox(height: 8),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFeatureItem(String feature, String status, String description) {
+    Color statusColor;
+    switch (status) {
+      case '✅':
+        statusColor = Colors.green;
+        break;
+      case '🔄':
+        statusColor = Colors.orange;
+        break;
+      case '❌':
+        statusColor = Colors.red;
+        break;
+      default:
+        statusColor = Colors.grey;
+    }
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 4.0),
+      child: Row(
+        children: [
+          Text(
+            status,
+            style: const TextStyle(fontSize: 16),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  feature,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                Text(
+                  description,
+                  style: TextStyle(
+                    color: statusColor,
+                    fontSize: 12,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }

@@ -28,24 +28,11 @@ class AuthService {
     }
   }
 
-  // Google Authentication
+  // Google Authentication - Temporarily disabled due to compatibility issues
   static Future<UserCredential?> signInWithGoogle() async {
-    try {
-      final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
-      
-      if (googleUser == null) return null;
-
-      final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
-      final credential = GoogleAuthProvider.credential(
-        accessToken: googleAuth.accessToken,
-        idToken: googleAuth.idToken,
-      );
-
-      return await _auth.signInWithCredential(credential);
-    } catch (e) {
-      print('Google Sign-In Error: $e');
-      rethrow;
-    }
+    print('❌ Google Sign-In temporarily disabled');
+    print('Please use email sign-in instead.');
+    return null;
   }
 
   static Future<UserCredential?> signInWithGoogleSilent() async {

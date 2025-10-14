@@ -6,6 +6,7 @@ import '../../models/travel_companion.dart';
 import '../../services/travel_companion_service.dart';
 import '../../services/weather_service.dart';
 import '../../services/location_service.dart';
+import '../../services/backend_connectivity_service.dart';
 
 class HomeViewModel extends ChangeNotifier {
   String _currentTime = '';
@@ -173,6 +174,9 @@ class HomeViewModel extends ChangeNotifier {
         };
         print('✅ Weather loaded: ${weatherInfo.temperature}°C, ${weatherInfo.condition}');
         print('🌤️ Weather source: ${weatherInfo.description.contains('mock') ? 'MOCK' : 'REAL'}');
+        
+        // Load real user stats from backend
+        await _loadUserStats();
       } else {
         throw Exception('Location not available');
       }
@@ -180,8 +184,8 @@ class HomeViewModel extends ChangeNotifier {
       print('Location/Weather loading failed: $e');
       _currentLocationName = 'Location unavailable';
       _weatherData = {'temp': 'Weather unavailable', 'condition': 'Unknown'};
+      _userStats = {'trips': 0, 'places': 0, 'badges': 0};
     }
-    _userStats = {'trips': 5, 'places': 23, 'badges': 12};
 
     _isLoadingRealData = false;
     notifyListeners();
@@ -208,5 +212,50 @@ class HomeViewModel extends ChangeNotifier {
   void setSelectedActionKeys(List<String> keys) {
     _selectedActionKeys = keys;
     notifyListeners();
+  }
+  
+  String _getWeatherEmoji(String condition) {
+    final normalized = condition.toLowerCase();
+    if (normalized.contains('clear') || normalized.contains('sun')) return '☀️';
+    if (normalized.contains('cloud')) return '☁️';
+    if (normalized.contains('rain') || normalized.contains('drizzle')) return '🌧️';
+    if (normalized.contains('snow')) return '❄️';
+    if (normalized.contains('storm') || normalized.contains('thunder')) return '⛈️';
+    return '🌤️';
+  }
+  
+  Future<void> _loadUserStats() async {
+    try {
+      final backendService = BackendConnectivityService();
+      
+      // Test backend connectivity first
+      final isConnected = await backendService.testConnection();
+      if (!isConnected) {
+        print('⚠️ Backend not available, using fallback data');
+        _userStats = {'trips': 0, 'places': 0, 'badges': 0};
+        return;
+      }
+      
+      // TODO: Get actual user ID from auth service
+      final userId = 'current_user_id';
+      
+      // Load real user stats from backend
+      final stats = await backendService.getUserStats(userId);
+      if (stats != null) {
+        _userStats = {
+          'trips': stats['totalTrips'] ?? 0,
+          'places': stats['totalFavorites'] ?? 0, 
+          'badges': stats['badgesEarned']?.length ?? 0,
+          'favorites': stats['totalFavorites'] ?? 0,
+          'posts': stats['totalPosts'] ?? 0
+        };
+        print('✅ Real user stats loaded: $_userStats');
+      } else {
+        _userStats = {'trips': 0, 'places': 0, 'badges': 0};
+      }
+    } catch (e) {
+      print('❌ Failed to load user stats: $e');
+      _userStats = {'trips': 0, 'places': 0, 'badges': 0};
+    }
   }
 }

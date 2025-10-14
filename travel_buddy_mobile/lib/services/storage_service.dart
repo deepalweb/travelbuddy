@@ -137,11 +137,39 @@ class StorageService {
 
   // Itineraries Storage
   Future<void> saveItinerary(OneDayItinerary itinerary) async {
+    print('💾 StorageService: Saving itinerary ${itinerary.id}');
+    
+    // Debug: Check visit status before saving
+    for (final activity in itinerary.dailyPlan) {
+      print('   Saving activity: ${activity.activityTitle} - isVisited: ${activity.isVisited}');
+    }
+    
     await _itinerariesBox.put(itinerary.id, itinerary);
+    
+    // Verify the save worked
+    final saved = _itinerariesBox.get(itinerary.id);
+    if (saved != null) {
+      print('✅ StorageService: Itinerary saved successfully');
+      for (final activity in saved.dailyPlan) {
+        print('   Verified activity: ${activity.activityTitle} - isVisited: ${activity.isVisited}');
+      }
+    } else {
+      print('❌ StorageService: Failed to save itinerary');
+    }
   }
 
   Future<List<OneDayItinerary>> getItineraries() async {
-    return _itinerariesBox.values.toList();
+    final itineraries = _itinerariesBox.values.toList();
+    print('💾 StorageService: Loading ${itineraries.length} itineraries');
+    
+    for (final itinerary in itineraries) {
+      print('   Loading itinerary: ${itinerary.title}');
+      for (final activity in itinerary.dailyPlan) {
+        print('     Activity: ${activity.activityTitle} - isVisited: ${activity.isVisited}');
+      }
+    }
+    
+    return itineraries;
   }
 
   Future<void> deleteItinerary(String itineraryId) async {
@@ -527,16 +555,47 @@ class StorageService {
         for (final day in tripPlan.dailyPlans) {
           for (int i = 0; i < day.activities.length; i++) {
             if (day.activities[i].activityTitle == activityTitle) {
+              final original = day.activities[i];
               final updatedActivity = ActivityDetail(
-                timeOfDay: day.activities[i].timeOfDay,
-                activityTitle: day.activities[i].activityTitle,
-                description: day.activities[i].description,
-                fullAddress: day.activities[i].fullAddress,
-                rating: day.activities[i].rating,
-                duration: day.activities[i].duration,
-                estimatedCost: day.activities[i].estimatedCost,
+                timeOfDay: original.timeOfDay,
+                activityTitle: original.activityTitle,
+                description: original.description,
+                estimatedDuration: original.estimatedDuration,
+                location: original.location,
+                notes: original.notes,
+                icon: original.icon,
+                category: original.category,
+                startTime: original.startTime,
+                endTime: original.endTime,
+                duration: original.duration,
+                place: original.place,
+                type: original.type,
+                estimatedCost: original.estimatedCost,
+                costBreakdown: original.costBreakdown,
+                transportFromPrev: original.transportFromPrev,
+                tips: original.tips,
+                weatherBackup: original.weatherBackup,
+                crowdLevel: original.crowdLevel,
+                imageURL: original.imageURL,
+                bookingLinks: original.bookingLinks,
+                googlePlaceId: original.googlePlaceId,
+                highlight: original.highlight,
+                socialProof: original.socialProof,
+                rating: original.rating,
+                userRatingsTotal: original.userRatingsTotal,
+                practicalTip: original.practicalTip,
+                travelMode: original.travelMode,
+                travelTimeMin: original.travelTimeMin,
+                estimatedVisitDurationMin: original.estimatedVisitDurationMin,
+                photoThumbnail: original.photoThumbnail,
+                fullAddress: original.fullAddress,
+                openingHours: original.openingHours,
+                isOpenNow: original.isOpenNow,
+                weatherNote: original.weatherNote,
+                tags: original.tags,
+                bookingLink: original.bookingLink,
                 isVisited: isVisited,
-                visitedDate: isVisited ? DateTime.now().toIso8601String() : null,
+                visitedDate: isVisited ? DateTime.now().toIso8601String() : original.visitedDate,
               );
               day.activities[i] = updatedActivity;
             }
@@ -554,16 +613,47 @@ class StorageService {
       if (itinerary.id.isNotEmpty) {
         for (int i = 0; i < itinerary.dailyPlan.length; i++) {
           if (itinerary.dailyPlan[i].activityTitle == activityTitle) {
+            final original = itinerary.dailyPlan[i];
             final updatedActivity = ActivityDetail(
-              timeOfDay: itinerary.dailyPlan[i].timeOfDay,
-              activityTitle: itinerary.dailyPlan[i].activityTitle,
-              description: itinerary.dailyPlan[i].description,
-              fullAddress: itinerary.dailyPlan[i].fullAddress,
-              rating: itinerary.dailyPlan[i].rating,
-              duration: itinerary.dailyPlan[i].duration,
-              estimatedCost: itinerary.dailyPlan[i].estimatedCost,
+              timeOfDay: original.timeOfDay,
+              activityTitle: original.activityTitle,
+              description: original.description,
+              estimatedDuration: original.estimatedDuration,
+              location: original.location,
+              notes: original.notes,
+              icon: original.icon,
+              category: original.category,
+              startTime: original.startTime,
+              endTime: original.endTime,
+              duration: original.duration,
+              place: original.place,
+              type: original.type,
+              estimatedCost: original.estimatedCost,
+              costBreakdown: original.costBreakdown,
+              transportFromPrev: original.transportFromPrev,
+              tips: original.tips,
+              weatherBackup: original.weatherBackup,
+              crowdLevel: original.crowdLevel,
+              imageURL: original.imageURL,
+              bookingLinks: original.bookingLinks,
+              googlePlaceId: original.googlePlaceId,
+              highlight: original.highlight,
+              socialProof: original.socialProof,
+              rating: original.rating,
+              userRatingsTotal: original.userRatingsTotal,
+              practicalTip: original.practicalTip,
+              travelMode: original.travelMode,
+              travelTimeMin: original.travelTimeMin,
+              estimatedVisitDurationMin: original.estimatedVisitDurationMin,
+              photoThumbnail: original.photoThumbnail,
+              fullAddress: original.fullAddress,
+              openingHours: original.openingHours,
+              isOpenNow: original.isOpenNow,
+              weatherNote: original.weatherNote,
+              tags: original.tags,
+              bookingLink: original.bookingLink,
               isVisited: isVisited,
-              visitedDate: isVisited ? DateTime.now().toIso8601String() : null,
+              visitedDate: isVisited ? DateTime.now().toIso8601String() : original.visitedDate,
             );
             itinerary.dailyPlan[i] = updatedActivity;
           }

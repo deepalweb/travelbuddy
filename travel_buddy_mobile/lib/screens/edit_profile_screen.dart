@@ -57,6 +57,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       _selectedLanguages = Set<String>.from(user.languages ?? []);
       _selectedInterests = Set<String>.from(user.interests ?? []);
       _selectedBudgets = Set<String>.from(user.budgetPreferences ?? []);
+      _selectedTravelStyles = user.travelStyle != null ? {user.travelStyle!.name} : <String>{};
       print('📸 [EDIT] Current avatar: $_currentAvatarUrl');
     }
   }
@@ -287,8 +288,10 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
             _buildSectionHeader('Travel Preferences'),
             _buildOptionTile(
               icon: Icons.explore,
-              title: 'Travel Style',
-              subtitle: context.watch<AppProvider>().currentUser?.travelStyle?.displayName ?? 'Choose your travel style',
+              title: 'Travel Styles',
+              subtitle: _selectedTravelStyles.isEmpty 
+                  ? 'Choose your travel styles'
+                  : _selectedTravelStyles.join(', '),
               onTap: _selectTravelStyle,
             ),
             _buildOptionTile(
@@ -641,51 +644,76 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   void _selectTravelStyle() {
     showModalBottomSheet(
       context: context,
+      isScrollControlled: true,
       useSafeArea: true,
-      builder: (context) => Container(
-        padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 40,
-              height: 4,
-              margin: const EdgeInsets.only(bottom: 16),
-              decoration: BoxDecoration(
-                color: Colors.grey[300],
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-            const Text(
-              'Travel Style',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 16),
-            ...TravelStyle.values.map((style) {
-              final isSelected = context.watch<AppProvider>().currentUser?.travelStyle == style;
-              return Card(
-                margin: const EdgeInsets.only(bottom: 8),
-                child: ListTile(
-                  leading: Text(style.emoji, style: const TextStyle(fontSize: 24)),
-                  title: Text(style.displayName),
-                  subtitle: Text(style.description),
-                  trailing: isSelected ? const Icon(Icons.check, color: Colors.green) : null,
-                  onTap: () async {
-                    final appProvider = context.read<AppProvider>();
-                    await appProvider.updateTravelStyle(style);
-                    if (mounted) Navigator.pop(context);
-                  },
+      builder: (context) => DraggableScrollableSheet(
+        initialChildSize: 0.7,
+        minChildSize: 0.5,
+        maxChildSize: 0.9,
+        expand: false,
+        builder: (context, scrollController) => Container(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+          child: Column(
+            children: [
+              Container(
+                width: 40,
+                height: 4,
+                margin: const EdgeInsets.only(bottom: 16),
+                decoration: BoxDecoration(
+                  color: Colors.grey[300],
+                  borderRadius: BorderRadius.circular(2),
                 ),
-              );
-            }).toList(),
-            const SizedBox(height: 16),
-          ],
+              ),
+              const Text(
+                'Travel Styles',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 16),
+              Expanded(
+                child: SingleChildScrollView(
+                  controller: scrollController,
+                  child: Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: TravelStyle.values.map((style) => FilterChip(
+                      avatar: Text(style.emoji),
+                      label: Text(style.displayName),
+                      selected: _selectedTravelStyles.contains(style.name),
+                      onSelected: (selected) {
+                        setState(() {
+                          if (selected) {
+                            _selectedTravelStyles.add(style.name);
+                          } else {
+                            _selectedTravelStyles.remove(style.name);
+                          }
+                        });
+                      },
+                    )).toList(),
+                  ),
+                ),
+              ),
+              SafeArea(
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: SizedBox(
+                    width: double.infinity,
+                    height: 48,
+                    child: ElevatedButton(
+                      onPressed: () => Navigator.pop(context),
+                      child: const Text('Done'),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
   }
 
   Set<String> _selectedBudgets = {};
+  Set<String> _selectedTravelStyles = {};
   
   void _selectBudget() {
     showModalBottomSheet(

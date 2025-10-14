@@ -30,10 +30,19 @@ class SafetyService {
 
   Future<SafetyInfo?> getSafetyInfo(double latitude, double longitude) async {
     try {
-      // Try to get real data from API first
-      final response = await _apiService.getSafetyInfo(latitude, longitude);
+      // Try Azure OpenAI-powered emergency numbers first
+      final response = await _apiService.getAzureEmergencyNumbers(latitude, longitude);
       if (response != null) {
-        return response;
+        return SafetyInfo(
+          country: response['country'] ?? 'Unknown',
+          city: 'Current Location',
+          emergencyNumber: response['police'] ?? '112',
+          policeNumber: response['police'] ?? '112',
+          ambulanceNumber: response['ambulance'] ?? '112', 
+          fireNumber: response['fire'] ?? '112',
+          emergencyServices: [],
+          emergencyContacts: [],
+        );
       }
 
       // Fallback to location-based emergency numbers
@@ -236,28 +245,47 @@ class SafetyService {
           for (final component in components) {
             final types = component['types'] as List<dynamic>;
             if (types.contains('country')) {
+              print('✅ Detected country: ${component['short_name']}');
               return component['short_name'];
             }
           }
         }
       }
     } catch (e) {
-      print('Geocoding failed, using fallback: $e');
+      print('Geocoding failed, using coordinate fallback: $e');
     }
     
-    // Fallback to coordinate ranges
-    if (latitude >= 8.0 && latitude <= 9.9 && longitude >= 79.5 && longitude <= 81.9) {
-      return 'LK'; // Sri Lanka
-    } else if (latitude >= 20.0 && latitude <= 37.0 && longitude >= 68.0 && longitude <= 97.0) {
-      return 'IN'; // India
-    } else if (latitude >= 24.0 && latitude <= 49.0 && longitude >= -125.0 && longitude <= -66.0) {
-      return 'US'; // United States
-    } else if (latitude >= 49.0 && latitude <= 60.0 && longitude >= -141.0 && longitude <= -52.0) {
-      return 'CA'; // Canada
-    } else if (latitude >= 35.0 && latitude <= 71.0 && longitude >= -10.0 && longitude <= 40.0) {
-      return 'EU'; // Europe
+    // Enhanced coordinate-based detection
+    print('🌍 Using coordinate fallback for: $latitude, $longitude');
+    
+    // Sri Lanka
+    if (latitude >= 5.9 && latitude <= 9.9 && longitude >= 79.5 && longitude <= 81.9) {
+      print('📍 Detected: Sri Lanka');
+      return 'LK';
     }
-    return 'UNKNOWN';
+    // India  
+    if (latitude >= 8.0 && latitude <= 37.0 && longitude >= 68.0 && longitude <= 97.0) {
+      print('📍 Detected: India');
+      return 'IN';
+    }
+    // USA
+    if (latitude >= 24.0 && latitude <= 49.0 && longitude >= -125.0 && longitude <= -66.0) {
+      print('📍 Detected: United States');
+      return 'US';
+    }
+    // Canada
+    if (latitude >= 49.0 && latitude <= 60.0 && longitude >= -141.0 && longitude <= -52.0) {
+      print('📍 Detected: Canada');
+      return 'CA';
+    }
+    // Europe
+    if (latitude >= 35.0 && latitude <= 71.0 && longitude >= -10.0 && longitude <= 40.0) {
+      print('📍 Detected: Europe');
+      return 'EU';
+    }
+    
+    print('⚠️ Unknown location, using international numbers');
+    return 'INTERNATIONAL';
   }
 
   SafetyInfo _getEmergencyNumbersByCountry(String country, double latitude, double longitude) {
@@ -312,6 +340,17 @@ class SafetyService {
           city: 'Current Location',
           emergencyNumber: '112',
           policeNumber: '112',
+          ambulanceNumber: '112',
+          fireNumber: '112',
+          emergencyServices: [],
+          emergencyContacts: [],
+        );
+      case 'INTERNATIONAL':
+        return SafetyInfo(
+          country: 'International',
+          city: 'Current Location',
+          emergencyNumber: '112',
+          policeNumber: '112', 
           ambulanceNumber: '112',
           fireNumber: '112',
           emergencyServices: [],

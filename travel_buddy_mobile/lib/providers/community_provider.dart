@@ -222,7 +222,7 @@ class CommunityProvider with ChangeNotifier {
     if (!postId.startsWith('temp_')) {
       try {
         // Try backend API for real posts only
-        final success = await _apiService.toggleLike(postId, username: 'mobile_user');
+        final success = await _apiService.toggleLike(postId);
         if (success) {
           print('✅ Like synced to backend');
         } else {
@@ -308,8 +308,6 @@ class CommunityProvider with ChangeNotifier {
           hashtags: hashtags,
           allowComments: allowComments,
           visibility: visibility,
-          userId: currentUser?.uid ?? '507f1f77bcf86cd799439011',
-          username: currentUser?.username ?? 'Mobile User',
         );
         
         if (newPost != null) {
@@ -403,8 +401,6 @@ class CommunityProvider with ChangeNotifier {
         hashtags: [],
         allowComments: true,
         visibility: 'public',
-        userId: currentUser?.uid ?? '507f1f77bcf86cd799439011',
-        username: currentUser?.username ?? 'Mobile User',
       );
       
       if (newPost != null && newPost.id.isNotEmpty && !newPost.id.startsWith('temp_')) {
@@ -477,7 +473,7 @@ class CommunityProvider with ChangeNotifier {
       final userId = user.mongoId ?? user.uid;
       if (userId == null) return;
       
-      await _apiService.updateUser(userId, {
+      await _apiService.updateUser({
         'username': user.username,
         'email': user.email,
         'profilePicture': user.profilePicture?.startsWith('http') == true ? user.profilePicture : null,

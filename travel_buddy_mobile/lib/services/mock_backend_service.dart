@@ -236,6 +236,38 @@ class MockBackendService {
     }
   }
 
+  // Mock API: Get Bookmarked Posts
+  Future<List<community.CommunityPost>> getBookmarkedPosts() async {
+    await Future.delayed(Duration(milliseconds: 300)); // Simulate network delay
+    
+    final prefs = await SharedPreferences.getInstance();
+    final bookmarks = prefs.getStringList('mock_db_bookmarks') ?? [];
+    final postsJson = prefs.getStringList(_postsKey) ?? [];
+    
+    final bookmarkedPosts = <community.CommunityPost>[];
+    
+    for (final postJson in postsJson) {
+      try {
+        final postData = jsonDecode(postJson);
+        final postId = postData['id'];
+        
+        if (bookmarks.contains(postId)) {
+          // Mark as saved and add to bookmarked posts
+          postData['isSaved'] = true;
+          bookmarkedPosts.add(community.CommunityPost.fromJson(postData));
+        }
+      } catch (e) {
+        print('❌ Error parsing bookmarked post: $e');
+      }
+    }
+    
+    // Sort by creation date (newest first)
+    bookmarkedPosts.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    
+    print('📊 Mock DB: Loaded ${bookmarkedPosts.length} bookmarked posts');
+    return bookmarkedPosts;
+  }
+
   // Clear mock database (for testing)
   Future<void> clearMockDatabase() async {
     final prefs = await SharedPreferences.getInstance();

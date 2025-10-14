@@ -695,6 +695,15 @@ try {
   console.error('❌ Failed to load Azure OpenAI routes:', error);
 }
 
+// Load emergency services routes
+try {
+  const emergencyRouter = require('./routes/emergency.js');
+  app.use('/api/emergency', emergencyRouter);
+  console.log('✅ Emergency services routes loaded');
+} catch (error) {
+  console.error('❌ Failed to load emergency services routes:', error);
+}
+
 // Load translation routes
 try {
   const translationRouter = (await import('./routes/translation.js')).default;
@@ -3833,6 +3842,15 @@ app.use('/api/roles', (await import('./routes/roles.js')).default);
 // Service Provider routes
 app.use('/api/services', (await import('./routes/services.js')).default);
 app.use('/api/bookings', (await import('./routes/bookings.js')).default);
+
+// Admin routes
+try {
+  const adminRouter = (await import('./routes/admin.js')).default;
+  app.use('/api/admin', adminRouter);
+  console.log('✅ Admin routes loaded');
+} catch (error) {
+  console.error('❌ Failed to load admin routes:', error);
+}
 
 // Deals routes
 try {

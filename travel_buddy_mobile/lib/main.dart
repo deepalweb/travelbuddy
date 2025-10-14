@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:firebase_core/firebase_core.dart';
-import 'firebase_options.dart';
 import 'providers/app_provider.dart';
 import 'providers/community_provider.dart';
 import 'providers/language_provider.dart';
@@ -10,7 +8,6 @@ import 'screens/safety_screen.dart';
 import 'services/storage_service.dart';
 import 'services/firebase_service.dart';
 import 'constants/app_constants.dart';
-import 'services/error_handler_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();

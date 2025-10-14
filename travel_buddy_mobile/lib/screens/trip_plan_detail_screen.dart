@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../models/trip.dart';
 import '../services/azure_openai_service.dart';
-import '../services/storage_service.dart';
+import '../providers/app_provider.dart';
 
 class TripPlanDetailScreen extends StatefulWidget {
   final TripPlan tripPlan;
@@ -16,73 +17,125 @@ class TripPlanDetailScreen extends StatefulWidget {
 class _TripPlanDetailScreenState extends State<TripPlanDetailScreen> {
   String? _enhancedIntroduction;
   bool _isLoadingIntroduction = false;
-  final Map<String, bool> _visitedActivities = {};
+  TripPlan? _currentTripPlan;
 
   @override
   void initState() {
     super.initState();
+    _currentTripPlan = widget.tripPlan;
     _loadEnhancedIntroduction();
-    _loadVisitStatus();
+    
+    // Load updated data after a short delay
+    Future.delayed(Duration(milliseconds: 500), () {
+      _refreshTripPlan();
+    });
   }
 
-  void _loadVisitStatus() async {
-    // Load the latest trip plan from storage to get updated visit status
-    final storageService = StorageService();
+  void _refreshTripPlan() async {
+    final appProvider = Provider.of<AppProvider>(context, listen: false);
     
-    // Try to get updated trip plan from storage
-    final updatedTripPlan = await storageService.getTripPlans()
-        .then((plans) => plans.firstWhere(
-              (plan) => plan.id == widget.tripPlan.id,
-              orElse: () => widget.tripPlan,
-            ));
+    // Force reload from storage to get updated data
+    await appProvider.loadTripPlans();
     
-    // Also check itineraries
-    final updatedItineraries = await storageService.getItineraries();
+    // Check both trip plans and itineraries
+    TripPlan? latestTrip;
     
-    // Load visit status from the updated data
-    for (final day in updatedTripPlan.dailyPlans) {
-      for (final activity in day.activities) {
-        _visitedActivities[activity.activityTitle] = activity.isVisited;
+    // First check trip plans
+    try {
+      latestTrip = appProvider.tripPlans.firstWhere(
+        (trip) => trip.id == widget.tripPlan.id,
+      );
+    } catch (e) {
+      // If not found in trip plans, check itineraries
+      try {
+        final itinerary = appProvider.itineraries.firstWhere(
+          (itinerary) => itinerary.id == widget.tripPlan.id,
+        );
+        // Convert itinerary back to trip plan format
+        latestTrip = TripPlan(
+          id: itinerary.id,
+          tripTitle: itinerary.title,
+          destination: 'Day Trip',
+          duration: '1 Day',
+          introduction: itinerary.introduction,
+          dailyPlans: [
+            DailyTripPlan(
+              day: 1,
+              title: itinerary.title,
+              activities: itinerary.dailyPlan,
+            ),
+          ],
+          conclusion: itinerary.conclusion,
+        );
+      } catch (e2) {
+        latestTrip = widget.tripPlan;
       }
     }
     
-    // Also load from itineraries
-    for (final itinerary in updatedItineraries) {
-      for (final activity in itinerary.dailyPlan) {
-        _visitedActivities[activity.activityTitle] = activity.isVisited;
-      }
-    }
+    print('🔄 Refreshing trip plan. Found updated trip: ${latestTrip.id}');
     
-    // Update the UI
-    if (mounted) {
-      setState(() {});
-    }
+    setState(() {
+      _currentTripPlan = latestTrip;
+    });
   }
 
   void _toggleVisitStatus(String activityTitle) async {
-    final newStatus = !(_visitedActivities[activityTitle] ?? false);
+    print('🔍 Toggle visit status for: $activityTitle');
+    if (_currentTripPlan == null) {
+      print('❌ No current trip plan');
+      return;
+    }
     
-    setState(() {
-      _visitedActivities[activityTitle] = newStatus;
-    });
+    // Find activity indices
+    int dayIndex = -1;
+    int activityIndex = -1;
     
-    // Save to backend
-    final storageService = StorageService();
-    await storageService.updateActivityVisitStatus(
-      widget.tripPlan.id,
-      activityTitle,
-      newStatus,
-    );
+    for (int d = 0; d < _currentTripPlan!.dailyPlans.length; d++) {
+      for (int a = 0; a < _currentTripPlan!.dailyPlans[d].activities.length; a++) {
+        if (_currentTripPlan!.dailyPlans[d].activities[a].activityTitle == activityTitle) {
+          dayIndex = d;
+          activityIndex = a;
+          print('📍 Found activity at day $dayIndex, activity $activityIndex');
+          break;
+        }
+      }
+      if (dayIndex != -1) break;
+    }
     
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          newStatus ? '✅ Marked as visited & saved' : '⏳ Marked as pending & saved',
+    if (dayIndex != -1 && activityIndex != -1) {
+      final currentStatus = _currentTripPlan!.dailyPlans[dayIndex].activities[activityIndex].isVisited;
+      final newStatus = !currentStatus;
+      print('🔄 Changing status from $currentStatus to $newStatus');
+      
+      // Use AppProvider to save the status
+      final appProvider = Provider.of<AppProvider>(context, listen: false);
+      
+      // Check if this is an itinerary or trip plan
+      final isItinerary = appProvider.itineraries.any((itinerary) => itinerary.id == _currentTripPlan!.id);
+      
+      if (isItinerary) {
+        await appProvider.updateItineraryActivityVisitedStatus(_currentTripPlan!.id, activityIndex, newStatus);
+        print('📝 Updated itinerary activity status');
+      } else {
+        await appProvider.updateActivityVisitedStatus(_currentTripPlan!.id, dayIndex, activityIndex, newStatus);
+        print('🗺 Updated trip plan activity status');
+      }
+      
+      // Refresh the trip plan data
+      _refreshTripPlan();
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            newStatus ? '✅ Marked as visited & saved' : '⏳ Marked as pending & saved',
+          ),
+          backgroundColor: newStatus ? Colors.green : Colors.blue,
+          duration: const Duration(seconds: 1),
         ),
-        backgroundColor: newStatus ? Colors.green : Colors.blue,
-        duration: const Duration(seconds: 1),
-      ),
-    );
+      );
+    } else {
+      print('❌ Activity not found: $activityTitle');
+    }
   }
 
   void _confirmRemoveActivity(ActivityDetail activity) {
@@ -113,39 +166,30 @@ class _TripPlanDetailScreenState extends State<TripPlanDetailScreen> {
   }
 
   void _removeActivity(ActivityDetail activity) async {
-    setState(() {
-      // Remove from all days
-      for (final day in widget.tripPlan.dailyPlans) {
-        day.activities.removeWhere((a) => a.activityTitle == activity.activityTitle);
-      }
-      // Remove from visit status tracking
-      _visitedActivities.remove(activity.activityTitle);
-    });
-    
-    // Save to backend
-    final storageService = StorageService();
-    await storageService.removeActivityFromPlan(
-      widget.tripPlan.id,
-      activity.activityTitle,
-    );
-    
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text('🗑️ Removed "${activity.activityTitle}" from plan & saved'),
+        content: Text('🗑️ Removed "${activity.activityTitle}" from plan'),
         backgroundColor: Colors.orange,
       ),
     );
   }
 
   Widget _buildTripPlanStatsCard() {
+    if (_currentTripPlan == null) return const SizedBox();
+    
     final allActivities = <ActivityDetail>[];
-    for (final day in widget.tripPlan.dailyPlans) {
+    for (final day in _currentTripPlan!.dailyPlans) {
       allActivities.addAll(day.activities);
     }
     
     final totalPlaces = allActivities.length;
-    final visitedCount = _visitedActivities.values.where((visited) => visited).length;
+    final visitedCount = allActivities.where((activity) => activity.isVisited).length;
     final pendingCount = totalPlaces - visitedCount;
+    
+    print('📊 STATS DEBUG: Total: $totalPlaces, Visited: $visitedCount, Pending: $pendingCount');
+    for (final activity in allActivities) {
+      print('   Stats activity: ${activity.activityTitle} - isVisited: ${activity.isVisited}');
+    }
     
     // Calculate total and pending time
     int totalHours = 0;
@@ -165,8 +209,7 @@ class _TripPlanDetailScreenState extends State<TripPlanDetailScreen> {
       
       totalHours += hours;
       
-      final isVisited = _visitedActivities[activity.activityTitle] ?? false;
-      if (!isVisited) {
+      if (!activity.isVisited) {
         pendingHours += hours;
       }
     }
@@ -308,6 +351,11 @@ class _TripPlanDetailScreenState extends State<TripPlanDetailScreen> {
         foregroundColor: Colors.white,
         actions: [
           IconButton(
+            icon: const Icon(Icons.refresh),
+            onPressed: _refreshTripPlan,
+            tooltip: 'Refresh Data',
+          ),
+          IconButton(
             icon: const Icon(Icons.share),
             onPressed: () => _shareTrip(context),
           ),
@@ -425,7 +473,7 @@ class _TripPlanDetailScreenState extends State<TripPlanDetailScreen> {
             ),
             const SizedBox(height: 12),
             
-            ...widget.tripPlan.dailyPlans.asMap().entries.map((entry) {
+            ...(_currentTripPlan ?? widget.tripPlan).dailyPlans.asMap().entries.map((entry) {
               final index = entry.key;
               final dayPlan = entry.value;
               return _buildDayPlan(index + 1, dayPlan);
@@ -531,7 +579,7 @@ class _TripPlanDetailScreenState extends State<TripPlanDetailScreen> {
   }
 
   Widget _buildActivityDetails(ActivityDetail activity) {
-    final isVisited = _visitedActivities[activity.activityTitle] ?? false;
+    final isVisited = activity.isVisited;
     
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,

@@ -59,7 +59,7 @@ class DefaultFirebaseOptions {
 
   static const FirebaseOptions ios = FirebaseOptions(
     apiKey: 'AIzaSyCuJr5N0ytr1h_Aq_5qQazNL0wQUnsZlAw',
-    appId: '1:45425409967:ios:YOUR_IOS_APP_ID56b95a',
+    appId: '1:45425409967:ios:8808750a02d7c77356b95a',
     messagingSenderId: '45425409967',
     projectId: 'travelbuddy-2d1c5',
     storageBucket: 'travelbuddy-2d1c5.firebasestorage.app',
@@ -68,7 +68,7 @@ class DefaultFirebaseOptions {
 
   static const FirebaseOptions macos = FirebaseOptions(
     apiKey: 'AIzaSyCuJr5N0ytr1h_Aq_5qQazNL0wQUnsZlAw',
-    appId: '1:45425409967:ios:YOUR_MACOS_APP_ID56b95a',
+    appId: '1:45425409967:ios:8808750a02d7c77356b95a',
     messagingSenderId: '45425409967',
     projectId: 'travelbuddy-2d1c5',
     storageBucket: 'travelbuddy-2d1c5.firebasestorage.app',
