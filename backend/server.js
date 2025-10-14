@@ -728,29 +728,15 @@ if (String(process.env.ENABLE_STRIPE || '').toLowerCase() === 'true') {
   console.log('[Payments] Stripe routes disabled. Set ENABLE_STRIPE=true to enable.');
 }
 
-// --- Firebase Admin initialization (optional, for privileged admin ops) ---
-// Configure one of the following in your environment for initialization:
-// 1) FIREBASE_ADMIN_CREDENTIALS_BASE64: base64-encoded service account JSON
-// 2) FIREBASE_ADMIN_CREDENTIALS_JSON: raw service account JSON string
-// 3) GOOGLE_APPLICATION_CREDENTIALS: path to service account JSON file (application default)
+// --- Firebase Admin initialization ---
 let adminAuth = null;
 try {
-  if (!admin.apps.length) {
-    const b64 = process.env.FIREBASE_ADMIN_CREDENTIALS_BASE64;
-    const rawJson = process.env.FIREBASE_ADMIN_CREDENTIALS_JSON;
-    if (b64 || rawJson) {
-      const jsonStr = b64 ? Buffer.from(b64, 'base64').toString('utf8') : rawJson;
-      const credObj = JSON.parse(jsonStr);
-      admin.initializeApp({ credential: admin.credential.cert(credObj) });
-    } else {
-      // Attempt application default credentials as a fallback
-      admin.initializeApp({ credential: admin.credential.applicationDefault() });
-    }
-    console.log('[Admin] Firebase Admin initialized');
-  }
-  adminAuth = admin.auth();
+  // Import the already configured Firebase Admin
+  const firebaseAdmin = (await import('./config/firebase.js')).default;
+  adminAuth = firebaseAdmin.auth();
+  console.log('✅ Firebase Admin initialized successfully');
 } catch (e) {
-  console.warn('[Admin] Firebase Admin not initialized:', e?.message || String(e));
+  console.warn('❌ Firebase Admin initialization failed:', e?.message || String(e));
 }
 
 // Protect admin endpoints either with an API key header or with a Firebase ID token that has admin=true claim
