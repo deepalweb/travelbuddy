@@ -15,14 +15,22 @@ jobs:
     - name: Setup Node.js
       uses: actions/setup-node@v4
       with:
-        node-version: '18'
-        cache: 'npm'
-        cache-dependency-path: backend/package-lock.json
+        node-version: '20'
+    
+    - name: Generate backend package-lock.json
+      run: |
+        cd backend
+        npm install
     
     - name: Install backend dependencies
       run: |
         cd backend
-        npm ci --only=production
+        npm ci --omit=dev
+    
+    - name: Generate frontend package-lock.json
+      run: |
+        cd frontend
+        npm install --package-lock-only
     
     - name: Install frontend dependencies
       run: |
