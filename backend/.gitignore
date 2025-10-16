@@ -1,6 +1,55 @@
-# Sensitive backend files
+# Environment variables
 .env
-credentials/
+.env.local
+.env.production
+.env.development
+
+# Dependencies
+node_modules/
+
+# Logs
+*.log
+npm-debug.log*
+
+# Runtime data
+pids
+*.pid
+*.seed
+*.pid.lock
+
+# Coverage directory used by tools like istanbul
+coverage/
+
+# Build outputs
+dist/
+build/
+
+# Temporary files
+.tmp/
+temp/
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# SSL certificates
+ssl/
+*.pem
 *.key
-*.p12
-service-account*.json
+*.crt
+
+# Firebase credentials
+credentials/
+service-account.json
+google-services.json

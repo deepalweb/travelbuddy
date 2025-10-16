@@ -8,7 +8,9 @@ import '../config/environment.dart';
 class PlacesService {
   static final PlacesService _instance = PlacesService._internal();
   factory PlacesService() => _instance;
-  PlacesService._internal();
+  PlacesService._internal() {
+    print('🚀 PlacesService initialized with backend URL: ${Environment.backendUrl}');
+  }
 
   // Web app's Places pipeline implementation
   Future<List<Place>> fetchPlacesPipeline({
@@ -395,5 +397,23 @@ class PlacesService {
     }
     
     return results;
+  }
+
+  Future<List<Place>> getFavoritePlaces() async {
+    return [];
+  }
+
+  Future<void> toggleFavorite(String placeId) async {
+    // TODO: Implement
+  }
+
+  Future<Place> getPlaceDetails(String placeId) async {
+    final response = await http.get(
+      Uri.parse('${Environment.backendUrl}/api/places/details?place_id=$placeId'),
+    );
+    if (response.statusCode == 200) {
+      return Place.fromJson(json.decode(response.body));
+    }
+    throw Exception('Failed to load place details');
   }
 }

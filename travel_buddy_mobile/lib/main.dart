@@ -8,9 +8,15 @@ import 'screens/safety_screen.dart';
 import 'services/storage_service.dart';
 import 'services/firebase_service.dart';
 import 'constants/app_constants.dart';
+import 'config/environment.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  
+  // Debug: Print Environment configuration on app start
+  print('🚀 App starting with Environment configuration:');
+  print('🌐 Backend URL: ${Environment.backendUrl}');
+  print('📱 Production mode: ${Environment.isProduction}');
   
   try {
     // Initialize Storage Service first

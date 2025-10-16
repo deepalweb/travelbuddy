@@ -1,4 +1,4 @@
-const express = require('express');
+import express from 'express';
 const router = express.Router();
 
 router.get('/firebase', (req, res) => {
@@ -12,4 +12,4 @@ router.get('/firebase', (req, res) => {
   });
 });
 
-module.exports = router;
+export default router;

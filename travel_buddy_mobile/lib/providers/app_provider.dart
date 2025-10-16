@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:http/http.dart' as http;
+import 'dart:convert';
 import 'dart:math' as math;
 import '../config/environment.dart';
 import '../models/user.dart';
@@ -37,6 +38,7 @@ import '../services/trip_analytics_service.dart';
 import '../models/travel_style.dart';
 import '../models/place_section.dart';
 import '../utils/user_converter.dart';
+import 'package:firebase_auth/firebase_auth.dart' as firebase_auth;
 
 
 
@@ -665,7 +667,11 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
       if (user != null) {
         _currentUser = UserConverter.fromFirebaseUser(user);
         _isAuthenticated = true;
+        
+        // Sync with backend using Firebase token
+        await _syncFirebaseUserWithBackend(user);
         await _loadUserData();
+        
         return true;
       }
       return false;
@@ -695,6 +701,10 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
       if (user != null) {
         _currentUser = UserConverter.fromFirebaseUser(user);
         _isAuthenticated = true;
+        
+        // Sync with backend using Firebase token
+        await _syncFirebaseUserWithBackend(user);
+        
         return true;
       }
       return false;
@@ -718,7 +728,11 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
       if (silentUser != null) {
         _currentUser = UserConverter.fromFirebaseUser(silentUser);
         _isAuthenticated = true;
+        
+        // Sync with backend using Firebase token
+        await _syncFirebaseUserWithBackend(silentUser);
         await _loadUserData();
+        
         print('✅ Google Sign-In successful (silent)');
         return true;
       }
@@ -736,7 +750,11 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
       if (user != null) {
         _currentUser = UserConverter.fromFirebaseUser(user);
         _isAuthenticated = true;
+        
+        // Sync with backend using Firebase token
+        await _syncFirebaseUserWithBackend(user);
         await _loadUserData();
+        
         print('✅ Google Sign-In successful');
         return true;
       }
@@ -748,13 +766,18 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
       final errorString = e.toString().toLowerCase();
       if (errorString.contains('pigeonuserdetails') || 
           errorString.contains('list<object?>') ||
-          errorString.contains('type cast')) {
-        print('❌ PigeonUserDetails casting error detected');
-        throw 'Google Sign-In service error. Please try again or use email sign-in.';
+          errorString.contains('type cast') ||
+          errorString.contains('google sign-in service error')) {
+        print('❌ Google Sign-In compatibility error detected');
+        throw 'Google Sign-In is temporarily unavailable. Please use email sign-in instead.';
       }
       
       if (errorString.contains('network') || errorString.contains('timeout')) {
         throw 'Network error. Please check your connection and try again.';
+      }
+      
+      if (errorString.contains('cancelled') || errorString.contains('aborted')) {
+        throw 'Sign-in was cancelled. Please try again.';
       }
       
       throw e.toString();
@@ -1080,14 +1103,18 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
       print('  - Lng: ${_currentLocation!.longitude}');
       print('  - Query: $query');
       print('  - Radius: $_selectedRadius');
-      print('  - App Active: $_isAppActive');
+      print('  - Backend URL: ${Environment.backendUrl}');
       
       // Test network connectivity
       try {
         final testResponse = await http.get(Uri.parse('${Environment.backendUrl}/health'));
         print('🌐 Network test: ${testResponse.statusCode} - Backend reachable');
+        if (testResponse.statusCode == 200) {
+          print('✅ Backend is responding correctly');
+        }
       } catch (e) {
         print('❌ Network test failed: $e');
+        print('❌ Cannot reach backend at ${Environment.backendUrl}');
       }
       
       if (searchQuery.isNotEmpty) {
@@ -3060,5 +3087,107 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
     }
     
     return hasChanged;
+  }
+  
+  // Sync Firebase user with backend using token
+  Future<void> _syncFirebaseUserWithBackend(User firebaseUser) async {
+    try {
+      final token = await firebaseUser.getIdToken();
+      final response = await http.post(
+        Uri.parse('${Environment.backendUrl}/api/auth/firebase-login'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      );
+      
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        print('✅ User synced with backend: ${data['user']?['username']}');
+        
+        // Update current user with backend data
+        if (_currentUser != null && data['user'] != null) {
+          final backendUser = data['user'];
+          final updatedUser = _currentUser!.copyWith(
+            mongoId: backendUser['_id'],
+            username: backendUser['username'] ?? _currentUser!.username,
+          );
+          await _storageService.saveUser(updatedUser);
+          _currentUser = updatedUser;
+        }
+      } else {
+        print('⚠️ Backend sync failed: ${response.statusCode}');
+      }
+    } catch (e) {
+      print('❌ Error syncing user with backend: $e');
+    }
+  }
+  
+  // Create user profile in backend database
+  Future<void> _createUserProfileInBackend(User firebaseUser, String username) async {
+    try {
+      final userData = {
+        'firebaseUid': firebaseUser.uid,
+        'username': username,
+        'email': firebaseUser.email ?? '',
+        'profilePicture': firebaseUser.photoURL,
+        'tier': 'free',
+        'subscriptionStatus': 'none',
+        'homeCurrency': 'USD',
+        'language': 'en',
+        'hasCompletedWizard': false,
+        'isAdmin': false,
+        'selectedInterests': [],
+        'favoritePlaces': [],
+      };
+      
+      final response = await _apiService.createUser(userData);
+      if (response != null) {
+        print('✅ User profile created in backend database');
+        
+        // Update current user with backend data
+        if (_currentUser != null) {
+          final updatedUser = _currentUser!.copyWith(
+            mongoId: response['_id'],
+          );
+          await _storageService.saveUser(updatedUser);
+          _currentUser = updatedUser;
+        }
+      } else {
+        print('⚠️ Failed to create user profile in backend');
+      }
+    } catch (e) {
+      print('❌ Error creating user profile in backend: $e');
+    }
+  }
+  
+  // Ensure user profile exists in backend (for existing users)
+  Future<void> _ensureUserProfileInBackend(User firebaseUser) async {
+    try {
+      // Check if user already exists in backend
+      final existingUser = await _apiService.getUserByFirebaseUid(firebaseUser.uid);
+      
+      if (existingUser == null) {
+        // User doesn't exist in backend, create profile
+        print('🔄 Creating missing user profile in backend');
+        await _createUserProfileInBackend(
+          firebaseUser, 
+          firebaseUser.displayName ?? firebaseUser.email?.split('@').first ?? 'User'
+        );
+      } else {
+        print('✅ User profile already exists in backend');
+        
+        // Update current user with backend data
+        if (_currentUser != null) {
+          final updatedUser = _currentUser!.copyWith(
+            mongoId: existingUser['_id'],
+          );
+          await _storageService.saveUser(updatedUser);
+          _currentUser = updatedUser;
+        }
+      }
+    } catch (e) {
+      print('❌ Error ensuring user profile in backend: $e');
+    }
   }
 }

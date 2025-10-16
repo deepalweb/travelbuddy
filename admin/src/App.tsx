@@ -26,27 +26,36 @@ import ContentModeration from '@/components/ContentModeration'
 import BusinessManagement from '@/components/BusinessManagement'
 import AnalyticsHub from '@/components/AnalyticsHub'
 import SystemSettings from '@/components/SystemSettings'
+import ErrorBoundary from '@/components/ErrorBoundary'
 
 function App() {
   const [activeSection, setActiveSection] = useState('dashboard')
 
   const renderActiveSection = () => {
-    switch (activeSection) {
-      case 'dashboard':
-        return <DashboardOverview />
-      case 'users':
-        return <UserManagement />
-      case 'content':
-        return <ContentModeration />
-      case 'business':
-        return <BusinessManagement />
-      case 'analytics':
-        return <AnalyticsHub />
-      case 'settings':
-        return <SystemSettings />
-      default:
-        return <DashboardOverview />
+    const getComponent = () => {
+      switch (activeSection) {
+        case 'dashboard':
+          return <DashboardOverview />
+        case 'users':
+          return <UserManagement />
+        case 'content':
+          return <ContentModeration />
+        case 'business':
+          return <BusinessManagement />
+        case 'analytics':
+          return <AnalyticsHub />
+        case 'settings':
+          return <SystemSettings />
+        default:
+          return <DashboardOverview />
+      }
     }
+    
+    return (
+      <ErrorBoundary>
+        {getComponent()}
+      </ErrorBoundary>
+    )
   }
 
   return (

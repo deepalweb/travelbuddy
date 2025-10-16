@@ -165,7 +165,7 @@ const COUNTRY_LANGUAGES = {
   'SA': { primary: 'ar', common: ['ar', 'en'] }
 };
 
-// POST /api/translate - Translate text
+// POST /api/translation/translate - Translate text
 router.post('/translate', async (req, res) => {
   try {
     const { text, targetLanguage, sourceLanguage = 'en' } = req.body;
@@ -190,7 +190,7 @@ router.post('/translate', async (req, res) => {
   }
 });
 
-// GET /api/travel-phrases/:language - Get travel phrases
+// GET /api/translation/travel-phrases/:language - Get travel phrases
 router.get('/travel-phrases/:language', (req, res) => {
   try {
     const { language } = req.params;
@@ -220,7 +220,7 @@ router.get('/travel-phrases/:language', (req, res) => {
   }
 });
 
-// GET /api/location-language - Get language info for location
+// GET /api/translation/location-language - Get language info for location
 router.get('/location-language', async (req, res) => {
   try {
     const { lat, lng } = req.query;

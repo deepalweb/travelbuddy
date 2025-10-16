@@ -2,7 +2,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 class ConfigService {
-  static const String baseUrl = 'https://travelbuddy-backend-h5hqhqhqhqhqhqhq.azurewebsites.net';
+  static const String baseUrl = 'http://localhost:3000';
   
   static Future<Map<String, dynamic>> getFirebaseConfig() async {
     try {

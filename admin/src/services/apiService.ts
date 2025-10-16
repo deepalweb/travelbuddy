@@ -145,6 +145,62 @@ class ApiService {
   async getApiCosts() {
     return this.request('/usage/cost').catch(() => ({ totals: {}, projections: {} }));
   }
+
+  // Real-time Admin Features
+  async getRealtimeStats() {
+    return this.request('/admin/dashboard/stats');
+  }
+
+  async getUserAnalytics() {
+    return this.request('/admin/users/analytics');
+  }
+
+  async getBusinessAnalytics() {
+    return this.request('/admin/business/analytics');
+  }
+
+  async getModerationQueue() {
+    return this.request('/admin/reports');
+  }
+
+  async moderateContent(postId: string, action: 'approve' | 'reject' | 'flag') {
+    return this.request(`/admin/moderate/${postId}`, {
+      method: 'POST',
+      body: JSON.stringify({ action }),
+    });
+  }
+
+  // Role Management
+  async updateUserRole(userId: string, role: string, reason?: string) {
+    return this.request(`/admin/users/${userId}/role`, {
+      method: 'PUT',
+      body: JSON.stringify({ role, reason }),
+    });
+  }
+
+  async bulkUpdateRoles(userIds: string[], role: string, reason?: string) {
+    return this.request('/admin/users/bulk-role', {
+      method: 'PUT',
+      body: JSON.stringify({ userIds, role, reason }),
+    });
+  }
+
+  async getRoleStats() {
+    return this.request('/admin/roles/stats');
+  }
+
+  // Live Data Endpoints
+  async getApiUsageTimeseries(window = 60) {
+    return this.request(`/usage/timeseries?window=${window}`);
+  }
+
+  async getDailyUsageStats(days = 30) {
+    return this.request(`/usage/aggregate/daily?days=${days}`);
+  }
+
+  async getMonthlyUsageStats(months = 12) {
+    return this.request(`/usage/aggregate/monthly?months=${months}`);
+  }
 }
 
 export const apiService = new ApiService();

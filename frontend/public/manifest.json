@@ -1,0 +1,39 @@
+{
+  "name": "TravelBuddy - AI Travel Planner",
+  "short_name": "TravelBuddy",
+  "description": "AI-powered travel planning with local recommendations",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#3b82f6",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/favicon.ico",
+      "sizes": "64x64 32x32 24x24 16x16",
+      "type": "image/x-icon"
+    },
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ],
+  "categories": ["travel", "lifestyle", "productivity"],
+  "shortcuts": [
+    {
+      "name": "Plan Trip",
+      "short_name": "Plan",
+      "description": "Start planning a new trip",
+      "url": "/?action=plan",
+      "icons": [{ "src": "/favicon.svg", "sizes": "96x96" }]
+    },
+    {
+      "name": "Explore Places",
+      "short_name": "Explore",
+      "description": "Discover nearby places",
+      "url": "/?tab=explore",
+      "icons": [{ "src": "/favicon.svg", "sizes": "96x96" }]
+    }
+  ]
+}

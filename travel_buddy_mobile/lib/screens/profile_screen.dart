@@ -142,7 +142,7 @@ class ProfileScreen extends StatelessWidget {
                     
                     return Row(
                       children: [
-                        Expanded(
+                        Flexible(
                           child: _buildStatCard(
                             icon: Icons.article,
                             count: stats['posts']!,
@@ -152,8 +152,8 @@ class ProfileScreen extends StatelessWidget {
                             onTap: () => _showUserPosts(context, user),
                           ),
                         ),
-                        const SizedBox(width: 8),
-                        Expanded(
+                        const SizedBox(width: 4),
+                        Flexible(
                           child: _buildStatCard(
                             icon: Icons.people,
                             count: stats['followers']!,
@@ -163,8 +163,8 @@ class ProfileScreen extends StatelessWidget {
                             onTap: () => _showFollowers(context),
                           ),
                         ),
-                        const SizedBox(width: 8),
-                        Expanded(
+                        const SizedBox(width: 4),
+                        Flexible(
                           child: _buildStatCard(
                             icon: Icons.person_add,
                             count: stats['following']!,
@@ -174,8 +174,8 @@ class ProfileScreen extends StatelessWidget {
                             onTap: () => _showFollowing(context),
                           ),
                         ),
-                        const SizedBox(width: 8),
-                        Expanded(
+                        const SizedBox(width: 4),
+                        Flexible(
                           child: _buildStatCard(
                             icon: Icons.place,
                             count: stats['visited']!,
@@ -420,25 +420,32 @@ class ProfileScreen extends StatelessWidget {
       child: InkWell(
         onTap: onTap,
         child: Padding(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(12),
           child: Column(
+            mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(icon, color: color, size: 24),
-              const SizedBox(height: 8),
+              Icon(icon, color: color, size: 20),
+              const SizedBox(height: 6),
               isLoading
                   ? const SizedBox(
-                      width: 20,
-                      height: 20,
+                      width: 16,
+                      height: 16,
                       child: CircularProgressIndicator(strokeWidth: 2),
                     )
                   : Text(
                       count.toString(),
                       style: const TextStyle(
-                        fontSize: 20,
+                        fontSize: 16,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
-              Text(label, style: const TextStyle(fontSize: 12)),
+              Text(
+                label,
+                style: const TextStyle(fontSize: 10),
+                textAlign: TextAlign.center,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
             ],
           ),
         ),

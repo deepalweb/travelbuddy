@@ -1,4 +1,4 @@
-const express = require('express');
+import express from 'express';
 const router = express.Router();
 
 // GET /api/emergency/numbers - Get emergency numbers using Azure OpenAI
@@ -188,4 +188,4 @@ function calculateDistance(lat1, lon1, lat2, lon2) {
   return R * c;
 }
 
-module.exports = router;
+export default router;

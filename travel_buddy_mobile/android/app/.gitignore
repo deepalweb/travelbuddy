@@ -1,0 +1,8 @@
+# Firebase configuration files
+google-services.json
+GoogleService-Info.plist
+
+# Sensitive configuration
+*.keystore
+*.jks
+key.properties

@@ -21,12 +21,12 @@ dependencies:
   permission_handler: ^11.1.0
   
   # Firebase
-  firebase_core: ^2.24.2
-  firebase_auth: ^4.15.3
-  firebase_messaging: ^14.7.10
+  firebase_core: ^2.32.0
+  firebase_auth: ^4.20.0
+  firebase_messaging: ^14.9.0
   
   # Google Services
-  google_sign_in: ^6.1.6
+  google_sign_in: 6.1.6
   google_maps_flutter: ^2.5.0
   
   # Local Storage

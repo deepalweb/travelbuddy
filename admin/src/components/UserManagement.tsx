@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Checkbox } from '@/components/ui/checkbox'
 import { 
   Users,
   MagnifyingGlass,
@@ -26,6 +27,7 @@ interface User {
   tier: string
   subscriptionStatus: string
   role: string
+  roles?: string[]
   isAdmin: boolean
   createdAt: string
   profileType?: string
@@ -74,6 +76,24 @@ export default function UserManagement() {
     }
   }
 
+  const handleUpdateUserRole = async (userId: string, role: string) => {
+    try {
+      await apiService.updateUserRole(userId, role, 'Admin role assignment')
+      setUsers(users.map(u => u._id === userId ? { ...u, role } : u))
+    } catch (error) {
+      console.error('Failed to update user role:', error)
+    }
+  }
+
+  const handleUpdateUserRoles = async (userId: string, roles: string[]) => {
+    try {
+      await apiService.updateUser(userId, { roles })
+      setUsers(users.map(u => u._id === userId ? { ...u, roles } : u))
+    } catch (error) {
+      console.error('Failed to update user roles:', error)
+    }
+  }
+
   const filteredUsers = users.filter(user => {
     const matchesSearch = user.username.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          user.email.toLowerCase().includes(searchTerm.toLowerCase())
@@ -96,6 +116,44 @@ export default function UserManagement() {
       case 'trial': return 'bg-yellow-500'
       case 'expired': return 'bg-red-500'
       default: return 'bg-gray-500'
+    }
+  }
+
+  const getRoleBadgeColor = (role: string) => {
+    switch (role) {
+      case 'admin': return 'bg-red-500'
+      case 'agent': return 'bg-blue-500'
+      case 'merchant': return 'bg-green-500'
+      default: return 'bg-gray-500'
+    }
+  }
+
+  const getRoleDisplayName = (role: string) => {
+    switch (role) {
+      case 'regular': return 'Normal User'
+      case 'merchant': return 'Merchant'
+      case 'agent': return 'Travel Agent'
+      case 'admin': return 'Admin'
+      default: return 'Normal User'
+    }
+  }
+
+  const getUserRoles = (user: User) => {
+    return user.roles && user.roles.length > 0 ? user.roles : [user.role || 'regular']
+  }
+
+  const toggleUserRole = (userId: string, role: string, currentRoles: string[]) => {
+    const newRoles = currentRoles.includes(role)
+      ? currentRoles.filter(r => r !== role)
+      : [...currentRoles, role]
+    
+    if (newRoles.length === 0) {
+      newRoles.push('regular') // Always have at least one role
+    }
+    
+    handleUpdateUserRoles(userId, newRoles)
+    if (selectedUser && selectedUser._id === userId) {
+      setSelectedUser({...selectedUser, roles: newRoles})
     }
   }
 
@@ -157,12 +215,12 @@ export default function UserManagement() {
         
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Admin Users</CardTitle>
+            <CardTitle className="text-sm font-medium">Merchants</CardTitle>
             <Warning size={16} />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {users.filter(u => u.isAdmin).length}
+              {users.filter(u => u.role === 'merchant').length}
             </div>
           </CardContent>
         </Card>
@@ -236,9 +294,13 @@ export default function UserManagement() {
                     </Badge>
                   </TableCell>
                   <TableCell>
-                    <Badge variant="outline">
-                      {user.profileType || user.role || 'user'}
-                    </Badge>
+                    <div className="flex flex-wrap gap-1">
+                      {getUserRoles(user).map((role) => (
+                        <Badge key={role} className={`${getRoleBadgeColor(role)} text-white text-xs`}>
+                          {getRoleDisplayName(role)}
+                        </Badge>
+                      ))}
+                    </div>
                   </TableCell>
                   <TableCell>
                     {new Date(user.createdAt).toLocaleDateString()}
@@ -273,7 +335,10 @@ export default function UserManagement() {
                                 <label className="text-sm font-medium">Subscription Tier</label>
                                 <Select 
                                   value={selectedUser.tier} 
-                                  onValueChange={(tier) => handleUpdateUserTier(selectedUser._id, tier)}
+                                  onValueChange={(tier) => {
+                                    handleUpdateUserTier(selectedUser._id, tier)
+                                    setSelectedUser({...selectedUser, tier})
+                                  }}
                                 >
                                   <SelectTrigger>
                                     <SelectValue />
@@ -285,6 +350,46 @@ export default function UserManagement() {
                                     <SelectItem value="pro">Pro</SelectItem>
                                   </SelectContent>
                                 </Select>
+                              </div>
+                              <div>
+                                <label className="text-sm font-medium mb-3 block">User Roles (Multiple Selection)</label>
+                                <div className="space-y-3">
+                                  {[
+                                    { value: 'regular', label: 'Normal User' },
+                                    { value: 'merchant', label: 'Merchant' },
+                                    { value: 'agent', label: 'Travel Agent' },
+                                    { value: 'admin', label: 'Admin' }
+                                  ].map((roleOption) => {
+                                    const currentRoles = getUserRoles(selectedUser)
+                                    const isChecked = currentRoles.includes(roleOption.value)
+                                    
+                                    return (
+                                      <div key={roleOption.value} className="flex items-center space-x-2">
+                                        <Checkbox
+                                          id={roleOption.value}
+                                          checked={isChecked}
+                                          onCheckedChange={() => 
+                                            toggleUserRole(selectedUser._id, roleOption.value, currentRoles)
+                                          }
+                                        />
+                                        <label 
+                                          htmlFor={roleOption.value} 
+                                          className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                                        >
+                                          {roleOption.label}
+                                        </label>
+                                        <Badge 
+                                          className={`${getRoleBadgeColor(roleOption.value)} text-white text-xs ml-2`}
+                                        >
+                                          {roleOption.label}
+                                        </Badge>
+                                      </div>
+                                    )
+                                  })}
+                                </div>
+                                <p className="text-xs text-muted-foreground mt-2">
+                                  Users can have multiple roles. At least one role must be selected.
+                                </p>
                               </div>
                             </div>
                           )}

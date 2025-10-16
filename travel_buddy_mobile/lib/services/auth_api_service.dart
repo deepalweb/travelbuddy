@@ -47,8 +47,9 @@ class AuthApiService {
     try {
       final user = FirebaseAuth.instance.currentUser;
       if (user != null) {
-        final token = await user.getIdToken();
+        final token = await user.getIdToken(true); // Force refresh token
         options.headers['Authorization'] = 'Bearer $token';
+        options.headers['X-Firebase-UID'] = user.uid;
         
         // Add user context to request
         if (!options.data?.containsKey('userId') && options.method != 'GET') {
@@ -62,6 +63,10 @@ class AuthApiService {
         if (options.method == 'GET' && !options.queryParameters.containsKey('userId')) {
           options.queryParameters['userId'] = user.uid;
         }
+        
+        print('✅ Added Firebase auth headers for user: ${user.email}');
+      } else {
+        print('⚠️ No Firebase user found for auth headers');
       }
     } catch (e) {
       print('❌ Error adding auth header: $e');

@@ -1,18 +1,28 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_sign_in/google_sign_in.dart';
+import 'dart:io' show Platform;
+import 'google_signin_helper.dart';
 
 class AuthService {
   static final FirebaseAuth _auth = FirebaseAuth.instance;
+  
+  // Create GoogleSignIn instance with platform-specific configuration
   static final GoogleSignIn _googleSignIn = GoogleSignIn(
     scopes: ['email', 'profile'],
+    // Only use serverClientId on Android to avoid iOS issues
+    serverClientId: Platform.isAndroid 
+        ? '45425409967-19m9oj4o2frp2081kaeg2ji3gj1k54d4.apps.googleusercontent.com' 
+        : null,
   );
 
   // Email/Password Authentication
   static Future<UserCredential> signInWithEmail(String email, String password) async {
     try {
-      return await _auth.signInWithEmailAndPassword(email: email, password: password);
+      final credential = await _auth.signInWithEmailAndPassword(email: email, password: password);
+      print('✅ Email sign-in successful for: ${credential.user?.email}');
+      return credential;
     } catch (e) {
-      print('Email Sign-In Error: $e');
+      print('❌ Email Sign-In Error: $e');
       rethrow;
     }
   }
@@ -28,11 +38,52 @@ class AuthService {
     }
   }
 
-  // Google Authentication - Temporarily disabled due to compatibility issues
+  // Google Authentication with PigeonUserDetails fix
   static Future<UserCredential?> signInWithGoogle() async {
-    print('❌ Google Sign-In temporarily disabled');
-    print('Please use email sign-in instead.');
-    return null;
+    try {
+      print('🔄 Attempting Google Sign-In with compatibility fixes...');
+      
+      // Use the helper class that handles PigeonUserDetails issues
+      final userCredential = await GoogleSignInHelper.signInWithGoogleSafe();
+      
+      if (userCredential != null) {
+        print('✅ Google Sign-In successful for: ${userCredential.user?.email}');
+        return userCredential;
+      }
+      
+      print('❌ Google Sign-In cancelled by user');
+      return null;
+      
+    } catch (e) {
+      print('❌ Google Sign-In Error: $e');
+      
+      // Handle specific error types
+      final errorString = e.toString().toLowerCase();
+      
+      if (errorString.contains('pigeonuserdetails') || 
+          errorString.contains('type cast') ||
+          errorString.contains('list<object?>') ||
+          errorString.contains('cast') ||
+          errorString.contains('null check operator')) {
+        print('⚠️ Google Sign-In compatibility issue detected - using fallback');
+        throw 'Google Sign-In compatibility issue. Please use email sign-in instead.';
+      }
+      
+      if (errorString.contains('network') || errorString.contains('timeout')) {
+        throw 'Network error. Please check your internet connection.';
+      }
+      
+      if (errorString.contains('play services') || errorString.contains('resolution required')) {
+        throw 'Google Play Services required. Please update Google Play Services.';
+      }
+      
+      if (errorString.contains('developer error') || errorString.contains('api not enabled')) {
+        throw 'Google Sign-In configuration error. Please contact support.';
+      }
+      
+      // Generic error
+      throw 'Google Sign-In failed: ${e.toString()}';
+    }
   }
 
   static Future<UserCredential?> signInWithGoogleSilent() async {
@@ -55,8 +106,9 @@ class AuthService {
 
   static Future<bool> isGoogleSignInAvailable() async {
     try {
-      return await _googleSignIn.isSignedIn();
+      return await GoogleSignInHelper.isAvailable();
     } catch (e) {
+      print('⚠️ Google Sign-In availability check failed: $e');
       return false;
     }
   }

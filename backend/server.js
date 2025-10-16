@@ -6,6 +6,9 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { existsSync } from 'fs';
 import dotenv from 'dotenv';
+import { securityHeaders, apiRateLimit, sanitizeInput } from './middleware/security.js';
+import { authenticateJWT, requireAdmin } from './middleware/auth.js';
+import { errorHandler, asyncHandler, notFoundHandler } from './middleware/errorHandler.js';
 // Load env from root .env first (won't override already-set vars)
 dotenv.config();
 import fetch from 'node-fetch';
@@ -622,39 +625,51 @@ function enforcePolicy(api) {
   };
 }
 
+// Security middleware
+app.use(securityHeaders);
+app.use(apiRateLimit);
+app.use(sanitizeInput);
+
 // Middleware
-app.use(cors());
-app.use(express.json({ limit: '50mb' }));
-app.use(express.urlencoded({ limit: '50mb', extended: true }));
+app.use(cors({
+  origin: process.env.NODE_ENV === 'production' 
+    ? [process.env.CLIENT_URL, process.env.WEBSITE_HOSTNAME]
+    : ['http://localhost:3000', 'http://localhost:5173'],
+  credentials: true
+}));
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ limit: '10mb', extended: true }));
 // Serve static files from dist directory
 const staticPaths = [
-  path.join(__dirname, 'dist'),
   path.join(__dirname, '../dist'),
+  path.join(__dirname, '../frontend/dist'),
   path.join('/home/site/wwwroot/dist'),
   path.join(process.cwd(), 'dist')
 ];
 
-// Find the first existing path
-let finalStaticPath = null;
-for (const staticPath of staticPaths) {
-  if (existsSync(staticPath)) {
-    finalStaticPath = staticPath;
+// Find the first existing static path
+let staticPath = null;
+for (const testPath of staticPaths) {
+  if (existsSync(testPath)) {
+    staticPath = testPath;
     break;
   }
 }
 
-if (finalStaticPath) {
-  console.log('✅ Using static path:', finalStaticPath);
-  app.use(express.static(finalStaticPath, {
+if (staticPath) {
+  console.log('✅ Using static path:', staticPath);
+  app.use(express.static(staticPath, {
     maxAge: '1d',
     etag: false,
-    setHeaders: (res, path) => {
-      if (path.endsWith('.js')) {
-        res.setHeader('Content-Type', 'application/javascript');
-      } else if (path.endsWith('.css')) {
-        res.setHeader('Content-Type', 'text/css');
-      } else if (path.endsWith('.json')) {
-        res.setHeader('Content-Type', 'application/json');
+    setHeaders: (res, filePath) => {
+      if (filePath.endsWith('.js') || filePath.endsWith('.mjs')) {
+        res.setHeader('Content-Type', 'application/javascript; charset=utf-8');
+      } else if (filePath.endsWith('.css')) {
+        res.setHeader('Content-Type', 'text/css; charset=utf-8');
+      } else if (filePath.endsWith('.json')) {
+        res.setHeader('Content-Type', 'application/json; charset=utf-8');
+      } else if (filePath.endsWith('.html')) {
+        res.setHeader('Content-Type', 'text/html; charset=utf-8');
       }
     }
   }));
@@ -663,7 +678,7 @@ if (finalStaticPath) {
 }
 
 // Load subscription and payment routes early
-try {
+/*try {
   const subscriptionsRouter = (await import('./routes/subscriptions.js')).default;
   const paymentsRouter = (await import('./routes/payments.js')).default;
   const paypalWebhookRouter = (await import('./webhooks/paypal.js')).default;
@@ -675,7 +690,7 @@ try {
   console.log('✅ Subscription and payment routes loaded');
 } catch (error) {
   console.error('❌ Failed to load subscription routes:', error);
-}
+}*/
 
 // Load config routes for mobile app
 try {
@@ -697,7 +712,7 @@ try {
 
 // Load emergency services routes
 try {
-  const emergencyRouter = require('./routes/emergency.js');
+  const emergencyRouter = (await import('./routes/emergency.js')).default;
   app.use('/api/emergency', emergencyRouter);
   console.log('✅ Emergency services routes loaded');
 } catch (error) {
@@ -707,10 +722,19 @@ try {
 // Load translation routes
 try {
   const translationRouter = (await import('./routes/translation.js')).default;
-  app.use('/api', translationRouter);
+  app.use('/api/translation', translationRouter);
   console.log('✅ Translation routes loaded');
 } catch (error) {
   console.error('❌ Failed to load translation routes:', error);
+}
+
+// Load places routes
+try {
+  const placesRouter = (await import('./routes/places.js')).default;
+  app.use('/api/places', placesRouter);
+  console.log('✅ Places routes loaded');
+} catch (error) {
+  console.error('❌ Failed to load places routes:', error);
 }
 
 // Payment routes (Stripe scaffold) - mount only when explicitly enabled to allow
@@ -1560,6 +1584,175 @@ app.post('/api/usage/cost/config', async (req, res) => {
     res.status(400).json({ error: 'Failed to update cost config', details: e?.message || String(e) });
   }
 });
+// Places sections endpoint - organized place categories
+app.get('/api/places/sections', enforcePolicy('places'), async (req, res) => {
+  try {
+    const { lat, lng } = req.query;
+    if (!lat || !lng) {
+      return res.status(400).json({ error: 'lat and lng are required' });
+    }
+
+    const sections = [
+      { title: 'Popular Restaurants', category: 'food', places: [] },
+      { title: 'Top Attractions', category: 'landmarks', places: [] },
+      { title: 'Cultural Sites', category: 'culture', places: [] },
+      { title: 'Nature & Parks', category: 'nature', places: [] }
+    ];
+
+    // Fetch places for each section
+    for (const section of sections) {
+      try {
+        const url = new URL('https://maps.googleapis.com/maps/api/place/textsearch/json');
+        const query = section.category === 'food' ? 'restaurants' : 
+                     section.category === 'landmarks' ? 'tourist attractions' :
+                     section.category === 'culture' ? 'museums' : 'parks';
+        url.searchParams.set('query', query);
+        url.searchParams.set('location', `${lat},${lng}`);
+        url.searchParams.set('radius', '10000');
+        url.searchParams.set('key', process.env.GOOGLE_PLACES_API_KEY);
+
+        const response = await fetch(url.toString());
+        if (response.ok) {
+          const data = await response.json();
+          if (data.status === 'OK') {
+            section.places = normalizeAndFilter(data.results, lat, lng, 10000, { enforceRadius: true, sortByDistance: true }).slice(0, 5);
+          }
+        }
+      } catch (error) {
+        console.warn(`Failed to fetch ${section.category}:`, error.message);
+      }
+    }
+
+    recordUsage({ api: 'places', action: 'sections', status: 'success' });
+    res.json(sections.filter(s => s.places.length > 0));
+  } catch (error) {
+    recordUsage({ api: 'places', action: 'sections', status: 'error', meta: { err: error?.message } });
+    res.status(500).json({ error: 'Failed to fetch place sections', details: error?.message });
+  }
+});
+
+// Mobile-optimized places nearby
+app.get('/api/places/mobile/nearby', enforcePolicy('places'), async (req, res) => {
+  try {
+    const { lat, lng, q, radius, category } = req.query;
+    if (!lat || !lng) {
+      return res.status(400).json({ error: 'lat and lng are required' });
+    }
+
+    const query = q || (category && category !== 'all' ? category : 'points of interest');
+    const searchRadius = parseInt(radius || '15000', 10);
+    
+    const url = new URL('https://maps.googleapis.com/maps/api/place/textsearch/json');
+    url.searchParams.set('query', query);
+    url.searchParams.set('location', `${lat},${lng}`);
+    url.searchParams.set('radius', String(searchRadius));
+    url.searchParams.set('key', process.env.GOOGLE_PLACES_API_KEY);
+
+    const response = await fetch(url.toString());
+    if (!response.ok) {
+      throw new Error(`API error: ${response.status}`);
+    }
+
+    const data = await response.json();
+    if (data.status !== 'OK') {
+      if (data.status === 'ZERO_RESULTS') {
+        return res.json([]);
+      }
+      throw new Error(`API status: ${data.status}`);
+    }
+
+    const places = normalizeAndFilter(data.results, lat, lng, searchRadius, { enforceRadius: true, sortByDistance: true }).slice(0, 60);
+    
+    recordUsage({ api: 'places', action: 'mobile_nearby', status: 'success' });
+    res.json(places);
+  } catch (error) {
+    recordUsage({ api: 'places', action: 'mobile_nearby', status: 'error', meta: { err: error?.message } });
+    res.status(500).json({ error: 'Failed to fetch mobile places', details: error?.message });
+  }
+});
+
+// Mobile-optimized places sections
+app.get('/api/places/mobile/sections', enforcePolicy('places'), async (req, res) => {
+  try {
+    const { lat, lng } = req.query;
+    if (!lat || !lng) {
+      return res.status(400).json({ error: 'lat and lng are required' });
+    }
+
+    const sections = [
+      { title: 'Nearby Restaurants', category: 'food', places: [] },
+      { title: 'Must-See Attractions', category: 'landmarks', places: [] },
+      { title: 'Local Culture', category: 'culture', places: [] }
+    ];
+
+    for (const section of sections) {
+      try {
+        const query = section.category === 'food' ? 'restaurants' : 
+                     section.category === 'landmarks' ? 'attractions' : 'museums';
+        const url = new URL('https://maps.googleapis.com/maps/api/place/textsearch/json');
+        url.searchParams.set('query', query);
+        url.searchParams.set('location', `${lat},${lng}`);
+        url.searchParams.set('radius', '8000');
+        url.searchParams.set('key', process.env.GOOGLE_PLACES_API_KEY);
+
+        const response = await fetch(url.toString());
+        if (response.ok) {
+          const data = await response.json();
+          if (data.status === 'OK') {
+            section.places = normalizeAndFilter(data.results, lat, lng, 8000, { enforceRadius: true, sortByDistance: true }).slice(0, 4);
+          }
+        }
+      } catch (error) {
+        console.warn(`Mobile section ${section.category} failed:`, error.message);
+      }
+    }
+
+    recordUsage({ api: 'places', action: 'mobile_sections', status: 'success' });
+    res.json(sections.filter(s => s.places.length > 0));
+  } catch (error) {
+    recordUsage({ api: 'places', action: 'mobile_sections', status: 'error', meta: { err: error?.message } });
+    res.status(500).json({ error: 'Failed to fetch mobile sections', details: error?.message });
+  }
+});
+
+// Places search endpoint
+app.get('/api/places/search', enforcePolicy('places'), async (req, res) => {
+  try {
+    const { query, lat, lng, radius } = req.query;
+    if (!query || !lat || !lng) {
+      return res.status(400).json({ error: 'query, lat, and lng are required' });
+    }
+
+    const searchRadius = parseInt(radius || '20000', 10);
+    const url = new URL('https://maps.googleapis.com/maps/api/place/textsearch/json');
+    url.searchParams.set('query', query);
+    url.searchParams.set('location', `${lat},${lng}`);
+    url.searchParams.set('radius', String(searchRadius));
+    url.searchParams.set('key', process.env.GOOGLE_PLACES_API_KEY);
+
+    const response = await fetch(url.toString());
+    if (!response.ok) {
+      throw new Error(`API error: ${response.status}`);
+    }
+
+    const data = await response.json();
+    if (data.status !== 'OK') {
+      if (data.status === 'ZERO_RESULTS') {
+        return res.json([]);
+      }
+      throw new Error(`API status: ${data.status}`);
+    }
+
+    const places = normalizeAndFilter(data.results, lat, lng, searchRadius, { enforceRadius: true, sortByDistance: true }).slice(0, 50);
+    
+    recordUsage({ api: 'places', action: 'search', status: 'success', meta: { query } });
+    res.json(places);
+  } catch (error) {
+    recordUsage({ api: 'places', action: 'search', status: 'error', meta: { err: error?.message } });
+    res.status(500).json({ error: 'Failed to search places', details: error?.message });
+  }
+});
+
 // Places API proxy - fetch factual places from Google Places Text Search
 app.get('/api/places/nearby', enforcePolicy('places'), async (req, res) => {
   try {
@@ -1653,8 +1846,8 @@ app.get('/api/places/nearby', enforcePolicy('places'), async (req, res) => {
 
   setPlacesCache(key, normalized);
   recordUsage({ api: 'places', action: 'nearby', status: 'success', durationMs: Date.now() - start, meta: { cache: 'set' } });
-  const limit = req._policy?.features?.resultsPerSearch;
-  const sendList = (limit && Number.isFinite(limit)) ? normalized.slice(0, limit) : normalized;
+  const limit = req._policy?.features?.resultsPerSearch || 150;
+  const sendList = normalized.slice(0, limit);
   res.json(sendList);
   } catch (error) {
     recordUsage({ api: 'places', action: 'nearby', status: 'error', meta: { err: error?.message || String(error) } });
@@ -1663,7 +1856,7 @@ app.get('/api/places/nearby', enforcePolicy('places'), async (req, res) => {
 });
 
 // Users
-app.post('/api/users', async (req, res) => {
+app.post('/api/users', asyncHandler(async (req, res) => {
   try {
   const { username, email, firebaseUid, ...rest } = req.body || {};
   if (!username && !email) {
@@ -1694,13 +1887,13 @@ app.post('/api/users', async (req, res) => {
       return res.json(existing);
     }
 
-  const user = new User({ username, email, firebaseUid, ...rest });
+    const user = new User({ username, email, firebaseUid, ...rest });
     await user.save();
     res.json(user);
   } catch (error) {
     res.status(400).json({ error: error.message });
   }
-});
+}));
 
 app.get('/api/users', async (req, res) => {
   try {
@@ -1809,7 +2002,7 @@ app.get('/api/users/:id/invoices', async (req, res) => {
   }
 });
 
-app.put('/api/users/:id', async (req, res) => {
+app.put('/api/users/:id', authenticateJWT, asyncHandler(async (req, res) => {
   try {
     // Diagnostic logging: show incoming body for debugging subscription persistence
     console.log('[PUT /api/users/:id] incoming body:', { id: req.params.id, body: req.body, ip: req.ip || req.headers['x-forwarded-for'] || req.connection?.remoteAddress });
@@ -1841,7 +2034,7 @@ app.put('/api/users/:id', async (req, res) => {
   } catch (error) {
     res.status(400).json({ error: error.message });
   }
-});
+}));
 
 // Profile picture upload
 app.put('/api/users/:id/profile-picture', async (req, res) => {
@@ -1899,7 +2092,7 @@ app.put('/api/users/:id/travel-style', async (req, res) => {
 });
 
 // Posts with automated moderation
-app.post('/api/posts', async (req, res) => {
+app.post('/api/posts', authenticateJWT, asyncHandler(async (req, res) => {
   try {
     const body = req.body || {};
     
@@ -1916,7 +2109,7 @@ app.post('/api/posts', async (req, res) => {
   } catch (error) {
     res.status(400).json({ error: error.message });
   }
-});
+}));
 
 app.get('/api/posts', async (req, res) => {
   try {
@@ -2091,7 +2284,7 @@ app.put('/api/posts/:id', async (req, res) => {
 });
 
 // Reviews
-app.post('/api/reviews', async (req, res) => {
+app.post('/api/reviews', authenticateJWT, asyncHandler(async (req, res) => {
   try {
     const { place_id, rating, text, author_name } = req.body;
     
@@ -2113,7 +2306,7 @@ app.post('/api/reviews', async (req, res) => {
   } catch (error) {
     res.status(400).json({ error: error.message });
   }
-});
+}));
 
 // Get reviews by place ID
 app.get('/api/reviews', async (req, res) => {
@@ -2139,7 +2332,7 @@ app.get('/api/reviews', async (req, res) => {
 
 
 // Trip Plans
-app.post('/api/trips', async (req, res) => {
+app.post('/api/trips', authenticateJWT, asyncHandler(async (req, res) => {
   try {
     const trip = new TripPlan(req.body);
     await trip.save();
@@ -2147,7 +2340,7 @@ app.post('/api/trips', async (req, res) => {
   } catch (error) {
     res.status(400).json({ error: error.message });
   }
-});
+}));
 
 // Trip Plans API alias for mobile app
 app.post('/api/trip-plans', async (req, res) => {
@@ -2379,7 +2572,7 @@ app.delete('/api/reviews/:id', async (req, res) => {
 });
 
 // Deals
-app.get('/api/deals', async (req, res) => {
+app.get('/api/deals', asyncHandler(async (req, res) => {
   try {
     const { businessType, isActive, limit = '50', merchantId } = req.query;
     
@@ -2416,9 +2609,9 @@ app.get('/api/deals', async (req, res) => {
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
-});
+}));
 
-app.post('/api/deals', async (req, res) => {
+app.post('/api/deals', authenticateJWT, asyncHandler(async (req, res) => {
   try {
     const deal = new Deal(req.body);
     await deal.save();
@@ -2426,7 +2619,7 @@ app.post('/api/deals', async (req, res) => {
   } catch (error) {
     res.status(400).json({ error: error.message });
   }
-});
+}));
 
 app.put('/api/deals/:id', async (req, res) => {
   try {
@@ -3002,8 +3195,8 @@ app.get('/api/weather/test-real', async (req, res) => {
     }
 
     // Test with New York coordinates
-    const testLat = 40.7128;
-    const testLng = -74.0060;
+    const testLat = parseFloat(process.env.TEST_LATITUDE || '40.7128');
+    const testLng = parseFloat(process.env.TEST_LONGITUDE || '-74.0060');
     const url = `https://api.openweathermap.org/data/2.5/weather?lat=${testLat}&lon=${testLng}&appid=${weatherKey}&units=metric`;
     
     const response = await fetch(url);
@@ -3081,9 +3274,9 @@ app.get('/api/places/photo', enforcePolicy('places'), async (req, res) => {
     res.setHeader('Content-Type', contentType);
     // Stream the image
     upstream.body.pipe(res);
-  recordUsage({ api: 'places', action: 'photo', status: 'success', durationMs: Date.now() - start });
+    recordUsage({ api: 'places', action: 'photo', status: 'success', durationMs: Date.now() - start });
   } catch (err) {
-  recordUsage({ api: 'places', action: 'photo', status: 'error', meta: { err: err?.message || String(err) } });
+    recordUsage({ api: 'places', action: 'photo', status: 'error', meta: { err: err?.message || String(err) } });
     res.status(500).json({ error: 'Failed to fetch place photo', details: err?.message || String(err) });
   }
 });
@@ -3095,7 +3288,173 @@ if (ENABLE_FIREBASE_AUTH && !adminAuth) {
   console.warn('Firebase Admin not configured. Set FIREBASE_ADMIN_CREDENTIALS_BASE64, FIREBASE_ADMIN_CREDENTIALS_JSON, or GOOGLE_APPLICATION_CREDENTIALS to enable auth verification.');
 }
 
+// Authentication endpoints for frontend
+app.post('/api/auth/register', async (req, res) => {
+  try {
+    const { username, email, password } = req.body;
+    
+    if (!username || !email || !password) {
+      return res.status(400).json({ error: 'Username, email, and password are required' });
+    }
+
+    // Check if user already exists
+    const existingUser = await User.findOne({ 
+      $or: [{ email }, { username }] 
+    });
+    
+    if (existingUser) {
+      return res.status(400).json({ error: 'User already exists with this email or username' });
+    }
+
+    // Create new user (password would be hashed in production)
+    const user = new User({
+      username,
+      email,
+      // In production, hash the password with bcrypt
+      // password: await bcrypt.hash(password, 10)
+    });
+    
+    await user.save();
+    
+    // Generate a simple token (use JWT in production)
+    const token = Buffer.from(`${user._id}:${Date.now()}`).toString('base64');
+    
+    res.json({
+      success: true,
+      user: {
+        id: user._id,
+        username: user.username,
+        email: user.email,
+        tier: user.tier,
+        profilePicture: user.profilePicture
+      },
+      token
+    });
+  } catch (error) {
+    res.status(500).json({ error: 'Registration failed', details: error.message });
+  }
+});
+
 app.post('/api/auth/login', async (req, res) => {
+  try {
+    const { email, password } = req.body;
+    
+    if (!email || !password) {
+      return res.status(400).json({ error: 'Email and password are required' });
+    }
+
+    // Find user by email
+    const user = await User.findOne({ email });
+    
+    if (!user) {
+      return res.status(401).json({ error: 'Invalid credentials' });
+    }
+
+    // In production, verify password with bcrypt
+    // const isValidPassword = await bcrypt.compare(password, user.password);
+    // if (!isValidPassword) {
+    //   return res.status(401).json({ error: 'Invalid credentials' });
+    // }
+    
+    // For now, accept any password (development only)
+    
+    // Generate a simple token (use JWT in production)
+    const token = Buffer.from(`${user._id}:${Date.now()}`).toString('base64');
+    
+    res.json({
+      success: true,
+      user: {
+        id: user._id,
+        username: user.username,
+        email: user.email,
+        tier: user.tier,
+        profilePicture: user.profilePicture
+      },
+      token
+    });
+  } catch (error) {
+    res.status(500).json({ error: 'Login failed', details: error.message });
+  }
+});
+
+// Get user profile endpoint
+app.get('/api/auth/profile', async (req, res) => {
+  try {
+    const authHeader = req.headers['authorization'] || '';
+    const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
+    
+    if (!token) {
+      return res.status(401).json({ error: 'No token provided' });
+    }
+
+    // Decode simple token (use JWT verification in production)
+    const decoded = Buffer.from(token, 'base64').toString('utf8');
+    const [userId] = decoded.split(':');
+    
+    const user = await User.findById(userId);
+    
+    if (!user) {
+      return res.status(401).json({ error: 'Invalid token' });
+    }
+
+    res.json({
+      success: true,
+      user: {
+        id: user._id,
+        username: user.username,
+        email: user.email,
+        tier: user.tier,
+        profilePicture: user.profilePicture
+      }
+    });
+  } catch (error) {
+    res.status(401).json({ error: 'Invalid token', details: error.message });
+  }
+});
+
+// Update user profile endpoint
+app.put('/api/auth/profile', async (req, res) => {
+  try {
+    const authHeader = req.headers['authorization'] || '';
+    const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
+    
+    if (!token) {
+      return res.status(401).json({ error: 'No token provided' });
+    }
+
+    // Decode simple token (use JWT verification in production)
+    const decoded = Buffer.from(token, 'base64').toString('utf8');
+    const [userId] = decoded.split(':');
+    
+    const { username, email } = req.body;
+    
+    const user = await User.findByIdAndUpdate(
+      userId,
+      { $set: { username, email } },
+      { new: true }
+    );
+    
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    res.json({
+      success: true,
+      user: {
+        id: user._id,
+        username: user.username,
+        email: user.email,
+        tier: user.tier,
+        profilePicture: user.profilePicture
+      }
+    });
+  } catch (error) {
+    res.status(500).json({ error: 'Profile update failed', details: error.message });
+  }
+});
+
+// Legacy Firebase auth endpoint (keeping for compatibility)
+app.post('/api/auth/firebase-login', async (req, res) => {
   try {
     const authHeader = req.headers['authorization'] || '';
     const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
@@ -3819,15 +4178,49 @@ app.put('/api/business/profile', async (req, res) => {
   }
 });
 
+// User profile routes
+/*try {
+  const usersRouter = (await import('./routes/users.js')).default;
+  app.use('/api/users', usersRouter);
+  console.log('✅ User profile routes loaded');
+} catch (error) {
+  console.error('❌ Failed to load user routes:', error);
+}
+
 // Merchant routes
-app.use('/api/merchants', (await import('./routes/merchants.js')).default);
+try {
+  const merchantsRouter = (await import('./routes/merchants.js')).default;
+  app.use('/api/merchants', merchantsRouter);
+  console.log('✅ Merchants routes loaded');
+} catch (error) {
+  console.error('❌ Failed to load merchants routes:', error);
+}
 
 // Role management routes
-app.use('/api/roles', (await import('./routes/roles.js')).default);
+try {
+  const rolesRouter = (await import('./routes/roles.js')).default;
+  app.use('/api/roles', rolesRouter);
+  console.log('✅ Roles routes loaded');
+} catch (error) {
+  console.error('❌ Failed to load roles routes:', error);
+}
 
 // Service Provider routes
-app.use('/api/services', (await import('./routes/services.js')).default);
-app.use('/api/bookings', (await import('./routes/bookings.js')).default);
+try {
+  const servicesRouter = (await import('./routes/services.js')).default;
+  app.use('/api/services', servicesRouter);
+  console.log('✅ Services routes loaded');
+} catch (error) {
+  console.error('❌ Failed to load services routes:', error);
+}
+
+try {
+  const bookingsRouter = (await import('./routes/bookings.js')).default;
+  app.use('/api/bookings', bookingsRouter);
+  console.log('✅ Bookings routes loaded');
+} catch (error) {
+  console.error('❌ Failed to load bookings routes:', error);
+}
 
 // Admin routes
 try {
@@ -3845,78 +4238,56 @@ try {
   console.log('✅ Deals routes loaded');
 } catch (error) {
   console.error('❌ Failed to load deals routes:', error);
+}*/
+
+
+
+// Serve admin dashboard from admin folder
+const adminPath = path.join(__dirname, '../admin/dist');
+if (existsSync(adminPath)) {
+  console.log('✅ Admin dashboard found at:', adminPath);
+  app.use('/admin', express.static(adminPath, {
+    maxAge: '1d',
+    etag: false,
+    index: 'index.html'
+  }));
+  
+  // Handle admin SPA routing
+  app.get('/admin/*', (req, res) => {
+    res.sendFile(path.join(adminPath, 'index.html'));
+  });
+} else {
+  console.warn('❌ Admin dashboard not found at:', adminPath);
 }
 
-
-
-// Handle static assets explicitly before catch-all
-app.get(/.*\.js$/, (req, res, next) => {
-  if (finalStaticPath) {
-    const filePath = path.join(finalStaticPath, req.path);
-    if (existsSync(filePath)) {
-      res.setHeader('Content-Type', 'application/javascript');
-      return res.sendFile(filePath);
-    }
-  }
-  res.status(404).send('File not found');
-});
-
-app.get(/.*\.css$/, (req, res, next) => {
-  if (finalStaticPath) {
-    const filePath = path.join(finalStaticPath, req.path);
-    if (existsSync(filePath)) {
-      res.setHeader('Content-Type', 'text/css');
-      return res.sendFile(filePath);
-    }
-  }
-  res.status(404).send('File not found');
-});
-
-app.get(/.*\.json$/, (req, res, next) => {
-  if (finalStaticPath) {
-    const filePath = path.join(finalStaticPath, req.path);
-    if (existsSync(filePath)) {
-      res.setHeader('Content-Type', 'application/json');
-      return res.sendFile(filePath);
-    }
-  }
-  res.status(404).send('File not found');
-});
-
-// Serve React app (only for non-API routes)
-app.use((req, res, next) => {
-  if (req.path.startsWith('/api')) {
-    return res.status(404).json({ error: 'API endpoint not found' });
+// Serve React app (catch-all for SPA routing)
+app.get('*', (req, res) => {
+  // Skip API routes and static assets
+  if (req.path.startsWith('/api') || 
+      req.path.startsWith('/admin') ||
+      req.path.includes('.')) {
+    return res.status(404).json({ error: 'Not found' });
   }
   
-  const indexPath = path.join(__dirname, '../dist/index.html');
-  const altIndexPath = path.join(process.cwd(), 'dist/index.html');
-  const wwwrootIndexPath = path.join('/home/site/wwwroot/dist/index.html');
-  const siteIndexPath = path.join('/home/site/dist/index.html');
+  // Serve index.html for SPA routing
+  const indexPaths = [
+    staticPath ? path.join(staticPath, 'index.html') : null,
+    path.join(__dirname, '../dist/index.html'),
+    path.join(__dirname, '../frontend/dist/index.html')
+  ].filter(Boolean);
   
-  console.log('Trying index.html from:', indexPath);
-  console.log('Alt index.html from:', altIndexPath);
-  console.log('Wwwroot index.html from:', wwwrootIndexPath);
-  console.log('Site index.html from:', siteIndexPath);
-  
-  // Check all possible paths, prioritizing Azure paths
-  if (existsSync(wwwrootIndexPath)) {
-    console.log('Serving from wwwroot path');
-    res.sendFile(wwwrootIndexPath);
-  } else if (existsSync(siteIndexPath)) {
-    console.log('Serving from site path');
-    res.sendFile(siteIndexPath);
-  } else if (existsSync(indexPath)) {
-    console.log('Serving from backend relative path');
-    res.sendFile(indexPath);
-  } else if (existsSync(altIndexPath)) {
-    console.log('Serving from cwd path');
-    res.sendFile(altIndexPath);
-  } else {
-    console.error('index.html not found at any of:', wwwrootIndexPath, siteIndexPath, indexPath, altIndexPath);
-    res.status(404).send('Application not built. Please run npm run build.');
+  for (const indexPath of indexPaths) {
+    if (existsSync(indexPath)) {
+      return res.sendFile(indexPath);
+    }
   }
+  
+  res.status(404).send('Frontend not built. Please run npm run build.');
 });
+
+// Error handling middleware (must be last)
+app.use(notFoundHandler);
+app.use(errorHandler);
 
 httpServer.listen(PORT, () => {
   const protocol = process.env.ENABLE_HTTPS === 'true' ? 'https' : 'http';

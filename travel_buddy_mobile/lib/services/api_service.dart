@@ -265,15 +265,28 @@ class ApiService {
     }
   }
 
-  Future<CurrentUser?> createUser(Map<String, dynamic> userData) async {
+  Future<Map<String, dynamic>?> createUser(Map<String, dynamic> userData) async {
     try {
       final response = await _dio.post('/api/users', data: userData);
-      if (response.statusCode == 201) {
-        return CurrentUser.fromJson(response.data);
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        return Map<String, dynamic>.from(response.data);
       }
       return null;
     } catch (e) {
       print('Error creating user: $e');
+      return null;
+    }
+  }
+  
+  Future<Map<String, dynamic>?> getUserByFirebaseUid(String firebaseUid) async {
+    try {
+      final response = await _dio.get('/api/users/$firebaseUid');
+      if (response.statusCode == 200) {
+        return Map<String, dynamic>.from(response.data);
+      }
+      return null;
+    } catch (e) {
+      print('Error getting user by Firebase UID: $e');
       return null;
     }
   }

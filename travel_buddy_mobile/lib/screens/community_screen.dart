@@ -109,11 +109,6 @@ class _CommunityScreenState extends State<CommunityScreen> {
           onRefresh: () => communityProvider.loadPosts(refresh: true, context: context),
           child: CustomScrollView(
             slivers: [
-              // Stories Section
-              const SliverToBoxAdapter(
-                child: InstagramStories(),
-              ),
-              
               // Posts List
               if (communityProvider.isLoading && communityProvider.posts.isEmpty)
                 const SliverFillRemaining(

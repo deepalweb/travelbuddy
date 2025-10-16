@@ -212,4 +212,174 @@ router.get('/business/analytics', async (req, res) => {
   }
 });
 
+// User role management endpoints
+router.get('/users', async (req, res) => {
+  try {
+    const User = mongoose.model('User');
+    const { page = 1, limit = 20, role, search } = req.query;
+    
+    const query = {};
+    if (role && role !== 'all') query.role = role;
+    if (search) {
+      query.$or = [
+        { username: { $regex: search, $options: 'i' } },
+        { email: { $regex: search, $options: 'i' } }
+      ];
+    }
+    
+    const users = await User.find(query)
+      .select('username email role tier subscriptionStatus isVerified createdAt')
+      .sort({ createdAt: -1 })
+      .limit(limit * 1)
+      .skip((page - 1) * limit);
+    
+    const total = await User.countDocuments(query);
+    
+    res.json({
+      users,
+      pagination: {
+        current: parseInt(page),
+        pages: Math.ceil(total / limit),
+        total
+      }
+    });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to fetch users' });
+  }
+});
+
+// Update user role
+router.put('/users/:userId/role', async (req, res) => {
+  try {
+    const User = mongoose.model('User');
+    const { userId } = req.params;
+    const { role, reason } = req.body;
+    
+    if (!['regular', 'merchant', 'agent', 'admin'].includes(role)) {
+      return res.status(400).json({ error: 'Invalid role' });
+    }
+    
+    const user = await User.findByIdAndUpdate(
+      userId,
+      { 
+        role,
+        $push: {
+          roleHistory: {
+            role,
+            changedBy: 'admin',
+            reason: reason || 'Admin assignment',
+            changedAt: new Date()
+          }
+        }
+      },
+      { new: true }
+    );
+    
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    
+    res.json({ 
+      success: true, 
+      user: {
+        id: user._id,
+        username: user.username,
+        email: user.email,
+        role: user.role
+      }
+    });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to update user role' });
+  }
+});
+
+// Bulk role assignment
+router.put('/users/bulk-role', async (req, res) => {
+  try {
+    const User = mongoose.model('User');
+    const { userIds, role, reason } = req.body;
+    
+    if (!Array.isArray(userIds) || userIds.length === 0) {
+      return res.status(400).json({ error: 'User IDs array required' });
+    }
+    
+    if (!['regular', 'merchant', 'agent', 'admin'].includes(role)) {
+      return res.status(400).json({ error: 'Invalid role' });
+    }
+    
+    const result = await User.updateMany(
+      { _id: { $in: userIds } },
+      { 
+        role,
+        $push: {
+          roleHistory: {
+            role,
+            changedBy: 'admin',
+            reason: reason || 'Bulk admin assignment',
+            changedAt: new Date()
+          }
+        }
+      }
+    );
+    
+    res.json({ 
+      success: true, 
+      updated: result.modifiedCount,
+      message: `Updated ${result.modifiedCount} users to ${role} role`
+    });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to bulk update user roles' });
+  }
+});
+
+// Get user role history
+router.get('/users/:userId/role-history', async (req, res) => {
+  try {
+    const User = mongoose.model('User');
+    const user = await User.findById(req.params.userId)
+      .select('username email role roleHistory');
+    
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    
+    res.json({
+      user: {
+        username: user.username,
+        email: user.email,
+        currentRole: user.role
+      },
+      history: user.roleHistory || []
+    });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to fetch role history' });
+  }
+});
+
+// Get role statistics
+router.get('/roles/stats', async (req, res) => {
+  try {
+    const User = mongoose.model('User');
+    
+    const roleStats = await User.aggregate([
+      { $group: { _id: '$role', count: { $sum: 1 } } },
+      { $sort: { count: -1 } }
+    ]);
+    
+    const totalUsers = await User.countDocuments();
+    
+    const stats = {
+      total: totalUsers,
+      byRole: roleStats.reduce((acc, stat) => {
+        acc[stat._id || 'regular'] = stat.count;
+        return acc;
+      }, {})
+    };
+    
+    res.json(stats);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to fetch role statistics' });
+  }
+});
+
 export default router;

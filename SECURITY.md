@@ -1,67 +1,110 @@
-# Security Implementation Guide
+# Security Configuration Guide
 
-## ✅ **Resolved Security Issues**
+## 🔒 Environment Variables Setup
 
-### **1. API Key Protection**
-- **BEFORE**: API keys exposed in client-side code and environment files
-- **AFTER**: All API keys secured server-side only with proxy endpoints
+### 1. Backend Configuration
+Copy `backend/.env.template` to `backend/.env` and fill in your actual values:
 
-### **2. Image Security**
-- **BEFORE**: Direct Google Places photo URLs exposed API keys
-- **AFTER**: Secure image proxy with signed URLs and caching
-
-### **3. Client Authentication**
-- **BEFORE**: No client validation for API access
-- **AFTER**: Client key authentication with rate limiting
-
-## 🔧 **Implementation Details**
-
-### **Backend Security**
-```javascript
-// Secure image proxy with signed URLs
-GET /api/images/proxy?ref={photo_ref}&w={width}&h={height}&t={timestamp}&s={signature}
-
-// Client authentication required
-headers: { 'X-Client-Key': 'your_client_key' }
-```
-
-### **Environment Variables**
 ```bash
-# Server-side only (NEVER expose to client)
-GOOGLE_PLACES_API_KEY=your_key_here
-AZURE_OPENAI_API_KEY=your_key_here
-IMAGE_PROXY_SECRET=your_secret_here
-VALID_CLIENT_KEYS=key1,key2,key3
+cp backend/.env.template backend/.env
 ```
 
-### **Mobile App Changes**
-- Removed hardcoded API keys
-- Added client authentication
-- Uses secure image proxy URLs
-- All API calls go through backend proxy
+### 2. Required API Keys & Credentials
 
-## 🛡️ **Security Features**
+#### Google APIs
+- **Google Places API Key**: Get from [Google Cloud Console](https://console.cloud.google.com/)
+- **Google Maps API Key**: Same as Places API or separate key
+- Enable APIs: Places API, Maps JavaScript API, Geocoding API
 
-1. **Signed URLs**: Image URLs expire after 1 hour
-2. **Rate Limiting**: 100 requests per 15 minutes per IP
-3. **Client Authentication**: Valid client keys required
-4. **Image Caching**: Reduces API calls and improves performance
-5. **Secure Headers**: XSS protection, content type sniffing prevention
+#### Firebase
+- **Project Configuration**: Get from Firebase Console > Project Settings
+- **Service Account**: Download JSON from Firebase Console > Service Accounts
+- **Mobile App**: Use `google-services.json.template` for Android
 
-## 📋 **Deployment Checklist**
+#### Azure OpenAI
+- **Endpoint**: Your Azure OpenAI resource endpoint
+- **API Key**: From Azure Portal > Your OpenAI Resource > Keys
+- **Deployment**: Your GPT model deployment name
 
-- [ ] Set all environment variables on server
-- [ ] Generate secure IMAGE_PROXY_SECRET
-- [ ] Configure VALID_CLIENT_KEYS
-- [ ] Remove any hardcoded keys from client code
-- [ ] Test image proxy functionality
-- [ ] Verify rate limiting works
-- [ ] Check client authentication
+#### Database
+- **MongoDB**: Connection string from MongoDB Atlas or your MongoDB instance
 
-## 🔄 **Migration Steps**
+#### Third-party Services
+- **Unsplash**: For image services (optional)
+- **PayPal**: For payment processing (optional)
 
-1. Deploy backend with new security middleware
-2. Update mobile app to use client authentication
-3. Replace direct image URLs with proxy URLs
-4. Remove hardcoded API keys from all client code
-5. Test all functionality with new security measures
+### 3. Security Best Practices
+
+#### Environment Files
+- ✅ Never commit `.env` files to version control
+- ✅ Use `.env.template` for documentation
+- ✅ Rotate API keys regularly
+- ✅ Use different keys for development/production
+
+#### API Key Security
+- ✅ Restrict API keys by domain/IP in provider consoles
+- ✅ Enable only required APIs/services
+- ✅ Monitor API usage for anomalies
+- ✅ Use environment-specific keys
+
+#### Firebase Security
+- ✅ Configure Firebase Security Rules
+- ✅ Use service account for backend
+- ✅ Restrict client SDK permissions
+- ✅ Enable App Check for production
+
+### 4. Production Deployment
+
+#### Azure App Service
+Set environment variables in Azure Portal:
+1. Go to Configuration > Application Settings
+2. Add each environment variable
+3. Restart the app service
+
+#### Environment Variables Checklist
+- [ ] GOOGLE_PLACES_API_KEY
+- [ ] MONGO_URI
+- [ ] AZURE_OPENAI_API_KEY
+- [ ] AZURE_OPENAI_ENDPOINT
+- [ ] FIREBASE_ADMIN_CREDENTIALS_JSON
+- [ ] JWT_SECRET
+- [ ] ADMIN_API_KEY
+
+### 5. Mobile App Security
+
+#### Android
+- Use `google-services.json.template`
+- Configure Firebase App Check
+- Enable ProGuard for release builds
+- Use certificate pinning for API calls
+
+#### iOS
+- Use `GoogleService-Info.plist.template`
+- Configure App Transport Security
+- Enable code obfuscation
+- Implement jailbreak detection
+
+## 🚨 Security Issues Found
+
+The following security vulnerabilities were identified and need immediate attention:
+
+### Critical Issues
+1. **Hardcoded Credentials**: API keys exposed in source code
+2. **Missing Authentication**: API endpoints without proper auth
+3. **CSRF Vulnerabilities**: Missing CSRF protection
+4. **XSS Vulnerabilities**: Unescaped user input
+5. **Path Traversal**: Unsafe file operations
+
+### Immediate Actions Required
+1. Move all credentials to environment variables
+2. Implement proper authentication middleware
+3. Add CSRF tokens to forms
+4. Sanitize all user inputs
+5. Validate file paths and operations
+
+## 📞 Security Contact
+
+For security issues, please contact:
+- Email: security@travelbuddy.com
+- Create private GitHub issue
+- Follow responsible disclosure practices

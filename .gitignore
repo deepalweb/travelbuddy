@@ -1,70 +1,153 @@
-# Dependencies
-node_modules/
-*/node_modules/
-
-# Environment variables
-.env
+# Environment variables - CRITICAL SECURITY
 .env.local
 .env.production
 .env.development
+backend/.env.local
+frontend/.env.local
+admin/.env.local
+
+# Firebase credentials - CRITICAL SECURITY
+google-services.json
+GoogleService-Info.plist
+service-account.json
+firebase-credentials.json
+**/google-services.json
+**/GoogleService-Info.plist
+
+# API Keys and Secrets - CRITICAL SECURITY
+**/credentials/
+**/.credentials/
+**/secrets/
+**/.secrets/
+*.key
+*.pem
+*.p12
+*.pfx
+
+# Dependencies
+node_modules/
+**/node_modules/
 
 # Build outputs
-build/
 dist/
-*/build/
-*/dist/
+build/
+**/dist/
+**/build/
+out/
 
-# Flutter
-travel_buddy_mobile/.dart_tool/
-travel_buddy_mobile/.flutter-plugins
-travel_buddy_mobile/.flutter-plugins-dependencies
-travel_buddy_mobile/.packages
-travel_buddy_mobile/build/
-travel_buddy_mobile/ios/Pods/
-travel_buddy_mobile/ios/.symlinks/
-travel_buddy_mobile/ios/Flutter/Flutter.framework
-travel_buddy_mobile/ios/Flutter/Flutter.podspec
-travel_buddy_mobile/ios/Runner.xcworkspace/
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
 
-# Android
-travel_buddy_mobile/android/.gradle/
-travel_buddy_mobile/android/captures/
-travel_buddy_mobile/android/gradlew
-travel_buddy_mobile/android/gradlew.bat
-travel_buddy_mobile/android/local.properties
-travel_buddy_mobile/android/app/debug/
-travel_buddy_mobile/android/app/profile/
-travel_buddy_mobile/android/app/release/
+# Runtime data
+pids
+*.pid
+*.seed
+*.pid.lock
 
-# IDE
+# Coverage directory
+coverage/
+*.lcov
+
+# Temporary folders
+.tmp/
+temp/
+.temp/
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# IDE files
 .vscode/
 .idea/
 *.swp
 *.swo
 *~
 
-# Logs
-*.log
-logs/
+# Flutter/Dart
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+.pub-cache/
+.pub/
+build/
+flutter_*.png
+ios/Flutter/flutter_export_environment.sh
 
-# OS
-.DS_Store
-Thumbs.db
+# Android
+*.iml
+.gradle
+/local.properties
+/.idea/caches
+/.idea/libraries
+/.idea/modules.xml
+/.idea/workspace.xml
+/.idea/navEditor.xml
+/.idea/assetWizardSettings.xml
+.externalNativeBuild
+.cxx
+local.properties
+android/app/debug
+android/app/profile
+android/app/release
 
-# Sensitive files
-*.jks
-*.p8
-*.p12
-*.key
-*.mobileprovision
-*.keystore
-key.properties
+# iOS
+**/ios/**/*.mode1v3
+**/ios/**/*.mode2v3
+**/ios/**/*.moved-aside
+**/ios/**/*.pbxuser
+**/ios/**/*.perspectivev3
+**/ios/**/DerivedData/
+**/ios/**/*.hmap
+**/ios/**/*.ipa
+**/ios/**/*.xcuserstate
+**/ios/.symlinks/
+**/ios/Flutter/App.framework
+**/ios/Flutter/Flutter.framework
+**/ios/Flutter/Flutter.podspec
+**/ios/Flutter/Generated.xcconfig
+**/ios/Flutter/ephemeral/
+**/ios/Flutter/app.flx
+**/ios/Flutter/app.zip
+**/ios/Flutter/flutter_assets/
+**/ios/ServiceDefinitions.json
+**/ios/Runner/GeneratedPluginRegistrant.*
 
-# Firebase
-google-services.json
-GoogleService-Info.plist
-firebase-debug.log
+# Web
+**/web/flutter_service_worker.js
+**/web/manifest.json
 
-# Temporary files
-*.tmp
-*.temp
+# SSL Certificates
+ssl/
+*.crt
+*.cert
+*.ca-bundle
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+
+# Backup files
+*.bak
+*.backup
+*~
+
+# Cache
+.cache/
+*.cache
+
+# Package manager
+package-lock.json
+yarn.lock
+pnpm-lock.yaml

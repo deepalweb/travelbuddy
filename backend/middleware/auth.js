@@ -1,56 +1,63 @@
+import jwt from 'jsonwebtoken';
 import admin from 'firebase-admin';
 
-// Firebase ID token verification middleware
-export async function verifyFirebaseToken(req, res, next) {
+// JWT Authentication
+export const authenticateJWT = async (req, res, next) => {
   try {
-    const authHeader = req.headers['authorization'] || '';
-    const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
-    
+    const authHeader = req.headers.authorization;
+    const token = authHeader && authHeader.split(' ')[1];
+
     if (!token) {
-      return res.status(401).json({ error: 'Missing authorization token' });
+      return res.status(401).json({ error: 'Access token required' });
     }
 
-    // Skip verification if Firebase Admin not configured
-    if (!admin.apps.length) {
-      console.warn('Firebase Admin not configured, skipping token verification');
-      return next();
-    }
-
-    const decoded = await admin.auth().verifyIdToken(token);
-    req.user = {
-      uid: decoded.uid,
-      email: decoded.email,
-      name: decoded.name,
-      picture: decoded.picture
-    };
-    
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    req.user = decoded;
     next();
   } catch (error) {
-    console.error('Firebase token verification failed:', error.message);
     return res.status(403).json({ error: 'Invalid or expired token' });
   }
-}
+};
 
-// Optional auth middleware - allows requests without tokens
-export async function optionalAuth(req, res, next) {
+// Firebase Authentication
+export const authenticateFirebase = async (req, res, next) => {
   try {
-    const authHeader = req.headers['authorization'] || '';
-    const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
-    
-    if (token && admin.apps.length) {
-      const decoded = await admin.auth().verifyIdToken(token);
-      req.user = {
-        uid: decoded.uid,
-        email: decoded.email,
-        name: decoded.name,
-        picture: decoded.picture
-      };
+    const authHeader = req.headers.authorization;
+    const token = authHeader && authHeader.split(' ')[1];
+
+    if (!token) {
+      return res.status(401).json({ error: 'Firebase token required' });
     }
-    
+
+    const decodedToken = await admin.auth().verifyIdToken(token);
+    req.user = decodedToken;
     next();
   } catch (error) {
-    // Continue without auth if token is invalid
-    console.warn('Optional auth failed:', error.message);
-    next();
+    return res.status(403).json({ error: 'Invalid Firebase token' });
   }
-}
+};
+
+// Role-based authorization
+export const requireRole = (roles) => {
+  return (req, res, next) => {
+    if (!req.user) {
+      return res.status(401).json({ error: 'Authentication required' });
+    }
+
+    const userRole = req.user.role || 'user';
+    if (!roles.includes(userRole)) {
+      return res.status(403).json({ error: 'Insufficient permissions' });
+    }
+
+    next();
+  };
+};
+
+// Admin authentication
+export const requireAdmin = (req, res, next) => {
+  const adminKey = req.headers['x-admin-key'];
+  if (!adminKey || adminKey !== process.env.ADMIN_API_KEY) {
+    return res.status(403).json({ error: 'Admin access required' });
+  }
+  next();
+};

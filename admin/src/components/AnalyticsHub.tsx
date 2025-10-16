@@ -61,13 +61,18 @@ export default function AnalyticsHub() {
     try {
       setLoading(true)
       const [usage, subscriptions, costs, health] = await Promise.all([
-        apiService.getUsageStats(),
-        apiService.getSubscriptionAnalytics(),
-        apiService.getApiCosts(),
-        apiService.getSystemHealth()
+        apiService.getUsageStats().catch(() => ({ totals: { openai: { count: 0, success: 0, error: 0 }, maps: { count: 0, success: 0, error: 0 }, places: { count: 0, success: 0, error: 0 } }, events: [] })),
+        apiService.getSubscriptionAnalytics().catch(() => ({ totalUsers: 0, tierDistribution: {}, statusDistribution: {}, conversionRate: 0 })),
+        apiService.getApiCosts().catch(() => ({ totals: {}, projections: { dailyUSD: 0, monthlyUSD: 0 } })),
+        apiService.getSystemHealth().catch(() => ({ mongo: { connected: false } }))
       ])
       
-      setAnalytics({ usage, subscriptions, costs, health })
+      setAnalytics({ 
+        usage: usage || { totals: { openai: { count: 0, success: 0, error: 0 }, maps: { count: 0, success: 0, error: 0 }, places: { count: 0, success: 0, error: 0 } }, events: [] },
+        subscriptions: subscriptions || { totalUsers: 0, tierDistribution: {}, statusDistribution: {}, conversionRate: 0 },
+        costs: costs || { totals: {}, projections: { dailyUSD: 0, monthlyUSD: 0 } },
+        health: health || { mongo: { connected: false } }
+      })
     } catch (error) {
       console.error('Failed to fetch analytics:', error)
     } finally {
@@ -76,14 +81,14 @@ export default function AnalyticsHub() {
   }
 
   const getTotalApiCalls = () => {
-    const { openai, maps, places } = analytics.usage.totals
-    return openai.count + maps.count + places.count
+    const { openai, maps, places } = analytics.usage?.totals || { openai: { count: 0 }, maps: { count: 0 }, places: { count: 0 } }
+    return (openai?.count || 0) + (maps?.count || 0) + (places?.count || 0)
   }
 
   const getSuccessRate = () => {
-    const { openai, maps, places } = analytics.usage.totals
+    const { openai, maps, places } = analytics.usage?.totals || { openai: { success: 0 }, maps: { success: 0 }, places: { success: 0 } }
     const totalCalls = getTotalApiCalls()
-    const totalSuccess = openai.success + maps.success + places.success
+    const totalSuccess = (openai?.success || 0) + (maps?.success || 0) + (places?.success || 0)
     return totalCalls > 0 ? Math.round((totalSuccess / totalCalls) * 100) : 0
   }
 
@@ -107,8 +112,8 @@ export default function AnalyticsHub() {
             Real-time insights and performance metrics
           </p>
         </div>
-        <Badge variant={analytics.health.mongo.connected ? "default" : "destructive"}>
-          {analytics.health.mongo.connected ? 'Database Connected' : 'Database Offline'}
+        <Badge variant={analytics.health?.mongo?.connected ? "default" : "destructive"}>
+          {analytics.health?.mongo?.connected ? 'Database Connected' : 'Database Offline'}
         </Badge>
       </div>
 
@@ -133,9 +138,9 @@ export default function AnalyticsHub() {
             <Globe size={16} />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{analytics.usage.totals.openai.count.toLocaleString()}</div>
+            <div className="text-2xl font-bold">{(analytics.usage?.totals?.openai?.count || 0).toLocaleString()}</div>
             <p className="text-xs text-muted-foreground">
-              {analytics.usage.totals.openai.success} success, {analytics.usage.totals.openai.error} errors
+              {analytics.usage?.totals?.openai?.success || 0} success, {analytics.usage?.totals?.openai?.error || 0} errors
             </p>
           </CardContent>
         </Card>
@@ -146,9 +151,9 @@ export default function AnalyticsHub() {
             <Globe size={16} />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{analytics.usage.totals.maps.count.toLocaleString()}</div>
+            <div className="text-2xl font-bold">{(analytics.usage?.totals?.maps?.count || 0).toLocaleString()}</div>
             <p className="text-xs text-muted-foreground">
-              {analytics.usage.totals.maps.success} success, {analytics.usage.totals.maps.error} errors
+              {analytics.usage?.totals?.maps?.success || 0} success, {analytics.usage?.totals?.maps?.error || 0} errors
             </p>
           </CardContent>
         </Card>
@@ -159,9 +164,9 @@ export default function AnalyticsHub() {
             <Globe size={16} />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{analytics.usage.totals.places.count.toLocaleString()}</div>
+            <div className="text-2xl font-bold">{(analytics.usage?.totals?.places?.count || 0).toLocaleString()}</div>
             <p className="text-xs text-muted-foreground">
-              {analytics.usage.totals.places.success} success, {analytics.usage.totals.places.error} errors
+              {analytics.usage?.totals?.places?.success || 0} success, {analytics.usage?.totals?.places?.error || 0} errors
             </p>
           </CardContent>
         </Card>
@@ -179,15 +184,15 @@ export default function AnalyticsHub() {
           <CardContent className="space-y-4">
             <div className="flex justify-between items-center">
               <span className="text-sm text-muted-foreground">Daily Projected Cost</span>
-              <span className="font-semibold">${analytics.costs.projections.dailyUSD.toFixed(2)}</span>
+              <span className="font-semibold">${(analytics.costs?.projections?.dailyUSD || 0).toFixed(2)}</span>
             </div>
             <div className="flex justify-between items-center">
               <span className="text-sm text-muted-foreground">Monthly Projected Cost</span>
-              <span className="font-semibold">${analytics.costs.projections.monthlyUSD.toFixed(2)}</span>
+              <span className="font-semibold">${(analytics.costs?.projections?.monthlyUSD || 0).toFixed(2)}</span>
             </div>
             <div className="pt-4">
               <div className="text-sm text-muted-foreground mb-2">Cost Breakdown by API</div>
-              {Object.entries(analytics.costs.totals).map(([api, data]: [string, any]) => (
+              {Object.entries(analytics.costs?.totals || {}).map(([api, data]: [string, any]) => (
                 <div key={api} className="flex justify-between items-center py-1">
                   <span className="text-sm capitalize">{api}</span>
                   <span className="text-sm font-medium">${data.costUSD?.toFixed(4) || '0.0000'}</span>
@@ -207,18 +212,18 @@ export default function AnalyticsHub() {
           <CardContent className="space-y-4">
             <div className="flex justify-between items-center">
               <span className="text-sm text-muted-foreground">Total Users</span>
-              <span className="font-semibold">{analytics.subscriptions.totalUsers}</span>
+              <span className="font-semibold">{analytics.subscriptions?.totalUsers || 0}</span>
             </div>
             <div className="flex justify-between items-center">
               <span className="text-sm text-muted-foreground">Conversion Rate</span>
-              <span className="font-semibold">{analytics.subscriptions.conversionRate}%</span>
+              <span className="font-semibold">{analytics.subscriptions?.conversionRate || 0}%</span>
             </div>
             
             <div className="space-y-3">
               <div className="text-sm text-muted-foreground">Subscription Tiers</div>
-              {Object.entries(analytics.subscriptions.tierDistribution).map(([tier, count]) => {
-                const percentage = analytics.subscriptions.totalUsers > 0 
-                  ? (count / analytics.subscriptions.totalUsers * 100) 
+              {Object.entries(analytics.subscriptions?.tierDistribution || {}).map(([tier, count]) => {
+                const percentage = (analytics.subscriptions?.totalUsers || 0) > 0 
+                  ? (count / (analytics.subscriptions?.totalUsers || 1) * 100) 
                   : 0
                 return (
                   <div key={tier} className="space-y-2">
@@ -245,7 +250,7 @@ export default function AnalyticsHub() {
         </CardHeader>
         <CardContent>
           <div className="space-y-3">
-            {analytics.usage.events.slice(0, 10).map((event, index) => (
+            {(analytics.usage?.events || []).slice(0, 10).map((event, index) => (
               <div key={index} className="flex items-center justify-between p-3 rounded-lg border">
                 <div className="flex items-center gap-3">
                   <div className={`w-2 h-2 rounded-full ${
@@ -264,7 +269,7 @@ export default function AnalyticsHub() {
               </div>
             ))}
             
-            {analytics.usage.events.length === 0 && (
+            {(analytics.usage?.events || []).length === 0 && (
               <div className="text-center py-8 text-muted-foreground">
                 No recent API activity
               </div>
@@ -285,11 +290,11 @@ export default function AnalyticsHub() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div className="text-center">
               <div className="text-2xl font-bold mb-2">
-                {analytics.health.mongo.connected ? '✅' : '❌'}
+                {analytics.health?.mongo?.connected ? '✅' : '❌'}
               </div>
               <div className="text-sm font-medium">Database</div>
               <div className="text-xs text-muted-foreground">
-                {analytics.health.mongo.connected ? 'Connected' : 'Disconnected'}
+                {analytics.health?.mongo?.connected ? 'Connected' : 'Disconnected'}
               </div>
             </div>
             
@@ -305,7 +310,7 @@ export default function AnalyticsHub() {
             
             <div className="text-center">
               <div className="text-2xl font-bold mb-2 text-blue-600">
-                {analytics.usage.events.length}
+                {(analytics.usage?.events || []).length}
               </div>
               <div className="text-sm font-medium">Recent Events</div>
               <div className="text-xs text-muted-foreground">

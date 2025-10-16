@@ -1,11 +1,11 @@
 import express from 'express';
 import { verifyFirebaseToken, optionalAuth } from '../middleware/auth.js';
-import EnhancedUser from '../models/EnhancedUser.js';
+import mongoose from 'mongoose';
 
 const router = express.Router();
 
-// Use EnhancedUser as User model
-const User = EnhancedUser;
+// Use the main User model from server.js
+const User = global.User || mongoose.model('User');
 
 // Mock models for missing dependencies
 const TripPlan = {
@@ -82,7 +82,7 @@ router.get('/profile', verifyFirebaseToken, async (req, res) => {
   try {
     const { uid } = req.user;
     
-    let user = await User.findOne({ firebaseUid: uid });
+    let user = await User.findById(uid);
     if (!user) {
       return res.status(404).json({ error: 'User not found' });
     }
