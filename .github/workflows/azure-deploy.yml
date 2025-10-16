@@ -22,7 +22,7 @@ jobs:
     - name: Install backend dependencies
       run: |
         cd backend
-        npm ci
+        npm ci --only=production
     
     - name: Install frontend dependencies
       run: |
@@ -39,9 +39,17 @@ jobs:
         mkdir -p backend/dist
         cp -r frontend/dist/* backend/dist/
     
+    - name: Create startup script
+      run: |
+        echo '#!/bin/bash' > backend/startup.sh
+        echo 'cd /home/site/wwwroot' >> backend/startup.sh
+        echo 'npm start' >> backend/startup.sh
+        chmod +x backend/startup.sh
+    
     - name: Deploy to Azure Web App
       uses: azure/webapps-deploy@v2
       with:
         app-name: ${{ secrets.AZURE_WEBAPP_NAME }}
         publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
         package: ./backend
+        startup-command: 'bash startup.sh'
