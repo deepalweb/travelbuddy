@@ -27,15 +27,10 @@ jobs:
         cd backend
         npm ci --omit=dev
     
-    - name: Generate frontend package-lock.json
-      run: |
-        cd frontend
-        npm install --package-lock-only
-    
     - name: Install frontend dependencies
       run: |
         cd frontend
-        npm ci
+        npm install
     
     - name: Build frontend
       run: |
