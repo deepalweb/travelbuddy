@@ -1,5 +1,6 @@
 name: Deploy to Azure
 
+# Trigger deployment workflow
 on:
   push:
     branches: [ master ]
