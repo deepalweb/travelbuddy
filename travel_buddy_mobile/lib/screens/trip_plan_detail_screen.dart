@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../models/trip.dart';
+import '../models/place.dart';
 import '../services/azure_openai_service.dart';
 import '../providers/app_provider.dart';
+import '../screens/route_plan_screen.dart';
 
 class TripPlanDetailScreen extends StatefulWidget {
   final TripPlan tripPlan;
@@ -486,9 +488,22 @@ class _TripPlanDetailScreenState extends State<TripPlanDetailScreen> {
               children: [
                 Expanded(
                   child: ElevatedButton.icon(
+                    onPressed: _openRoutePlan,
+                    icon: const Icon(Icons.route),
+                    label: const Text('Route Plan'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.blue,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: ElevatedButton.icon(
                     onPressed: _openRouteInGoogleMaps,
                     icon: const Icon(Icons.map),
-                    label: const Text('Open Route Plan'),
+                    label: const Text('Google Maps'),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.green,
                       foregroundColor: Colors.white,
@@ -496,21 +511,11 @@ class _TripPlanDetailScreenState extends State<TripPlanDetailScreen> {
                     ),
                   ),
                 ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: () => Navigator.of(context).pop(),
-                    icon: const Icon(Icons.exit_to_app),
-                    label: const Text('Exit'),
-                    style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                    ),
-                  ),
-                ),
               ],
             ),
             
-            const SizedBox(height: 16),
+            // Add safe area padding for bottom navigation
+            SizedBox(height: MediaQuery.of(context).padding.bottom + 16),
           ],
         ),
       ),
@@ -860,6 +865,50 @@ class _TripPlanDetailScreenState extends State<TripPlanDetailScreen> {
       return 'LKR ${totalCost.toInt()}';
     }
     return 'LKR 2000-5000';
+  }
+
+  void _openRoutePlan() {
+    // Convert trip activities to places for route planning
+    final places = <Place>[];
+    
+    for (final day in (_currentTripPlan ?? widget.tripPlan).dailyPlans) {
+      for (final activity in day.activities) {
+        // Create a Place object from activity
+        places.add(Place(
+          id: activity.googlePlaceId ?? 'activity_${activity.activityTitle.hashCode}',
+          name: activity.activityTitle,
+          address: activity.fullAddress ?? activity.location ?? '',
+          latitude: null, // Will be resolved by route planning service
+          longitude: null,
+          rating: activity.rating ?? 0.0,
+          type: activity.category ?? 'attraction',
+          photoUrl: activity.photoThumbnail ?? '',
+          description: activity.description,
+          localTip: activity.practicalTip ?? '',
+          handyPhrase: '',
+        ));
+      }
+    }
+    
+    if (places.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('No places found to plan route'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+    
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => RoutePlanScreen(
+          places: places,
+          title: '${widget.tripPlan.tripTitle} Route',
+        ),
+      ),
+    );
   }
 
   void _openRouteInGoogleMaps() async {

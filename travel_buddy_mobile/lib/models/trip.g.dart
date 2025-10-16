@@ -100,13 +100,18 @@ class DailyTripPlanAdapter extends TypeAdapter<DailyTripPlan> {
       photoUrl: fields[4] as String?,
       dayEstimatedCost: fields[5] as String,
       dayWalkingDistance: fields[6] as String,
+      date: fields[7] as String,
+      summary: fields[8] as String,
+      totalWalkingTime: fields[9] as String,
+      totalTravelTime: fields[10] as String,
+      dailyRecap: fields[11] as String,
     );
   }
 
   @override
   void write(BinaryWriter writer, DailyTripPlan obj) {
     writer
-      ..writeByte(7)
+      ..writeByte(12)
       ..writeByte(0)
       ..write(obj.day)
       ..writeByte(1)
@@ -120,7 +125,17 @@ class DailyTripPlanAdapter extends TypeAdapter<DailyTripPlan> {
       ..writeByte(5)
       ..write(obj.dayEstimatedCost)
       ..writeByte(6)
-      ..write(obj.dayWalkingDistance);
+      ..write(obj.dayWalkingDistance)
+      ..writeByte(7)
+      ..write(obj.date)
+      ..writeByte(8)
+      ..write(obj.summary)
+      ..writeByte(9)
+      ..write(obj.totalWalkingTime)
+      ..writeByte(10)
+      ..write(obj.totalTravelTime)
+      ..writeByte(11)
+      ..write(obj.dailyRecap);
   }
 
   @override
@@ -166,13 +181,31 @@ class ActivityDetailAdapter extends TypeAdapter<ActivityDetail> {
       crowdLevel: fields[18] as String,
       imageURL: fields[19] as String?,
       bookingLinks: (fields[20] as Map?)?.cast<String, String>(),
+      googlePlaceId: fields[21] as String?,
+      highlight: fields[22] as String?,
+      socialProof: fields[23] as String?,
+      rating: fields[24] as double?,
+      userRatingsTotal: fields[25] as int?,
+      practicalTip: fields[26] as String?,
+      travelMode: fields[27] as String,
+      travelTimeMin: fields[28] as int,
+      estimatedVisitDurationMin: fields[29] as int,
+      photoThumbnail: fields[30] as String?,
+      fullAddress: fields[31] as String?,
+      openingHours: fields[32] as String?,
+      isOpenNow: fields[33] as bool,
+      weatherNote: fields[34] as String?,
+      tags: (fields[35] as List).cast<String>(),
+      bookingLink: fields[36] as String?,
+      isVisited: fields[37] as bool,
+      visitedDate: fields[38] as String?,
     );
   }
 
   @override
   void write(BinaryWriter writer, ActivityDetail obj) {
     writer
-      ..writeByte(21)
+      ..writeByte(39)
       ..writeByte(0)
       ..write(obj.timeOfDay)
       ..writeByte(1)
@@ -214,7 +247,43 @@ class ActivityDetailAdapter extends TypeAdapter<ActivityDetail> {
       ..writeByte(19)
       ..write(obj.imageURL)
       ..writeByte(20)
-      ..write(obj.bookingLinks);
+      ..write(obj.bookingLinks)
+      ..writeByte(21)
+      ..write(obj.googlePlaceId)
+      ..writeByte(22)
+      ..write(obj.highlight)
+      ..writeByte(23)
+      ..write(obj.socialProof)
+      ..writeByte(24)
+      ..write(obj.rating)
+      ..writeByte(25)
+      ..write(obj.userRatingsTotal)
+      ..writeByte(26)
+      ..write(obj.practicalTip)
+      ..writeByte(27)
+      ..write(obj.travelMode)
+      ..writeByte(28)
+      ..write(obj.travelTimeMin)
+      ..writeByte(29)
+      ..write(obj.estimatedVisitDurationMin)
+      ..writeByte(30)
+      ..write(obj.photoThumbnail)
+      ..writeByte(31)
+      ..write(obj.fullAddress)
+      ..writeByte(32)
+      ..write(obj.openingHours)
+      ..writeByte(33)
+      ..write(obj.isOpenNow)
+      ..writeByte(34)
+      ..write(obj.weatherNote)
+      ..writeByte(35)
+      ..write(obj.tags)
+      ..writeByte(36)
+      ..write(obj.bookingLink)
+      ..writeByte(37)
+      ..write(obj.isVisited)
+      ..writeByte(38)
+      ..write(obj.visitedDate);
   }
 
   @override

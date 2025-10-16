@@ -152,20 +152,77 @@ class ApiService {
       }
       
       print('📊 Fetching user stats for: ${user.uid}');
-      final response = await _dio.get('/api/users/stats');
       
-      if (response.statusCode == 200 && response.data != null) {
-        final data = response.data;
-        if (data is Map) {
-          print('✅ User stats loaded: ${data.keys.toList()}');
-          return Map<String, dynamic>.from(data);
-        }
-      }
-      print('❌ No user stats data received');
-      return _getMockUserStats();
+      // Try multiple endpoints to get comprehensive stats
+      final results = await Future.wait([
+        _getUserPostsCount(),
+        _getUserFollowersCount(),
+        _getUserFollowingCount(),
+        _getUserTravelStatsCount(),
+      ]);
+      
+      final stats = {
+        'totalPosts': results[0],
+        'followersCount': results[1],
+        'followingCount': results[2],
+        'placesVisited': results[3],
+        'memberSince': DateTime.now().toIso8601String(),
+        'profileType': 'traveler',
+        'tier': 'free',
+        'subscriptionStatus': 'none',
+      };
+      
+      print('✅ Compiled user stats: $stats');
+      return stats;
     } catch (e) {
       print('❌ Error fetching user stats: $e');
       return _getMockUserStats();
+    }
+  }
+  
+  Future<int> _getUserPostsCount() async {
+    try {
+      final posts = await getCommunityPosts(limit: 1000);
+      final user = FirebaseAuth.instance.currentUser;
+      if (user != null) {
+        return posts.where((post) => post.userId == user.uid).length;
+      }
+      return 0;
+    } catch (e) {
+      return 0;
+    }
+  }
+  
+  Future<int> _getUserFollowersCount() async {
+    try {
+      final response = await _dio.get('/api/users/followers/count');
+      if (response.statusCode == 200) {
+        return response.data['count'] ?? 0;
+      }
+      return 0;
+    } catch (e) {
+      return 0;
+    }
+  }
+  
+  Future<int> _getUserFollowingCount() async {
+    try {
+      final response = await _dio.get('/api/users/following/count');
+      if (response.statusCode == 200) {
+        return response.data['count'] ?? 0;
+      }
+      return 0;
+    } catch (e) {
+      return 0;
+    }
+  }
+  
+  Future<int> _getUserTravelStatsCount() async {
+    try {
+      final stats = await getUserTravelStats();
+      return stats?.totalPlacesVisited ?? 0;
+    } catch (e) {
+      return 0;
     }
   }
 

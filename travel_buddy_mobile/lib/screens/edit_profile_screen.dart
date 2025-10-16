@@ -19,6 +19,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   final _bioController = TextEditingController();
   final _websiteController = TextEditingController();
   final _locationController = TextEditingController();
+  final _statusController = TextEditingController();
   bool _isLoading = false;
   bool _isPickingImage = false;
   File? _selectedImage;
@@ -40,6 +41,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     _bioController.dispose();
     _websiteController.dispose();
     _locationController.dispose();
+    _statusController.dispose();
     super.dispose();
   }
 
@@ -50,6 +52,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       _bioController.text = user.bio ?? 'Travel Enthusiast • 🌍 Explorer';
       _websiteController.text = user.website ?? '';
       _locationController.text = user.location ?? '';
+      _statusController.text = user.status ?? '';
       _selectedBirthday = user.birthday != null ? DateTime.tryParse(user.birthday!) : null;
       _currentAvatarUrl = user.profilePicture;
       _showBirthdayToOthers = user.showBirthdayToOthers;
@@ -165,6 +168,21 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                 }
                 return null;
               },
+            ),
+            const SizedBox(height: 16),
+            
+            // Status Field
+            TextFormField(
+              controller: _statusController,
+              maxLength: 100,
+              decoration: InputDecoration(
+                labelText: 'Status',
+                prefixIcon: const Icon(Icons.edit_note),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                hintText: 'What\'s on your mind?',
+              ),
             ),
             const SizedBox(height: 16),
             
@@ -810,6 +828,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         budgetPreferences: _selectedBudgets.toList(),
         showBirthdayToOthers: _showBirthdayToOthers,
         showLocationToOthers: _showLocationToOthers,
+        status: _statusController.text.trim(),
       );
 
       if (success && mounted) {

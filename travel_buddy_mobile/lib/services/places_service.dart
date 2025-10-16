@@ -18,35 +18,22 @@ class PlacesService {
     required double longitude,
     required String query,
     int radius = 20000,
-    int topN = 150, // Further increased for mobile comprehensive results
+    int topN = 150,
     int offset = 0,
   }) async {
     try {
-      // 1. Try real places API (primary) - get comprehensive results
-      final realPlaces = await _fetchRealPlaces(latitude, longitude, query, radius, offset);
+      // Quick timeout for network issues
+      final realPlaces = await _fetchRealPlaces(latitude, longitude, query, radius, offset)
+          .timeout(const Duration(seconds: 10));
       if (realPlaces.isNotEmpty) {
-        print('✅ Got ${realPlaces.length} real places from API');
-        // Filter and return quality places from enhanced backend
-        final qualityPlaces = realPlaces.where((p) => p.rating >= 3.0).toList();
-        print('✅ Filtered to ${qualityPlaces.length} quality places (rating >= 3.0)');
-        return qualityPlaces.take(topN).toList();
+        return realPlaces.where((p) => p.rating >= 3.0).take(topN).toList();
       }
-      
-      // 2. Fallback to optimized places
-      final optimizedPlaces = await _fetchOptimizedPlaces(latitude, longitude, query);
-      if (optimizedPlaces.isNotEmpty) {
-        print('✅ Got ${optimizedPlaces.length} optimized places');
-        return optimizedPlaces.take(topN).toList();
-      }
-      
-      // 3. Final fallback to basic search
-      return await _fetchBasicSearch(latitude, longitude, query, radius);
-      
     } catch (e) {
-      print('Places pipeline error: $e');
-      // Generate more comprehensive mock places as final fallback
-      return _generateMockPlaces(latitude, longitude, query, math.min(150, 20));
+      print('API failed: $e - using mock data');
     }
+    
+    // Always return mock data if API fails
+    return _generateMockPlaces(latitude, longitude, query, 20);
   }
   
   Future<List<Place>> _fetchRealPlaces(double lat, double lng, String query, int radius, [int offset = 0]) async {
@@ -133,42 +120,13 @@ class PlacesService {
   }
   
   Future<http.Response> _makeRequestWithRetry(Future<http.Response> Function() request) async {
-    int retryCount = 0;
-    const maxRetries = 3;
-    
-    while (retryCount < maxRetries) {
-      try {
-        final response = await request();
-        
-        if (response.statusCode == 200) {
-          return response;
-        } else if (response.statusCode == 503) {
-          retryCount++;
-          if (retryCount < maxRetries) {
-            final delay = Duration(seconds: math.pow(2, retryCount).toInt());
-            print('⏳ Service unavailable (503), retrying in ${delay.inSeconds}s...');
-            await Future.delayed(delay);
-            continue;
-          }
-        }
-        return response;
-      } on SocketException {
-        retryCount++;
-        if (retryCount < maxRetries) {
-          final delay = Duration(seconds: math.pow(2, retryCount).toInt());
-          print('🌐 Network error, retrying in ${delay.inSeconds}s...');
-          await Future.delayed(delay);
-        } else {
-          rethrow;
-        }
-      } catch (e) {
-        if (retryCount == maxRetries - 1) rethrow;
-        retryCount++;
-        await Future.delayed(Duration(seconds: math.pow(2, retryCount).toInt()));
-      }
+    try {
+      return await request().timeout(const Duration(seconds: 5));
+    } on SocketException {
+      throw Exception('Network error');
+    } catch (e) {
+      throw Exception('Request failed: $e');
     }
-    
-    throw Exception('Max retries exceeded');
   }
 
   Future<List<Map<String, dynamic>>> _enrichPlaces(List<dynamic> places) async {

@@ -48,146 +48,98 @@ class ProfileScreen extends StatelessWidget {
             padding: const EdgeInsets.all(16),
             child: Column(
               children: [
-                // Profile Header (Compact)
+                // Profile Header Card
                 Card(
                   child: Padding(
-                    padding: const EdgeInsets.all(12),
-                    child: Row(
-                      children: [
-                        _ProfilePicture(user: user, radius: 28),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                children: [
-                                  Expanded(
-                                    child: Text(
-                                      user?.username ?? 'Guest User',
-                                      style: const TextStyle(
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.bold,
+                    padding: const EdgeInsets.all(16),
+                    child: FutureBuilder<Map<String, int>>(
+                      future: _getUserStats(context, user),
+                      builder: (context, snapshot) {
+                        final stats = snapshot.data ?? {'posts': 0, 'followers': 0, 'following': 0, 'visited': 0};
+                        final isLoading = snapshot.connectionState == ConnectionState.waiting;
+                        
+                        return Column(
+                          children: [
+                            // Profile Picture and Name
+                            Row(
+                              children: [
+                                _ProfilePicture(user: user, radius: 32),
+                                const SizedBox(width: 16),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        user?.username ?? 'Guest User',
+                                        style: const TextStyle(
+                                          fontSize: 20,
+                                          fontWeight: FontWeight.bold,
+                                        ),
                                       ),
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                  ),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 8,
-                                      vertical: 2,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: Color(AppConstants.colors['primary']!).withOpacity(0.1),
-                                      borderRadius: BorderRadius.circular(8),
-                                    ),
-                                    child: Text(
-                                      user?.tier.name.toUpperCase() ?? 'FREE',
-                                      style: TextStyle(
-                                        color: Color(AppConstants.colors['primary']!),
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 10,
+                                      const SizedBox(height: 4),
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 12,
+                                          vertical: 4,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color: Color(AppConstants.colors['primary']!).withOpacity(0.1),
+                                          borderRadius: BorderRadius.circular(12),
+                                        ),
+                                        child: Text(
+                                          '${user?.tier.name.toUpperCase() ?? 'FREE'} PLAN',
+                                          style: TextStyle(
+                                            color: Color(AppConstants.colors['primary']!),
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 12,
+                                          ),
+                                        ),
                                       ),
-                                    ),
+                                    ],
                                   ),
-                                ],
-                              ),
-                              if (user?.email != null)
-                                Text(
-                                  user!.email!,
-                                  style: TextStyle(
-                                    color: Color(AppConstants.colors['textSecondary']!),
-                                    fontSize: 12,
-                                  ),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
                                 ),
-                            ],
-                          ),
-                        ),
-                        IconButton(
-                          icon: const Icon(Icons.share, size: 18),
-                          onPressed: () => _shareProfile(context, user),
-                          style: IconButton.styleFrom(
-                            minimumSize: const Size(32, 32),
-                          ),
-                        ),
-                        IconButton(
-                          icon: const Icon(Icons.edit, size: 18),
-                          onPressed: () {
-                            Navigator.of(context).push(
-                              MaterialPageRoute(
-                                builder: (context) => const EditProfileScreen(),
-                              ),
-                            );
-                          },
-                          style: IconButton.styleFrom(
-                            minimumSize: const Size(32, 32),
-                          ),
-                        ),
-                      ],
+                                IconButton(
+                                  icon: const Icon(Icons.share),
+                                  onPressed: () => _shareProfile(context, user),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 16),
+                            // Stats Row
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceAround,
+                              children: [
+                                _buildHeaderStat(
+                                  count: stats['posts']!,
+                                  label: 'Posts',
+                                  isLoading: isLoading,
+                                  onTap: () => _showUserPosts(context, user),
+                                ),
+                                _buildHeaderStat(
+                                  count: stats['followers']!,
+                                  label: 'Followers',
+                                  isLoading: isLoading,
+                                  onTap: () => _showFollowers(context),
+                                ),
+                                _buildHeaderStat(
+                                  count: stats['following']!,
+                                  label: 'Following',
+                                  isLoading: isLoading,
+                                  onTap: () => _showFollowing(context),
+                                ),
+                                _buildHeaderStat(
+                                  count: stats['visited']!,
+                                  label: 'Visited',
+                                  isLoading: isLoading,
+                                  onTap: () => _showTravelInsights(context, appProvider),
+                                ),
+                              ],
+                            ),
+                          ],
+                        );
+                      },
                     ),
                   ),
-                ),
-                
-                const SizedBox(height: 16),
-                
-                // Stats Cards
-                FutureBuilder<Map<String, int>>(
-                  future: _getUserStats(context, user),
-                  builder: (context, snapshot) {
-                    final stats = snapshot.data ?? {'posts': 0, 'followers': 0, 'following': 0, 'visited': 0};
-                    final isLoading = snapshot.connectionState == ConnectionState.waiting;
-                    
-                    return Row(
-                      children: [
-                        Flexible(
-                          child: _buildStatCard(
-                            icon: Icons.article,
-                            count: stats['posts']!,
-                            label: 'Posts',
-                            color: Colors.blue[400]!,
-                            isLoading: isLoading,
-                            onTap: () => _showUserPosts(context, user),
-                          ),
-                        ),
-                        const SizedBox(width: 4),
-                        Flexible(
-                          child: _buildStatCard(
-                            icon: Icons.people,
-                            count: stats['followers']!,
-                            label: 'Followers',
-                            color: Colors.blue[400]!,
-                            isLoading: isLoading,
-                            onTap: () => _showFollowers(context),
-                          ),
-                        ),
-                        const SizedBox(width: 4),
-                        Flexible(
-                          child: _buildStatCard(
-                            icon: Icons.person_add,
-                            count: stats['following']!,
-                            label: 'Following',
-                            color: Colors.purple[400]!,
-                            isLoading: isLoading,
-                            onTap: () => _showFollowing(context),
-                          ),
-                        ),
-                        const SizedBox(width: 4),
-                        Flexible(
-                          child: _buildStatCard(
-                            icon: Icons.place,
-                            count: stats['visited']!,
-                            label: 'Visited',
-                            color: Colors.green[400]!,
-                            isLoading: isLoading,
-                            onTap: () => _showTravelInsights(context, appProvider),
-                          ),
-                        ),
-                      ],
-                    );
-                  },
                 ),
                 
                 const SizedBox(height: 16),
@@ -242,6 +194,14 @@ class ProfileScreen extends StatelessWidget {
                             ),
                           );
                         },
+                      ),
+                      const Divider(height: 1),
+                      ListTile(
+                        leading: const Icon(Icons.edit_note),
+                        title: const Text('Status'),
+                        subtitle: Text(user?.status?.isNotEmpty == true ? user!.status! : 'Set your current status'),
+                        trailing: const Icon(Icons.chevron_right),
+                        onTap: () => _editStatus(context, appProvider),
                       ),
                       const Divider(height: 1),
                       ListTile(
@@ -390,6 +350,13 @@ class ProfileScreen extends StatelessWidget {
   
   Future<int> _getPostsCount(BuildContext context, user) async {
     try {
+      // Try backend API first
+      final response = await ApiService().getUserStats();
+      if (response['totalPosts'] != null) {
+        return response['totalPosts'] as int;
+      }
+      
+      // Fallback to community provider
       final communityProvider = context.read<CommunityProvider>();
       await communityProvider.loadPosts(context: context);
       return communityProvider.posts.where((post) => post.userId == user?.mongoId).length;
@@ -408,46 +375,41 @@ class ProfileScreen extends StatelessWidget {
     }
   }
 
-  Widget _buildStatCard({
-    required IconData icon,
+  Widget _buildHeaderStat({
     required int count,
     required String label,
-    required Color color,
     required VoidCallback onTap,
     bool isLoading = false,
   }) {
-    return Card(
-      child: InkWell(
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.all(12),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(icon, color: color, size: 20),
-              const SizedBox(height: 6),
-              isLoading
-                  ? const SizedBox(
-                      width: 16,
-                      height: 16,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : Text(
-                      count.toString(),
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                      ),
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(8),
+      child: Padding(
+        padding: const EdgeInsets.all(8),
+        child: Column(
+          children: [
+            isLoading
+                ? const SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : Text(
+                    count.toString(),
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
                     ),
-              Text(
-                label,
-                style: const TextStyle(fontSize: 10),
-                textAlign: TextAlign.center,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
+                  ),
+            const SizedBox(height: 4),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 12,
+                color: Colors.grey[600],
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
@@ -551,6 +513,13 @@ class ProfileScreen extends StatelessWidget {
   Future<int> _getFollowersCount(BuildContext context, user) async {
     if (user?.mongoId == null) return 0;
     try {
+      // Try backend user stats first
+      final response = await ApiService().getUserStats();
+      if (response['followersCount'] != null) {
+        return response['followersCount'] as int;
+      }
+      
+      // Fallback to followers API
       final followers = await ApiService().getFollowers();
       return followers.length;
     } catch (e) {
@@ -561,6 +530,13 @@ class ProfileScreen extends StatelessWidget {
   Future<int> _getFollowingCount(BuildContext context, user) async {
     if (user?.mongoId == null) return 0;
     try {
+      // Try backend user stats first
+      final response = await ApiService().getUserStats();
+      if (response['followingCount'] != null) {
+        return response['followingCount'] as int;
+      }
+      
+      // Fallback to following API
       final following = await ApiService().getFollowing();
       return following.length;
     } catch (e) {
@@ -916,6 +892,82 @@ Join Travel Buddy and discover amazing places together!
       ),
     );
   }
+
+  void _editStatus(BuildContext context, AppProvider appProvider) {
+    final TextEditingController statusController = TextEditingController();
+    statusController.text = appProvider.currentUser?.status ?? '';
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Update Status'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: statusController,
+              decoration: const InputDecoration(
+                hintText: 'What\'s on your mind?',
+                border: OutlineInputBorder(),
+              ),
+              maxLength: 100,
+              maxLines: 2,
+            ),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              children: [
+                '🌍 Exploring',
+                '✈️ Traveling',
+                '🏖️ On vacation',
+                '🏠 At home',
+                '📍 Planning trip',
+                '📸 Sharing memories',
+              ].map((status) => ActionChip(
+                label: Text(status),
+                onPressed: () {
+                  statusController.text = status;
+                },
+              )).toList(),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              final newStatus = statusController.text.trim();
+              try {
+                await appProvider.updateUserProfile(status: newStatus);
+                if (context.mounted) {
+                  Navigator.pop(context);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Status updated!'),
+                      backgroundColor: Colors.green,
+                    ),
+                  );
+                }
+              } catch (e) {
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Failed to update status: $e'),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
+                }
+              }
+            },
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 class _ProfilePicture extends StatelessWidget {
@@ -975,8 +1027,11 @@ class _ProfilePicture extends StatelessWidget {
   }
   
   Widget _buildInitials() {
+    final username = user?.username ?? 'U';
+    final initial = username.isNotEmpty ? username[0] : 'U';
+    
     return Text(
-      (user?.username?.substring(0, 1) ?? 'U').toUpperCase(),
+      initial.toUpperCase(),
       style: TextStyle(
         fontSize: radius * 0.8,
         color: Colors.white,

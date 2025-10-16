@@ -82,7 +82,7 @@ router.get('/profile', verifyFirebaseToken, async (req, res) => {
   try {
     const { uid } = req.user;
     
-    let user = await User.findById(uid);
+    let user = await User.findOne({ firebaseUid: uid });
     if (!user) {
       return res.status(404).json({ error: 'User not found' });
     }
@@ -315,6 +315,26 @@ router.put('/travel-stats', verifyFirebaseToken, async (req, res) => {
 });
 
 // Subscription endpoints
+router.get('/subscription', verifyFirebaseToken, async (req, res) => {
+  try {
+    const { uid } = req.user;
+
+    let user = await User.findOne({ firebaseUid: uid });
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    res.json({
+      tier: user.tier || 'free',
+      subscriptionStatus: user.subscriptionStatus || 'none',
+      trialEndDate: user.trialEndDate,
+      subscriptionEndDate: user.subscriptionEndDate
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 router.put('/subscription', verifyFirebaseToken, async (req, res) => {
   try {
     const { uid } = req.user;

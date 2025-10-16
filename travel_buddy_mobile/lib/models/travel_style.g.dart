@@ -26,7 +26,7 @@ class TravelStyleAdapter extends TypeAdapter<TravelStyle> {
       case 5:
         return TravelStyle.nature;
       default:
-        return TravelStyle.explorer;
+        return TravelStyle.foodie;
     }
   }
 

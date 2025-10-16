@@ -813,6 +813,7 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
     bool? showBirthdayToOthers,
     bool? showLocationToOthers,
     String? profilePicture,
+    String? status,
   }) async {
     try {
       if (_currentUser == null) {
@@ -825,6 +826,7 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
         username: username ?? _currentUser?.username,
         email: email ?? _currentUser?.email,
         profilePicture: profilePicture ?? _currentUser?.profilePicture,
+        status: status ?? _currentUser?.status,
       );
       
       // Save to local storage
@@ -2774,6 +2776,9 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
         // DON'T reload trip plans here - already loaded in _loadCachedData
         print('⚠️ SKIPPING trip plans reload to preserve data');
         
+        // NEW: Sync route tracking data from backend
+        await _syncRouteTrackingDataFromBackend();
+        
         // Sync favorites from backend
         try {
           final backendFavorites = await _apiService.getUserFavorites();
@@ -2819,6 +2824,70 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
         ErrorHandlerService.handleError('loadUserData', e, null);
         _favoriteIds = [];
       }
+    }
+  }
+
+  /// Sync route tracking data from backend (NEW)
+  Future<void> _syncRouteTrackingDataFromBackend() async {
+    try {
+      // Load all active route tracking sessions for user
+      // TODO: Implement getUserRouteTrackingData in ApiService
+      final routeData = <Map<String, dynamic>>[];
+      
+      if (routeData != null && routeData.isNotEmpty) {
+        print('🔄 Found ${routeData.length} route tracking sessions to sync');
+        
+        // Update trip plans with route tracking data
+        for (final route in routeData) {
+          final tripPlanId = route['tripPlanId'] as String?;
+          final visitedPlaces = route['visitedPlaces'] as List<String>? ?? [];
+          
+          if (tripPlanId != null && visitedPlaces.isNotEmpty) {
+            await _syncRouteDataToTripPlan(tripPlanId, visitedPlaces);
+          }
+        }
+        
+        print('✅ Synced route tracking data from backend');
+      }
+    } catch (e) {
+      print('⚠️ Failed to sync route tracking data: $e');
+    }
+  }
+
+  /// Sync route data to trip plan
+  Future<void> _syncRouteDataToTripPlan(String tripPlanId, List<String> visitedPlaceIds) async {
+    try {
+      // Find matching trip plan
+      final tripPlanIndex = _tripPlans.indexWhere((tp) => tp.id == tripPlanId);
+      if (tripPlanIndex == -1) return;
+      
+      final tripPlan = _tripPlans[tripPlanIndex];
+      bool hasUpdates = false;
+      
+      // Update activities based on visited places
+      for (int dayIndex = 0; dayIndex < tripPlan.dailyPlans.length; dayIndex++) {
+        for (int activityIndex = 0; activityIndex < tripPlan.dailyPlans[dayIndex].activities.length; activityIndex++) {
+          final activity = tripPlan.dailyPlans[dayIndex].activities[activityIndex];
+          
+          // Check if this activity matches any visited place
+          final shouldBeVisited = visitedPlaceIds.any((placeId) => 
+            activity.googlePlaceId == placeId ||
+            activity.activityTitle.toLowerCase().contains(placeId.toLowerCase())
+          );
+          
+          if (shouldBeVisited && !activity.isVisited) {
+            await updateActivityVisitedStatus(tripPlanId, dayIndex, activityIndex, true);
+            hasUpdates = true;
+            print('🔄 Synced visit status: ${activity.activityTitle}');
+          }
+        }
+      }
+      
+      if (hasUpdates) {
+        print('✅ Updated trip plan with route tracking data: $tripPlanId');
+      }
+    } catch (e) {
+      print('❌ Failed to sync route data to trip plan: $e');
     }
   }
 

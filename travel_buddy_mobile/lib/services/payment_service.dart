@@ -166,26 +166,30 @@ class PaymentService {
     String? paymentId,
   }) async {
     try {
-      final response = await http.post(
-        Uri.parse('${Environment.backendUrl}/api/subscriptions'),
-        headers: {'Content-Type': 'application/json'},
-        body: json.encode({
-          'userId': userId,
-          'tier': tier.name,
-          'status': isFreeTrial ? 'trial' : 'active',
-          'paymentId': paymentId,
-          'startDate': DateTime.now().toIso8601String(),
-          'endDate': isFreeTrial 
-              ? DateTime.now().add(const Duration(days: 7)).toIso8601String()
-              : DateTime.now().add(const Duration(days: 30)).toIso8601String(),
-        }),
-      ).timeout(const Duration(seconds: 15));
-      
-      if (response.statusCode != 201) {
-        throw Exception('Backend subscription creation failed: ${response.statusCode}');
+      // Try backend API first
+      try {
+        final response = await http.put(
+          Uri.parse('${Environment.backendUrl}/api/users/subscription'),
+          headers: {'Content-Type': 'application/json'},
+          body: json.encode({
+            'tier': tier.name,
+            'status': isFreeTrial ? 'trial' : 'active',
+            'paymentId': paymentId,
+            'trialEndDate': isFreeTrial ? DateTime.now().add(const Duration(days: 7)).toIso8601String() : null,
+            'subscriptionEndDate': !isFreeTrial ? DateTime.now().add(const Duration(days: 30)).toIso8601String() : null,
+          }),
+        ).timeout(const Duration(seconds: 15));
+        
+        if (response.statusCode == 200) {
+          print('✅ Subscription created via backend API');
+        } else {
+          print('⚠️ Backend API failed: ${response.statusCode}, using local storage');
+        }
+      } catch (e) {
+        print('⚠️ Backend API error: $e, using local storage');
       }
       
-      // Store subscription locally
+      // Always store subscription locally as fallback
       await _storageService.saveSubscription({
         'tier': tier.name,
         'status': isFreeTrial ? 'trial' : 'active',
@@ -194,6 +198,8 @@ class PaymentService {
             ? DateTime.now().add(const Duration(days: 7)).toIso8601String()
             : DateTime.now().add(const Duration(days: 30)).toIso8601String(),
       });
+      
+      print('✅ Subscription stored locally');
       
     } catch (e) {
       throw Exception('Subscription creation failed: $e');

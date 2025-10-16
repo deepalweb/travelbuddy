@@ -31,13 +31,26 @@ class CurrentUserAdapter extends TypeAdapter<CurrentUser> {
       hasCompletedWizard: fields[10] as bool,
       mongoId: fields[11] as String?,
       profilePicture: fields[12] as String?,
+      bio: fields[14] as String?,
+      website: fields[15] as String?,
+      location: fields[16] as String?,
+      birthday: fields[17] as String?,
+      languages: (fields[18] as List?)?.cast<String>(),
+      travelInterests: (fields[19] as List?)?.cast<String>(),
+      budgetPreference: fields[20] as String?,
+      interests: (fields[21] as List?)?.cast<String>(),
+      budgetPreferences: (fields[22] as List?)?.cast<String>(),
+      showBirthdayToOthers: fields[23] as bool,
+      showLocationToOthers: fields[24] as bool,
+      travelStyle: fields[25] as TravelStyle?,
+      status: fields[26] as String?,
     );
   }
 
   @override
   void write(BinaryWriter writer, CurrentUser obj) {
     writer
-      ..writeByte(14)
+      ..writeByte(27)
       ..writeByte(0)
       ..write(obj.username)
       ..writeByte(1)
@@ -65,7 +78,33 @@ class CurrentUserAdapter extends TypeAdapter<CurrentUser> {
       ..writeByte(12)
       ..write(obj.profilePicture)
       ..writeByte(13)
-      ..write(obj.uid);
+      ..write(obj.uid)
+      ..writeByte(14)
+      ..write(obj.bio)
+      ..writeByte(15)
+      ..write(obj.website)
+      ..writeByte(16)
+      ..write(obj.location)
+      ..writeByte(17)
+      ..write(obj.birthday)
+      ..writeByte(18)
+      ..write(obj.languages)
+      ..writeByte(19)
+      ..write(obj.travelInterests)
+      ..writeByte(20)
+      ..write(obj.budgetPreference)
+      ..writeByte(21)
+      ..write(obj.interests)
+      ..writeByte(22)
+      ..write(obj.budgetPreferences)
+      ..writeByte(23)
+      ..write(obj.showBirthdayToOthers)
+      ..writeByte(24)
+      ..write(obj.showLocationToOthers)
+      ..writeByte(25)
+      ..write(obj.travelStyle)
+      ..writeByte(26)
+      ..write(obj.status);
   }
 
   @override

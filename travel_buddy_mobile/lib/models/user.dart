@@ -129,6 +129,9 @@ class CurrentUser extends HiveObject {
   @HiveField(25)
   final TravelStyle? travelStyle;
 
+  @HiveField(26)
+  final String? status;
+
   CurrentUser({
     this.username,
     this.uid,
@@ -156,6 +159,7 @@ class CurrentUser extends HiveObject {
     this.showBirthdayToOthers = true,
     this.showLocationToOthers = true,
     this.travelStyle,
+    this.status,
   });
 
   factory CurrentUser.fromJson(Map<String, dynamic> json) {
@@ -203,6 +207,7 @@ class CurrentUser extends HiveObject {
               orElse: () => TravelStyle.explorer,
             )
           : null,
+      status: json['status'],
     );
   }
 
@@ -234,6 +239,7 @@ class CurrentUser extends HiveObject {
       'showBirthdayToOthers': showBirthdayToOthers,
       'showLocationToOthers': showLocationToOthers,
       'travelStyle': travelStyle?.name,
+      'status': status,
     };
   }
 
@@ -264,6 +270,7 @@ class CurrentUser extends HiveObject {
     bool? showBirthdayToOthers,
     bool? showLocationToOthers,
     TravelStyle? travelStyle,
+    String? status,
   }) {
     return CurrentUser(
       username: username ?? this.username,
@@ -292,6 +299,7 @@ class CurrentUser extends HiveObject {
       showBirthdayToOthers: showBirthdayToOthers ?? this.showBirthdayToOthers,
       showLocationToOthers: showLocationToOthers ?? this.showLocationToOthers,
       travelStyle: travelStyle ?? this.travelStyle,
+      status: status ?? this.status,
     );
   }
 }
