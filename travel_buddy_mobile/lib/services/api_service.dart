@@ -252,15 +252,14 @@ class ApiService {
   }) async {
     try {
       print('🌍 Fetching places from: ${Environment.backendUrl}/api/places/nearby');
-      print('📍 Params: lat=$latitude, lng=$longitude, category=$category, radius=$radius');
+      print('📍 Params: lat=$latitude, lng=$longitude, q=$searchQuery, radius=$radius');
       
       final response = await _dio.get('/api/places/nearby', queryParameters: {
         'lat': latitude,
         'lng': longitude,
-        'category': category,
+        'q': searchQuery.isEmpty ? 'points of interest' : searchQuery,
         'radius': radius,
-        'query': searchQuery,
-      });
+      }).timeout(Duration(seconds: 15));
 
       print('📡 API Response Status: ${response.statusCode}');
       
@@ -649,18 +648,29 @@ class ApiService {
       print('🌐 Attempting to fetch posts from: ${Environment.backendUrl}/api/community/posts');
       final response = await _dio.get('/api/community/posts', queryParameters: {
         'limit': limit,
-      });
+        'page': page,
+      }).timeout(Duration(seconds: 15));
       print('🌐 Backend response status: ${response.statusCode}');
       if (response.statusCode == 200) {
-        final List<dynamic> data = response.data;
-        print('✅ Backend success: ${data.length} posts loaded');
-        return data.map((json) => community.CommunityPost.fromJson(json)).toList();
+        final responseData = response.data;
+        List<dynamic> posts;
+        
+        // Handle both array and object responses
+        if (responseData is List) {
+          posts = responseData;
+        } else if (responseData is Map && responseData['posts'] != null) {
+          posts = responseData['posts'];
+        } else {
+          posts = [];
+        }
+        
+        print('✅ Backend success: ${posts.length} posts loaded');
+        return posts.map((json) => community.CommunityPost.fromJson(json)).toList();
       }
       return [];
     } catch (e) {
       print('❌ Backend error: $e');
-      print('🔄 Falling back to mock database');
-      return await MockBackendService().getCommunityPosts(page: page, limit: limit);
+      return [];
     }
   }
 
@@ -669,11 +679,14 @@ class ApiService {
       final user = FirebaseAuth.instance.currentUser;
       if (user == null) {
         print('❌ No authenticated user to toggle like');
-        return await MockBackendService().toggleLike(postId);
+        return false;
       }
       
       print('🌐 Toggling like for post: $postId');
-      final response = await _dio.post('/api/posts/$postId/like');
+      final response = await _dio.post('/api/posts/$postId/like', data: {
+        'userId': user.uid,
+        'username': user.displayName ?? 'Mobile User',
+      });
       print('🌐 Like response: ${response.statusCode}');
       if (response.statusCode == 200) {
         print('✅ Like synced to backend');
@@ -682,18 +695,27 @@ class ApiService {
       return false;
     } catch (e) {
       print('❌ Like backend error: $e');
-      print('🔄 Using mock database for like');
-      return await MockBackendService().toggleLike(postId);
+      return false;
     }
   }
 
   Future<bool> toggleBookmark(String postId) async {
     try {
-      // Backend doesn't have bookmark endpoint yet, use mock for now
-      return await MockBackendService().toggleBookmark(postId);
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) {
+        print('❌ No authenticated user to toggle bookmark');
+        return false;
+      }
+      
+      final response = await _dio.post('/api/posts/$postId/bookmark');
+      if (response.statusCode == 200) {
+        print('✅ Bookmark toggled successfully');
+        return true;
+      }
+      return false;
     } catch (e) {
-      print('🔄 Real backend unavailable, using mock database');
-      return await MockBackendService().toggleBookmark(postId);
+      print('❌ Bookmark error: $e');
+      return false;
     }
   }
 
@@ -710,18 +732,12 @@ class ApiService {
       final user = FirebaseAuth.instance.currentUser;
       if (user == null) {
         print('❌ No authenticated user to create post');
-        return await MockBackendService().createPost(
-          content: content,
-          location: location,
-          images: images,
-          postType: postType,
-          hashtags: hashtags,
-          allowComments: allowComments,
-          visibility: visibility,
-        );
+        return null;
       }
       
+      print('🌐 Creating post via: /api/community/posts');
       final response = await _dio.post('/api/community/posts', data: {
+        'userId': user.uid,
         'content': {
           'text': content,
           'images': images,
@@ -735,36 +751,36 @@ class ApiService {
         'tags': hashtags,
         'category': postType,
       });
+      print('🌐 Create post response: ${response.statusCode}');
       if (response.statusCode == 200) {
+        print('✅ Post created successfully');
         return community.CommunityPost.fromJson(response.data);
       }
       return null;
     } catch (e) {
-      print('🔄 Real backend unavailable, using mock database');
-      return await MockBackendService().createPost(
-        content: content,
-        location: location,
-        images: images,
-        postType: postType,
-        hashtags: hashtags,
-        allowComments: allowComments,
-        visibility: visibility,
-      );
+      print('❌ Create post error: $e');
+      return null;
     }
   }
 
   Future<List<community.CommunityPost>> getBookmarkedPosts() async {
     try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) {
+        print('❌ No authenticated user for bookmarked posts');
+        return [];
+      }
+      
       final response = await _dio.get('/api/posts/bookmarked');
       if (response.statusCode == 200) {
         final List<dynamic> data = response.data;
+        print('✅ Loaded ${data.length} bookmarked posts');
         return data.map((json) => community.CommunityPost.fromJson(json)).toList();
       }
       return [];
     } catch (e) {
-      print('Error fetching bookmarked posts: $e');
-      print('🔄 Falling back to mock database for bookmarked posts');
-      return await MockBackendService().getBookmarkedPosts();
+      print('❌ Error fetching bookmarked posts: $e');
+      return [];
     }
   }
 

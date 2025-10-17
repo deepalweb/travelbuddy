@@ -6,6 +6,8 @@ import ToastContainer from '../ui/ToastContainer';
 import { PageTransition } from './PageTransition';
 import { HomePage, ExplorePage, TripsPage, CommunityPage, ProfilePage } from '../LazyPages';
 import AuthModal from '../features/auth/AuthModal';
+import MobileAppDemo from '../MobileAppDemo';
+import MobileAuthIntegration from '../MobileAuthIntegration';
 import { ActiveTab } from '../../types';
 
 const LoadingSpinner = () => (
@@ -18,6 +20,8 @@ const MainLayout: React.FC = () => {
   const { user, loading } = useAuth();
   const [activeTab, setActiveTab] = useState<ActiveTab>('home');
   const [showAuthModal, setShowAuthModal] = useState(false);
+  const [showMobileDemo, setShowMobileDemo] = useState(false);
+  const [showMobileAuth, setShowMobileAuth] = useState(false);
 
   if (loading) {
     return (
@@ -34,6 +38,11 @@ const MainLayout: React.FC = () => {
     }
     setActiveTab(tab);
   };
+
+  // Show mobile demo if URL contains mobile-demo
+  if (window.location.search.includes('mobile-demo')) {
+    return <MobileAppDemo />;
+  }
 
   const renderContent = () => {
     // Redirect admin to backend
@@ -67,6 +76,22 @@ const MainLayout: React.FC = () => {
     <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50 dark:from-gray-900 dark:via-gray-800 dark:to-indigo-900">
       <Header />
       
+      {/* Mobile Demo Button */}
+      <div className="fixed top-20 right-4 z-40 flex flex-col gap-2">
+        <button
+          onClick={() => setShowMobileDemo(true)}
+          className="bg-blue-600 text-white px-4 py-2 rounded-lg shadow-lg hover:bg-blue-700 transition-colors text-sm font-medium"
+        >
+          📱 Mobile Demo
+        </button>
+        <button
+          onClick={() => setShowMobileAuth(true)}
+          className="bg-green-600 text-white px-4 py-2 rounded-lg shadow-lg hover:bg-green-700 transition-colors text-sm font-medium"
+        >
+          🔐 Mobile Auth
+        </button>
+      </div>
+      
       <main className="pt-16 pb-20 md:pb-8">
         <div className="w-full px-4 sm:px-6 lg:px-8">
           <PageTransition transitionKey={activeTab}>
@@ -89,6 +114,22 @@ const MainLayout: React.FC = () => {
           isOpen={showAuthModal}
           onClose={() => setShowAuthModal(false)}
         />
+      )}
+
+      {showMobileDemo && (
+        <div className="fixed inset-0 z-50">
+          <MobileAppDemo />
+          <button
+            onClick={() => setShowMobileDemo(false)}
+            className="fixed top-4 right-4 z-60 bg-gray-800 text-white p-2 rounded-full shadow-lg hover:bg-gray-700 transition-colors"
+          >
+            ✕
+          </button>
+        </div>
+      )}
+
+      {showMobileAuth && (
+        <MobileAuthIntegration onClose={() => setShowMobileAuth(false)} />
       )}
     </div>
   );

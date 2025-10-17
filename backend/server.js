@@ -951,6 +951,7 @@ const userSchema = new mongoose.Schema({
   selectedInterests: [String],
   hasCompletedWizard: { type: Boolean, default: false },
   favoritePlaces: [String],
+  bookmarkedPosts: [String],
   profilePicture: { type: String, default: null },
   
   // Legacy fields (for backward compatibility)
@@ -2091,18 +2092,53 @@ app.put('/api/users/:id/travel-style', async (req, res) => {
   }
 });
 
-// Posts with automated moderation
-app.post('/api/posts', authenticateJWT, asyncHandler(async (req, res) => {
+// Flexible auth middleware for mobile/web
+const flexAuth = async (req, res, next) => {
+  const authHeader = req.headers.authorization;
+  const token = authHeader?.split(' ')[1];
+  const userId = req.headers['x-user-id'];
+  
+  if (token) {
+    try {
+      // Try Firebase first
+      if (adminAuth) {
+        const decoded = await adminAuth.verifyIdToken(token);
+        req.user = { uid: decoded.uid, ...decoded };
+        return next();
+      }
+    } catch {}
+    
+    try {
+      // Fallback to simple token
+      const decoded = Buffer.from(token, 'base64').toString('utf8');
+      const [id] = decoded.split(':');
+      req.user = { uid: id };
+      return next();
+    } catch {}
+  }
+  
+  if (userId) {
+    req.user = { uid: userId };
+    return next();
+  }
+  
+  return res.status(401).json({ error: 'Authentication required' });
+};
+
+// Posts with pagination
+app.post('/api/posts', flexAuth, asyncHandler(async (req, res) => {
   try {
     const body = req.body || {};
-    
-    // Quick validation only
     const images = body?.content?.images;
     if (Array.isArray(images) && images.length > 2) {
       return res.status(400).json({ error: 'Max 2 images allowed' });
     }
-
-    // Create and save post immediately
+    
+    // Add user info
+    if (!body.userId && req.user?.uid) {
+      body.userId = req.user.uid;
+    }
+    
     const post = new Post(body);
     const saved = await post.save();
     res.json(saved);
@@ -2113,72 +2149,113 @@ app.post('/api/posts', authenticateJWT, asyncHandler(async (req, res) => {
 
 app.get('/api/posts', async (req, res) => {
   try {
-    const limit = Math.min(20, parseInt(req.query.limit || '20', 10));
+    const limit = Math.min(50, parseInt(req.query.limit || '20', 10));
+    const page = Math.max(1, parseInt(req.query.page || '1', 10));
+    const skip = (page - 1) * limit;
+    const cursor = req.query.cursor;
     
-    const posts = await Post.find({}, {
-      userId: 1,
-      content: 1,
-      author: 1,
-      engagement: 1,
-      tags: 1,
-      category: 1,
-      createdAt: 1,
+    let query = { moderationStatus: { $ne: 'rejected' } };
+    if (cursor) {
+      query.createdAt = { $lt: new Date(cursor) };
+    }
+    
+    const posts = await Post.find(query, {
+      userId: 1, content: 1, author: 1, engagement: 1,
+      tags: 1, category: 1, createdAt: 1
     })
       .sort({ createdAt: -1 })
       .limit(limit)
+      .skip(cursor ? 0 : skip)
       .lean();
-    res.json(posts);
+    
+    const nextCursor = posts.length === limit ? posts[posts.length - 1].createdAt : null;
+    const hasMore = posts.length === limit;
+    
+    res.json({ posts, pagination: { hasMore, nextCursor, page, limit } });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 });
 
-// Community posts API alias for mobile app
+// Community posts with auth and pagination
 app.get('/api/community/posts', async (req, res) => {
   try {
-    const limit = Math.min(20, parseInt(req.query.limit || '20', 10));
-    const posts = await Post.find({}, {
-      userId: 1,
-      content: 1,
-      author: 1,
-      engagement: 1,
-      tags: 1,
-      category: 1,
-      createdAt: 1,
-    })
+    const limit = Math.min(50, parseInt(req.query.limit || '20', 10));
+    const cursor = req.query.cursor;
+    
+    let query = { 
+      $or: [
+        { moderationStatus: 'approved' },
+        { moderationStatus: { $exists: false } }
+      ]
+    };
+    if (cursor) {
+      query.createdAt = { $lt: new Date(cursor) };
+    }
+    
+    console.log('📊 Fetching posts with query:', JSON.stringify(query));
+    
+    const posts = await Post.find(query)
       .sort({ createdAt: -1 })
       .limit(limit)
       .lean();
+    
+    console.log(`✅ Found ${posts.length} posts`);
+    
+    // Return posts directly for mobile compatibility
     res.json(posts);
   } catch (error) {
+    console.error('❌ Posts fetch error:', error);
     res.status(500).json({ error: error.message });
   }
 });
 
-app.post('/api/community/posts', async (req, res) => {
+app.post('/api/community/posts', flexAuth, async (req, res) => {
   try {
     const body = req.body || {};
+    console.log('📝 Creating post:', JSON.stringify(body, null, 2));
+    
     const images = body?.content?.images;
     if (Array.isArray(images) && images.length > 2) {
       return res.status(400).json({ error: 'Max 2 images allowed' });
     }
+    
+    if (!body.userId && req.user?.uid) {
+      body.userId = req.user.uid;
+    }
+    
+    // Ensure moderationStatus is approved by default
+    if (!body.moderationStatus) {
+      body.moderationStatus = 'approved';
+    }
+    
     const post = new Post(body);
     const saved = await post.save();
+    console.log('✅ Post saved:', saved._id);
+    
+    // Broadcast new post to all connected clients
+    try {
+      io.emit('new_post', saved);
+      console.log('📡 Broadcasted new post to all clients');
+    } catch (e) {
+      console.warn('Failed to broadcast new post:', e?.message);
+    }
+    
     res.json(saved);
   } catch (error) {
+    console.error('❌ Post creation error:', error);
     res.status(400).json({ error: error.message });
   }
 });
 
-// Like/Unlike a post
-app.post('/api/posts/:id/like', async (req, res) => {
+// Like/Unlike a post with auth
+app.post('/api/posts/:id/like', flexAuth, async (req, res) => {
   try {
     const { userId, username } = req.body || {};
     const post = await Post.findById(req.params.id);
     if (!post) return res.status(404).json({ error: 'Post not found' });
 
-    // Identify liker key (prefer userId; fallback to username or 'anon')
-    const likerKey = (userId || username || 'anon').toString();
+    const likerKey = (userId || req.user?.uid || username || 'anon').toString();
     const hasLiked = post.likedBy.includes(likerKey);
 
     if (hasLiked) {
@@ -2200,8 +2277,55 @@ app.post('/api/posts/:id/like', async (req, res) => {
   }
 });
 
-// Add a comment to a post
-app.post('/api/posts/:id/comments', async (req, res) => {
+// Bookmark/Unbookmark a post
+app.post('/api/posts/:id/bookmark', flexAuth, async (req, res) => {
+  try {
+    const post = await Post.findById(req.params.id);
+    if (!post) return res.status(404).json({ error: 'Post not found' });
+
+    const userId = req.user?.uid;
+    if (!userId) return res.status(401).json({ error: 'User ID required' });
+
+    const user = await User.findOne({ $or: [{ firebaseUid: userId }, { _id: userId }] });
+    if (!user) return res.status(404).json({ error: 'User not found' });
+
+    const bookmarks = user.bookmarkedPosts || [];
+    const isBookmarked = bookmarks.includes(req.params.id);
+
+    if (isBookmarked) {
+      user.bookmarkedPosts = bookmarks.filter(id => id !== req.params.id);
+    } else {
+      user.bookmarkedPosts = [...bookmarks, req.params.id];
+    }
+    
+    await user.save();
+    res.json({ success: true, bookmarked: !isBookmarked });
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
+// Get user's bookmarked posts
+app.get('/api/posts/bookmarked', flexAuth, async (req, res) => {
+  try {
+    const userId = req.user?.uid;
+    if (!userId) return res.status(401).json({ error: 'Authentication required' });
+
+    const user = await User.findOne({ $or: [{ firebaseUid: userId }, { _id: userId }] });
+    if (!user || !user.bookmarkedPosts) return res.json([]);
+
+    const posts = await Post.find({ _id: { $in: user.bookmarkedPosts } })
+      .sort({ createdAt: -1 })
+      .lean();
+    
+    res.json(posts);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Add a comment to a post with auth
+app.post('/api/posts/:id/comments', flexAuth, async (req, res) => {
   try {
     const { userId, username, text } = req.body || {};
     if (!text || typeof text !== 'string' || !text.trim()) {
@@ -2209,7 +2333,9 @@ app.post('/api/posts/:id/comments', async (req, res) => {
     }
     const post = await Post.findById(req.params.id);
     if (!post) return res.status(404).json({ error: 'Post not found' });
-    post.commentsList.push({ userId, username, text: text.trim() });
+    
+    const commentUserId = userId || req.user?.uid;
+    post.commentsList.push({ userId: commentUserId, username, text: text.trim() });
     post.engagement.comments = (post.engagement.comments || 0) + 1;
     await post.save();
     return res.json({ success: true, comments: post.commentsList, count: post.engagement.comments });

@@ -99,6 +99,20 @@ class StorageService {
     await saveFavorites(favorites);
   }
 
+  Future<List<Place>> getFavoritePlaces() async {
+    final favoriteIds = await getFavorites();
+    final favoritePlaces = <Place>[];
+    
+    for (final id in favoriteIds) {
+      final place = await getCachedPlace(id);
+      if (place != null) {
+        favoritePlaces.add(place);
+      }
+    }
+    
+    return favoritePlaces;
+  }
+
   // Places Cache
   Future<void> cachePlaces(List<Place> places) async {
     for (final place in places) {
@@ -210,6 +224,17 @@ class StorageService {
     await _placesBox.clear();
     await _tripPlansBox.clear();
     await _itinerariesBox.clear();
+    
+    // Clear location-based cache metadata
+    final allKeys = _prefs.getKeys().where((key) => key.endsWith('_metadata')).toList();
+    for (final key in allKeys) {
+      await _prefs.remove(key);
+    }
+    
+    // Clear enriched cache
+    await clearEnrichedCache();
+    
+    print('🧹 All caches cleared - will force fresh API calls');
   }
 
   // Enriched Places Cache (AI-enhanced places)

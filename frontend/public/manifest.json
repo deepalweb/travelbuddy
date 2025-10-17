@@ -1,12 +1,15 @@
 {
-  "name": "TravelBuddy - AI Travel Planner",
-  "short_name": "TravelBuddy",
-  "description": "AI-powered travel planning with local recommendations",
+  "name": "Travel Buddy - AI Travel Companion",
+  "short_name": "Travel Buddy",
+  "description": "AI-powered travel companion for discovering places, planning trips & community",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#ffffff",
-  "theme_color": "#3b82f6",
+  "theme_color": "#6366f1",
   "orientation": "portrait-primary",
+  "scope": "/",
+  "lang": "en",
+  "categories": ["travel", "lifestyle", "navigation"],
   "icons": [
     {
       "src": "/favicon.ico",
@@ -14,26 +17,94 @@
       "type": "image/x-icon"
     },
     {
-      "src": "/favicon.svg",
-      "sizes": "any",
-      "type": "image/svg+xml"
+      "src": "/images/icons/icon-192.png",
+      "type": "image/png",
+      "sizes": "192x192",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/images/icons/icon-512.png",
+      "type": "image/png",
+      "sizes": "512x512",
+      "purpose": "any maskable"
     }
   ],
-  "categories": ["travel", "lifestyle", "productivity"],
+  "screenshots": [
+    {
+      "src": "/images/screenshots/mobile-home.png",
+      "type": "image/png",
+      "sizes": "390x844",
+      "form_factor": "narrow"
+    },
+    {
+      "src": "/images/screenshots/desktop-home.png",
+      "type": "image/png",
+      "sizes": "1920x1080",
+      "form_factor": "wide"
+    }
+  ],
   "shortcuts": [
+    {
+      "name": "Discover Places",
+      "short_name": "Discover",
+      "description": "Find amazing places near you",
+      "url": "/places",
+      "icons": [
+        {
+          "src": "/images/icons/discover-icon.png",
+          "sizes": "96x96"
+        }
+      ]
+    },
     {
       "name": "Plan Trip",
       "short_name": "Plan",
-      "description": "Start planning a new trip",
-      "url": "/?action=plan",
-      "icons": [{ "src": "/favicon.svg", "sizes": "96x96" }]
+      "description": "Create your perfect itinerary",
+      "url": "/planner",
+      "icons": [
+        {
+          "src": "/images/icons/plan-icon.png",
+          "sizes": "96x96"
+        }
+      ]
     },
     {
-      "name": "Explore Places",
-      "short_name": "Explore",
-      "description": "Discover nearby places",
-      "url": "/?tab=explore",
-      "icons": [{ "src": "/favicon.svg", "sizes": "96x96" }]
+      "name": "Safety Hub",
+      "short_name": "Safety",
+      "description": "Emergency services and safety info",
+      "url": "/safety",
+      "icons": [
+        {
+          "src": "/images/icons/safety-icon.png",
+          "sizes": "96x96"
+        }
+      ]
+    },
+    {
+      "name": "Community",
+      "short_name": "Community",
+      "description": "Connect with fellow travelers",
+      "url": "/community",
+      "icons": [
+        {
+          "src": "/images/icons/community-icon.png",
+          "sizes": "96x96"
+        }
+      ]
     }
-  ]
+  ],
+  "related_applications": [
+    {
+      "platform": "play",
+      "url": "https://play.google.com/store/apps/details?id=com.travelbuddy.mobile",
+      "id": "com.travelbuddy.mobile"
+    }
+  ],
+  "prefer_related_applications": false,
+  "edge_side_panel": {
+    "preferred_width": 400
+  },
+  "launch_handler": {
+    "client_mode": "navigate-existing"
+  }
 }

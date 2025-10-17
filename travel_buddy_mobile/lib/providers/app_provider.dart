@@ -3,6 +3,7 @@ import 'package:geolocator/geolocator.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'dart:math' as math;
+import 'dart:async';
 import '../config/environment.dart';
 import '../models/user.dart';
 import '../models/place.dart';
@@ -820,11 +821,33 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
         print('❌ No current user to update');
         return false;
       }
+      
+      print('🔄 Updating profile with:');
+      print('  - username: $username');
+      print('  - bio: $bio');
+      print('  - website: $website');
+      print('  - location: $location');
+      print('  - birthday: $birthday');
+      print('  - languages: $languages');
+      print('  - interests: $interests');
+      print('  - budgetPreferences: $budgetPreferences');
+      print('  - showBirthdayToOthers: $showBirthdayToOthers');
+      print('  - showLocationToOthers: $showLocationToOthers');
+      print('  - status: $status');
 
       // Update current user locally first
       _currentUser = _currentUser!.copyWith(
         username: username ?? _currentUser?.username,
         email: email ?? _currentUser?.email,
+        bio: bio ?? _currentUser?.bio,
+        website: website ?? _currentUser?.website,
+        location: location ?? _currentUser?.location,
+        birthday: birthday ?? _currentUser?.birthday,
+        languages: languages ?? _currentUser?.languages,
+        interests: interests ?? _currentUser?.interests,
+        budgetPreferences: budgetPreferences ?? _currentUser?.budgetPreferences,
+        showBirthdayToOthers: showBirthdayToOthers ?? _currentUser?.showBirthdayToOthers,
+        showLocationToOthers: showLocationToOthers ?? _currentUser?.showLocationToOthers,
         profilePicture: profilePicture ?? _currentUser?.profilePicture,
         status: status ?? _currentUser?.status,
       );
@@ -839,16 +862,90 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
           photoURL: profilePicture,
         );
         print('✅ Firebase profile updated');
+      print('✅ Local user updated: ${_currentUser!.username}');
+      print('🔍 VERIFICATION: Current user fields after update:');
+      print('  - username: ${_currentUser!.username}');
+      print('  - bio: ${_currentUser!.bio}');
+      print('  - website: ${_currentUser!.website}');
+      print('  - location: ${_currentUser!.location}');
+      print('  - birthday: ${_currentUser!.birthday}');
+      print('  - languages: ${_currentUser!.languages}');
+      print('  - interests: ${_currentUser!.interests}');
+      print('  - budgetPreferences: ${_currentUser!.budgetPreferences}');
+      print('  - showBirthdayToOthers: ${_currentUser!.showBirthdayToOthers}');
+      print('  - showLocationToOthers: ${_currentUser!.showLocationToOthers}');
+      print('  - status: ${_currentUser!.status}');
       } catch (e) {
         print('⚠️ Firebase update failed: $e');
         // Continue - local update succeeded
       }
+      
+      // Sync all profile data to backend
+      await _syncProfileToBackend({
+        'username': username,
+        'email': email,
+        'bio': bio,
+        'website': website,
+        'location': location,
+        'birthday': birthday,
+        'languages': languages,
+        'interests': interests,
+        'budgetPreferences': budgetPreferences,
+        'showBirthdayToOthers': showBirthdayToOthers,
+        'showLocationToOthers': showLocationToOthers,
+        'profilePicture': profilePicture,
+        'status': status,
+      });
       
       notifyListeners();
       return true;
     } catch (e) {
       print('❌ Error updating user profile: $e');
       return false;
+    }
+  }
+
+  Future<void> _syncProfileToBackend(Map<String, dynamic> profileData) async {
+    if (_currentUser?.mongoId == null) {
+      print('⚠️ No MongoDB ID - skipping backend sync');
+      print('   Current user: ${_currentUser?.username}');
+      print('   MongoDB ID: ${_currentUser?.mongoId}');
+      return;
+    }
+    
+    try {
+      // Remove null values
+      final cleanData = <String, dynamic>{};
+      profileData.forEach((key, value) {
+        if (value != null) {
+          cleanData[key] = value;
+        }
+      });
+      
+      if (cleanData.isEmpty) {
+        print('⚠️ No data to sync to backend');
+        return;
+      }
+      
+      print('🔄 Syncing to backend: ${Environment.backendUrl}/api/users/${_currentUser!.mongoId}');
+      print('📤 Data to sync: ${json.encode(cleanData)}');
+      
+      final response = await http.put(
+        Uri.parse('${Environment.backendUrl}/api/users/${_currentUser!.mongoId}'),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode(cleanData),
+      );
+      
+      print('📥 Backend response: ${response.statusCode}');
+      print('📥 Response body: ${response.body}');
+      
+      if (response.statusCode == 200) {
+        print('✅ Profile synced to backend: ${cleanData.keys.join(", ")}');
+      } else {
+        print('⚠️ Backend sync failed: ${response.statusCode} - ${response.body}');
+      }
+    } catch (e) {
+      print('❌ Backend sync error: $e');
     }
   }
 
@@ -1107,16 +1204,28 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
       print('  - Radius: $_selectedRadius');
       print('  - Backend URL: ${Environment.backendUrl}');
       
-      // Test network connectivity
+      // Test network connectivity with detailed logging
       try {
-        final testResponse = await http.get(Uri.parse('${Environment.backendUrl}/health'));
-        print('🌐 Network test: ${testResponse.statusCode} - Backend reachable');
+        print('🌐 Testing backend connectivity...');
+        final testResponse = await http.get(
+          Uri.parse('${Environment.backendUrl}/health'),
+          headers: {'Content-Type': 'application/json'},
+        ).timeout(const Duration(seconds: 10));
+        
+        print('🌐 Backend connectivity test:');
+        print('   Status: ${testResponse.statusCode}');
+        print('   Headers: ${testResponse.headers}');
+        print('   Body: ${testResponse.body.substring(0, math.min(200, testResponse.body.length))}');
+        
         if (testResponse.statusCode == 200) {
           print('✅ Backend is responding correctly');
+        } else {
+          print('⚠️ Backend returned non-200 status: ${testResponse.statusCode}');
         }
       } catch (e) {
         print('❌ Network test failed: $e');
         print('❌ Cannot reach backend at ${Environment.backendUrl}');
+        print('❌ This will likely cause places API to fail');
       }
       
       if (searchQuery.isNotEmpty) {
@@ -1333,15 +1442,27 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
       if (places.isNotEmpty) {
         print('🏛️ Top places: ${places.take(3).map((p) => '${p.name} (${p.rating}⭐)').join(", ")}');
         
-        // Check if data is real or mock
+        // Analyze data quality in detail
         final hasRealIds = places.any((p) => p.id.isNotEmpty && !p.id.startsWith('mock_'));
         final hasGooglePhotos = places.any((p) => p.photoUrl.contains('googleapis') || p.photoUrl.contains('googleusercontent'));
         final hasRealAddresses = places.any((p) => p.address.isNotEmpty && p.address != 'Near your location');
+        final hasVariedNames = places.map((p) => p.name).toSet().length > places.length * 0.8;
+        
+        print('🔍 Data Quality Analysis:');
+        print('   Real IDs: $hasRealIds (${places.where((p) => p.id.isNotEmpty && !p.id.startsWith('mock_')).length}/${places.length})');
+        print('   Google Photos: $hasGooglePhotos');
+        print('   Real Addresses: $hasRealAddresses (${places.where((p) => p.address.isNotEmpty && p.address != 'Near your location').length}/${places.length})');
+        print('   Name Variety: $hasVariedNames');
         
         if (hasRealIds && hasRealAddresses) {
-          print('✅ REAL DATA: Places have Google Place IDs and real addresses');
+          print('✅ CONFIRMED REAL DATA: Places have Google Place IDs and real addresses');
         } else {
-          print('🎭 MOCK DATA: Places appear to be generated mock data');
+          print('🎭 SUSPECTED MOCK DATA: Places appear to be generated mock data');
+          // Log first few places for inspection
+          for (int i = 0; i < math.min(3, places.length); i++) {
+            final p = places[i];
+            print('   Place $i: ${p.name} (ID: ${p.id}, Address: ${p.address})');
+          }
         }
         
         // Log context-aware distribution
@@ -1377,10 +1498,25 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
       
     } catch (e) {
       print('❌ Error loading places: $e');
+      print('❌ Error type: ${e.runtimeType}');
+      print('❌ Stack trace: ${StackTrace.current}');
       _placesError = 'Failed to load places: ${e.toString()}';
       
+      // Detailed error analysis
+      final errorString = e.toString().toLowerCase();
+      final isNetworkError = errorString.contains('network') || 
+                           errorString.contains('socket') || 
+                           errorString.contains('timeout') || 
+                           errorString.contains('connection');
+      
+      print('🔍 Error Analysis:');
+      print('   Is Network Error: $isNetworkError');
+      print('   Error contains "network": ${errorString.contains('network')}');
+      print('   Error contains "socket": ${errorString.contains('socket')}');
+      print('   Error contains "timeout": ${errorString.contains('timeout')}');
+      
       // Show relevant cached places only if network fails
-      if (_placesError?.contains('network') == true || _placesError?.contains('offline') == true) {
+      if (isNetworkError) {
         try {
           final cachedPlaces = await _storageService.getCachedPlacesForLocation(
             _currentLocation!.latitude,
@@ -1410,17 +1546,26 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
   }
 
   Future<bool> toggleFavorite(String placeId) async {
+    print('❤️ Toggle favorite called for: $placeId');
     final place = _places.firstWhere((p) => p.id == placeId, orElse: () => Place(id: '', name: '', address: '', latitude: 0, longitude: 0, rating: 0, type: '', photoUrl: '', description: '', localTip: '', handyPhrase: ''));
     
     if (_favoriteIds.contains(placeId)) {
+      print('💔 Removing from favorites: ${place.name}');
       _favoriteIds.remove(placeId);
       await _storageService.removeFavorite(placeId);
+      print('✅ Removed from local storage');
       
-      await _apiService.removeFavorite(placeId);
+      try {
+        await _apiService.removeFavorite(placeId);
+        print('✅ Removed from backend');
+      } catch (e) {
+        print('❌ Backend remove failed: $e');
+      }
     } else {
       // Check favorites limit
       final maxFavs = maxFavorites;
       if (maxFavs > 0 && _favoriteIds.length >= maxFavs) {
+        print('⚠️ Favorites limit reached: ${_favoriteIds.length}/$maxFavs');
         await _notificationService.showLocalNotification(
           'Favorites Limit Reached',
           'Upgrade to add more favorites (${_favoriteIds.length}/$maxFavs)',
@@ -1428,10 +1573,17 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
         return false;
       }
       
+      print('❤️ Adding to favorites: ${place.name}');
       _favoriteIds.add(placeId);
       await _storageService.addFavorite(placeId);
+      print('✅ Added to local storage');
       
-      await _apiService.addFavorite(placeId);
+      try {
+        await _apiService.addFavorite(placeId);
+        print('✅ Added to backend');
+      } catch (e) {
+        print('❌ Backend add failed: $e');
+      }
       
       if (place.name.isNotEmpty) {
         await _notificationService.showLocalNotification(
@@ -1442,6 +1594,8 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
     }
     
     await _updateFavoritePlaces();
+    print('📊 Total favorites: ${_favoriteIds.length}');
+    print('📊 Favorite places: ${_favoritePlaces.length}');
     notifyListeners();
     return true;
   }
@@ -2733,8 +2887,12 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
   Future<void> forceRefreshPlaces() async {
     debugPrint('🔄 Force refresh places - bypassing cache and updating location');
     
+    // Clear ALL caches first
+    await clearCache();
+    
     // Clear current places
     _places.clear();
+    _placeSections.clear();
     _currentPage = 1;
     _hasMorePlaces = true;
     
@@ -2746,6 +2904,8 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
     
     // Load fresh places
     await loadNearbyPlaces();
+    
+    print('✅ Force refresh complete - all caches cleared');
   }
 
   // Private Methods
@@ -2947,7 +3107,17 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
   }
 
   Future<void> _updateFavoritePlaces() async {
-    _favoritePlaces = _places.where((place) => _favoriteIds.contains(place.id)).toList();
+    try {
+      // Get favorite places from storage
+      final storedFavorites = await _storageService.getFavoritePlaces();
+      _favoritePlaces = storedFavorites;
+      print('✅ Updated favorite places: ${_favoritePlaces.length} from storage');
+    } catch (e) {
+      print('❌ Error loading favorite places from storage: $e');
+      // Fallback to filtering current places
+      _favoritePlaces = _places.where((place) => _favoriteIds.contains(place.id)).toList();
+      print('⚠️ Fallback: ${_favoritePlaces.length} favorites from current places');
+    }
   }
   
   // AI Enrichment with caching

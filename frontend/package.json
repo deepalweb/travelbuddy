@@ -7,7 +7,7 @@
     "build": "vite build",
     "preview": "vite preview",
     "test": "vitest",
-    "start": "node backend/server.js",
+    "start": "vite",
     "heroku-postbuild": "npm run build",
     "postinstall": "npm run build"
   },

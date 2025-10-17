@@ -37,7 +37,7 @@ class CommunityProvider with ChangeNotifier {
     notifyListeners();
 
     try {
-      // Try backend API first
+      // Always fetch fresh data from backend to get latest posts
       final backendPosts = await _apiService.getCommunityPosts(
         page: _currentPage,
         limit: 20,
@@ -47,8 +47,8 @@ class CommunityProvider with ChangeNotifier {
         // Update posts with current user profile data
         final updatedPosts = await _syncPostsWithUserProfile(backendPosts, context);
         
-        if (refresh) {
-          // On refresh, replace all posts with fresh backend data
+        if (refresh || _currentPage == 1) {
+          // On refresh or first load, replace all posts with fresh backend data
           _posts = updatedPosts;
         } else {
           // On load more, add new posts
@@ -61,29 +61,46 @@ class CommunityProvider with ChangeNotifier {
         _hasMorePosts = backendPosts.length >= 20;
         _currentPage++;
         print('✅ Loaded ${backendPosts.length} posts from backend');
+        
+        // Update local cache with fresh data
+        await _updateLocalCache();
       } else {
-        if (_posts.isEmpty) {
-          await loadLocalPosts();
-        }
         _hasMorePosts = false;
-        print('💾 Using local posts only');
+        print('❌ No posts from backend');
       }
     } catch (e) {
       _error = 'Failed to load posts: $e';
       print('❌ Backend API failed: $e');
-      
-      if (_posts.isEmpty) {
-        await loadLocalPosts();
-      }
-      
-      if (_posts.isNotEmpty) {
-        print('💾 Keeping ${_posts.length} local posts visible');
-        _error = 'Using offline posts - backend unavailable';
-      }
       _hasMorePosts = false;
     } finally {
       _isLoading = false;
       notifyListeners();
+    }
+  }
+  
+  Future<void> _updateLocalCache() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final postsJson = _posts.take(20).map((post) => jsonEncode({
+        'id': post.id,
+        'userId': post.userId,
+        'userName': post.userName,
+        'userAvatar': post.userAvatar,
+        'content': post.content,
+        'images': post.images,
+        'location': post.location,
+        'createdAt': post.createdAt.toIso8601String(),
+        'likesCount': post.likesCount,
+        'commentsCount': post.commentsCount,
+        'isLiked': post.isLiked,
+        'postType': post.postType.name,
+        'isSaved': post.isSaved,
+      })).toList();
+      
+      await prefs.setStringList('local_posts', postsJson);
+      await prefs.setInt('posts_cache_timestamp', DateTime.now().millisecondsSinceEpoch);
+    } catch (e) {
+      print('❌ Error updating local cache: $e');
     }
   }
   
@@ -262,21 +279,24 @@ class CommunityProvider with ChangeNotifier {
     );
     notifyListeners();
 
-    // Skip backend sync for temporary posts
-    if (!postId.startsWith('temp_')) {
-      try {
-        // Try backend API for real posts only
-        final success = await _apiService.toggleBookmark(postId);
-        if (success) {
-          print('✅ Bookmark synced to backend');
-        } else {
-          print('⚠️ Backend bookmark API not available');
-        }
-      } catch (e) {
-        print('⚠️ Backend unavailable - bookmark saved locally');
+    // Sync with backend
+    try {
+      final success = await _apiService.toggleBookmark(postId);
+      if (success) {
+        print('✅ Bookmark synced to backend');
+      } else {
+        // Revert on failure
+        _posts[postIndex] = post;
+        notifyListeners();
+        print('❌ Bookmark sync failed - reverted');
+        return false;
       }
-    } else {
-      print('💾 Local-only post - bookmark saved locally');
+    } catch (e) {
+      // Revert on error
+      _posts[postIndex] = post;
+      notifyListeners();
+      print('❌ Bookmark error - reverted: $e');
+      return false;
     }
     return true;
   }
@@ -311,10 +331,15 @@ class CommunityProvider with ChangeNotifier {
         );
         
         if (newPost != null) {
+          // Insert at beginning of posts list
           _posts.insert(0, newPost);
           notifyListeners();
           await _savePostLocally(newPost);
           print('✅ Post created and synced to backend immediately');
+          
+          // Force refresh to get latest posts
+          await Future.delayed(Duration(milliseconds: 500));
+          await loadPosts(refresh: true, context: context);
           return true;
         }
       } catch (e) {
@@ -351,10 +376,23 @@ class CommunityProvider with ChangeNotifier {
       notifyListeners();
       await _savePostLocally(optimisticPost);
       
+      // Try background sync
+      _tryBackendSaveInBackground(optimisticPost, currentUser);
+      
       return true;
     } catch (e) {
       print('❌ [PROVIDER] Error creating post: $e');
       return false;
+    }
+  }
+  
+  Future<void> _clearPostsCache() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove('posts_cache_timestamp');
+      print('🗑️ Cleared posts cache to force refresh for other users');
+    } catch (e) {
+      print('❌ Error clearing posts cache: $e');
     }
   }
   
@@ -411,6 +449,9 @@ class CommunityProvider with ChangeNotifier {
           await _updateLocalPost(post.id, newPost);
           notifyListeners();
           print('✅ Post synced to backend with ID: ${newPost.id}');
+          
+          // Clear cache to force refresh for other users
+          await _clearPostsCache();
         }
       } else {
         print('⚠️ Backend returned invalid post data');
@@ -419,6 +460,11 @@ class CommunityProvider with ChangeNotifier {
       print('❌ Backend sync failed: $e - keeping local post');
       // Post remains local-only with temp ID
     }
+  }
+  
+  // Force refresh for all users (call this when new posts are created)
+  Future<void> refreshFeed() async {
+    await loadPosts(refresh: true);
   }
   
   Future<void> _updateLocalPost(String tempId, CommunityPost realPost) async {

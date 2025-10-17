@@ -7,6 +7,7 @@ import 'screens/splash_screen.dart';
 import 'screens/safety_screen.dart';
 import 'services/storage_service.dart';
 import 'services/firebase_service.dart';
+import 'services/connectivity_test.dart';
 import 'constants/app_constants.dart';
 import 'config/environment.dart';
 
@@ -24,6 +25,11 @@ void main() async {
     
     // Initialize Firebase
     await FirebaseService.initializeFirebase();
+    
+    // Test backend connectivity in production
+    if (Environment.isProduction) {
+      ConnectivityTest.testBackendConnectivity();
+    }
     
     runApp(const TravelBuddyApp());
   } catch (e) {

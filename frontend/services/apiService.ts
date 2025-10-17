@@ -292,10 +292,159 @@ export const apiService = {
     }
   },
 
+  async removeFavoriteById(userId: string, placeId: string) {
+    try {
+      const response = await fetch(withApiBase(`/api/users/${userId}/favorites/${placeId}`), await withAuthHeaders({
+        method: 'DELETE'
+      }));
+      return response.json();
+    } catch (error) {
+      console.error('Error removing favorite:', error);
+      throw error;
+    }
+  },
+
   // Auth: ask backend to upsert user on login (optional; backend may be gated)
   async authLogin(): Promise<any> {
     const init = await withAuthHeaders({ method: 'POST' });
   const res = await fetch(withApiBase(`/api/auth/login`), init);
     return res.json();
+  },
+
+  // Enhanced User Profile Management
+  async getUserProfile(): Promise<any> {
+    try {
+      const response = await fetch(withApiBase('/api/users/profile'), await withAuthHeaders());
+      return response.json();
+    } catch (error) {
+      console.error('Error fetching user profile:', error);
+      return null;
+    }
+  },
+
+  async updateUserProfile(profile: any): Promise<any> {
+    try {
+      const response = await fetch(withApiBase('/api/users/profile'), await withAuthHeaders({
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(profile)
+      }));
+      return response.json();
+    } catch (error) {
+      console.error('Error updating user profile:', error);
+      throw error;
+    }
+  },
+
+  async getUserStats(): Promise<any> {
+    try {
+      const response = await fetch(withApiBase('/api/users/stats'), await withAuthHeaders());
+      return response.json();
+    } catch (error) {
+      console.error('Error fetching user stats:', error);
+      return null;
+    }
+  },
+
+  async getUserTravelStats(): Promise<any> {
+    try {
+      const response = await fetch(withApiBase('/api/users/travel-stats'), await withAuthHeaders());
+      return response.json();
+    } catch (error) {
+      console.error('Error fetching travel stats:', error);
+      return null;
+    }
+  },
+
+  async updateUserTravelStyle(travelStyle: string): Promise<any> {
+    try {
+      const response = await fetch(withApiBase('/api/users/travel-style'), await withAuthHeaders({
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ travelStyle })
+      }));
+      return response.json();
+    } catch (error) {
+      console.error('Error updating travel style:', error);
+      throw error;
+    }
+  },
+
+  async getUserFavorites(): Promise<string[]> {
+    try {
+      const response = await fetch(withApiBase('/api/users/favorites'), await withAuthHeaders());
+      const result = await response.json();
+      return result?.favorites || [];
+    } catch (error) {
+      console.error('Error fetching user favorites:', error);
+      return [];
+    }
+  },
+
+  async removeFavorite(placeId: string): Promise<any> {
+    try {
+      const response = await fetch(withApiBase(`/api/users/favorites/${placeId}`), await withAuthHeaders({
+        method: 'DELETE'
+      }));
+      return response.json();
+    } catch (error) {
+      console.error('Error removing favorite:', error);
+      throw error;
+    }
+  },
+
+  async getFollowers(): Promise<any[]> {
+    try {
+      const response = await fetch(withApiBase('/api/users/followers'), await withAuthHeaders());
+      const result = await response.json();
+      return result?.followers || [];
+    } catch (error) {
+      console.error('Error fetching followers:', error);
+      return [];
+    }
+  },
+
+  async getFollowing(): Promise<any[]> {
+    try {
+      const response = await fetch(withApiBase('/api/users/following'), await withAuthHeaders());
+      const result = await response.json();
+      return result?.following || [];
+    } catch (error) {
+      console.error('Error fetching following:', error);
+      return [];
+    }
+  },
+
+  async getBookmarkedPosts(): Promise<any[]> {
+    try {
+      const response = await fetch(withApiBase('/api/users/bookmarks'), await withAuthHeaders());
+      const result = await response.json();
+      return result?.bookmarks || [];
+    } catch (error) {
+      console.error('Error fetching bookmarked posts:', error);
+      return [];
+    }
+  },
+
+  async getUserByFirebaseUid(firebaseUid: string): Promise<any> {
+    try {
+      const response = await fetch(withApiBase(`/api/users/firebase/${firebaseUid}`), await withAuthHeaders());
+      return response.json();
+    } catch (error) {
+      console.error('Error fetching user by Firebase UID:', error);
+      return null;
+    }
+  },
+
+  async deleteUser(): Promise<boolean> {
+    try {
+      const response = await fetch(withApiBase('/api/users/account'), await withAuthHeaders({
+        method: 'DELETE'
+      }));
+      return response.ok;
+    } catch (error) {
+      console.error('Error deleting user account:', error);
+      return false;
+    }
   }
 };

@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:async';
 import 'dart:math' as math;
 import 'package:http/http.dart' as http;
 import '../models/place.dart';
@@ -29,11 +30,12 @@ class PlacesService {
         return realPlaces.where((p) => p.rating >= 3.0).take(topN).toList();
       }
     } catch (e) {
-      print('API failed: $e - using mock data');
+      print('❌ Places API failed: $e');
+      rethrow; // Don't fallback to mock data, let the UI handle the error
     }
     
-    // Always return mock data if API fails
-    return _generateMockPlaces(latitude, longitude, query, 20);
+    // Return empty list if no places found
+    return [];
   }
   
   Future<List<Place>> _fetchRealPlaces(double lat, double lng, String query, int radius, [int offset = 0]) async {
@@ -47,17 +49,30 @@ class PlacesService {
         headers: {'Content-Type': 'application/json'},
       ));
       
+      print('📡 Mobile API Response:');
+      print('   Status Code: ${mobileResponse.statusCode}');
+      print('   Headers: ${mobileResponse.headers}');
+      print('   Body Length: ${mobileResponse.body.length} chars');
+      print('   Raw Body: ${mobileResponse.body.substring(0, math.min(500, mobileResponse.body.length))}...');
+      
       if (mobileResponse.statusCode == 200) {
         final mobileData = json.decode(mobileResponse.body);
-        print('📱 Mobile API response status: ${mobileData['status']}');
-        print('📱 Mobile API response keys: ${mobileData.keys.toList()}');
+        print('📱 Mobile API parsed response:');
+        print('   Type: ${mobileData.runtimeType}');
+        print('   Keys: ${mobileData is Map ? mobileData.keys.toList() : "Not a Map"}');
+        print('   Status: ${mobileData['status']}');
         
         if (mobileData['status'] == 'OK' && mobileData['results'] != null) {
           final List<dynamic> data = mobileData['results'];
           print('✅ Got ${data.length} places from mobile API');
           
           if (data.isNotEmpty) {
-            print('📍 Sample place: ${data.first['name']} - ID: ${data.first['place_id'] ?? data.first['id']}');
+            print('📍 First place details:');
+            print('   Name: ${data.first['name']}');
+            print('   ID: ${data.first['place_id'] ?? data.first['id']}');
+            print('   Address: ${data.first['vicinity'] ?? data.first['formatted_address']}');
+            print('   Rating: ${data.first['rating']}');
+            print('   All keys: ${data.first.keys.toList()}');
             return await _enrichPlaces(data).then((enriched) => 
               enriched.map((json) => Place.fromJson(json)).toList());
           }
@@ -81,31 +96,46 @@ class PlacesService {
       headers: {'Content-Type': 'application/json'},
     ));
     
-    print('📡 Fallback API response: ${response.statusCode}');
+    print('📡 Fallback API Response:');
+    print('   Status Code: ${response.statusCode}');
+    print('   Headers: ${response.headers}');
+    print('   Body Length: ${response.body.length} chars');
+    
     if (response.statusCode == 200) {
       final responseBody = response.body;
-      print('📡 Fallback API raw response: ${responseBody.substring(0, math.min(200, responseBody.length))}...');
+      print('📡 Fallback API raw response: ${responseBody.substring(0, math.min(500, responseBody.length))}...');
       
       try {
         final decoded = json.decode(responseBody);
+        print('📡 Fallback API parsed response:');
+        print('   Type: ${decoded.runtimeType}');
         
         // Handle both array and object responses
         List<dynamic> data;
         if (decoded is List) {
           data = decoded;
-          print('📡 Fallback API returned direct array');
+          print('   Format: Direct array with ${data.length} items');
         } else if (decoded is Map && decoded['results'] != null) {
           data = decoded['results'];
-          print('📡 Fallback API returned object with results');
+          print('   Format: Object with results array (${data.length} items)');
+          print('   Object keys: ${decoded.keys.toList()}');
         } else {
           print('❌ Fallback API returned unexpected format: ${decoded.runtimeType}');
+          if (decoded is Map) {
+            print('   Available keys: ${decoded.keys.toList()}');
+          }
           return [];
         }
         
         print('✅ Got ${data.length} real places from fallback API');
         
         if (data.isNotEmpty) {
-          print('📍 Sample place from fallback: ${data.first['name']} - ID: ${data.first['place_id'] ?? data.first['id']}');
+          print('📍 First place from fallback:');
+          print('   Name: ${data.first['name']}');
+          print('   ID: ${data.first['place_id'] ?? data.first['id']}');
+          print('   Address: ${data.first['vicinity'] ?? data.first['formatted_address']}');
+          print('   Rating: ${data.first['rating']}');
+          print('   All keys: ${data.first.keys.toList()}');
           final enrichedPlaces = await _enrichPlaces(data);
           return enrichedPlaces.map((json) => Place.fromJson(json)).toList();
         }
@@ -121,10 +151,18 @@ class PlacesService {
   
   Future<http.Response> _makeRequestWithRetry(Future<http.Response> Function() request) async {
     try {
-      return await request().timeout(const Duration(seconds: 5));
-    } on SocketException {
-      throw Exception('Network error');
+      print('🌐 Making HTTP request...');
+      final response = await request().timeout(const Duration(seconds: 10));
+      print('🌐 Request completed: ${response.statusCode}');
+      return response;
+    } on SocketException catch (e) {
+      print('❌ Network error: $e');
+      throw Exception('Network error: $e');
+    } on TimeoutException catch (e) {
+      print('❌ Request timeout: $e');
+      throw Exception('Request timeout: $e');
     } catch (e) {
+      print('❌ Request failed: $e');
       throw Exception('Request failed: $e');
     }
   }

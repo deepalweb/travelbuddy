@@ -151,7 +151,7 @@ class ProfileScreen extends StatelessWidget {
                       ListTile(
                         leading: const Icon(Icons.favorite),
                         title: const Text('My Favorites'),
-                        subtitle: Text('${appProvider.favoritePlaces.length} saved places'),
+                        subtitle: Text('${appProvider.favoriteIds.length} saved places'),
                         trailing: const Icon(Icons.chevron_right),
                         onTap: () {
                           Navigator.of(context).push(
