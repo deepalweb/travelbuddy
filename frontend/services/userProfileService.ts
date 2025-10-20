@@ -382,16 +382,7 @@ class UserProfileService {
   private async getAuthToken(): Promise<string> {
     // This should integrate with your auth context to get the current user's token
     // For now, returning empty string - you'll need to implement this based on your auth setup
-    try {
-      // Example: Get token from Firebase Auth
-      const auth = await import('firebase/auth');
-      const currentUser = auth.getAuth().currentUser;
-      if (currentUser) {
-        return await currentUser.getIdToken();
-      }
-    } catch (error) {
-      console.error('Error getting auth token:', error);
-    }
+    // TODO: Implement token retrieval from your backend auth system
     return '';
   }
 }

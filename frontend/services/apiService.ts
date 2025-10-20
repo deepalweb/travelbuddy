@@ -1,25 +1,9 @@
-// API service for database operations with optional Firebase auth token
+// API service for database operations
 import { withApiBase } from './config';
 
 async function withAuthHeaders(init?: RequestInit): Promise<RequestInit> {
-  try {
-    // Lazy import to avoid circular deps
-  const { getAuth } = await import('firebase/auth');
-  const { getFirebaseApp } = await import('../firebase-config');
-  const app = getFirebaseApp();
-  if (!app) return init || {};
-  const auth = getAuth(app);
-    const token = await auth.currentUser?.getIdToken?.();
-    if (token) {
-      return {
-        ...init,
-        headers: {
-          ...(init?.headers || {}),
-          Authorization: `Bearer ${token}`,
-        },
-      };
-    }
-  } catch {}
+  // For now, just return the init without auth headers
+  // Add your auth logic here if needed (JWT tokens, etc.)
   return init || {};
 }
 
