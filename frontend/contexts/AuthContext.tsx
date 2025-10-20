@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
 import { getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, User, signInWithEmailAndPassword, createUserWithEmailAndPassword, updateProfile, sendPasswordResetEmail } from 'firebase/auth';
-import { getFirebaseApp, getFirebaseConfigStatus } from '../../firebase-config';
+import { getFirebaseApp, getFirebaseConfigStatus } from '../src/firebase-config';
 
 type AuthUser = Pick<User, 'uid' | 'email' | 'displayName' | 'photoURL'> | null;
 
