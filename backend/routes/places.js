@@ -303,6 +303,85 @@ router.get('/photo', async (req, res) => {
   }
 });
 
+// Get place images from Wikipedia and other sources
+router.get('/images', async (req, res) => {
+  try {
+    const { place } = req.query;
+    
+    if (!place) {
+      return res.status(400).json({ error: 'place name required' });
+    }
+    
+    const images = [];
+    
+    // Try Wikipedia API for place images
+    try {
+      const wikiUrl = `https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(place)}`;
+      const wikiResponse = await fetch(wikiUrl);
+      const wikiData = await wikiResponse.json();
+      
+      if (wikiData.thumbnail) {
+        images.push({
+          url: wikiData.thumbnail.source.replace(/\/\d+px-/, '/800px-'),
+          source: 'wikipedia',
+          description: wikiData.description || place
+        });
+      }
+      
+      // Get additional images from Wikipedia page
+      if (wikiData.pageid) {
+        const imagesUrl = `https://en.wikipedia.org/w/api.php?action=query&format=json&prop=images&pageids=${wikiData.pageid}&imlimit=3`;
+        const imagesResponse = await fetch(imagesUrl);
+        const imagesData = await imagesResponse.json();
+        
+        if (imagesData.query?.pages?.[wikiData.pageid]?.images) {
+          const pageImages = imagesData.query.pages[wikiData.pageid].images
+            .filter(img => img.title.match(/\.(jpg|jpeg|png|webp)$/i))
+            .slice(0, 2);
+            
+          for (const img of pageImages) {
+            const imgUrl = `https://commons.wikimedia.org/wiki/Special:FilePath/${encodeURIComponent(img.title.replace('File:', ''))}?width=800`;
+            images.push({
+              url: imgUrl,
+              source: 'wikimedia',
+              description: img.title.replace('File:', '').replace(/\.[^.]+$/, '')
+            });
+          }
+        }
+      }
+    } catch (wikiError) {
+      console.warn('Wikipedia image search failed:', wikiError.message);
+    }
+    
+    // Add fallback images
+    const placeHash = place.split('').reduce((a, b) => { a = ((a << 5) - a) + b.charCodeAt(0); return a & a; }, 0);
+    const fallbackImages = [
+      {
+        url: `https://source.unsplash.com/800x600/?${encodeURIComponent(place)},landmark`,
+        source: 'unsplash',
+        description: `${place} landmark`
+      },
+      {
+        url: `https://picsum.photos/seed/${Math.abs(placeHash)}/800/600`,
+        source: 'picsum',
+        description: `${place} view`
+      }
+    ];
+    
+    images.push(...fallbackImages);
+    
+    res.json({
+      status: 'OK',
+      place: place,
+      images: images.slice(0, 6)
+    });
+    
+  } catch (error) {
+    console.error('❌ Image search error:', error);
+    res.status(500).json({ error: 'Failed to fetch images' });
+  }
+});
+
 // Get place details by place_id
 router.get('/details', async (req, res) => {
   try {

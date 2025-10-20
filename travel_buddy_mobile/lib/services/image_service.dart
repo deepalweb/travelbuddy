@@ -1,94 +1,57 @@
-import 'package:image_picker/image_picker.dart';
-import 'package:dio/dio.dart';
 import 'dart:convert';
-import '../config/environment.dart';
+import 'package:http/http.dart' as http;
 
 class ImageService {
-  static final ImageService _instance = ImageService._internal();
-  factory ImageService() => _instance;
-  ImageService._internal();
-
-  final ImagePicker _picker = ImagePicker();
-  Dio? _dio;
-  bool _isPickingImage = false;
-
-  void initialize() {
-    _dio ??= Dio(BaseOptions(
-      baseUrl: Environment.backendUrl,
-      connectTimeout: const Duration(seconds: 60),
-      receiveTimeout: const Duration(seconds: 60),
-    ));
-  }
-
-  Future<List<XFile>> pickImages({int maxImages = 5}) async {
+  static Future<List<String>> getPlaceImages(String placeName, String placeAddress) async {
+    final images = <String>[];
+    
     try {
-      final images = await _picker.pickMultiImage(
-        maxWidth: 1920,
-        maxHeight: 1080,
-        imageQuality: 85,
-      );
+      // Clean place name for search
+      final cleanName = placeName.toLowerCase().replaceAll(RegExp(r'[^\w\s]'), '');
+      final searchTerms = [cleanName, 'landmark', 'travel', 'architecture'];
       
-      if (images.length > maxImages) {
-        return images.take(maxImages).toList();
+      // Unsplash Source API (free, no key required)
+      for (int i = 0; i < 3; i++) {
+        final term = searchTerms[i % searchTerms.length];
+        images.add('https://source.unsplash.com/800x600/?${Uri.encodeComponent(term)}');
       }
       
-      return images;
+      // Picsum with deterministic seeds
+      final placeHash = placeName.hashCode.abs();
+      final addressHash = placeAddress.hashCode.abs();
+      
+      images.addAll([
+        'https://picsum.photos/seed/$placeHash/800/600',
+        'https://picsum.photos/seed/$addressHash/800/600',
+        'https://picsum.photos/seed/${placeHash + 100}/800/600',
+      ]);
+      
+      // Try Pexels API if available (requires API key)
+      await _tryPexelsImages(cleanName, images);
+      
     } catch (e) {
-      print('Error picking images: $e');
-      return [];
-    }
-  }
-
-  Future<XFile?> pickSingleImage({ImageSource source = ImageSource.gallery}) async {
-    if (_isPickingImage) {
-      print('⚠️ Image picker already active, skipping');
-      return null;
+      print('Error loading images: $e');
     }
     
-    _isPickingImage = true;
-    try {
-      final image = await _picker.pickImage(
-        source: source,
-        maxWidth: 1920,
-        maxHeight: 1080,
-        imageQuality: 85,
-        requestFullMetadata: false,
-      );
-      
-      if (image != null) {
-        print('✅ Image picked successfully: ${image.path}');
-        final bytes = await image.readAsBytes();
-        print('📊 Image size: ${bytes.length} bytes');
-      }
-      
-      return image;
-    } catch (e) {
-      print('❌ Error picking image: $e');
-      return null;
-    } finally {
-      _isPickingImage = false;
-    }
-  }
-
-  Future<List<String>> uploadImages(List<XFile> images) async {
-    final uploadedUrls = <String>[];
-    
-    for (final image in images) {
-      // Convert image to base64 for database storage
-      final bytes = await image.readAsBytes();
-      final base64String = 'data:image/jpeg;base64,${base64Encode(bytes)}';
-      
-      uploadedUrls.add(base64String);
-      print('✅ Image converted to base64 for database storage');
-    }
-    
-    return uploadedUrls;
+    return images;
   }
   
-
-
-  Future<String?> uploadSingleImage(XFile image) async {
-    final urls = await uploadImages([image]);
-    return urls.isNotEmpty ? urls.first : null;
+  static Future<void> _tryPexelsImages(String query, List<String> images) async {
+    try {
+      // This would require a Pexels API key
+      // For now, we'll skip this to avoid API key requirements
+      return;
+    } catch (e) {
+      // Silently fail - fallback images will be used
+    }
+  }
+  
+  static List<String> getFallbackImages(String placeName) {
+    final hash = placeName.hashCode.abs();
+    return [
+      'https://picsum.photos/seed/$hash/800/600',
+      'https://picsum.photos/seed/${hash + 1}/800/600',
+      'https://picsum.photos/seed/${hash + 2}/800/600',
+    ];
   }
 }

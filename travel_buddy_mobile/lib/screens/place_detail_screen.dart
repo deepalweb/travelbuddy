@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import '../services/azure_openai_service.dart';
+import '../services/image_service.dart';
 
 class PlaceDetailScreen extends StatefulWidget {
   final String placeName;
@@ -53,10 +54,10 @@ class _PlaceDetailScreenState extends State<PlaceDetailScreen> {
           _isLoadingPlace = false;
         });
         
-        // Load Google Places photos
+        // Load Google Places photos if available
         if (data['photos'] != null) {
           final googlePhotos = (data['photos'] as List)
-              .take(3)
+              .take(2)
               .map((photo) => 'http://localhost:3001/api/places/photo?ref=${photo['photo_reference']}&w=800')
               .toList();
           setState(() {
@@ -105,20 +106,40 @@ Make it engaging and informative like a travel guide.''';
     setState(() => _isLoadingImages = true);
     
     try {
-      // Generate deterministic images based on place name
-      final placeHash = widget.placeName.hashCode.abs();
-      final fallbackImages = [
-        'https://picsum.photos/800/600?random=${placeHash % 1000}',
-        'https://picsum.photos/800/600?random=${(placeHash + 1) % 1000}',
-        'https://picsum.photos/800/600?random=${(placeHash + 2) % 1000}',
-      ];
+      // Try backend image search first
+      final response = await http.get(
+        Uri.parse('http://localhost:3001/api/places/images?place=${Uri.encodeComponent(widget.placeName)}'),
+      );
+      
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        final backendImages = (data['images'] as List)
+            .map((img) => img['url'] as String)
+            .toList();
+        
+        if (backendImages.isNotEmpty) {
+          setState(() {
+            _images.addAll(backendImages);
+            _isLoadingImages = false;
+          });
+          return;
+        }
+      }
+      
+      // Fallback to image service
+      final fallbackImages = await ImageService.getPlaceImages(widget.placeName, widget.placeAddress);
       
       setState(() {
         _images.addAll(fallbackImages);
         _isLoadingImages = false;
       });
     } catch (e) {
-      setState(() => _isLoadingImages = false);
+      // Use basic fallback if everything fails
+      final basicImages = ImageService.getFallbackImages(widget.placeName);
+      setState(() {
+        _images.addAll(basicImages);
+        _isLoadingImages = false;
+      });
     }
   }
 
@@ -213,7 +234,37 @@ Make it engaging and informative like a travel guide.''';
                 width: double.infinity,
                 height: 250,
                 fit: BoxFit.cover,
+                loadingBuilder: (context, child, loadingProgress) {
+                  if (loadingProgress == null) return child;
+                  return Container(
+                    color: Colors.grey[200],
+                    child: Center(
+                      child: CircularProgressIndicator(
+                        value: loadingProgress.expectedTotalBytes != null
+                            ? loadingProgress.cumulativeBytesLoaded / loadingProgress.expectedTotalBytes!
+                            : null,
+                      ),
+                    ),
+                  );
+                },
                 errorBuilder: (context, error, stackTrace) {
+                  // Try next image source on error
+                  if (index < _images.length - 1) {
+                    return Image.network(
+                      _images[index + 1],
+                      width: double.infinity,
+                      height: 250,
+                      fit: BoxFit.cover,
+                      errorBuilder: (context, error, stackTrace) {
+                        return Container(
+                          color: Colors.grey[300],
+                          child: const Center(
+                            child: Icon(Icons.image, size: 64, color: Colors.grey),
+                          ),
+                        );
+                      },
+                    );
+                  }
                   return Container(
                     color: Colors.grey[300],
                     child: const Center(
