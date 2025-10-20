@@ -31,6 +31,7 @@ class _RoutePlanScreenState extends State<RoutePlanScreen> {
   List<Place> _sortedPlaces = [];
   bool _isLoading = true;
   RoutePreferences _preferences = const RoutePreferences(transportMode: TransportMode.walking);
+  List<Place> _removedPlaces = [];
 
   @override
   void initState() {
@@ -78,9 +79,11 @@ class _RoutePlanScreenState extends State<RoutePlanScreen> {
             ),
         ],
       ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : _buildRouteList(),
+      body: SafeArea(
+        child: _isLoading
+            ? const Center(child: CircularProgressIndicator())
+            : _buildRouteList(),
+      ),
     );
   }
 
@@ -238,6 +241,12 @@ class _RoutePlanScreenState extends State<RoutePlanScreen> {
                             },
                           ),
                         ),
+                        // Remove button
+                        IconButton(
+                          onPressed: () => _removePlace(place, index),
+                          icon: const Icon(Icons.remove_circle, color: Colors.red),
+                          tooltip: 'Remove from route',
+                        ),
                       ],
                     ),
                   );
@@ -255,8 +264,13 @@ class _RoutePlanScreenState extends State<RoutePlanScreen> {
             ),
             
             // Open Route Map Button
-            Container(
-              padding: const EdgeInsets.all(16),
+            Padding(
+              padding: EdgeInsets.only(
+                left: 16,
+                right: 16,
+                top: 16,
+                bottom: 16 + MediaQuery.of(context).viewPadding.bottom,
+              ),
               child: SizedBox(
                 width: double.infinity,
                 height: 48,
@@ -271,9 +285,6 @@ class _RoutePlanScreenState extends State<RoutePlanScreen> {
                 ),
               ),
             ),
-            
-            // Safe area padding for bottom navigation
-            SizedBox(height: MediaQuery.of(context).padding.bottom),
           ],
         );
       },
@@ -327,6 +338,32 @@ class _RoutePlanScreenState extends State<RoutePlanScreen> {
       case TransportMode.cycling:
         return 'Cycling';
     }
+  }
+
+  void _removePlace(Place place, int index) {
+    setState(() {
+      _removedPlaces.add(place);
+      _sortedPlaces.removeAt(index);
+    });
+    
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('${place.name} removed from route'),
+        action: SnackBarAction(
+          label: 'Undo',
+          onPressed: () => _undoRemove(place, index),
+        ),
+        duration: const Duration(seconds: 3),
+      ),
+    );
+  }
+  
+  void _undoRemove(Place place, int originalIndex) {
+    setState(() {
+      _removedPlaces.remove(place);
+      final insertIndex = originalIndex.clamp(0, _sortedPlaces.length);
+      _sortedPlaces.insert(insertIndex, place);
+    });
   }
 
   void _openPreferences() {

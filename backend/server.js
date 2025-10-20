@@ -737,6 +737,15 @@ try {
   console.error('❌ Failed to load places routes:', error);
 }
 
+// Load routes endpoints for navigation
+try {
+  const routesRouter = (await import('./routes/routes.js')).default;
+  app.use('/api/routes', routesRouter);
+  console.log('✅ Routes endpoints loaded');
+} catch (error) {
+  console.error('❌ Failed to load routes endpoints:', error);
+}
+
 // Load AI places routes
 try {
   const placesAIRouter = (await import('./routes/places-ai.js')).default;

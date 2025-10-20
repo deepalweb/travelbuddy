@@ -237,9 +237,14 @@ class _SmartRouteListScreenState extends State<SmartRouteListScreen> {
                   ),
                 ),
 
-                // Bottom Action Button
+                // Bottom Action Button with safe area
                 Container(
-                  padding: const EdgeInsets.all(16),
+                  padding: EdgeInsets.fromLTRB(
+                    16,
+                    16,
+                    16,
+                    16 + MediaQuery.of(context).viewPadding.bottom,
+                  ),
                   decoration: BoxDecoration(
                     color: Colors.white,
                     boxShadow: [

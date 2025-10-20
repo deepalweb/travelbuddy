@@ -1,5 +1,7 @@
 import 'dart:convert';
+import 'dart:io';
 import 'package:http/http.dart' as http;
+import 'package:image_picker/image_picker.dart';
 
 class ImageService {
   static Future<List<String>> getPlaceImages(String placeName, String placeAddress) async {
@@ -53,5 +55,45 @@ class ImageService {
       'https://picsum.photos/seed/${hash + 1}/800/600',
       'https://picsum.photos/seed/${hash + 2}/800/600',
     ];
+  }
+  
+  // Instance methods for compatibility
+  final ImagePicker _picker = ImagePicker();
+  
+  void initialize() {
+    // Initialize image service if needed
+  }
+  
+  Future<List<XFile>> pickImages({int maxImages = 5}) async {
+    try {
+      final List<XFile> images = await _picker.pickMultiImage(
+        maxWidth: 1920,
+        maxHeight: 1080,
+        imageQuality: 85,
+      );
+      
+      return images.take(maxImages).toList();
+    } catch (e) {
+      print('Error picking images: $e');
+      return [];
+    }
+  }
+  
+  Future<List<String>> uploadImages(List<XFile> images) async {
+    final imageUrls = <String>[];
+    
+    for (final image in images) {
+      try {
+        // For demo purposes, return a placeholder URL
+        // In production, upload to your image storage service
+        final hash = image.path.hashCode.abs();
+        final url = 'https://picsum.photos/seed/$hash/800/600';
+        imageUrls.add(url);
+      } catch (e) {
+        print('Error uploading image: $e');
+      }
+    }
+    
+    return imageUrls;
   }
 }

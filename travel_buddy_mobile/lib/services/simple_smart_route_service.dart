@@ -7,7 +7,6 @@ import '../models/route_models.dart';
 import '../config/environment.dart';
 
 class SimpleSmartRouteService {
-  static const String _directionsBaseUrl = 'https://maps.googleapis.com/maps/api/directions/json';
   
   /// Creates optimized route with real roads
   static Future<SimpleRouteResult> createRoute({
@@ -59,7 +58,7 @@ class SimpleSmartRouteService {
     return placesWithDistance.map((pd) => pd.place).toList();
   }
   
-  /// Get directions from Google Maps API
+  /// Get directions from Azure backend
   static Future<_DirectionsResult?> _getDirections({
     required Position currentLocation,
     required List<Place> places,
@@ -79,23 +78,28 @@ class SimpleSmartRouteService {
         waypoints = waypointList;
       }
       
-      final params = {
+      // Use Azure backend for directions
+      final requestBody = {
         'origin': origin,
         'destination': destination,
         'mode': _getModeString(mode),
-        'key': Environment.googleMapsApiKey,
+        if (waypoints.isNotEmpty) 'waypoints': waypoints,
       };
       
-      if (waypoints.isNotEmpty) {
-        params['waypoints'] = waypoints;
-      }
+      final azureUrl = '${Environment.backendUrl}/api/routes/directions';
+      print('🔄 Requesting Azure directions: $azureUrl');
       
-      final uri = Uri.parse(_directionsBaseUrl).replace(queryParameters: params);
-      final response = await http.get(uri);
+      final response = await http.post(
+        Uri.parse(azureUrl),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode(requestBody),
+      );
       
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
-        if (data['status'] == 'OK' && data['routes'].isNotEmpty) {
+        print('✅ Azure Directions response: ${data['status']}');
+        
+        if (data['status'] == 'OK' && data['routes'] != null && data['routes'].isNotEmpty) {
           final route = data['routes'][0];
           final polylinePoints = _decodePolyline(route['overview_polyline']['points']);
           
@@ -107,15 +111,21 @@ class SimpleSmartRouteService {
             totalDuration += Duration(seconds: leg['duration']['value']);
           }
           
+          print('✅ Azure Directions success: ${polylinePoints.length} points, ${(totalDistance/1000).toStringAsFixed(1)}km');
+          
           return _DirectionsResult(
             polylinePoints: polylinePoints,
             totalDistance: totalDistance,
             totalDuration: totalDuration,
           );
+        } else {
+          print('⚠️ Azure Directions error: ${data['status']} - ${data['error_message'] ?? 'Unknown error'}');
         }
+      } else {
+        print('❌ Azure HTTP error: ${response.statusCode}');
       }
     } catch (e) {
-      print('Directions API error: $e');
+      print('❌ Azure Directions API error: $e');
     }
     
     return null;
@@ -173,7 +183,7 @@ class SimpleSmartRouteService {
     }
   }
   
-  /// Create simple fallback route
+  /// Create simple fallback route with curved paths
   static SimpleRouteResult _createSimpleRoute(Position currentLocation, List<Place> places, TransportMode mode) {
     final orderedPlaces = _orderPlacesByDistance(currentLocation, places);
     
@@ -185,6 +195,16 @@ class SimpleSmartRouteService {
     
     for (final place in orderedPlaces) {
       if (place.latitude != null && place.longitude != null) {
+        // Add intermediate points for smoother route visualization
+        if (polylinePoints.isNotEmpty) {
+          final lastPoint = polylinePoints.last;
+          final intermediatePoints = _generateIntermediatePoints(
+            lastPoint,
+            LatLng(place.latitude!, place.longitude!),
+          );
+          polylinePoints.addAll(intermediatePoints);
+        }
+        
         polylinePoints.add(LatLng(place.latitude!, place.longitude!));
         
         if (polylinePoints.length > 1) {
@@ -215,6 +235,8 @@ class SimpleSmartRouteService {
         break;
     }
     
+    print('Using fallback route: ${polylinePoints.length} points, ${(totalDistance/1000).toStringAsFixed(1)}km');
+    
     return SimpleRouteResult(
       places: orderedPlaces,
       polylinePoints: polylinePoints,
@@ -222,6 +244,21 @@ class SimpleSmartRouteService {
       totalDuration: totalDuration,
       transportMode: mode,
     );
+  }
+  
+  /// Generate intermediate points for smoother route lines
+  static List<LatLng> _generateIntermediatePoints(LatLng start, LatLng end) {
+    final points = <LatLng>[];
+    const steps = 3; // Number of intermediate points
+    
+    for (int i = 1; i <= steps; i++) {
+      final ratio = i / (steps + 1);
+      final lat = start.latitude + (end.latitude - start.latitude) * ratio;
+      final lng = start.longitude + (end.longitude - start.longitude) * ratio;
+      points.add(LatLng(lat, lng));
+    }
+    
+    return points;
   }
 }
 
