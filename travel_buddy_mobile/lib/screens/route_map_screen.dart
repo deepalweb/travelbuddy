@@ -2,19 +2,23 @@ import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:geolocator/geolocator.dart';
 import '../models/place.dart';
+import '../models/route_models.dart';
 import '../services/route_planning_service.dart';
 import '../services/route_tracking_service.dart';
+import '../services/smart_route_service.dart';
 
 class RouteMapScreen extends StatefulWidget {
   final Position currentLocation;
   final List<Place> places;
   final String title;
+  final RoutePreferences? preferences;
 
   const RouteMapScreen({
     super.key,
     required this.currentLocation,
     required this.places,
     this.title = 'Route Map',
+    this.preferences,
   });
 
   @override
@@ -27,14 +31,46 @@ class _RouteMapScreenState extends State<RouteMapScreen> {
   Set<Polyline> _polylines = {};
   late RouteTrackingService _trackingService;
   bool _isTracking = false;
+  bool _isLoadingRoute = true;
+  SmartRouteResult? _smartRoute;
+  List<Place> _optimizedPlaces = [];
 
   @override
   void initState() {
     super.initState();
     _trackingService = RouteTrackingService();
     _trackingService.addListener(_onTrackingUpdate);
-    _trackingService.initializeRoute(widget.places);
-    _setupMarkersAndRoute();
+    _loadSmartRoute();
+  }
+
+  Future<void> _loadSmartRoute() async {
+    setState(() {
+      _isLoadingRoute = true;
+    });
+
+    try {
+      final preferences = widget.preferences ?? const RoutePreferences();
+      
+      _smartRoute = await SmartRouteService.createSmartRoute(
+        currentLocation: widget.currentLocation,
+        places: widget.places,
+        preferences: preferences,
+      );
+      
+      _optimizedPlaces = _smartRoute!.optimizedPlaces;
+      _trackingService.initializeRoute(_optimizedPlaces);
+      
+      _setupMarkersAndRoute();
+    } catch (e) {
+      print('Smart route loading error: $e');
+      _optimizedPlaces = widget.places;
+      _trackingService.initializeRoute(_optimizedPlaces);
+      _setupMarkersAndRoute();
+    }
+
+    setState(() {
+      _isLoadingRoute = false;
+    });
   }
 
   @override
@@ -52,7 +88,7 @@ class _RouteMapScreenState extends State<RouteMapScreen> {
 
   void _setupMarkersAndRoute() {
     _updateMarkersFromTracking();
-    _setupPolyline();
+    _setupSmartPolyline();
   }
 
   void _updateMarkersFromTracking() {
@@ -73,8 +109,8 @@ class _RouteMapScreenState extends State<RouteMapScreen> {
     );
 
     // Add place markers with status-based colors
-    for (int i = 0; i < widget.places.length; i++) {
-      final place = widget.places[i];
+    for (int i = 0; i < _optimizedPlaces.length; i++) {
+      final place = _optimizedPlaces[i];
       if (place.latitude != null && place.longitude != null) {
         final status = _trackingService.placeStatuses[place.id] ?? PlaceStatus.pending;
         final isCurrentTarget = _trackingService.currentTarget?.id == place.id;
@@ -119,31 +155,43 @@ class _RouteMapScreenState extends State<RouteMapScreen> {
     });
   }
 
-  void _setupPolyline() {
-    final polylinePoints = <LatLng>[];
-    
-    // Add current location to polyline
-    final currentPos = _trackingService.currentLocation ?? widget.currentLocation;
-    polylinePoints.add(LatLng(currentPos.latitude, currentPos.longitude));
-
-    // Add all places to polyline
-    for (final place in widget.places) {
-      if (place.latitude != null && place.longitude != null) {
-        polylinePoints.add(LatLng(place.latitude!, place.longitude!));
-      }
-    }
-
+  void _setupSmartPolyline() {
     final polylines = <Polyline>{};
-    if (polylinePoints.length > 1) {
+    
+    if (_smartRoute != null && _smartRoute!.polylinePoints.isNotEmpty) {
+      // Use actual road route from Google Directions
       polylines.add(
         Polyline(
-          polylineId: const PolylineId('route'),
-          points: polylinePoints,
-          color: _isTracking ? Colors.green : Colors.blue,
-          width: 4,
-          patterns: [PatternItem.dash(20), PatternItem.gap(10)],
+          polylineId: const PolylineId('smart_route'),
+          points: _smartRoute!.polylinePoints,
+          color: _isTracking ? Colors.green : _getRouteColor(),
+          width: 5,
+          patterns: _isTracking ? [] : [PatternItem.dash(15), PatternItem.gap(8)],
         ),
       );
+    } else {
+      // Fallback to simple route
+      final polylinePoints = <LatLng>[];
+      final currentPos = _trackingService.currentLocation ?? widget.currentLocation;
+      polylinePoints.add(LatLng(currentPos.latitude, currentPos.longitude));
+
+      for (final place in _optimizedPlaces) {
+        if (place.latitude != null && place.longitude != null) {
+          polylinePoints.add(LatLng(place.latitude!, place.longitude!));
+        }
+      }
+
+      if (polylinePoints.length > 1) {
+        polylines.add(
+          Polyline(
+            polylineId: const PolylineId('simple_route'),
+            points: polylinePoints,
+            color: _isTracking ? Colors.green : Colors.blue,
+            width: 4,
+            patterns: [PatternItem.dash(20), PatternItem.gap(10)],
+          ),
+        );
+      }
     }
 
     setState(() {
@@ -222,25 +270,60 @@ class _RouteMapScreenState extends State<RouteMapScreen> {
             color: _isTracking ? Colors.green[50] : Colors.blue[50],
             child: _isTracking ? _buildTrackingBanner() : _buildRouteBanner(),
           ),
+          
+          // Optimization info banner
+          if (_smartRoute != null && !_isTracking)
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              color: Colors.purple[50],
+              child: Row(
+                children: [
+                  Icon(Icons.auto_awesome, color: Colors.purple[700], size: 16),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      _smartRoute!.optimizationSummary,
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.purple[700],
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
 
           // Google Map
           Expanded(
-            child: GoogleMap(
-              onMapCreated: (GoogleMapController controller) {
-                _mapController = controller;
-                _fitMapToRoute();
-              },
-              initialCameraPosition: CameraPosition(
-                target: LatLng(widget.currentLocation.latitude, widget.currentLocation.longitude),
-                zoom: 12,
-              ),
-              markers: _markers,
-              polylines: _polylines,
-              myLocationEnabled: true,
-              myLocationButtonEnabled: false,
-              mapType: MapType.normal,
-              zoomControlsEnabled: true,
-            ),
+            child: _isLoadingRoute
+                ? const Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        CircularProgressIndicator(),
+                        SizedBox(height: 16),
+                        Text('Loading smart route...'),
+                      ],
+                    ),
+                  )
+                : GoogleMap(
+                    onMapCreated: (GoogleMapController controller) {
+                      _mapController = controller;
+                      _fitMapToRoute();
+                    },
+                    initialCameraPosition: CameraPosition(
+                      target: LatLng(widget.currentLocation.latitude, widget.currentLocation.longitude),
+                      zoom: 12,
+                    ),
+                    markers: _markers,
+                    polylines: _polylines,
+                    myLocationEnabled: true,
+                    myLocationButtonEnabled: false,
+                    mapType: MapType.normal,
+                    zoomControlsEnabled: true,
+                  ),
           ),
 
           // Bottom control panel
@@ -267,28 +350,23 @@ class _RouteMapScreenState extends State<RouteMapScreen> {
                     _buildInfoItem(
                       icon: Icons.route,
                       label: 'Distance',
-                      value: '${(RoutePlanningService.calculateTotalRouteDistance(
-                        currentLocation: widget.currentLocation,
-                        sortedPlaces: widget.places,
-                      ) / 1000).toStringAsFixed(1)} km',
+                      value: _smartRoute != null 
+                          ? '${(_smartRoute!.totalDistance / 1000).toStringAsFixed(1)} km'
+                          : 'Loading...',
                     ),
                     _buildInfoItem(
                       icon: Icons.access_time,
                       label: 'Est. Time',
-                      value: () {
-                        final duration = RoutePlanningService.estimateTravelTime(
-                          currentLocation: widget.currentLocation,
-                          sortedPlaces: widget.places,
-                        );
-                        return '${duration.inHours}h ${duration.inMinutes % 60}m';
-                      }(),
+                      value: _smartRoute != null 
+                          ? '${_smartRoute!.totalDuration.inHours}h ${_smartRoute!.totalDuration.inMinutes % 60}m'
+                          : 'Loading...',
                     ),
                     _buildInfoItem(
                       icon: Icons.place,
                       label: _isTracking ? 'Progress' : 'Stops',
                       value: _isTracking 
-                          ? '${_trackingService.completedCount}/${widget.places.length}'
-                          : '${widget.places.length}',
+                          ? '${_trackingService.completedCount}/${_optimizedPlaces.length}'
+                          : '${_optimizedPlaces.length}${_smartRoute?.hasBreaks == true ? ' (+breaks)' : ''}',
                     ),
                   ],
                 ),
@@ -540,5 +618,20 @@ class _RouteMapScreenState extends State<RouteMapScreen> {
       southwest: LatLng(minLat, minLng),
       northeast: LatLng(maxLat, maxLng),
     );
+  }
+
+  Color _getRouteColor() {
+    if (_smartRoute?.preferences.transportMode == null) return Colors.blue;
+    
+    switch (_smartRoute!.preferences.transportMode) {
+      case TransportMode.walking:
+        return Colors.green;
+      case TransportMode.driving:
+        return Colors.blue;
+      case TransportMode.publicTransit:
+        return Colors.purple;
+      case TransportMode.cycling:
+        return Colors.orange;
+    }
   }
 }

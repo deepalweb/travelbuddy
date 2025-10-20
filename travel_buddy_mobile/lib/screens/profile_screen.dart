@@ -9,7 +9,6 @@ import '../providers/community_provider.dart';
 import '../constants/app_constants.dart';
 import '../widgets/community_post_card.dart';
 import '../services/api_service.dart';
-import '../models/place.dart';
 
 import 'auth_status_screen.dart';
 import 'app_permissions_screen.dart';

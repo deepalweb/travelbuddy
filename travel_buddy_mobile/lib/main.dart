@@ -5,6 +5,10 @@ import 'providers/community_provider.dart';
 import 'providers/language_provider.dart';
 import 'screens/splash_screen.dart';
 import 'screens/safety_screen.dart';
+import 'screens/ai_plan_screen.dart';
+import 'screens/enhanced_route_plan_screen.dart';
+import 'screens/test_enhanced_route_screen.dart';
+import 'models/place.dart';
 import 'services/storage_service.dart';
 import 'services/firebase_service.dart';
 import 'services/connectivity_test.dart';
@@ -123,6 +127,23 @@ class TravelBuddyApp extends StatelessWidget {
             home: const SplashScreen(),
             routes: {
               '/safety': (context) => const SafetyScreen(),
+              '/ai-plan': (context) => AIPlanScreen(),
+              '/test-route': (context) => const TestEnhancedRouteScreen(),
+            },
+            onGenerateRoute: (settings) {
+              // Handle dynamic routes for enhanced route planning
+              if (settings.name?.startsWith('/enhanced-route') == true) {
+                final args = settings.arguments as Map<String, dynamic>?;
+                if (args != null) {
+                  return MaterialPageRoute(
+                    builder: (context) => EnhancedRoutePlanScreen(
+                      places: args['places'] as List<Place>,
+                      title: args['title'] as String? ?? 'Enhanced Route Plan',
+                    ),
+                  );
+                }
+              }
+              return null;
             },
           );
         },

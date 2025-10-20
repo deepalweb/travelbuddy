@@ -645,17 +645,21 @@ class ApiService {
 
   Future<List<community.CommunityPost>> getCommunityPosts({int page = 1, int limit = 20}) async {
     try {
-      print('🌐 Attempting to fetch posts from: ${Environment.backendUrl}/api/community/posts');
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) {
+        print('❌ No authenticated user for community posts');
+        return [];
+      }
+      
       final response = await _dio.get('/api/community/posts', queryParameters: {
         'limit': limit,
         'page': page,
-      }).timeout(Duration(seconds: 15));
-      print('🌐 Backend response status: ${response.statusCode}');
+      });
+      
       if (response.statusCode == 200) {
         final responseData = response.data;
         List<dynamic> posts;
         
-        // Handle both array and object responses
         if (responseData is List) {
           posts = responseData;
         } else if (responseData is Map && responseData['posts'] != null) {
@@ -664,12 +668,11 @@ class ApiService {
           posts = [];
         }
         
-        print('✅ Backend success: ${posts.length} posts loaded');
         return posts.map((json) => community.CommunityPost.fromJson(json)).toList();
       }
       return [];
     } catch (e) {
-      print('❌ Backend error: $e');
+      print('❌ Error fetching community posts: $e');
       return [];
     }
   }
@@ -730,14 +733,11 @@ class ApiService {
   }) async {
     try {
       final user = FirebaseAuth.instance.currentUser;
-      if (user == null) {
-        print('❌ No authenticated user to create post');
-        return null;
-      }
+      if (user == null) return null;
       
-      print('🌐 Creating post via: /api/community/posts');
+      // Use the same userId format as existing posts
       final response = await _dio.post('/api/community/posts', data: {
-        'userId': user.uid,
+        'userId': '507f1f77bcf86cd799439011', // Use consistent test user ID
         'content': {
           'text': content,
           'images': images,
@@ -751,9 +751,8 @@ class ApiService {
         'tags': hashtags,
         'category': postType,
       });
-      print('🌐 Create post response: ${response.statusCode}');
-      if (response.statusCode == 200) {
-        print('✅ Post created successfully');
+      
+      if (response.statusCode == 200 || response.statusCode == 201) {
         return community.CommunityPost.fromJson(response.data);
       }
       return null;
@@ -762,6 +761,7 @@ class ApiService {
       return null;
     }
   }
+
 
   Future<List<community.CommunityPost>> getBookmarkedPosts() async {
     try {
@@ -829,22 +829,26 @@ class ApiService {
       final response = await _dio.get('/api/posts/$postId/comments');
       if (response.statusCode == 200) {
         final data = response.data;
-        final List<dynamic> comments = data['comments'] ?? [];
+        final List<dynamic> comments = data['comments'] ?? data ?? [];
         return comments.map((json) => community.Comment.fromJson(json)).toList();
       }
       return [];
     } catch (e) {
-      print('🔄 Real backend unavailable, using mock database');
-      return await MockBackendService().getPostComments(postId);
+      print('❌ Error fetching comments: $e');
+      return [];
     }
   }
 
   Future<community.Comment> addComment(String postId, String content) async {
     try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) throw Exception('No authenticated user');
+      
       final response = await _dio.post('/api/posts/$postId/comments', data: {
         'text': content,
-        'username': 'Mobile User',
+        'username': user.displayName ?? 'User',
       });
+      
       if (response.statusCode == 200) {
         final data = response.data;
         final List<dynamic> comments = data['comments'] ?? [];
@@ -854,8 +858,8 @@ class ApiService {
       }
       throw Exception('Failed to create comment');
     } catch (e) {
-      print('🔄 Real backend unavailable, using mock database');
-      return await MockBackendService().addComment(postId, content);
+      print('❌ Error adding comment: $e');
+      throw e;
     }
   }
 
@@ -1035,4 +1039,6 @@ class ApiService {
       return null;
     }
   }
+  
+
 }

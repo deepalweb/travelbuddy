@@ -64,9 +64,12 @@ class CommunityProvider with ChangeNotifier {
         
         // Update local cache with fresh data
         await _updateLocalCache();
+        
+        // Clear any previous errors
+        _error = null;
       } else {
         _hasMorePosts = false;
-        print('❌ No posts from backend');
+        print('📭 No posts from backend (empty response)');
       }
     } catch (e) {
       _error = 'Failed to load posts: $e';
@@ -143,48 +146,7 @@ class CommunityProvider with ChangeNotifier {
     }
   }
 
-  Future<void> loadLocalPosts() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final localPosts = prefs.getStringList('local_posts') ?? [];
-      
-      final posts = localPosts.map((postJson) {
-        try {
-          final json = jsonDecode(postJson) as Map<String, dynamic>;
-          return CommunityPost(
-            id: json['id'] ?? '',
-            userId: json['userId'] ?? '',
-            userName: json['userName'] ?? 'User',
-            userAvatar: json['userAvatar'] ?? '',
-            content: json['content'] ?? '',
-            images: List<String>.from(json['images'] ?? []),
-            location: json['location'] ?? '',
-            createdAt: DateTime.tryParse(json['createdAt'] ?? '') ?? DateTime.now(),
-            likesCount: json['likesCount'] ?? 0,
-            commentsCount: json['commentsCount'] ?? 0,
-            isLiked: json['isLiked'] ?? false,
-            postType: PostType.fromString(json['postType'] ?? 'story'),
-            isSaved: json['isSaved'] ?? false,
-            metadata: {},
-          );
-        } catch (e) {
-          print('❌ Error parsing local post: $e');
-          return null;
-        }
-      }).where((post) => post != null).cast<CommunityPost>().toList();
-      
-      _posts = posts;
-      print('📺 [FEED] Loaded ${posts.length} posts from local storage');
-      if (posts.isNotEmpty) {
-        print('📺 [FEED] First local post: "${posts.first.content}"');
-        print('📺 [FEED] First local post user: ${posts.first.userName}');
-      }
-      notifyListeners();
-      print('📺 [FEED] Notified listeners after loading local posts');
-    } catch (e) {
-      print('❌ [PROVIDER] Error loading local posts: $e');
-    }
-  }
+
   
   Future<void> syncWithBackend() async {
     try {
@@ -330,20 +292,26 @@ class CommunityProvider with ChangeNotifier {
           visibility: visibility,
         );
         
-        if (newPost != null) {
+        if (newPost != null && newPost.id.isNotEmpty) {
           // Insert at beginning of posts list
           _posts.insert(0, newPost);
           notifyListeners();
           await _savePostLocally(newPost);
           print('✅ Post created and synced to backend immediately');
           
-          // Force refresh to get latest posts
+          // Clear any previous errors
+          _error = null;
+          
+          // Force refresh to get latest posts after a short delay
           await Future.delayed(Duration(milliseconds: 500));
           await loadPosts(refresh: true, context: context);
           return true;
+        } else {
+          print('⚠️ Backend returned invalid post data, using optimistic update');
         }
       } catch (e) {
         print('⚠️ Backend create failed, using optimistic update: $e');
+        _error = 'Post creation may be delayed. Check your connection.';
       }
       
       // Fallback to optimistic update
@@ -378,6 +346,9 @@ class CommunityProvider with ChangeNotifier {
       
       // Try background sync
       _tryBackendSaveInBackground(optimisticPost, currentUser);
+      
+      // Clear error since we have an optimistic post
+      _error = null;
       
       return true;
     } catch (e) {

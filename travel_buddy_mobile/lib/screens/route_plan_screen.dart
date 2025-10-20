@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../models/place.dart';
+import '../models/route_models.dart';
 import '../providers/app_provider.dart';
 import '../services/route_planning_service.dart';
 import '../services/route_tracking_service.dart';
@@ -8,6 +9,9 @@ import '../widgets/place_card.dart';
 import '../widgets/route_progress_widget.dart';
 import '../screens/place_details_screen.dart';
 import '../screens/route_map_screen.dart';
+import '../screens/route_preferences_screen.dart';
+import '../screens/simple_route_map_screen.dart';
+import '../services/simple_smart_route_service.dart';
 
 class RoutePlanScreen extends StatefulWidget {
   final List<Place> places;
@@ -26,6 +30,7 @@ class RoutePlanScreen extends StatefulWidget {
 class _RoutePlanScreenState extends State<RoutePlanScreen> {
   List<Place> _sortedPlaces = [];
   bool _isLoading = true;
+  RoutePreferences _preferences = const RoutePreferences();
 
   @override
   void initState() {
@@ -60,6 +65,11 @@ class _RoutePlanScreenState extends State<RoutePlanScreen> {
       appBar: AppBar(
         title: Text(widget.title),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.settings),
+            onPressed: _openPreferences,
+            tooltip: 'Route Preferences',
+          ),
           if (!_isLoading && _sortedPlaces.isNotEmpty)
             IconButton(
               icon: const Icon(Icons.map),
@@ -119,11 +129,11 @@ class _RoutePlanScreenState extends State<RoutePlanScreen> {
                 children: [
                   Row(
                     children: [
-                      const Icon(Icons.route, color: Colors.blue),
+                      Icon(_getTransportIcon(), color: Colors.blue),
                       const SizedBox(width: 8),
-                      const Text(
-                        'Route Summary',
-                        style: TextStyle(
+                      Text(
+                        'Route Summary (${_getTransportLabel()})',
+                        style: const TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
                         ),
@@ -253,7 +263,7 @@ class _RoutePlanScreenState extends State<RoutePlanScreen> {
                 child: ElevatedButton.icon(
                   onPressed: _openRouteMap,
                   icon: const Icon(Icons.map),
-                  label: const Text('Open Route Plan'),
+                  label: const Text('View on Map'),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.blue,
                     foregroundColor: Colors.white,
@@ -283,10 +293,54 @@ class _RoutePlanScreenState extends State<RoutePlanScreen> {
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => RouteMapScreen(
+        builder: (context) => SimpleRouteMapScreen(
           currentLocation: appProvider.currentLocation!,
           places: _sortedPlaces,
           title: widget.title,
+          transportMode: _preferences.transportMode,
+        ),
+      ),
+    );
+  }
+
+  IconData _getTransportIcon() {
+    switch (_preferences.transportMode) {
+      case TransportMode.walking:
+        return Icons.directions_walk;
+      case TransportMode.driving:
+        return Icons.directions_car;
+      case TransportMode.publicTransit:
+        return Icons.directions_transit;
+      case TransportMode.cycling:
+        return Icons.directions_bike;
+    }
+  }
+
+  String _getTransportLabel() {
+    switch (_preferences.transportMode) {
+      case TransportMode.walking:
+        return 'Walking';
+      case TransportMode.driving:
+        return 'Driving';
+      case TransportMode.publicTransit:
+        return 'Transit';
+      case TransportMode.cycling:
+        return 'Cycling';
+    }
+  }
+
+  void _openPreferences() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => RoutePreferencesScreen(
+          initialPreferences: _preferences,
+          onPreferencesChanged: (newPreferences) {
+            setState(() {
+              _preferences = newPreferences;
+            });
+            _planRoute(); // Re-plan route with new preferences
+          },
         ),
       ),
     );

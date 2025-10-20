@@ -1,6 +1,5 @@
 import 'dart:io';
 import 'package:http/http.dart' as http;
-import 'dart:convert';
 
 /// Test script to verify subscription management connection between mobile app and Azure backend
 void main() async {

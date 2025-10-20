@@ -10,6 +10,7 @@ import '../services/places_service.dart';
 import 'place_details_screen.dart';
 import 'subscription_plans_screen.dart';
 import 'route_plan_screen.dart';
+import 'ai_travel_plan_screen.dart';
 
 class PlacesScreen extends StatefulWidget {
   const PlacesScreen({super.key});
@@ -67,6 +68,17 @@ class _PlacesScreenState extends State<PlacesScreen> {
                   )
                 : null,
             actions: [
+              if (!appProvider.showFavoritesOnly)
+                IconButton(
+                  icon: const Icon(Icons.auto_awesome),
+                  onPressed: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const AITravelPlanScreen(),
+                    ),
+                  ),
+                  tooltip: 'AI Travel Plan',
+                ),
               if (!appProvider.showFavoritesOnly && appProvider.places.isNotEmpty)
                 IconButton(
                   icon: const Icon(Icons.route),

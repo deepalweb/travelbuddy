@@ -737,6 +737,42 @@ try {
   console.error('❌ Failed to load places routes:', error);
 }
 
+// Load AI places routes
+try {
+  const placesAIRouter = (await import('./routes/places-ai.js')).default;
+  app.use('/api/places', placesAIRouter);
+  console.log('✅ AI Places routes loaded');
+} catch (error) {
+  console.error('❌ Failed to load AI places routes:', error);
+}
+
+// Load mobile places routes
+try {
+  const mobilePlacesRouter = (await import('./routes/mobile-places.js')).default;
+  app.use('/api/mobile-places', mobilePlacesRouter);
+  console.log('✅ Mobile Places routes loaded');
+} catch (error) {
+  console.error('❌ Failed to load mobile places routes:', error);
+}
+
+// Load hybrid places routes
+try {
+  const placesHybridRouter = (await import('./routes/places-hybrid.js')).default;
+  app.use('/api/places-hybrid', placesHybridRouter);
+  console.log('✅ Hybrid places routes loaded');
+} catch (error) {
+  console.error('❌ Failed to load hybrid places routes:', error);
+}
+
+// Load posts routes
+try {
+  const postsRouter = (await import('./routes/posts.js')).default;
+  app.use('/api/posts', postsRouter);
+  console.log('✅ Posts routes loaded');
+} catch (error) {
+  console.error('❌ Failed to load posts routes:', error);
+}
+
 // Payment routes (Stripe scaffold) - mount only when explicitly enabled to allow
 // running the app without the `stripe` package or Stripe env vars.
 if (String(process.env.ENABLE_STRIPE || '').toLowerCase() === 'true') {
@@ -2180,8 +2216,33 @@ app.get('/api/posts', async (req, res) => {
 // Community posts with auth and pagination
 app.get('/api/community/posts', async (req, res) => {
   try {
+    console.log('🔍 Community posts request received');
+    console.log('📋 Query params:', req.query);
+    console.log('🗄️ Database state:', mongoose.connection.readyState);
+    
     const limit = Math.min(50, parseInt(req.query.limit || '20', 10));
     const cursor = req.query.cursor;
+    
+    // Check total posts in database first
+    const totalPosts = await Post.countDocuments();
+    console.log(`📊 Total posts in database: ${totalPosts}`);
+    
+    if (totalPosts === 0) {
+      console.log('⚠️ No posts found in database at all');
+      return res.json([]);
+    }
+    
+    // Check posts by moderation status
+    const approvedCount = await Post.countDocuments({ moderationStatus: 'approved' });
+    const noStatusCount = await Post.countDocuments({ moderationStatus: { $exists: false } });
+    const rejectedCount = await Post.countDocuments({ moderationStatus: 'rejected' });
+    const pendingCount = await Post.countDocuments({ moderationStatus: 'pending' });
+    
+    console.log('📈 Posts by status:');
+    console.log(`  - Approved: ${approvedCount}`);
+    console.log(`  - No status: ${noStatusCount}`);
+    console.log(`  - Rejected: ${rejectedCount}`);
+    console.log(`  - Pending: ${pendingCount}`);
     
     let query = { 
       $or: [
@@ -2193,14 +2254,23 @@ app.get('/api/community/posts', async (req, res) => {
       query.createdAt = { $lt: new Date(cursor) };
     }
     
-    console.log('📊 Fetching posts with query:', JSON.stringify(query));
+    console.log('🔍 Fetching posts with query:', JSON.stringify(query));
     
     const posts = await Post.find(query)
       .sort({ createdAt: -1 })
       .limit(limit)
       .lean();
     
-    console.log(`✅ Found ${posts.length} posts`);
+    console.log(`✅ Found ${posts.length} posts matching query`);
+    
+    if (posts.length > 0) {
+      console.log('📝 Sample post:', {
+        id: posts[0]._id,
+        moderationStatus: posts[0].moderationStatus,
+        createdAt: posts[0].createdAt,
+        hasContent: !!posts[0].content
+      });
+    }
     
     // Return posts directly for mobile compatibility
     res.json(posts);
@@ -2213,7 +2283,9 @@ app.get('/api/community/posts', async (req, res) => {
 app.post('/api/community/posts', flexAuth, async (req, res) => {
   try {
     const body = req.body || {};
-    console.log('📝 Creating post:', JSON.stringify(body, null, 2));
+    console.log('📝 Creating post - Raw body:', JSON.stringify(body, null, 2));
+    console.log('👤 Auth user:', req.user);
+    console.log('🗄️ Database state:', mongoose.connection.readyState);
     
     const images = body?.content?.images;
     if (Array.isArray(images) && images.length > 2) {
@@ -2229,9 +2301,20 @@ app.post('/api/community/posts', flexAuth, async (req, res) => {
       body.moderationStatus = 'approved';
     }
     
+    console.log('📝 Final post data:', JSON.stringify(body, null, 2));
+    
     const post = new Post(body);
+    console.log('💾 Attempting to save post...');
     const saved = await post.save();
-    console.log('✅ Post saved:', saved._id);
+    console.log('✅ Post saved successfully:', saved._id);
+    
+    // Verify post was actually saved
+    const verification = await Post.findById(saved._id);
+    if (verification) {
+      console.log('✅ Post verification successful - exists in database');
+    } else {
+      console.log('❌ Post verification failed - not found in database');
+    }
     
     // Broadcast new post to all connected clients
     try {
@@ -3272,6 +3355,82 @@ app.get('/api/places/test-key', (req, res) => {
   });
 });
 
+// Quick post count check
+app.get('/api/posts/count', async (req, res) => {
+  try {
+    const total = await Post.countDocuments();
+    const approved = await Post.countDocuments({ moderationStatus: 'approved' });
+    const noStatus = await Post.countDocuments({ moderationStatus: { $exists: false } });
+    res.json({ total, approved, noStatus, timestamp: new Date().toISOString() });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Debug endpoint to create test posts
+app.post('/api/debug/create-test-posts', async (req, res) => {
+  try {
+    console.log('📝 Creating test posts...');
+    
+    const testPosts = [
+      {
+        userId: new mongoose.Types.ObjectId(),
+        content: {
+          text: 'Test post 1 - This is a test post to check if posts are showing up',
+          images: []
+        },
+        author: {
+          name: 'Test User 1',
+          avatar: null,
+          location: 'Test Location',
+          verified: false
+        },
+        engagement: {
+          likes: 0,
+          comments: 0,
+          shares: 0
+        },
+        moderationStatus: 'approved',
+        tags: ['test'],
+        category: 'general'
+      },
+      {
+        userId: new mongoose.Types.ObjectId(),
+        content: {
+          text: 'Test post 2 - Another test post without moderation status',
+          images: []
+        },
+        author: {
+          name: 'Test User 2',
+          avatar: null,
+          location: 'Test Location 2',
+          verified: false
+        },
+        engagement: {
+          likes: 5,
+          comments: 2,
+          shares: 1
+        },
+        // No moderationStatus - should still show up
+        tags: ['test', 'community'],
+        category: 'travel'
+      }
+    ];
+    
+    const createdPosts = await Post.insertMany(testPosts);
+    console.log(`✅ Created ${createdPosts.length} test posts`);
+    
+    res.json({
+      success: true,
+      created: createdPosts.length,
+      posts: createdPosts.map(p => ({ id: p._id, text: p.content.text, moderationStatus: p.moderationStatus }))
+    });
+  } catch (error) {
+    console.error('❌ Error creating test posts:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Test OpenAI configuration
 app.get('/api/ai/test-key', (req, res) => {
   const openaiKey = process.env.AZURE_OPENAI_API_KEY;
@@ -3582,15 +3741,20 @@ app.put('/api/auth/profile', async (req, res) => {
 // Legacy Firebase auth endpoint (keeping for compatibility)
 app.post('/api/auth/firebase-login', async (req, res) => {
   try {
+    console.log('🔐 Firebase login attempt');
     const authHeader = req.headers['authorization'] || '';
     const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
-    if (!token) return res.status(401).json({ error: 'Missing bearer token' });
+    if (!token) {
+      console.log('❌ No bearer token provided');
+      return res.status(401).json({ error: 'Missing bearer token' });
+    }
 
     if (!ENABLE_FIREBASE_AUTH || !adminAuth) {
-      // Local dev fallback: accept token but do not verify
+      console.log('⚠️ Firebase auth disabled, using dev mode');
       return res.json({ ok: true, mode: 'dev', admin: false, message: 'Auth disabled, token accepted for local dev' });
     }
 
+    console.log('🔍 Verifying Firebase token...');
     const decoded = await adminAuth.verifyIdToken(token);
     const isAdmin = decoded?.admin === true;
     const { uid, email, name, picture } = {
@@ -3599,22 +3763,35 @@ app.post('/api/auth/firebase-login', async (req, res) => {
       name: decoded.name,
       picture: decoded.picture,
     };
+    console.log('✅ Token verified for user:', { uid, email, name });
 
+    // Check database connection
+    if (mongoose.connection.readyState !== 1) {
+      console.log('❌ Database not connected, state:', mongoose.connection.readyState);
+      return res.status(500).json({ error: 'Database not connected' });
+    }
+
+    console.log('🔍 Looking for existing user...');
     // Upsert user by firebaseUid/email
     let user = await User.findOne({ $or: [{ firebaseUid: uid }, ...(email ? [{ email }] : [])] });
+    
     if (!user) {
+      console.log('👤 Creating new user...');
       user = new User({
         firebaseUid: uid,
-        username: email || uid,
+        username: email || name || uid,
         email: email || `${uid}@firebase.local`,
         profilePicture: picture || null,
       });
     } else {
+      console.log('👤 Updating existing user:', user._id);
       // update minimal profile fields
       if (!user.firebaseUid) user.firebaseUid = uid;
       if (picture && user.profilePicture !== picture) user.profilePicture = picture;
       if (email && user.email !== email) user.email = email;
+      if (name && !user.username.includes('@')) user.username = name;
     }
+    
     // Reflect admin claim into our user document for convenience
     if (typeof user.isAdmin === 'boolean') {
       if (!!user.isAdmin !== !!isAdmin) {
@@ -3624,10 +3801,14 @@ app.post('/api/auth/firebase-login', async (req, res) => {
       // initialize if field missing
       user.isAdmin = true;
     }
-    await user.save();
+    
+    console.log('💾 Saving user to database...');
+    const savedUser = await user.save();
+    console.log('✅ User saved successfully:', savedUser._id);
 
-    res.json({ ok: true, user, admin: isAdmin });
+    res.json({ ok: true, user: savedUser, admin: isAdmin });
   } catch (err) {
+    console.error('❌ Firebase login error:', err);
     res.status(401).json({ error: 'Invalid token', details: err?.message || String(err) });
   }
 });
@@ -3722,6 +3903,9 @@ app.get('/api/places/details', enforcePolicy('places'), async (req, res) => {
 // Database data check
 app.get('/api/db-check', async (req, res) => {
   try {
+    const dbState = mongoose.connection.readyState;
+    const dbStatus = dbState === 1 ? 'connected' : dbState === 2 ? 'connecting' : 'disconnected';
+    
     const [userCount, postCount, reviewCount, tripCount, dealCount, eventCount] = await Promise.all([
       User.countDocuments(),
       Post.countDocuments(),
@@ -3731,17 +3915,28 @@ app.get('/api/db-check', async (req, res) => {
       Event.countDocuments()
     ]);
     
+    // Get recent users for debugging
+    const recentUsers = await User.find().sort({ createdAt: -1 }).limit(5).select('username email firebaseUid createdAt');
+    
     res.json({
-      users: userCount,
-      posts: postCount,
-      reviews: reviewCount,
-      tripPlans: tripCount,
-      deals: dealCount,
-      events: eventCount,
+      database: {
+        status: dbStatus,
+        state: dbState,
+        uri: process.env.MONGO_URI ? 'configured' : 'missing'
+      },
+      counts: {
+        users: userCount,
+        posts: postCount,
+        reviews: reviewCount,
+        tripPlans: tripCount,
+        deals: dealCount,
+        events: eventCount
+      },
+      recentUsers,
       isEmpty: userCount === 0 && postCount === 0 && reviewCount === 0
     });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: error.message, dbState: mongoose.connection.readyState });
   }
 });
 

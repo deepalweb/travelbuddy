@@ -1228,6 +1228,11 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
         print('❌ This will likely cause places API to fail');
       }
       
+      // Get user preferences for AI
+      final userType = _getUserType();
+      final vibe = _getUserVibe();
+      final language = _getUserLanguage();
+      
       if (searchQuery.isNotEmpty) {
         // Search query takes priority
         places = await placesService.fetchPlacesPipeline(
@@ -1237,6 +1242,9 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
           radius: _selectedRadius,
           topN: 25,
           offset: loadMore ? _places.length : 0,
+          userType: userType,
+          vibe: vibe,
+          language: language,
         );
         print('🔍 Search results for: $query');
       } else if (_selectedCategory != 'all') {
@@ -1248,6 +1256,9 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
           radius: _selectedRadius,
           topN: 25,
           offset: loadMore ? _places.length : 0,
+          userType: userType,
+          vibe: vibe,
+          language: language,
         );
         print('📂 Category results for: $_selectedCategory');
       } else {
@@ -1272,6 +1283,9 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
             longitude: _currentLocation!.longitude,
             query: _expandKeywords(['restaurants']),
             topN: restaurantCount,
+            userType: userType,
+            vibe: vibe,
+            language: language,
           );
           
           final bars = await placesService.fetchPlacesPipeline(
@@ -1279,6 +1293,9 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
             longitude: _currentLocation!.longitude,
             query: _expandKeywords(['bars', 'nightlife']),
             topN: nightlifeCount,
+            userType: userType,
+            vibe: vibe,
+            language: language,
           );
           
           final attractions = await placesService.fetchPlacesPipeline(
@@ -1286,6 +1303,9 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
             longitude: _currentLocation!.longitude,
             query: _expandKeywords(['attractions']),
             topN: attractionCount,
+            userType: userType,
+            vibe: vibe,
+            language: language,
           );
           
           allPlaces = [...restaurants, ...bars, ...attractions];
@@ -2994,7 +3014,7 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
       // TODO: Implement getUserRouteTrackingData in ApiService
       final routeData = <Map<String, dynamic>>[];
       
-      if (routeData != null && routeData.isNotEmpty) {
+      if (routeData.isNotEmpty) {
         print('🔄 Found ${routeData.length} route tracking sessions to sync');
         
         // Update trip plans with route tracking data
@@ -3326,6 +3346,26 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
     }
     
     return hasChanged;
+  }
+  
+  // Helper methods for AI preferences
+  String _getUserType() {
+    if (_currentUser?.travelStyle == TravelStyle.explorer) return 'Solo traveler';
+    if (_currentUser?.travelStyle == TravelStyle.foodie) return 'Foodie';
+    if (_currentUser?.travelStyle == TravelStyle.culture) return 'Culture enthusiast';
+    if (_currentUser?.travelStyle == TravelStyle.nature) return 'Nature lover';
+    return 'Solo traveler';
+  }
+  
+  String _getUserVibe() {
+    final hour = DateTime.now().hour;
+    if (hour < 12) return 'Relaxing';
+    if (hour < 18) return 'Cultural';
+    return 'Adventurous';
+  }
+  
+  String _getUserLanguage() {
+    return _currentUser?.language ?? 'English';
   }
   
   // Sync Firebase user with backend using token

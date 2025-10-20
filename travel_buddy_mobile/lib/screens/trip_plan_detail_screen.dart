@@ -6,6 +6,10 @@ import '../models/place.dart';
 import '../services/azure_openai_service.dart';
 import '../providers/app_provider.dart';
 import '../screens/route_plan_screen.dart';
+import '../screens/enhanced_route_plan_screen.dart';
+import '../screens/simple_route_map_screen.dart';
+import '../screens/smart_route_list_screen.dart';
+import '../models/route_models.dart';
 
 class TripPlanDetailScreen extends StatefulWidget {
   final TripPlan tripPlan;
@@ -484,13 +488,14 @@ class _TripPlanDetailScreenState extends State<TripPlanDetailScreen> {
             const SizedBox(height: 24),
             
             // Bottom Action Buttons
-            Row(
+            Column(
               children: [
-                Expanded(
+                SizedBox(
+                  width: double.infinity,
                   child: ElevatedButton.icon(
-                    onPressed: _openRoutePlan,
+                    onPressed: _showRoutePreferences,
                     icon: const Icon(Icons.route),
-                    label: const Text('Route Plan'),
+                    label: const Text('Plan Route'),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.blue,
                       foregroundColor: Colors.white,
@@ -498,12 +503,13 @@ class _TripPlanDetailScreenState extends State<TripPlanDetailScreen> {
                     ),
                   ),
                 ),
-                const SizedBox(width: 8),
-                Expanded(
+                const SizedBox(height: 8),
+                SizedBox(
+                  width: double.infinity,
                   child: ElevatedButton.icon(
                     onPressed: _openRouteInGoogleMaps,
                     icon: const Icon(Icons.map),
-                    label: const Text('Google Maps'),
+                    label: const Text('Open in Google Maps'),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.green,
                       foregroundColor: Colors.white,
@@ -987,6 +993,128 @@ class _TripPlanDetailScreenState extends State<TripPlanDetailScreen> {
     }
   }
 
+  void _openEnhancedRoutePlan() {
+    // Convert trip activities to places for enhanced route planning
+    final places = <Place>[];
+    
+    for (final day in (_currentTripPlan ?? widget.tripPlan).dailyPlans) {
+      for (final activity in day.activities) {
+        places.add(Place(
+          id: activity.googlePlaceId ?? 'activity_${activity.activityTitle.hashCode}',
+          name: activity.activityTitle,
+          address: activity.fullAddress ?? activity.location ?? '',
+          latitude: null, // Will be resolved by enhanced route planning service
+          longitude: null,
+          rating: activity.rating ?? 0.0,
+          type: activity.category ?? 'attraction',
+          photoUrl: activity.photoThumbnail ?? '',
+          description: activity.description,
+          localTip: activity.practicalTip ?? '',
+          handyPhrase: '',
+        ));
+      }
+    }
+    
+    if (places.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('No places found to plan route'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+    
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => EnhancedRoutePlanScreen(
+          places: places,
+          title: '${widget.tripPlan.tripTitle} - Smart Route',
+        ),
+      ),
+    );
+  }
+
+  void _showRoutePreferences() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => _RoutePreferencesBottomSheet(
+        onPreferencesSelected: (preferences) {
+          Navigator.pop(context);
+          _openRouteWithPreferences(preferences);
+        },
+      ),
+    );
+  }
+
+  void _openRouteWithPreferences(RoutePreferences preferences) {
+    final appProvider = Provider.of<AppProvider>(context, listen: false);
+    
+    if (appProvider.currentLocation == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Location not available. Please enable location services.'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+
+    // Convert trip activities to places with coordinates
+    final places = <Place>[];
+    for (final day in (_currentTripPlan ?? widget.tripPlan).dailyPlans) {
+      for (final activity in day.activities) {
+        // Generate coordinates if missing
+        final hash = activity.activityTitle.hashCode.abs();
+        const baseLat = 6.9271; // Colombo, Sri Lanka
+        const baseLng = 79.8612;
+        final latOffset = ((hash % 200) - 100) / 1000.0;
+        final lngOffset = (((hash ~/ 200) % 200) - 100) / 1000.0;
+        
+        places.add(Place(
+          id: activity.googlePlaceId ?? 'activity_${activity.activityTitle.hashCode}',
+          name: activity.activityTitle,
+          address: activity.fullAddress ?? activity.location ?? '',
+          latitude: baseLat + latOffset,
+          longitude: baseLng + lngOffset,
+          rating: activity.rating ?? 0.0,
+          type: activity.category ?? 'attraction',
+          photoUrl: activity.photoThumbnail ?? '',
+          description: activity.description,
+          localTip: activity.practicalTip ?? '',
+          handyPhrase: '',
+        ));
+      }
+    }
+    
+    print('🗺️ Created ${places.length} places for routing');
+    
+    if (places.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('No places found to plan route'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => SmartRouteListScreen(
+          currentLocation: appProvider.currentLocation!,
+          places: places,
+          title: '${widget.tripPlan.tripTitle} Route',
+          preferences: preferences,
+        ),
+      ),
+    );
+  }
+
   void _shareTrip(BuildContext context) {
     final tripText = '''🌍 ${widget.tripPlan.tripTitle}
 
@@ -1015,6 +1143,224 @@ Created with Travel Buddy - Plan your perfect trip!''';
               );
             },
             child: const Text('Share'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _RoutePreferencesBottomSheet extends StatefulWidget {
+  final Function(RoutePreferences) onPreferencesSelected;
+
+  const _RoutePreferencesBottomSheet({
+    required this.onPreferencesSelected,
+  });
+
+  @override
+  State<_RoutePreferencesBottomSheet> createState() => _RoutePreferencesBottomSheetState();
+}
+
+class _RoutePreferencesBottomSheetState extends State<_RoutePreferencesBottomSheet> {
+  TransportMode _selectedMode = TransportMode.walking;
+  bool _considerOpeningHours = true;
+  bool _optimizeForRating = true;
+  bool _includeBreaks = true;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Header
+          Row(
+            children: [
+              const Text(
+                'Route Preferences',
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const Spacer(),
+              IconButton(
+                onPressed: () => Navigator.pop(context),
+                icon: const Icon(Icons.close),
+              ),
+            ],
+          ),
+          
+          const SizedBox(height: 20),
+          
+          // Transport Mode
+          const Text(
+            'Transport Mode',
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 12),
+          
+          _buildTransportOption(TransportMode.walking, '🚶 Walking', 'Best for exploring'),
+          _buildTransportOption(TransportMode.driving, '🚗 Driving', 'Fastest option'),
+          _buildTransportOption(TransportMode.publicTransit, '🚆 Public Transit', 'Eco-friendly'),
+          _buildTransportOption(TransportMode.cycling, '🚲 Cycling', 'Active travel'),
+          
+          const SizedBox(height: 20),
+          
+          // Options
+          const Text(
+            'Options',
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 12),
+          
+          _buildToggleOption(
+            'Consider Opening Hours',
+            'Factor in place operating hours',
+            _considerOpeningHours,
+            (value) => setState(() => _considerOpeningHours = value),
+          ),
+          
+          _buildToggleOption(
+            'Optimize for Rating',
+            'Prioritize highly-rated places',
+            _optimizeForRating,
+            (value) => setState(() => _optimizeForRating = value),
+          ),
+          
+          _buildToggleOption(
+            'Include Breaks',
+            'Add rest stops and meal breaks',
+            _includeBreaks,
+            (value) => setState(() => _includeBreaks = value),
+          ),
+          
+          const SizedBox(height: 24),
+          
+          // Create Route Button
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              onPressed: () {
+                final preferences = RoutePreferences(
+                  transportMode: _selectedMode,
+                  considerOpeningHours: _considerOpeningHours,
+                  optimizeForRating: _optimizeForRating,
+                  includeBreaks: _includeBreaks,
+                );
+                widget.onPreferencesSelected(preferences);
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.blue,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 16),
+              ),
+              child: const Text(
+                'Create Route',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+              ),
+            ),
+          ),
+          
+          SizedBox(height: MediaQuery.of(context).padding.bottom),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTransportOption(TransportMode mode, String title, String subtitle) {
+    final isSelected = _selectedMode == mode;
+    
+    return GestureDetector(
+      onTap: () => setState(() => _selectedMode = mode),
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 8),
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: isSelected ? Colors.blue[50] : Colors.transparent,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color: isSelected ? Colors.blue : Colors.grey[300]!,
+            width: isSelected ? 2 : 1,
+          ),
+        ),
+        child: Row(
+          children: [
+            Icon(
+              isSelected ? Icons.radio_button_checked : Icons.radio_button_unchecked,
+              color: isSelected ? Colors.blue : Colors.grey,
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: isSelected ? Colors.blue[700] : Colors.black87,
+                    ),
+                  ),
+                  Text(
+                    subtitle,
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.grey[600],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildToggleOption(String title, String subtitle, bool value, ValueChanged<bool> onChanged) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                Text(
+                  subtitle,
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.grey[600],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Switch(
+            value: value,
+            onChanged: onChanged,
+            activeColor: Colors.blue,
           ),
         ],
       ),

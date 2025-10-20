@@ -33,7 +33,8 @@ class FirebaseService {
         print('✅ User signed in: ${user.email}');
         _syncUserWithBackend(user);
       } else {
-        print('❌ User signed out');
+        print('ℹ️ No user signed in - authentication required');
+        // Don't attempt any backend operations without a user
       }
     });
   }

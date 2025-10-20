@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../providers/app_provider.dart';
 import '../constants/app_constants.dart';
 import '../services/storage_service.dart';
+import '../config/environment.dart';
 
 import '../models/trip.dart';
 import '../services/trip_analytics_service.dart';
@@ -45,6 +46,11 @@ class _PlannerScreenState extends State<PlannerScreen> {
           appBar: AppBar(
             title: const Text('My Trip Plans'),
             actions: [
+              IconButton(
+                icon: const Icon(Icons.bug_report),
+                onPressed: () => Navigator.pushNamed(context, '/test-route'),
+                tooltip: 'Test Enhanced Route',
+              ),
               IconButton(
                 icon: const Icon(Icons.info_outline),
                 onPressed: () => _showHowToCreatePlans(),
@@ -626,15 +632,31 @@ class _PlannerScreenState extends State<PlannerScreen> {
           children: [
             const Text('Create New Plan', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
             const SizedBox(height: 16),
-            ListTile(
-              leading: const Icon(Icons.smart_toy, color: Colors.purple),
-              title: const Text('AI Trip Planner'),
-              subtitle: const Text('Generate plans with AI'),
-              onTap: () {
-                Navigator.pop(context);
-                Navigator.pushNamed(context, '/ai-plan');
-              },
-            ),
+            if (Environment.enableAIPlanner)
+              ListTile(
+                leading: const Icon(Icons.smart_toy, color: Colors.purple),
+                title: const Text('AI Trip Planner'),
+                subtitle: const Text('Generate plans with AI'),
+                trailing: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: Colors.purple.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Text(
+                    'AI',
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.purple,
+                    ),
+                  ),
+                ),
+                onTap: () {
+                  Navigator.pop(context);
+                  Navigator.pushNamed(context, '/ai-plan');
+                },
+              ),
             ListTile(
               leading: const Icon(Icons.place, color: Colors.blue),
               title: const Text('From Favorite Places'),

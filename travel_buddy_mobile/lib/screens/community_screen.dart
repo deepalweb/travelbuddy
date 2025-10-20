@@ -4,7 +4,6 @@ import 'package:provider/provider.dart';
 import '../providers/app_provider.dart';
 import '../providers/community_provider.dart';
 import '../widgets/instagram_post_card.dart';
-import '../widgets/instagram_stories.dart';
 import 'create_post_screen.dart';
 import 'user_profile_screen.dart';
 
@@ -19,20 +18,12 @@ class _CommunityScreenState extends State<CommunityScreen> {
   @override
   void initState() {
     super.initState();
-    print('🚀 [INSTAGRAM] Initializing community screen');
     
     final provider = context.read<CommunityProvider>();
     
-    // Load local posts immediately (instant)
-    provider.loadLocalPosts();
-    print('💾 [INSTAGRAM] Loading local posts instantly');
-    
-    // Sync with backend after 1 second delay
-    Timer(Duration(seconds: 1), () {
-      if (mounted) {
-        print('🌐 [INSTAGRAM] Starting background sync');
-        provider.syncWithBackend();
-      }
+    // Load posts from backend immediately
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      provider.loadPosts(refresh: true, context: context);
     });
   }
 

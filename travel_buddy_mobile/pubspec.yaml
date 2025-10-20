@@ -47,6 +47,7 @@ dependencies:
   
   # UI Components
   timeago: ^3.5.0
+  flutter_markdown: ^0.6.18
   
   # Language & Translation
   flutter_tts: ^3.8.5

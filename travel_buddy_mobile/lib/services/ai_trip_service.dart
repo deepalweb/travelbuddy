@@ -1,6 +1,6 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
-import '../constants/app_constants.dart';
+import '../config/environment.dart';
 
 class AITripService {
   static Future<Map<String, dynamic>> generateTripPlan({
@@ -14,7 +14,7 @@ class AITripService {
       print('🤖 Generating AI trip plan for: $destination');
       
       final response = await http.post(
-        Uri.parse('${AppConstants.baseUrl}/api/ai/generate-trip-plan'),
+        Uri.parse('${Environment.backendUrl}/api/ai/generate-trip-plan'),
         headers: {'Content-Type': 'application/json'},
         body: json.encode({
           'destination': destination,
