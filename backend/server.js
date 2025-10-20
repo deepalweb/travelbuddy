@@ -3314,6 +3314,13 @@ app.post('/api/admin/moderate/:postId', requireAdminAuth, async (req, res) => {
 
 
 // Health check - updated for deployment trigger
+app.get('/api/health', (req, res) => {
+  const dbState = mongoose.connection?.readyState;
+  const database = (SKIP_MONGO || !MONGO_URI || MONGO_URI === 'disabled') ? 'skipped' : (dbState === 1 ? 'connected' : 'disconnected');
+  res.json({ status: 'OK', database, timestamp: new Date().toISOString(), version: '1.1.0' });
+});
+
+// Keep the old health endpoint for backward compatibility
 app.get('/health', (req, res) => {
   const dbState = mongoose.connection?.readyState;
   const database = (SKIP_MONGO || !MONGO_URI || MONGO_URI === 'disabled') ? 'skipped' : (dbState === 1 ? 'connected' : 'disconnected');
