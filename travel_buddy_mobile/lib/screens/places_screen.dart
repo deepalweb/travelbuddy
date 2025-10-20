@@ -70,23 +70,6 @@ class _PlacesScreenState extends State<PlacesScreen> {
             actions: [
               if (!appProvider.showFavoritesOnly)
                 IconButton(
-                  icon: const Icon(Icons.auto_awesome),
-                  onPressed: () => Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => const AITravelPlanScreen(),
-                    ),
-                  ),
-                  tooltip: 'AI Travel Plan',
-                ),
-              if (!appProvider.showFavoritesOnly && appProvider.places.isNotEmpty)
-                IconButton(
-                  icon: const Icon(Icons.route),
-                  onPressed: () => _openRoutePlan(appProvider),
-                  tooltip: 'Plan Route',
-                ),
-              if (!appProvider.showFavoritesOnly)
-                IconButton(
                   icon: const Icon(Icons.filter_list),
                   onPressed: () => _showFilterBottomSheet(context, appProvider),
                 ),
@@ -339,15 +322,7 @@ class _PlacesScreenState extends State<PlacesScreen> {
               ),
             ],
           ),
-          floatingActionButton: !appProvider.showFavoritesOnly && appProvider.places.isNotEmpty
-              ? FloatingActionButton.extended(
-                  onPressed: () => _openRoutePlan(appProvider),
-                  icon: const Icon(Icons.route),
-                  label: const Text('Plan Route'),
-                  backgroundColor: Colors.blue,
-                  foregroundColor: Colors.white,
-                )
-              : null,
+
         );
       },
     );

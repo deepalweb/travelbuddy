@@ -1040,5 +1040,50 @@ class ApiService {
     }
   }
   
+  // User Profile methods
+  Future<UserProfile?> getUserProfile(String userId) async {
+    try {
+      final response = await _dio.get('/api/users/profile/$userId');
+      if (response.statusCode == 200) {
+        return UserProfile.fromJson(response.data);
+      }
+      return null;
+    } catch (e) {
+      print('Error fetching user profile: $e');
+      return null;
+    }
+  }
+  
+  Future<Map<String, dynamic>> updateUserProfile(Map<String, dynamic> profileData) async {
+    try {
+      final response = await _dio.put('/api/users/profile', data: profileData);
+      if (response.statusCode == 200) {
+        return Map<String, dynamic>.from(response.data);
+      }
+      throw Exception('Failed to update profile');
+    } catch (e) {
+      print('Error updating user profile: $e');
+      throw e;
+    }
+  }
+  
+  Future<void> followUser(String userId) async {
+    try {
+      await _dio.post('/api/users/follow/$userId');
+    } catch (e) {
+      print('Error following user: $e');
+      throw e;
+    }
+  }
+  
+  Future<void> unfollowUser(String userId) async {
+    try {
+      await _dio.delete('/api/users/follow/$userId');
+    } catch (e) {
+      print('Error unfollowing user: $e');
+      throw e;
+    }
+  }
+  
 
 }

@@ -9,6 +9,8 @@ import '../screens/route_plan_screen.dart';
 import '../screens/enhanced_route_plan_screen.dart';
 import '../screens/simple_route_map_screen.dart';
 import '../screens/smart_route_list_screen.dart';
+import '../screens/activity_detail_screen.dart';
+import '../screens/place_detail_screen.dart';
 import '../models/route_models.dart';
 
 class TripPlanDetailScreen extends StatefulWidget {
@@ -676,6 +678,30 @@ class _TripPlanDetailScreenState extends State<TripPlanDetailScreen> {
               ),
             ),
             const SizedBox(width: 8),
+            // Place Details Button
+            IconButton(
+              onPressed: () => _showPlaceDetails(activity),
+              icon: const Icon(Icons.place, size: 16),
+              style: IconButton.styleFrom(
+                backgroundColor: Colors.green[50],
+                foregroundColor: Colors.green,
+                padding: const EdgeInsets.all(8),
+              ),
+              tooltip: 'Place details',
+            ),
+            const SizedBox(width: 4),
+            // Activity Details Arrow Button
+            IconButton(
+              onPressed: () => _showActivityDetails(activity),
+              icon: const Icon(Icons.arrow_forward_ios, size: 16),
+              style: IconButton.styleFrom(
+                backgroundColor: Colors.blue[50],
+                foregroundColor: Colors.blue,
+                padding: const EdgeInsets.all(8),
+              ),
+              tooltip: 'Activity details',
+            ),
+            const SizedBox(width: 4),
             // Remove Button
             IconButton(
               onPressed: () => _confirmRemoveActivity(activity),
@@ -1110,6 +1136,28 @@ class _TripPlanDetailScreenState extends State<TripPlanDetailScreen> {
           places: places,
           title: '${widget.tripPlan.tripTitle} Route',
           preferences: preferences,
+        ),
+      ),
+    );
+  }
+
+  void _showActivityDetails(ActivityDetail activity) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => ActivityDetailScreen(activity: activity),
+      ),
+    );
+  }
+
+  void _showPlaceDetails(ActivityDetail activity) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => PlaceDetailScreen(
+          placeName: activity.activityTitle,
+          placeAddress: activity.fullAddress ?? activity.location ?? '',
+          googlePlaceId: activity.googlePlaceId,
         ),
       ),
     );

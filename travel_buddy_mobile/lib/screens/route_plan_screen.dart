@@ -30,7 +30,7 @@ class RoutePlanScreen extends StatefulWidget {
 class _RoutePlanScreenState extends State<RoutePlanScreen> {
   List<Place> _sortedPlaces = [];
   bool _isLoading = true;
-  RoutePreferences _preferences = const RoutePreferences();
+  RoutePreferences _preferences = const RoutePreferences(transportMode: TransportMode.walking);
 
   @override
   void initState() {

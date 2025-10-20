@@ -625,8 +625,9 @@ class _PlannerScreenState extends State<PlannerScreen> {
   void _showCreatePlanOptions() {
     showModalBottomSheet(
       context: context,
-      builder: (context) => Container(
-        padding: const EdgeInsets.all(20),
+      builder: (context) => SafeArea(
+        child: Container(
+          padding: const EdgeInsets.all(20),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -657,16 +658,9 @@ class _PlannerScreenState extends State<PlannerScreen> {
                   Navigator.pushNamed(context, '/ai-plan');
                 },
               ),
-            ListTile(
-              leading: const Icon(Icons.place, color: Colors.blue),
-              title: const Text('From Favorite Places'),
-              subtitle: const Text('Create from saved places'),
-              onTap: () {
-                Navigator.pop(context);
-                _navigateToPlaces();
-              },
-            ),
+
           ],
+        ),
         ),
       ),
     );

@@ -6,6 +6,7 @@ import 'package:http/http.dart' as http;
 import '../models/place.dart';
 import '../config/environment.dart';
 import 'gemini_places_service.dart';
+import '../providers/user_profile_provider.dart';
 
 class PlacesService {
   static final PlacesService _instance = PlacesService._internal();
@@ -15,8 +16,27 @@ class PlacesService {
   }
 
   final AzureAIPlacesService _azureAIService = AzureAIPlacesService();
+  
+  // Cache and rate limiting
+  final Map<String, List<Place>> _cache = {};
+  final Map<String, DateTime> _cacheTimestamps = {};
+  final Map<String, DateTime> _lastApiCalls = {};
+  static const Duration _cacheExpiry = Duration(minutes: 15);
+  static const Duration _rateLimitDelay = Duration(seconds: 2);
+  
+  // Subscription limits
+  int _dailyApiCalls = 0;
+  DateTime _lastResetDate = DateTime.now();
+  
+  // Daily API limits by subscription tier
+  static const Map<String, int> _subscriptionLimits = {
+    'free': 10,
+    'basic': 50, 
+    'premium': 200,
+    'pro': 500,
+  };
 
-  // AI-First Places pipeline with minimal Google Places usage
+  // Google Places API First pipeline with AI fallback
   Future<List<Place>> fetchPlacesPipeline({
     required double latitude,
     required double longitude,
@@ -28,44 +48,81 @@ class PlacesService {
     String? vibe,
     String? language,
   }) async {
+    // Check cache first
+    final cacheKey = '${latitude.toStringAsFixed(3)}_${longitude.toStringAsFixed(3)}_$query';
+    if (_isValidCache(cacheKey)) {
+      print('💾 Using cached places (${_cache[cacheKey]!.length} found) - API call avoided');
+      return _cache[cacheKey]!.take(topN).toList();
+    }
+    
+    // Rate limiting check
+    if (_isRateLimited(cacheKey)) {
+      print('⏱️ Rate limited, using AI fallback');
+      return await _fetchAIPlaces(latitude, longitude, query, radius, userType, vibe, language)
+          .timeout(const Duration(seconds: 10));
+    }
+    
+    // Subscription limit check
+    if (!_canMakeApiCall()) {
+      print('🚫 Daily API limit reached for subscription, using AI fallback');
+      _notifyLimitReached();
+      return await _fetchAIPlaces(latitude, longitude, query, radius, userType, vibe, language)
+          .timeout(const Duration(seconds: 10));
+    }
+    
     try {
-      // Primary: AI service with enhanced prompts for better results
-      final aiPlaces = await _fetchAIPlaces(latitude, longitude, query, radius, userType, vibe, language)
-          .timeout(const Duration(seconds: 20));
+      // Primary: Google Places API for real, accurate data
+      print('🔍 Using Google Places API for real places data');
+      _lastApiCalls[cacheKey] = DateTime.now();
+      _incrementApiCall();
+      final realPlaces = await _fetchRealPlaces(latitude, longitude, query, radius, offset, topN)
+          .timeout(const Duration(seconds: 15));
       
-      if (aiPlaces.length >= (topN * 0.7)) { // If AI provides 70%+ of needed places
-        print('✅ Using AI-generated places (${aiPlaces.length} found) - Google API avoided');
-        return aiPlaces.where((p) => p.rating >= 3.0).take(topN).toList();
+      if (realPlaces.length >= (topN * 0.5)) { // If Google provides 50%+ of needed places
+        final filteredPlaces = realPlaces.where((p) => p.rating >= 3.0).take(topN).toList();
+        _updateCache(cacheKey, filteredPlaces);
+        print('✅ Using Google Places API (${filteredPlaces.length} found) - Real places data');
+        return filteredPlaces;
       }
       
-      // Hybrid: Use AI + minimal Google Places for specific gaps only
-      if (aiPlaces.isNotEmpty) {
-        print('🔄 AI provided ${aiPlaces.length} places, filling gaps with minimal Google API calls');
-        final remainingNeeded = topN - aiPlaces.length;
+      // Hybrid: Use Google + AI for gaps if Google has some results
+      if (realPlaces.isNotEmpty) {
+        print('🔄 Google provided ${realPlaces.length} places, filling gaps with AI');
+        final remainingNeeded = topN - realPlaces.length;
         
-        if (remainingNeeded > 0 && remainingNeeded <= 10) { // Only use Google for small gaps
-          final realPlaces = await _fetchRealPlaces(latitude, longitude, query, radius, offset, remainingNeeded)
-              .timeout(const Duration(seconds: 8));
+        if (remainingNeeded > 0) {
+          final aiPlaces = await _fetchAIPlaces(latitude, longitude, query, radius, userType, vibe, language)
+              .timeout(const Duration(seconds: 10));
           
-          final combined = <Place>[...aiPlaces, ...realPlaces];
-          print('✅ Hybrid result: ${aiPlaces.length} AI + ${realPlaces.length} Google = ${combined.length} total');
-          return combined.where((p) => p.rating >= 3.0).take(topN).toList();
+          final combined = <Place>[...realPlaces, ...aiPlaces.take(remainingNeeded)];
+          final filteredCombined = combined.where((p) => p.rating >= 3.0).take(topN).toList();
+          _updateCache(cacheKey, filteredCombined);
+          print('✅ Hybrid result: ${realPlaces.length} Google + ${aiPlaces.take(remainingNeeded).length} AI = ${filteredCombined.length} total');
+          return filteredCombined;
         }
         
-        // Return AI-only if gap is too large (avoid expensive API calls)
-        print('✅ Using AI-only results (${aiPlaces.length} places) - avoiding expensive Google API');
-        return aiPlaces.where((p) => p.rating >= 3.0).take(topN).toList();
+        final filteredPlaces = realPlaces.where((p) => p.rating >= 3.0).take(topN).toList();
+        _updateCache(cacheKey, filteredPlaces);
+        return filteredPlaces;
       }
       
-      print('⚠️ AI failed (likely rate limited), using enhanced mock data');
+      // Fallback: AI if Google fails completely
+      print('⚠️ Google Places failed, trying AI fallback');
+      final aiPlaces = await _fetchAIPlaces(latitude, longitude, query, radius, userType, vibe, language)
+          .timeout(const Duration(seconds: 15));
+      
+      if (aiPlaces.isNotEmpty) {
+        final filteredAI = aiPlaces.where((p) => p.rating >= 3.0).take(topN).toList();
+        _updateCache(cacheKey, filteredAI);
+        print('✅ Using AI fallback (${filteredAI.length} places)');
+        return filteredAI;
+      }
+      
+      print('⚠️ Both Google and AI failed, using mock data');
       return _generateEnhancedMockPlaces(latitude, longitude, query, topN);
       
     } catch (e) {
-      if (e.toString().contains('429')) {
-        print('❌ Rate limited - using enhanced mock data to avoid costs');
-      } else {
-        print('❌ AI pipeline failed: $e - using cost-effective fallback');
-      }
+      print('❌ Places pipeline failed: $e - using mock data fallback');
       return _generateEnhancedMockPlaces(latitude, longitude, query, topN);
     }
   }
@@ -421,6 +478,86 @@ class PlacesService {
     
     return mockPlaces;
   }
+  
+  // Cache management
+  bool _isValidCache(String key) {
+    if (!_cache.containsKey(key) || !_cacheTimestamps.containsKey(key)) return false;
+    return DateTime.now().difference(_cacheTimestamps[key]!) < _cacheExpiry;
+  }
+  
+  void _updateCache(String key, List<Place> places) {
+    _cache[key] = places;
+    _cacheTimestamps[key] = DateTime.now();
+  }
+  
+  bool _isRateLimited(String key) {
+    if (!_lastApiCalls.containsKey(key)) return false;
+    return DateTime.now().difference(_lastApiCalls[key]!) < _rateLimitDelay;
+  }
+  
+  void clearCache() {
+    _cache.clear();
+    _cacheTimestamps.clear();
+    print('🗑️ Places cache cleared');
+  }
+  
+  // Subscription-based API limiting
+  bool _canMakeApiCall() {
+    _resetDailyCountIfNeeded();
+    final userTier = _getUserSubscriptionTier();
+    final limit = _subscriptionLimits[userTier] ?? _subscriptionLimits['free']!;
+    return _dailyApiCalls < limit;
+  }
+  
+  void _incrementApiCall() {
+    _resetDailyCountIfNeeded();
+    _dailyApiCalls++;
+    print('📊 API calls today: $_dailyApiCalls/${_subscriptionLimits[_getUserSubscriptionTier()]}');
+  }
+  
+  void _resetDailyCountIfNeeded() {
+    final now = DateTime.now();
+    if (now.day != _lastResetDate.day || now.month != _lastResetDate.month || now.year != _lastResetDate.year) {
+      _dailyApiCalls = 0;
+      _lastResetDate = now;
+      print('🔄 Daily API count reset');
+    }
+  }
+  
+  String _getUserSubscriptionTier() {
+    try {
+      final userProvider = UserProfileProvider();
+      return userProvider.currentUserProfile?.subscriptionTier ?? 'free';
+    } catch (e) {
+      return 'free';
+    }
+  }
+  
+  int getRemainingApiCalls() {
+    _resetDailyCountIfNeeded();
+    final userTier = _getUserSubscriptionTier();
+    final limit = _subscriptionLimits[userTier] ?? _subscriptionLimits['free']!;
+    return (limit - _dailyApiCalls).clamp(0, limit);
+  }
+  
+  Map<String, dynamic> getApiUsageStats() {
+    _resetDailyCountIfNeeded();
+    final userTier = _getUserSubscriptionTier();
+    final limit = _subscriptionLimits[userTier] ?? _subscriptionLimits['free']!;
+    
+    return {
+      'tier': userTier,
+      'used': _dailyApiCalls,
+      'limit': limit,
+      'remaining': getRemainingApiCalls(),
+      'percentage': (_dailyApiCalls / limit * 100).clamp(0, 100).toInt(),
+    };
+  }
+  
+  void _notifyLimitReached() {
+    // This will be called by UI to show upgrade dialog
+    print('💡 Consider upgrading subscription for more API calls');
+  }
 
 
 
@@ -437,7 +574,7 @@ class PlacesService {
   }) async {
     if (latitude == null || longitude == null) return [];
     
-    print('💰 Cost-optimized search: prioritizing AI over Google Places API');
+    print('🔍 Using Google Places API for accurate search results');
     return await fetchPlacesPipeline(
       latitude: latitude,
       longitude: longitude,
@@ -461,7 +598,7 @@ class PlacesService {
   }) async {
     final query = category == 'all' ? 'points of interest' : category;
     
-    print('💰 Cost-optimized nearby search: AI-first approach');
+    print('🔍 Using Google Places API for accurate nearby search');
     return await fetchPlacesPipeline(
       latitude: latitude,
       longitude: longitude,
@@ -538,7 +675,7 @@ class PlacesService {
           topN: 15,
         );
         results[entry.key] = places;
-        print('💰 Cost saved: ${entry.key} used AI instead of Google Places API');
+        print('🔍 ${entry.key} using Google Places API for real data');
       } catch (e) {
         print('❌ Error fetching ${entry.key}: $e');
         results[entry.key] = [];

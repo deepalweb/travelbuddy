@@ -20,6 +20,7 @@ class UserProfile {
   final bool isVerified;
   final int followersCount;
   final int followingCount;
+  final String subscriptionTier;
 
   UserProfile({
     required this.userId,
@@ -39,6 +40,7 @@ class UserProfile {
     this.isVerified = false,
     this.followersCount = 0,
     this.followingCount = 0,
+    this.subscriptionTier = 'free',
   });
 
   factory UserProfile.fromJson(Map<String, dynamic> json) {
@@ -72,6 +74,7 @@ class UserProfile {
       isVerified: json['isVerified'] ?? false,
       followersCount: json['followersCount'] ?? 0,
       followingCount: json['followingCount'] ?? 0,
+      subscriptionTier: json['subscriptionTier'] ?? 'free',
     );
   }
 
@@ -96,6 +99,7 @@ class UserProfile {
       'isVerified': isVerified,
       'followersCount': followersCount,
       'followingCount': followingCount,
+      'subscriptionTier': subscriptionTier,
     };
   }
 
@@ -117,6 +121,7 @@ class UserProfile {
     bool? isVerified,
     int? followersCount,
     int? followingCount,
+    String? subscriptionTier,
   }) {
     return UserProfile(
       userId: userId ?? this.userId,
@@ -136,6 +141,7 @@ class UserProfile {
       isVerified: isVerified ?? this.isVerified,
       followersCount: followersCount ?? this.followersCount,
       followingCount: followingCount ?? this.followingCount,
+      subscriptionTier: subscriptionTier ?? this.subscriptionTier,
     );
   }
 }

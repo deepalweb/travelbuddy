@@ -28,7 +28,7 @@ class _EnhancedRoutePlanScreenState extends State<EnhancedRoutePlanScreen>
   bool _isLoading = true;
   late TabController _tabController;
   
-  RoutePreferences _preferences = const RoutePreferences();
+  RoutePreferences _preferences = const RoutePreferences(transportMode: TransportMode.walking);
 
   @override
   void initState() {

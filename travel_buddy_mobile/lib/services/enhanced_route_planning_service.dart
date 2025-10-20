@@ -53,6 +53,7 @@ class EnhancedRoutePlanningService {
     
     return OptimizedRoute(
       id: 'shortest_${DateTime.now().millisecondsSinceEpoch}',
+      title: 'Shortest Route',
       type: RouteType.shortest,
       places: sortedPlaces,
       schedule: schedule,
@@ -74,6 +75,7 @@ class EnhancedRoutePlanningService {
     
     return OptimizedRoute(
       id: 'fastest_${DateTime.now().millisecondsSinceEpoch}',
+      title: 'Fastest Route',
       type: RouteType.fastest,
       places: optimizedPlaces,
       schedule: schedule,
@@ -94,6 +96,7 @@ class EnhancedRoutePlanningService {
     
     return OptimizedRoute(
       id: 'scenic_${DateTime.now().millisecondsSinceEpoch}',
+      title: 'Scenic Route',
       type: RouteType.scenic,
       places: scenicPlaces,
       schedule: schedule,
@@ -205,10 +208,13 @@ class EnhancedRoutePlanningService {
       final visitDuration = _estimateVisitDuration(place);
       
       schedule.add(ScheduledStop(
-        place: place,
+        id: 'stop_${i}',
+        name: place.name,
+        address: place.address,
         arrivalTime: currentTime,
         departureTime: currentTime.add(visitDuration),
-        visitDuration: visitDuration,
+        duration: visitDuration,
+        place: place,
         travelTimeToNext: i < places.length - 1 
             ? _estimateTravelTime(place, places[i + 1])
             : Duration.zero,

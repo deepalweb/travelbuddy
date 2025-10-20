@@ -1,9 +1,10 @@
 
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { ItinerarySuggestion, Place } from '../types.ts';
 import { Colors } from '../constants.ts';
 import { useLanguage } from '../contexts/LanguageContext.tsx';
 import { optimizeRoute, calculateRouteStats } from '../services/routeOptimizationService.ts';
+import { PlaceDetailView } from './PlaceDetailView.tsx';
 
 interface OneDayItineraryViewProps {
   selectedPlaceIdsForItinerary: string[];
@@ -42,6 +43,7 @@ const OneDayItineraryView: React.FC<OneDayItineraryViewProps> = ({
   savedOneDayItineraryIds
 }) => {
   const { t } = useLanguage();
+  const [selectedPlaceForDetail, setSelectedPlaceForDetail] = useState<Place | null>(null);
   const selectedCount = selectedPlaceIdsForItinerary.length;
   const selectedPlacesById = useMemo(() => {
     const map: Record<string, Place> = {};
@@ -171,22 +173,59 @@ const OneDayItineraryView: React.FC<OneDayItineraryViewProps> = ({
                         const url = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(q)}`;
                         window.open(url, '_blank', 'noopener,noreferrer');
                       };
+                      const openPlaceDetail = () => {
+                        if (place) {
+                          setSelectedPlaceForDetail(place);
+                        }
+                      };
+                      
                       return (
                         <li key={aIdx} className="text-sm">
                           <div className="flex items-start justify-between gap-3">
-                            <div>
-                              <p className="font-semibold" style={{color: Colors.text_primary}}>
-                                {displayName ? `📍 ${displayName}` : '•'}
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2 mb-1">
+                                <span className="text-lg">🕐</span>
+                                <span className="text-xs font-medium" style={{color: Colors.primary}}>
+                                  {act.estimatedTime || 'Flexible timing'}
+                                </span>
+                              </div>
+                              <p className="font-semibold mb-1" style={{color: Colors.text_primary}}>
+                                {displayName ? `📍 ${displayName}` : '• Activity'}
                               </p>
-                              <p className="text-xs" style={{color: Colors.text_secondary}}>
-                                {act.estimatedTime ? `${act.estimatedTime} — ` : ''}{act.activityDescription}
+                              <p className="text-xs mb-2" style={{color: Colors.text_secondary}}>
+                                {act.activityDescription}
                               </p>
+                              {place?.address && (
+                                <div className="flex items-center gap-1 mb-1">
+                                  <span className="text-xs">📍</span>
+                                  <span className="text-xs" style={{color: Colors.text_secondary}}>{place.address}</span>
+                                </div>
+                              )}
+                              {place?.rating && (
+                                <div className="flex items-center gap-1">
+                                  <span style={{color: Colors.gold}}>{'★'.repeat(Math.round(place.rating))}</span>
+                                  <span className="text-xs" style={{color: Colors.text_secondary}}>({place.rating.toFixed(1)})</span>
+                                </div>
+                              )}
                             </div>
-                            {displayName && (
-                              <button onClick={openInMaps} className="text-xs px-2 py-1 rounded" style={{border: `1px solid ${Colors.cardBorder}`, color: Colors.primary}}>
-                                🗺️ {t('tripPlannerModal.openInMaps')}
-                              </button>
-                            )}
+                            <div className="flex flex-col gap-1">
+                              {place && (
+                                <button 
+                                  onClick={openPlaceDetail} 
+                                  className="text-xs px-2 py-1 rounded flex items-center gap-1" 
+                                  style={{border: `1px solid ${Colors.primary}`, color: Colors.primary, backgroundColor: `${Colors.primary}10`}}
+                                  title="View detailed information"
+                                >
+                                  <span>Details</span>
+                                  <span>→</span>
+                                </button>
+                              )}
+                              {displayName && (
+                                <button onClick={openInMaps} className="text-xs px-2 py-1 rounded" style={{border: `1px solid ${Colors.cardBorder}`, color: Colors.primary}}>
+                                  🗺️ Maps
+                                </button>
+                              )}
+                            </div>
                           </div>
                         </li>
                       );
@@ -258,6 +297,14 @@ const OneDayItineraryView: React.FC<OneDayItineraryViewProps> = ({
             <p className="text-center py-4" style={{color: Colors.text_secondary}}>{t('oneDayItineraryTab.noSavedOneDayItineraries')}</p>
         )}
       </div>
+
+      {/* Place Detail Modal */}
+      {selectedPlaceForDetail && (
+        <PlaceDetailView 
+          place={selectedPlaceForDetail}
+          onClose={() => setSelectedPlaceForDetail(null)}
+        />
+      )}
     </div>
   );
 };

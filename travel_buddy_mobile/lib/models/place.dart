@@ -102,7 +102,7 @@ class Place extends HiveObject {
       handyPhrase: json['handyPhrase'] ?? 'Hello, thank you!',
       latitude: json['geometry']?['location']?['lat']?.toDouble(),
       longitude: json['geometry']?['location']?['lng']?.toDouble(),
-      isOpenNow: json['opening_hours']?['open_now'] ?? json['business_status'] == 'OPERATIONAL',
+      isOpenNow: json['business_status'] == 'OPERATIONAL',
       website: json['website'],
       phoneNumber: json['formatted_phone_number'],
       priceLevel: json['price_level'],

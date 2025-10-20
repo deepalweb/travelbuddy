@@ -26,6 +26,10 @@ class _HomeScreenState extends State<HomeScreen> {
   PageController _dealsPageController = PageController();
   Timer? _dealsTimer;
   int _currentDealIndex = 0;
+  
+  // Cache for location names to prevent repeated API calls
+  final Map<String, String> _locationCache = {};
+  String? _lastLocationKey;
 
   @override
   void initState() {
@@ -129,6 +133,14 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<String> _getLocationName(double lat, double lng) async {
+    // Create a cache key with rounded coordinates to avoid minor differences
+    final locationKey = '${lat.toStringAsFixed(4)}_${lng.toStringAsFixed(4)}';
+    
+    // Return cached result if available
+    if (_locationCache.containsKey(locationKey)) {
+      return _locationCache[locationKey]!;
+    }
+    
     print('🔍 Geocoding: $lat, $lng');
     
     // Try Nominatim (OpenStreetMap) first - more accurate for Sri Lanka
@@ -150,9 +162,13 @@ class _HomeScreenState extends State<HomeScreen> {
         print('🌍 OSM result: suburb=$suburb, city=$city, country=$country');
         
         if (suburb.isNotEmpty && country.isNotEmpty) {
-          return '$suburb, $country';
+          final result = '$suburb, $country';
+          _locationCache[locationKey] = result;
+          return result;
         } else if (city.isNotEmpty && country.isNotEmpty) {
-          return '$city, $country';
+          final result = '$city, $country';
+          _locationCache[locationKey] = result;
+          return result;
         }
       }
     } catch (e) {
@@ -172,7 +188,9 @@ class _HomeScreenState extends State<HomeScreen> {
         print('📍 BigData result: city=$city, country=$country');
         
         if (city.isNotEmpty && country.isNotEmpty) {
-          return '$city, $country';
+          final result = '$city, $country';
+          _locationCache[locationKey] = result;
+          return result;
         }
       }
     } catch (e) {
@@ -180,7 +198,9 @@ class _HomeScreenState extends State<HomeScreen> {
     }
     
     // Offline fallback for Sri Lankan coordinates
-    return _getOfflineLocationName(lat, lng);
+    final result = _getOfflineLocationName(lat, lng);
+    _locationCache[locationKey] = result;
+    return result;
   }
 
   String _getOfflineLocationName(double lat, double lng) {

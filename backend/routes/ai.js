@@ -272,6 +272,120 @@ function _getFallbackResponse() {
 }`;
 }
 
+// Generate place content endpoint
+router.post('/generate-place-content', async (req, res) => {
+  try {
+    const { placeName, placeType, address, description, rating } = req.body;
+    
+    if (!placeName) {
+      return res.status(400).json({ error: 'Place name is required' });
+    }
+
+    const prompt = `Generate detailed content for this place: ${placeName}
+
+Place Information:
+- Type: ${placeType || 'Unknown'}
+- Address: ${address || 'Unknown'}
+- Description: ${description || 'No description available'}
+- Rating: ${rating || 'N/A'}
+
+Return JSON with this structure:
+{
+  "overview": "Comprehensive 3-4 sentence overview of the place, its significance, and what makes it special",
+  "highlights": [
+    "Key feature or attraction 1",
+    "Key feature or attraction 2",
+    "Key feature or attraction 3",
+    "Key feature or attraction 4"
+  ],
+  "insiderTips": [
+    "Local tip or secret about the place",
+    "Best time to visit or avoid crowds",
+    "Photography or experience tip",
+    "Money-saving or practical tip"
+  ],
+  "bestTimeToVisit": "Detailed advice on optimal timing (season, day, hour)",
+  "duration": "Recommended time to spend (e.g., '2-3 hours', 'Half day', 'Full day')",
+  "cost": "Estimated cost range with currency (e.g., 'Free', '$10-15', '€20-30')"
+}`;
+
+    const response = await fetch(
+      `${AZURE_OPENAI_ENDPOINT}/openai/deployments/${AZURE_OPENAI_DEPLOYMENT_NAME}/chat/completions?api-version=${AZURE_API_VERSION}`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'api-key': AZURE_OPENAI_API_KEY,
+        },
+        body: JSON.stringify({
+          messages: [
+            {
+              role: 'system',
+              content: 'You are a travel content expert. Always respond with valid JSON only. Provide detailed, accurate, and engaging information about places.'
+            },
+            {
+              role: 'user',
+              content: prompt
+            }
+          ],
+          max_tokens: 1500,
+          temperature: 0.8
+        })
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error(`Azure AI API failed: ${response.status}`);
+    }
+
+    const data = await response.json();
+    const text = data.choices[0].message.content;
+    
+    let placeContent;
+    try {
+      const jsonMatch = text.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        placeContent = JSON.parse(jsonMatch[0]);
+      } else {
+        throw new Error('No JSON found in response');
+      }
+    } catch (e) {
+      console.warn('⚠️ JSON parsing failed, using fallback');
+      placeContent = _getFallbackPlaceContent(placeName, placeType);
+    }
+
+    res.json(placeContent);
+
+  } catch (error) {
+    console.error('❌ Place content generation error:', error);
+    res.json(_getFallbackPlaceContent(
+      req.body.placeName || 'Unknown Place',
+      req.body.placeType || 'attraction'
+    ));
+  }
+});
+
+function _getFallbackPlaceContent(placeName, placeType) {
+  return {
+    overview: `${placeName} is a notable ${placeType} that offers visitors a unique experience. This destination combines local culture with memorable attractions, making it a worthwhile stop for travelers. The location provides opportunities for exploration and discovery in a welcoming environment.`,
+    highlights: [
+      "Unique architectural or natural features",
+      "Rich cultural and historical significance",
+      "Great photo opportunities",
+      "Authentic local atmosphere"
+    ],
+    insiderTips: [
+      "Visit during off-peak hours for a more peaceful experience",
+      "Bring a camera to capture the unique features",
+      "Ask locals for their favorite spots nearby",
+      "Check opening hours before visiting"
+    ],
+    bestTimeToVisit: "Early morning or late afternoon for the best experience and lighting",
+    duration: "2-3 hours",
+    cost: "Varies - check current pricing"
+  };
+}
+
 // Ask AI about specific places endpoint
 router.post('/ask', async (req, res) => {
   const startTime = Date.now();

@@ -278,4 +278,60 @@ router.post('/mobile/batch', async (req, res) => {
   }
 });
 
+// Get place photo by reference
+router.get('/photo', async (req, res) => {
+  try {
+    const { ref, w = 400 } = req.query;
+    const apiKey = process.env.GOOGLE_PLACES_API_KEY;
+    
+    if (!apiKey) {
+      return res.status(500).json({ error: 'Google Places API key not configured' });
+    }
+    
+    if (!ref) {
+      return res.status(400).json({ error: 'Photo reference required' });
+    }
+    
+    const photoUrl = `https://maps.googleapis.com/maps/api/place/photo?photoreference=${ref}&maxwidth=${w}&key=${apiKey}`;
+    
+    // Redirect to Google's photo URL
+    res.redirect(photoUrl);
+    
+  } catch (error) {
+    console.error('❌ Photo fetch error:', error);
+    res.status(500).json({ error: 'Failed to fetch photo' });
+  }
+});
+
+// Get place details by place_id
+router.get('/details', async (req, res) => {
+  try {
+    const { place_id } = req.query;
+    const apiKey = process.env.GOOGLE_PLACES_API_KEY;
+    
+    if (!apiKey) {
+      return res.status(500).json({ error: 'Google Places API key not configured' });
+    }
+    
+    if (!place_id) {
+      return res.status(400).json({ error: 'place_id required' });
+    }
+    
+    const detailsUrl = `https://maps.googleapis.com/maps/api/place/details/json?place_id=${place_id}&fields=name,rating,formatted_phone_number,formatted_address,opening_hours,website,photos,user_ratings_total&key=${apiKey}`;
+    
+    const response = await fetch(detailsUrl);
+    const data = await response.json();
+    
+    if (data.status === 'OK') {
+      res.json(data.result);
+    } else {
+      res.status(400).json({ error: data.status, message: data.error_message });
+    }
+    
+  } catch (error) {
+    console.error('❌ Place details error:', error);
+    res.status(500).json({ error: 'Failed to fetch place details' });
+  }
+});
+
 export default router;

@@ -1,4 +1,11 @@
 # Environment variables - CRITICAL SECURITY
+.env
+.env.*
+!.env.example
+!.env.template
+backend/.env
+frontend/.env
+admin/.env
 .env.local
 .env.production
 .env.development

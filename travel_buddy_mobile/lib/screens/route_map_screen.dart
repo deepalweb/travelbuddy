@@ -49,7 +49,7 @@ class _RouteMapScreenState extends State<RouteMapScreen> {
     });
 
     try {
-      final preferences = widget.preferences ?? const RoutePreferences();
+      final preferences = widget.preferences ?? const RoutePreferences(transportMode: TransportMode.walking);
       
       _smartRoute = await SmartRouteService.createSmartRoute(
         currentLocation: widget.currentLocation,
