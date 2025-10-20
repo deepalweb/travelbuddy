@@ -1,9 +1,125 @@
 import express from 'express';
 import fetch from 'node-fetch';
+import OpenAI from 'openai';
 import { EnhancedPlacesSearch } from '../enhanced-places-search.js';
 import { PlacesOptimizer } from '../places-optimization.js';
 
+// Initialize Azure OpenAI
+const openai = process.env.AZURE_OPENAI_API_KEY ? new OpenAI({
+  apiKey: process.env.AZURE_OPENAI_API_KEY,
+  baseURL: `${process.env.AZURE_OPENAI_ENDPOINT}/openai/deployments/${process.env.AZURE_OPENAI_DEPLOYMENT_NAME}`,
+  defaultQuery: { 'api-version': '2024-02-15-preview' },
+  defaultHeaders: {
+    'api-key': process.env.AZURE_OPENAI_API_KEY,
+  },
+}) : null;
+
 const router = express.Router();
+
+// AI-powered places generation endpoint
+router.post('/ai/generate', async (req, res) => {
+  try {
+    const { prompt, maxTokens = 4000, temperature = 0.7 } = req.body;
+    
+    if (!openai) {
+      return res.status(500).json({ error: 'Azure OpenAI not configured' });
+    }
+    
+    if (!prompt) {
+      return res.status(400).json({ error: 'prompt required' });
+    }
+    
+    console.log('🤖 Azure OpenAI generating content');
+    
+    const completion = await openai.chat.completions.create({
+      model: process.env.AZURE_OPENAI_DEPLOYMENT_NAME,
+      messages: [{ role: "user", content: prompt }],
+      temperature: temperature,
+      max_tokens: maxTokens
+    });
+    
+    const content = completion.choices[0].message.content;
+    
+    res.json({
+      content: content,
+      response: content,
+      text: content
+    });
+    
+  } catch (error) {
+    console.error('❌ Azure OpenAI error:', error);
+    res.status(500).json({ 
+      error: 'AI generation failed', 
+      details: error.message 
+    });
+  }
+});
+
+// Hybrid AI + Google Places endpoint
+router.get('/hybrid', async (req, res) => {
+  try {
+    const { lat, lng, query = 'restaurants', limit = 30 } = req.query;
+    
+    if (!lat || !lng) {
+      return res.status(400).json({ error: 'lat and lng required' });
+    }
+    
+    console.log(`🔄 Hybrid search: ${query} near ${lat}, ${lng}`);
+    
+    let results = [];
+    
+    // Try AI generation first (cost-effective)
+    if (openai) {
+      try {
+        const prompt = `Find 15 real ${query} near ${lat}, ${lng}. Return JSON array: [{"place_id":"id","name":"name","formatted_address":"address","geometry":{"location":{"lat":${lat},"lng":${lng}}},"rating":4.0,"types":["${query}"],"description":"description"}]`;
+        
+        const completion = await openai.chat.completions.create({
+          model: process.env.AZURE_OPENAI_DEPLOYMENT_NAME,
+          messages: [{ role: "user", content: prompt }],
+          temperature: 0.7,
+          max_tokens: 2000
+        });
+        
+        const aiPlaces = JSON.parse(completion.choices[0].message.content);
+        results = aiPlaces.map(place => ({ ...place, source: 'ai' }));
+        console.log(`🤖 AI provided ${results.length} places`);
+      } catch (aiError) {
+        console.warn('⚠️ AI generation failed, using Google Places only');
+      }
+    }
+    
+    // Fill gaps with Google Places if needed
+    if (results.length < limit && process.env.GOOGLE_PLACES_API_KEY) {
+      try {
+        const enhancedSearch = new EnhancedPlacesSearch(process.env.GOOGLE_PLACES_API_KEY);
+        const googlePlaces = await enhancedSearch.searchPlacesComprehensive(
+          parseFloat(lat), parseFloat(lng), query, 20000
+        );
+        
+        const needed = limit - results.length;
+        const additionalPlaces = googlePlaces.slice(0, needed).map(place => ({ ...place, source: 'google' }));
+        results = [...results, ...additionalPlaces];
+        
+        console.log(`🔍 Added ${additionalPlaces.length} Google Places`);
+      } catch (googleError) {
+        console.warn('⚠️ Google Places failed:', googleError.message);
+      }
+    }
+    
+    console.log(`✅ Hybrid search returned ${results.length} total places`);
+    
+    res.json({
+      status: 'OK',
+      results: results,
+      query: query,
+      location: { lat: parseFloat(lat), lng: parseFloat(lng) }
+    });
+    
+  } catch (error) {
+    console.error('❌ Hybrid search error:', error);
+    res.status(500).json({ error: 'Hybrid search failed', details: error.message });
+  }
+});
 
 // Enhanced Places Search endpoint specifically for mobile
 router.get('/mobile/nearby', async (req, res) => {

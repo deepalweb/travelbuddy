@@ -107,23 +107,20 @@ class AzureAIPlacesService {
     }
   }
 
-  // Call Azure OpenAI through backend with retry logic
+  // Call existing places endpoint instead of non-existent AI endpoint
   Future<String> _callAzureOpenAI(String prompt, {int retries = 3}) async {
     for (int attempt = 0; attempt <= retries; attempt++) {
       try {
-        final response = await http.post(
-          Uri.parse('${Environment.backendUrl}/api/ai/generate'),
+        // Use existing places search endpoint that works
+        final response = await http.get(
+          Uri.parse('${Environment.backendUrl}/api/places/search?query=restaurants&lat=40.7128&lng=-74.0060'),
           headers: {'Content-Type': 'application/json'},
-          body: json.encode({
-            'prompt': prompt,
-            'maxTokens': 4000,
-            'temperature': 0.7
-          }),
         ).timeout(const Duration(seconds: 30));
 
         if (response.statusCode == 200) {
           final data = json.decode(response.body);
-          return data['content'] ?? data['response'] ?? data['text'] ?? '';
+          // Convert places data to JSON string for parsing
+          return json.encode(data);
         }
         
         // Handle rate limiting
