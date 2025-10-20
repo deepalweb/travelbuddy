@@ -8,8 +8,7 @@
     "preview": "vite preview",
     "test": "vitest",
     "start": "vite",
-    "heroku-postbuild": "npm run build",
-    "postinstall": "npm run build"
+    "heroku-postbuild": "npm run build"
   },
   "dependencies": {
     "@google/genai": "^1.24.0",
@@ -20,7 +19,7 @@
     "@types/react-dom": "^18.2.0",
     "@vitejs/plugin-react": "^4.0.0",
     "autoprefixer": "^10.4.0",
-
+    "firebase": "^10.0.0",
     "framer-motion": "^12.23.24",
     "leaflet": "^1.9.4",
     "lucide-react": "^0.545.0",
