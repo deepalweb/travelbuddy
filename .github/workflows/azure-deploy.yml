@@ -73,17 +73,31 @@ jobs:
             </handlers>
             <rewrite>
               <rules>
-                <rule name="StaticContent">
-                  <action type="Rewrite" url="public{REQUEST_URI}"/>
+                <rule name="StaticFiles" stopProcessing="true">
+                  <match url="^(assets/.*|js/.*|css/.*|.*\.(css|js|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot|json))$" />
+                  <action type="Rewrite" url="public/{R:0}" />
                 </rule>
-                <rule name="DynamicContent">
-                  <conditions>
-                    <add input="{REQUEST_FILENAME}" matchType="IsFile" negate="True"/>
+                <rule name="SPA" stopProcessing="true">
+                  <match url=".*" />
+                  <conditions logicalGrouping="MatchAll">
+                    <add input="{REQUEST_FILENAME}" matchType="IsFile" negate="true" />
+                    <add input="{REQUEST_URI}" pattern="^/api/" negate="true" />
                   </conditions>
-                  <action type="Rewrite" url="server.js"/>
+                  <action type="Rewrite" url="public/index.html" />
+                </rule>
+                <rule name="API" stopProcessing="true">
+                  <match url="^api/(.*)" />
+                  <action type="Rewrite" url="server.js" />
                 </rule>
               </rules>
             </rewrite>
+            <staticContent>
+              <mimeMap fileExtension=".js" mimeType="application/javascript" />
+              <mimeMap fileExtension=".css" mimeType="text/css" />
+              <mimeMap fileExtension=".json" mimeType="application/json" />
+              <mimeMap fileExtension=".woff" mimeType="font/woff" />
+              <mimeMap fileExtension=".woff2" mimeType="font/woff2" />
+            </staticContent>
             <security>
               <requestFiltering>
                 <hiddenSegments>
