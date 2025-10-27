@@ -35,6 +35,21 @@ jobs:
         cd frontend
         npm ci
     
+    - name: Create production environment file
+      run: |
+        cd frontend
+        cat > .env.production << 'EOF'
+        VITE_API_BASE_URL=https://travelbuddy-b2c6hgbbgeh4esdh.eastus2-01.azurewebsites.net
+        VITE_FIREBASE_API_KEY=AIzaSyCuJr5N0ytr1h_Aq_5qQazNL0wQUnsZlAw
+        VITE_FIREBASE_AUTH_DOMAIN=travelbuddy-2d1c5.firebaseapp.com
+        VITE_FIREBASE_PROJECT_ID=travelbuddy-2d1c5
+        VITE_FIREBASE_STORAGE_BUCKET=travelbuddy-2d1c5.firebasestorage.app
+        VITE_FIREBASE_MESSAGING_SENDER_ID=45425409967
+        VITE_FIREBASE_APP_ID=1:45425409967:web:782638c65a40dcb156b95a
+        VITE_GOOGLE_MAPS_API_KEY=AIzaSyAey-fuui7b3I-PkzJDVfsTFa9Kv_b_6ls
+        VITE_UNSPLASH_ACCESS_KEY=J4khiSIy9hN7kZabjiTdQR-SG_FgxNX25icqGuleqhs
+        EOF
+    
     - name: Build frontend
       run: |
         cd frontend
