@@ -5,20 +5,34 @@ try {
     const credentialsJson = process.env.FIREBASE_ADMIN_CREDENTIALS_JSON;
     
     if (!credentialsJson) {
-      throw new Error('FIREBASE_ADMIN_CREDENTIALS_JSON environment variable not set');
+      console.log('Firebase Admin not configured. Set FIREBASE_ADMIN_CREDENTIALS_JSON to enable auth verification.');
+      return;
     }
 
-    const serviceAccount = JSON.parse(credentialsJson);
+    let serviceAccount;
+    try {
+      serviceAccount = JSON.parse(credentialsJson);
+    } catch (parseError) {
+      console.error('❌ Failed to parse Firebase credentials JSON:', parseError.message);
+      console.log('Firebase Admin not configured. Set FIREBASE_ADMIN_CREDENTIALS_JSON to enable auth verification.');
+      return;
+    }
     
     // Validate required fields
     if (!serviceAccount.project_id) {
-      throw new Error('Service account JSON missing project_id');
+      console.error('❌ Service account JSON missing project_id');
+      console.log('Firebase Admin not configured. Set FIREBASE_ADMIN_CREDENTIALS_JSON to enable auth verification.');
+      return;
     }
     if (!serviceAccount.private_key) {
-      throw new Error('Service account JSON missing private_key');
+      console.error('❌ Service account JSON missing private_key');
+      console.log('Firebase Admin not configured. Set FIREBASE_ADMIN_CREDENTIALS_JSON to enable auth verification.');
+      return;
     }
     if (!serviceAccount.client_email) {
-      throw new Error('Service account JSON missing client_email');
+      console.error('❌ Service account JSON missing client_email');
+      console.log('Firebase Admin not configured. Set FIREBASE_ADMIN_CREDENTIALS_JSON to enable auth verification.');
+      return;
     }
 
     admin.initializeApp({
@@ -30,7 +44,7 @@ try {
   }
 } catch (error) {
   console.error('❌ Firebase Admin initialization failed:', error.message);
-  throw error;
+  console.log('Firebase Admin not configured. Set FIREBASE_ADMIN_CREDENTIALS_JSON to enable auth verification.');
 }
 
 export default admin;
