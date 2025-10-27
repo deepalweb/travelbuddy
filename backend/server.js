@@ -660,7 +660,17 @@ function enforcePolicy(api) {
   };
 }
 
-// Security middleware
+// Security middleware with CSP for external APIs
+app.use((req, res, next) => {
+  res.setHeader('Content-Security-Policy', 
+    "default-src 'self'; " +
+    "connect-src 'self' https://api.unsplash.com https://maps.googleapis.com https://places.googleapis.com; " +
+    "img-src 'self' data: https: blob:; " +
+    "script-src 'self' 'unsafe-inline' 'unsafe-eval'; " +
+    "style-src 'self' 'unsafe-inline';"
+  );
+  next();
+});
 app.use(securityHeaders);
 app.use(apiRateLimit);
 app.use(sanitizeInput);
