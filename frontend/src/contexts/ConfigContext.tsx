@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { configService, RuntimeConfig } from '../services/configService';
+import { configService } from '../services/configService';
+import type { RuntimeConfig } from '../services/configService';
 
 interface ConfigContextType {
   config: RuntimeConfig | null;

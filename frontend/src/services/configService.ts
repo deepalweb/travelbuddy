@@ -1,4 +1,4 @@
-interface RuntimeConfig {
+export interface RuntimeConfig {
   apiBaseUrl: string;
   firebase: {
     apiKey: string;
@@ -65,4 +65,3 @@ class ConfigService {
 }
 
 export const configService = new ConfigService();
-export type { RuntimeConfig };

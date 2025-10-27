@@ -51,13 +51,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const { config, loading: configLoading } = useConfig()
 
   useEffect(() => {
-    if (firebaseLoading || configLoading || !firebase || !config) {
+    if (firebaseLoading || configLoading || !config) {
       return
     }
 
-    // Check for demo token first
+    // Check for demo token first and restore demo user
     const demoToken = localStorage.getItem('demo_token')
     if (demoToken) {
+      restoreDemoUser()
+      return
+    }
+
+    if (!firebase) {
       setIsLoading(false)
       return
     }
@@ -73,6 +78,41 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     return () => unsubscribe()
   }, [firebase, config, firebaseLoading, configLoading])
+
+  const restoreDemoUser = async () => {
+    try {
+      const demoToken = localStorage.getItem('demo_token')
+      if (!demoToken) {
+        setIsLoading(false)
+        return
+      }
+
+      const response = await fetch(`${config?.apiBaseUrl || 'http://localhost:3001'}/api/demo-auth/verify-token`, {
+        headers: {
+          'Authorization': `Bearer ${demoToken}`
+        }
+      })
+
+      if (response.ok) {
+        const data = await response.json()
+        setUser({
+          id: data.user.id,
+          email: data.user.email,
+          username: data.user.username,
+          tier: data.user.tier,
+          role: data.user.role,
+          isAdmin: data.user.isAdmin
+        })
+      } else {
+        localStorage.removeItem('demo_token')
+      }
+    } catch (error) {
+      console.error('Failed to restore demo user:', error)
+      localStorage.removeItem('demo_token')
+    } finally {
+      setIsLoading(false)
+    }
+  }
 
   const syncUserProfile = async (firebaseUser: FirebaseUser) => {
     try {

@@ -109,14 +109,27 @@ const PORT = process.env.PORT || 8080;
 // Create HTTP/HTTPS server and Socket.io for real-time metrics
 let httpServer;
 if (process.env.ENABLE_HTTPS === 'true') {
-  const https = await import('https');
-  const fs = await import('fs');
-  const options = {
-    key: fs.readFileSync(process.env.SSL_KEY_PATH || './ssl/key.pem'),
-    cert: fs.readFileSync(process.env.SSL_CERT_PATH || './ssl/cert.pem')
-  };
-  httpServer = https.createServer(options, app);
-  console.log('🔒 HTTPS server enabled');
+  try {
+    const https = await import('https');
+    const fs = await import('fs');
+    const keyPath = process.env.SSL_KEY_PATH || './ssl/key.pem';
+    const certPath = process.env.SSL_CERT_PATH || './ssl/cert.pem';
+    
+    if (existsSync(keyPath) && existsSync(certPath)) {
+      const options = {
+        key: fs.readFileSync(keyPath),
+        cert: fs.readFileSync(certPath)
+      };
+      httpServer = https.createServer(options, app);
+      console.log('🔒 HTTPS server enabled');
+    } else {
+      console.warn('⚠️ SSL certificates not found, falling back to HTTP');
+      httpServer = http.createServer(app);
+    }
+  } catch (error) {
+    console.warn('⚠️ HTTPS setup failed, using HTTP:', error.message);
+    httpServer = http.createServer(app);
+  }
 } else {
   httpServer = http.createServer(app);
   console.log('🔓 HTTP server (development mode)');
@@ -4992,6 +5005,15 @@ try {
   console.log('✅ Demo auth routes loaded');
 } catch (error) {
   console.error('❌ Failed to load demo auth routes:', error);
+}
+
+// Setup routes for initial configuration
+try {
+  const setupRouter = (await import('./routes/setup.js')).default;
+  app.use('/api/setup', setupRouter);
+  console.log('✅ Setup routes loaded');
+} catch (error) {
+  console.error('❌ Failed to load setup routes:', error);
 }
 
 // Admin routes - Enhanced with middleware

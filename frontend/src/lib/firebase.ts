@@ -1,5 +1,5 @@
-import { initializeApp, FirebaseApp } from 'firebase/app'
-import { getAuth, Auth } from 'firebase/auth'
+import { initializeApp, type FirebaseApp } from 'firebase/app'
+import { getAuth, type Auth } from 'firebase/auth'
 import { configService } from '../services/configService'
 
 let app: FirebaseApp | null = null
