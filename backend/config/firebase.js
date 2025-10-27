@@ -2,11 +2,23 @@ import admin from 'firebase-admin';
 
 try {
   if (!admin.apps.length) {
-    const credentialsJson = process.env.FIREBASE_ADMIN_CREDENTIALS_JSON;
+    let credentialsJson = process.env.FIREBASE_ADMIN_CREDENTIALS_JSON;
+    const credentialsBase64 = process.env.FIREBASE_ADMIN_CREDENTIALS_BASE64;
     
-    if (!credentialsJson) {
-      console.log('Firebase Admin not configured. Set FIREBASE_ADMIN_CREDENTIALS_JSON to enable auth verification.');
+    if (!credentialsJson && !credentialsBase64) {
+      console.log('Firebase Admin not configured. Set FIREBASE_ADMIN_CREDENTIALS_BASE64, FIREBASE_ADMIN_CREDENTIALS_JSON, or GOOGLE_APPLICATION_CREDENTIALS to enable auth verification.');
       return;
+    }
+    
+    // If Base64 is provided, decode it
+    if (credentialsBase64 && !credentialsJson) {
+      try {
+        credentialsJson = Buffer.from(credentialsBase64, 'base64').toString('utf8');
+      } catch (decodeError) {
+        console.error('❌ Failed to decode Base64 Firebase credentials:', decodeError.message);
+        console.log('Firebase Admin not configured. Set FIREBASE_ADMIN_CREDENTIALS_BASE64, FIREBASE_ADMIN_CREDENTIALS_JSON, or GOOGLE_APPLICATION_CREDENTIALS to enable auth verification.');
+        return;
+      }
     }
 
     let serviceAccount;
