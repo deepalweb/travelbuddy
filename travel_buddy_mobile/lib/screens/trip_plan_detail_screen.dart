@@ -1408,7 +1408,7 @@ class _RoutePreferencesBottomSheetState extends State<_RoutePreferencesBottomShe
           Switch(
             value: value,
             onChanged: onChanged,
-            activeColor: Colors.blue,
+            activeThumbColor: Colors.blue,
           ),
         ],
       ),

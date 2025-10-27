@@ -3,7 +3,6 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:geolocator/geolocator.dart';
 import '../models/place.dart';
 import '../models/route_models.dart';
-import '../services/route_planning_service.dart';
 import '../services/route_tracking_service.dart';
 import '../services/smart_route_service.dart';
 

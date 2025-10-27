@@ -7,21 +7,21 @@ import 'screens/splash_screen.dart';
 import 'screens/safety_screen.dart';
 import 'screens/ai_plan_screen.dart';
 import 'screens/enhanced_route_plan_screen.dart';
-import 'screens/test_enhanced_route_screen.dart';
+
 import 'models/place.dart';
 import 'services/storage_service.dart';
 import 'services/firebase_service.dart';
 import 'services/connectivity_test.dart';
 import 'constants/app_constants.dart';
 import 'config/environment.dart';
+import 'utils/debug_logger.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
-  // Debug: Print Environment configuration on app start
-  print('🚀 App starting with Environment configuration:');
-  print('🌐 Backend URL: ${Environment.backendUrl}');
-  print('📱 Production mode: ${Environment.isProduction}');
+  DebugLogger.info('🚀 App starting with Environment configuration:');
+  DebugLogger.info('🌐 Backend URL: ${Environment.backendUrl}');
+  DebugLogger.info('📱 Production mode: ${Environment.isProduction}');
   
   try {
     // Initialize Storage Service first
@@ -37,7 +37,7 @@ void main() async {
     
     runApp(const TravelBuddyApp());
   } catch (e) {
-    print('Initialization error: $e');
+    DebugLogger.error('Initialization error: $e');
     runApp(const ErrorApp());
   }
 }
@@ -128,7 +128,7 @@ class TravelBuddyApp extends StatelessWidget {
             routes: {
               '/safety': (context) => const SafetyScreen(),
               '/ai-plan': (context) => AIPlanScreen(),
-              '/test-route': (context) => const TestEnhancedRouteScreen(),
+
             },
             onGenerateRoute: (settings) {
               // Handle dynamic routes for enhanced route planning

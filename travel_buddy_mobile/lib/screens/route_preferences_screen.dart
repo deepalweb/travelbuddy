@@ -265,7 +265,7 @@ class _RoutePreferencesScreenState extends State<RoutePreferencesScreen> {
         Switch(
           value: value,
           onChanged: onChanged,
-          activeColor: Colors.blue,
+          activeThumbColor: Colors.blue,
         ),
       ],
     );

@@ -1,5 +1,6 @@
 import 'package:dio/dio.dart';
 import '../config/environment.dart';
+import '../utils/debug_logger.dart';
 
 class ConnectivityTest {
   static Future<void> testBackendConnectivity() async {
@@ -9,15 +10,15 @@ class ConnectivityTest {
       receiveTimeout: Duration(seconds: 10),
     ));
 
-    print('🔍 Testing backend connectivity...');
-    print('🌐 Backend URL: ${Environment.backendUrl}');
+    DebugLogger.info('🔍 Testing backend connectivity...');
+    DebugLogger.info('🌐 Backend URL: ${Environment.backendUrl}');
 
     try {
       // Test health endpoint
       final healthResponse = await dio.get('/health');
-      print('✅ Health check: ${healthResponse.statusCode} - ${healthResponse.data}');
+      DebugLogger.log('✅ Health check: ${healthResponse.statusCode} - ${healthResponse.data}');
     } catch (e) {
-      print('❌ Health check failed: $e');
+      DebugLogger.error('Health check failed: $e');
     }
 
     try {
@@ -28,9 +29,9 @@ class ConnectivityTest {
         'q': 'restaurant',
         'radius': 5000,
       });
-      print('✅ Places API: ${placesResponse.statusCode} - ${placesResponse.data?.length ?? 0} places');
+      DebugLogger.log('✅ Places API: ${placesResponse.statusCode} - ${placesResponse.data?.length ?? 0} places');
     } catch (e) {
-      print('❌ Places API failed: $e');
+      DebugLogger.error('Places API failed: $e');
     }
 
     try {
@@ -38,9 +39,9 @@ class ConnectivityTest {
       final postsResponse = await dio.get('/api/posts', queryParameters: {
         'limit': 5,
       });
-      print('✅ Posts API: ${postsResponse.statusCode} - ${postsResponse.data?.length ?? 0} posts');
+      DebugLogger.log('✅ Posts API: ${postsResponse.statusCode} - ${postsResponse.data?.length ?? 0} posts');
     } catch (e) {
-      print('❌ Posts API failed: $e');
+      DebugLogger.error('Posts API failed: $e');
     }
   }
 }

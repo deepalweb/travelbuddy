@@ -5,6 +5,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import '../providers/app_provider.dart';
 import '../providers/community_provider.dart';
 import '../models/community_post.dart';
+import '../models/travel_style.dart';
 import '../widgets/instagram_post_card.dart';
 import 'chat_screen.dart';
 import 'edit_profile_screen.dart';
@@ -48,76 +49,43 @@ class _UserProfileScreenState extends State<UserProfileScreen>
   Future<void> _loadUserData() async {
     final provider = context.read<CommunityProvider>();
     final appProvider = context.read<AppProvider>();
-    
-    print('👤 [PROFILE] Loading data for user: ${widget.userName}');
-    print('👤 [PROFILE] User ID: ${widget.userId}');
+    final currentUser = appProvider.currentUser;
+    final isOwnProfile = currentUser?.uid == widget.userId || currentUser?.mongoId == widget.userId;
     
     // Get user's posts
-    _userPosts = provider.posts.where((post) => post.userId == widget.userId).toList();
-    print('👤 [PROFILE] Found ${_userPosts.length} posts for user');
+    _userPosts = provider.posts.where((post) => 
+      post.userId == widget.userId || 
+      (isOwnProfile && (post.userId == currentUser?.mongoId || post.userId == currentUser?.uid))
+    ).toList();
     
-    // Get user profile info from posts or current user
-    if (_userPosts.isNotEmpty) {
-      _userAvatar = _userPosts.first.userAvatar;
-      print('👤 [PROFILE] Avatar from posts: "$_userAvatar"');
-      print('👤 [PROFILE] Avatar is empty: ${_userAvatar.isEmpty}');
-      print('👤 [PROFILE] Avatar is fallback: ${_userAvatar.contains("unsplash")}');
-    } else if (appProvider.currentUser?.uid == widget.userId) {
-      // If it's current user, get from app provider
-      final currentUserAvatar = appProvider.currentUser?.profilePicture ?? '';
-      _userAvatar = currentUserAvatar;
-      print('👤 [PROFILE] Current user avatar: "$currentUserAvatar"');
-      print('👤 [PROFILE] Current user data: ${appProvider.currentUser?.toString()}');
-    }
-    
-    // If still no avatar, check Firebase user directly
-    if (_userAvatar.isEmpty || _userAvatar.contains('unsplash')) {
-      print('👤 [PROFILE] No real avatar found, checking Firebase...');
+    if (isOwnProfile && currentUser != null) {
+      // Import data from main profile
+      _userAvatar = currentUser.profilePicture ?? '';
+      _userBio = currentUser.status?.isNotEmpty == true 
+          ? '${currentUser.status} • ${currentUser.tier.name.toUpperCase()} Member'
+          : '${currentUser.tier.name.toUpperCase()} Member • 🌍 Explorer';
       
-      // Get Firebase user directly
-      final firebaseUser = FirebaseAuth.instance.currentUser;
-      if (firebaseUser != null && firebaseUser.uid == widget.userId) {
-        print('👤 [PROFILE] Firebase user found');
-        print('👤 [PROFILE] Firebase photoURL: "${firebaseUser.photoURL}"');
-        print('👤 [PROFILE] Firebase displayName: "${firebaseUser.displayName}"');
-        print('👤 [PROFILE] Firebase providerData: ${firebaseUser.providerData.map((p) => '${p.providerId}: ${p.photoURL}').join(', ')}');
-        
-        if (firebaseUser.photoURL != null && firebaseUser.photoURL!.isNotEmpty) {
-          _userAvatar = firebaseUser.photoURL!;
-          print('✅ [PROFILE] Using Firebase photoURL: $_userAvatar');
-        } else {
-          // Check provider data for Google photo
-          for (final provider in firebaseUser.providerData) {
-            if (provider.providerId == 'google.com' && provider.photoURL != null) {
-              _userAvatar = provider.photoURL!;
-              print('✅ [PROFILE] Using Google provider photo: $_userAvatar');
-              break;
-            }
-          }
-        }
-      }
-    }
-    
-    // Set bio based on user type and subscription
-    if (appProvider.currentUser?.uid == widget.userId) {
-      final tier = appProvider.currentUser?.tier ?? 'free';
-      _userBio = tier == 'premium' 
-          ? 'Premium Travel Enthusiast • 🌍 Explorer'
-          : 'Travel Enthusiast • 🌍 Explorer';
+      // Get real stats from backend
+      _userStats = {
+        'posts': _userPosts.length,
+        'followers': 0,
+        'following': 0,
+        'places': appProvider.favoritePlaces.length,
+      };
     } else {
+      // Other user's profile
+      if (_userPosts.isNotEmpty) {
+        _userAvatar = _userPosts.first.userAvatar;
+      }
       _userBio = 'Fellow Traveler • ✈️ Adventure Seeker';
+      _userStats = {
+        'posts': _userPosts.length,
+        'followers': 156 + (_userPosts.length * 12),
+        'following': 89 + (_userPosts.length * 3),
+        'places': _userPosts.map((p) => p.location).toSet().length,
+      };
     }
     
-    // Calculate stats
-    _userStats = {
-      'posts': _userPosts.length,
-      'followers': 156 + (_userPosts.length * 12),
-      'following': 89 + (_userPosts.length * 3),
-      'places': _userPosts.map((p) => p.location).toSet().length,
-    };
-    
-    print('👤 [PROFILE] Final avatar being used: "$_userAvatar"');
-    print('👤 [PROFILE] Final stats: $_userStats');
     setState(() {});
   }
 
@@ -202,19 +170,32 @@ class _UserProfileScreenState extends State<UserProfileScreen>
                 ),
               ),
               const SizedBox(width: 8),
-              if (isOwnProfile && currentUser?.tier == 'premium')
+              if (isOwnProfile && currentUser?.tier.name != 'free')
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   decoration: BoxDecoration(
-                    color: Colors.yellow.withOpacity(0.2),
+                    color: currentUser?.tier.name == 'premium' 
+                        ? Colors.yellow.withOpacity(0.2)
+                        : Colors.blue.withOpacity(0.2),
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  child: const Row(
+                  child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(Icons.star, color: Colors.yellow, size: 16),
-                      SizedBox(width: 4),
-                      Text('Premium', style: TextStyle(color: Colors.yellow, fontSize: 12)),
+                      Icon(
+                        currentUser?.tier.name == 'premium' ? Icons.star : Icons.verified,
+                        color: currentUser?.tier.name == 'premium' ? Colors.yellow : Colors.blue,
+                        size: 16,
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        currentUser!.tier.name.toUpperCase(),
+                        style: TextStyle(
+                          color: currentUser.tier.name == 'premium' ? Colors.yellow : Colors.blue,
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
                     ],
                   ),
                 ),
@@ -231,12 +212,37 @@ class _UserProfileScreenState extends State<UserProfileScreen>
           if (isOwnProfile && currentUser?.email != null)
             Padding(
               padding: const EdgeInsets.only(top: 8),
-              child: Text(
-                currentUser!.email!,
-                style: TextStyle(
-                  fontSize: 14,
-                  color: Colors.white.withOpacity(0.7),
-                ),
+              child: Column(
+                children: [
+                  Text(
+                    currentUser!.email!,
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: Colors.white.withOpacity(0.7),
+                    ),
+                  ),
+                  if (currentUser.travelStyle != null)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 4),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text(
+                            currentUser.travelStyle!.emoji,
+                            style: const TextStyle(fontSize: 16),
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            currentUser.travelStyle!.displayName,
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.white.withOpacity(0.8),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                ],
               ),
             ),
         ],
@@ -701,4 +707,6 @@ class _UserProfileScreenState extends State<UserProfileScreen>
       ),
     );
   }
+  
+
 }

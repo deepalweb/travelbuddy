@@ -28,13 +28,21 @@ class _PlaceDetailScreenState extends State<PlaceDetailScreen> {
   bool _isLoadingAI = false;
   bool _isLoadingImages = false;
   int _activeImageIndex = 0;
+  late PageController _pageController;
 
   @override
   void initState() {
     super.initState();
+    _pageController = PageController();
     _loadPlaceDetails();
     _loadAIDescription();
     _loadImages();
+  }
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
   }
 
   Future<void> _loadPlaceDetails() async {
@@ -221,40 +229,39 @@ Make it engaging and informative like a travel guide.''';
       );
     }
 
-    return SizedBox(
-      height: 250,
-      child: PageView.builder(
-        itemCount: _images.length,
-        onPageChanged: (index) => setState(() => _activeImageIndex = index),
-        itemBuilder: (context, index) {
-          return Stack(
-            children: [
-              Image.network(
-                _images[index],
-                width: double.infinity,
-                height: 250,
-                fit: BoxFit.cover,
-                loadingBuilder: (context, child, loadingProgress) {
-                  if (loadingProgress == null) return child;
-                  return Container(
-                    color: Colors.grey[200],
-                    child: Center(
-                      child: CircularProgressIndicator(
-                        value: loadingProgress.expectedTotalBytes != null
-                            ? loadingProgress.cumulativeBytesLoaded / loadingProgress.expectedTotalBytes!
-                            : null,
-                      ),
-                    ),
-                  );
+    return Column(
+      children: [
+        SizedBox(
+          height: 250,
+          child: PageView.builder(
+            controller: _pageController,
+            itemCount: _images.length,
+            onPageChanged: (index) => setState(() => _activeImageIndex = index),
+            itemBuilder: (context, index) {
+              return GestureDetector(
+                onTap: () {
+                  // Optional: Show full screen image viewer
                 },
-                errorBuilder: (context, error, stackTrace) {
-                  // Try next image source on error
-                  if (index < _images.length - 1) {
-                    return Image.network(
-                      _images[index + 1],
+                child: Stack(
+                  children: [
+                    Image.network(
+                      _images[index],
                       width: double.infinity,
                       height: 250,
                       fit: BoxFit.cover,
+                      loadingBuilder: (context, child, loadingProgress) {
+                        if (loadingProgress == null) return child;
+                        return Container(
+                          color: Colors.grey[200],
+                          child: Center(
+                            child: CircularProgressIndicator(
+                              value: loadingProgress.expectedTotalBytes != null
+                                  ? loadingProgress.cumulativeBytesLoaded / loadingProgress.expectedTotalBytes!
+                                  : null,
+                            ),
+                          ),
+                        );
+                      },
                       errorBuilder: (context, error, stackTrace) {
                         return Container(
                           color: Colors.grey[300],
@@ -263,36 +270,108 @@ Make it engaging and informative like a travel guide.''';
                           ),
                         );
                       },
-                    );
-                  }
-                  return Container(
-                    color: Colors.grey[300],
-                    child: const Center(
-                      child: Icon(Icons.image, size: 64, color: Colors.grey),
                     ),
-                  );
-                },
-              ),
-              if (_images.length > 1)
-                Positioned(
-                  bottom: 16,
-                  right: 16,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: Colors.black.withOpacity(0.6),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Text(
-                      '${_activeImageIndex + 1}/${_images.length}',
-                      style: const TextStyle(color: Colors.white, fontSize: 12),
-                    ),
+                    // Left Arrow
+                    if (_images.length > 1)
+                      Positioned(
+                        left: 16,
+                        top: 100,
+                        child: GestureDetector(
+                          onTap: () {
+                            if (_activeImageIndex > 0) {
+                              _pageController.previousPage(
+                                duration: const Duration(milliseconds: 300),
+                                curve: Curves.easeInOut,
+                              );
+                            }
+                          },
+                          child: Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: Colors.black.withOpacity(0.7),
+                              shape: BoxShape.circle,
+                            ),
+                            child: Icon(
+                              Icons.arrow_back_ios,
+                              color: _activeImageIndex > 0 ? Colors.white : Colors.grey,
+                              size: 24,
+                            ),
+                          ),
+                        ),
+                      ),
+                    // Right Arrow
+                    if (_images.length > 1)
+                      Positioned(
+                        right: 16,
+                        top: 100,
+                        child: GestureDetector(
+                          onTap: () {
+                            if (_activeImageIndex < _images.length - 1) {
+                              _pageController.nextPage(
+                                duration: const Duration(milliseconds: 300),
+                                curve: Curves.easeInOut,
+                              );
+                            }
+                          },
+                          child: Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: Colors.black.withOpacity(0.7),
+                              shape: BoxShape.circle,
+                            ),
+                            child: Icon(
+                              Icons.arrow_forward_ios,
+                              color: _activeImageIndex < _images.length - 1 ? Colors.white : Colors.grey,
+                              size: 24,
+                            ),
+                          ),
+                        ),
+                      ),
+                    // Image Counter
+                    if (_images.length > 1)
+                      Positioned(
+                        bottom: 16,
+                        right: 16,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: Colors.black.withOpacity(0.6),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Text(
+                            '${_activeImageIndex + 1}/${_images.length}',
+                            style: const TextStyle(color: Colors.white, fontSize: 12),
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              );
+            },
+          ),
+        ),
+        if (_images.length > 1)
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: List.generate(
+                _images.length,
+                (index) => Container(
+                  margin: const EdgeInsets.symmetric(horizontal: 4),
+                  width: 8,
+                  height: 8,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: _activeImageIndex == index
+                        ? Colors.green[600]
+                        : Colors.grey[300],
                   ),
                 ),
-            ],
-          );
-        },
-      ),
+              ),
+            ),
+          ),
+      ],
     );
   }
 

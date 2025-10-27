@@ -11,8 +11,10 @@ import '../providers/language_provider.dart';
 import '../widgets/safe_widget.dart';
 import '../widgets/subscription_status_widget.dart';
 import '../models/travel_style.dart';
+import '../models/trip.dart';
 import '../screens/language_assistant_screen.dart';
 import '../screens/deal_detail_screen.dart';
+import '../screens/trip_plan_detail_screen.dart';
 
 
 class HomeScreen extends StatefulWidget {
@@ -465,6 +467,8 @@ class _HomeScreenState extends State<HomeScreen> {
                   children: [
                     const SubscriptionStatusWidget(),
                     _buildWelcomeCard(appProvider),
+                    const SizedBox(height: 16),
+                    _buildInProgressTrips(appProvider),
                     const SizedBox(height: 16),
                     _buildLocationCard(appProvider),
                     const SizedBox(height: 16),
@@ -1110,6 +1114,178 @@ class _HomeScreenState extends State<HomeScreen> {
               style: ElevatedButton.styleFrom(
                 padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
               ),
+            ),
+          ),
+        ],
+      );
+    } catch (e) {
+      return const SizedBox.shrink();
+    }
+  }
+
+  Widget _buildInProgressTrips(AppProvider appProvider) {
+    try {
+      final allTrips = [...appProvider.tripPlans, ...appProvider.itineraries];
+      if (allTrips.isEmpty) {
+        return const SizedBox.shrink();
+      }
+
+      // Calculate progress for each trip
+      final inProgressTrips = allTrips.where((trip) {
+        final activities = trip is TripPlan 
+            ? trip.dailyPlans.expand((day) => day.activities).toList()
+            : (trip as OneDayItinerary).dailyPlan;
+        
+        final visitedCount = activities.where((a) => a.isVisited).length;
+        final totalCount = activities.length;
+        
+        return visitedCount > 0 && visitedCount < totalCount; // Has progress but not complete
+      }).take(3).toList();
+
+      if (inProgressTrips.isEmpty) {
+        return const SizedBox.shrink();
+      }
+
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.orange.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(
+                  Icons.pending_actions,
+                  color: Colors.orange[600],
+                  size: 20,
+                ),
+              ),
+              const SizedBox(width: 12),
+              const Text(
+                'In Progress Trip Plans',
+                style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          SizedBox(
+            height: 140,
+            child: ListView.builder(
+              scrollDirection: Axis.horizontal,
+              itemCount: inProgressTrips.length,
+              itemBuilder: (context, index) {
+                final trip = inProgressTrips[index];
+                final activities = trip is TripPlan 
+                    ? trip.dailyPlans.expand((day) => day.activities).toList()
+                    : (trip as OneDayItinerary).dailyPlan;
+                
+                final visitedCount = activities.where((a) => a.isVisited).length;
+                final totalCount = activities.length;
+                final progress = visitedCount / totalCount;
+                
+                final title = trip is TripPlan ? trip.tripTitle : (trip as OneDayItinerary).title;
+                
+                return Container(
+                  width: 200,
+                  margin: const EdgeInsets.only(right: 12),
+                  child: Card(
+                    child: InkWell(
+                      onTap: () {
+                        if (trip is TripPlan) {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => TripPlanDetailScreen(tripPlan: trip),
+                            ),
+                          );
+                        } else {
+                          // Convert itinerary to trip plan for navigation
+                          final itinerary = trip as OneDayItinerary;
+                          final tripPlan = TripPlan(
+                            id: itinerary.id,
+                            tripTitle: itinerary.title,
+                            destination: 'Day Trip',
+                            duration: '1 Day',
+                            introduction: itinerary.introduction,
+                            dailyPlans: [
+                              DailyTripPlan(
+                                day: 1,
+                                title: itinerary.title,
+                                activities: itinerary.dailyPlan,
+                              ),
+                            ],
+                            conclusion: itinerary.conclusion,
+                          );
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => TripPlanDetailScreen(tripPlan: tripPlan),
+                            ),
+                          );
+                        }
+                      },
+                      borderRadius: BorderRadius.circular(8),
+                      child: Padding(
+                        padding: const EdgeInsets.all(12),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Icon(
+                                  trip is TripPlan ? Icons.map : Icons.today,
+                                  color: Colors.orange[600],
+                                  size: 20,
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    title ?? 'Trip Plan',
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 14,
+                                    ),
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 12),
+                            Text(
+                              '$visitedCount of $totalCount places visited',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Colors.grey[600],
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            LinearProgressIndicator(
+                              value: progress,
+                              backgroundColor: Colors.grey[300],
+                              valueColor: AlwaysStoppedAnimation<Color>(
+                                Colors.orange[600]!,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              '${(progress * 100).toInt()}% complete',
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: Colors.orange[600],
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                );
+              },
             ),
           ),
         ],

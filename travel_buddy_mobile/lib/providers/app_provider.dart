@@ -39,7 +39,7 @@ import '../services/trip_analytics_service.dart';
 import '../models/travel_style.dart';
 import '../models/place_section.dart';
 import '../utils/user_converter.dart';
-import 'package:firebase_auth/firebase_auth.dart' as firebase_auth;
+import '../utils/debug_logger.dart';
 
 
 
@@ -189,11 +189,11 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
         final wasInactive = _lastActiveTime != null && 
             now.difference(_lastActiveTime!).inMinutes > 5; // 5 min threshold
         _lastActiveTime = now;
-        print('📱 App resumed - API calls enabled');
+        DebugLogger.log('📱 App resumed - API calls enabled');
         
         // Refresh data if app was inactive for more than 5 minutes
         if (wasInactive) {
-          print('🔄 App was inactive for >5min - refreshing data');
+          DebugLogger.log('🔄 App was inactive for >5min - refreshing data');
           _refreshDataAfterInactivity();
         }
         break;
@@ -201,7 +201,7 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
       case AppLifecycleState.inactive:
       case AppLifecycleState.detached:
         _isAppActive = false;
-        print('📱 App inactive - API calls disabled');
+        DebugLogger.log('📱 App inactive - API calls disabled');
         break;
       case AppLifecycleState.hidden:
         _isAppActive = false;
@@ -217,7 +217,7 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
     notifyListeners();
 
     try {
-      print('🚀 Initializing Travel Buddy Mobile...');
+      DebugLogger.info('🚀 Initializing Travel Buddy Mobile...');
       
       // Register app lifecycle observer
       WidgetsBinding.instance.addObserver(this);
@@ -226,11 +226,11 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
       
       // Initialize storage service FIRST
       await _storageService.initialize();
-      print('✅ Storage service initialized');
+      DebugLogger.log('✅ Storage service initialized');
       
       // Load cached data IMMEDIATELY after storage init
       await _loadCachedData();
-      print('✅ Cached data loaded EARLY');
+      DebugLogger.log('✅ Cached data loaded EARLY');
       
       // Initialize other services
       _aiService.initialize();
@@ -241,21 +241,21 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
       
       // Load settings
       _loadSettings();
-      print('✅ Services initialized');
+      DebugLogger.log('✅ Services initialized');
 
       // Load user data
       await _loadUserData();
-      print('✅ User data loaded');
+      DebugLogger.log('✅ User data loaded');
       
       // Load location (only if app is active)
       if (_isAppActive) {
         await getCurrentLocation();
       }
       
-      print('✅ App initialization complete');
+      DebugLogger.log('✅ App initialization complete');
       
     } catch (e) {
-      print('❌ Error initializing app: $e');
+      DebugLogger.error('Error initializing app: $e');
     } finally {
       _isLoading = false;
       notifyListeners();

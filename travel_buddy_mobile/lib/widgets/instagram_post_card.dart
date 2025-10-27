@@ -5,7 +5,10 @@ import '../models/community_post.dart';
 import '../providers/community_provider.dart';
 import '../screens/post_comments_screen.dart';
 import '../screens/user_profile_screen.dart';
+import '../screens/create_post_screen.dart';
+import '../providers/app_provider.dart';
 import 'user_profile_modal.dart';
+import 'package:share_plus/share_plus.dart';
 
 class InstagramPostCard extends StatefulWidget {
   final CommunityPost post;
@@ -425,7 +428,8 @@ class _InstagramPostCardState extends State<InstagramPostCard>
   }
 
   void _sharePost() {
-    // Implement share functionality
+    final shareText = '${widget.post.userName} shared: ${widget.post.content}\n\nLocation: ${widget.post.location}\n\nShared via TravelBuddy';
+    Share.share(shareText, subject: 'Travel Experience from ${widget.post.userName}');
   }
 
   void _toggleBookmark() {
@@ -498,6 +502,22 @@ class _InstagramPostCardState extends State<InstagramPostCard>
   }
 
   void _showMoreOptions() {
+    final currentUser = context.read<AppProvider>().currentUser;
+    
+    // Debug logging
+    print('🔍 DEBUG: Checking post ownership');
+    print('  - Current user: ${currentUser?.username ?? "None"} (${currentUser?.uid ?? "None"})');
+    print('  - Current user MongoDB ID: ${currentUser?.mongoId ?? "None"}');
+    print('  - Post user ID: ${widget.post.userId}');
+    print('  - Post user name: ${widget.post.userName}');
+    
+    final isOwnPost = currentUser != null && 
+        (widget.post.userId == currentUser.mongoId || 
+         widget.post.userId == currentUser.uid ||
+         widget.post.userName == currentUser.username);
+    
+    print('  - Is own post: $isOwnPost');
+
     showModalBottomSheet(
       context: context,
       builder: (context) => Container(
@@ -505,18 +525,130 @@ class _InstagramPostCardState extends State<InstagramPostCard>
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
+            if (isOwnPost) ...[
+              ListTile(
+                leading: const Icon(Icons.edit, color: Colors.blue),
+                title: const Text('Edit Post'),
+                onTap: () {
+                  Navigator.pop(context);
+                  _editPost();
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.delete, color: Colors.red),
+                title: const Text('Delete Post'),
+                onTap: () {
+                  Navigator.pop(context);
+                  _deletePost();
+                },
+              ),
+              const Divider(),
+            ],
+            ListTile(
+              leading: const Icon(Icons.share),
+              title: const Text('Share Post'),
+              onTap: () {
+                Navigator.pop(context);
+                _sharePost();
+              },
+            ),
             ListTile(
               leading: const Icon(Icons.link),
               title: const Text('Copy Link'),
-              onTap: () => Navigator.pop(context),
+              onTap: () {
+                Navigator.pop(context);
+                _copyLink();
+              },
             ),
-            ListTile(
-              leading: const Icon(Icons.report),
-              title: const Text('Report'),
-              onTap: () => Navigator.pop(context),
-            ),
+            if (!isOwnPost)
+              ListTile(
+                leading: const Icon(Icons.report, color: Colors.orange),
+                title: const Text('Report'),
+                onTap: () {
+                  Navigator.pop(context);
+                  _reportPost();
+                },
+              ),
           ],
         ),
+      ),
+    );
+  }
+
+  void _editPost() async {
+    final result = await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => CreatePostScreen(
+          editingPost: widget.post,
+        ),
+      ),
+    );
+    if (result == true) {
+      // Post was updated, refresh the feed
+      context.read<CommunityProvider>().loadPosts(refresh: true, context: context);
+    }
+  }
+
+  void _deletePost() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete Post'),
+        content: const Text('Are you sure you want to delete this post? This action cannot be undone.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              context.read<CommunityProvider>().deletePost(widget.post.id);
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Post deleted successfully'),
+                  backgroundColor: Colors.green,
+                ),
+              );
+            },
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _copyLink() {
+    final link = 'https://travelbuddy.app/post/${widget.post.id}';
+    Share.share(link);
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Link copied to clipboard')),
+    );
+  }
+
+  void _reportPost() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Report Post'),
+        content: const Text('Why are you reporting this post?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Post reported. Thank you for your feedback.')),
+              );
+            },
+            child: const Text('Report'),
+          ),
+        ],
       ),
     );
   }

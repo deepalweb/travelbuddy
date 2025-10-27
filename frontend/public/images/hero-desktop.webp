@@ -1,0 +1,3 @@
+# Placeholder for hero-desktop.webp (2880x1800, ≤120kB, 85% quality)
+# This would be the actual optimized WebP image file
+# Generated with: cwebp -q 85 -resize 2880 1800 source.jpg -o hero-desktop.webp

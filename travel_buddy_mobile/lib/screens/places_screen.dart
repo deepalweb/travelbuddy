@@ -10,7 +10,6 @@ import '../services/places_service.dart';
 import 'place_details_screen.dart';
 import 'subscription_plans_screen.dart';
 import 'route_plan_screen.dart';
-import 'ai_travel_plan_screen.dart';
 
 class PlacesScreen extends StatefulWidget {
   const PlacesScreen({super.key});

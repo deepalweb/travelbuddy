@@ -6,6 +6,8 @@ import '../models/community_post.dart';
 import '../models/travel_enums.dart';
 import '../models/user.dart';
 import '../services/api_service.dart';
+import '../services/community_api_service.dart';
+import '../utils/debug_logger.dart';
 import 'app_provider.dart';
 
 class CommunityProvider with ChangeNotifier {
@@ -17,6 +19,7 @@ class CommunityProvider with ChangeNotifier {
   String? _error;
   int _currentPage = 1;
   bool _hasMorePosts = true;
+  final Set<String> _deletedPostIds = {}; // Track locally deleted posts
 
   List<CommunityPost> get posts => _posts;
   bool get isLoading => _isLoading;
@@ -37,23 +40,35 @@ class CommunityProvider with ChangeNotifier {
     notifyListeners();
 
     try {
-      // Always fetch fresh data from backend to get latest posts
-      final backendPosts = await _apiService.getCommunityPosts(
-        page: _currentPage,
-        limit: 20,
-      );
+      // Try real community API first, fallback to general API service
+      List<CommunityPost> backendPosts;
+      try {
+        backendPosts = await CommunityApiService.getCommunityPosts(
+          page: _currentPage,
+          limit: 20,
+        );
+      } catch (e) {
+        // Fallback to general API service
+        backendPosts = await _apiService.getCommunityPosts(
+          page: _currentPage,
+          limit: 20,
+        );
+      }
 
       if (backendPosts.isNotEmpty) {
         // Update posts with current user profile data
         final updatedPosts = await _syncPostsWithUserProfile(backendPosts, context);
         
+        // Filter out locally deleted posts
+        final filteredPosts = updatedPosts.where((post) => !_deletedPostIds.contains(post.id)).toList();
+        
         if (refresh || _currentPage == 1) {
           // On refresh or first load, replace all posts with fresh backend data
-          _posts = updatedPosts;
+          _posts = filteredPosts;
         } else {
           // On load more, add new posts
           final localIds = _posts.map((p) => p.id).toSet();
-          final newBackendPosts = updatedPosts.where((p) => !localIds.contains(p.id)).toList();
+          final newBackendPosts = filteredPosts.where((p) => !localIds.contains(p.id)).toList();
           _posts.addAll(newBackendPosts);
         }
         
@@ -200,8 +215,8 @@ class CommunityProvider with ChangeNotifier {
     // Skip backend sync for temporary posts
     if (!postId.startsWith('temp_')) {
       try {
-        // Try backend API for real posts only
-        final success = await _apiService.toggleLike(postId);
+        // Try real community API first
+        final success = await CommunityApiService.toggleLike(postId);
         if (success) {
           print('✅ Like synced to backend');
         } else {
@@ -280,16 +295,16 @@ class CommunityProvider with ChangeNotifier {
         currentUser = appProvider.currentUser;
       }
       
-      // Try backend first for immediate sync
+      // Try real community API first for immediate sync
       try {
-        final newPost = await _apiService.createPost(
+        final newPost = await CommunityApiService.createPost(
           content: content,
           location: location,
           images: images,
           postType: postType,
           hashtags: hashtags,
-          allowComments: allowComments,
-          visibility: visibility,
+          userId: currentUser?.mongoId ?? currentUser?.uid,
+          username: currentUser?.username,
         );
         
         if (newPost != null && newPost.id.isNotEmpty) {
@@ -534,6 +549,67 @@ class CommunityProvider with ChangeNotifier {
     if (hasChanges) {
       notifyListeners();
       print('✅ Updated ${_posts.where((p) => p.userId == user.mongoId || p.userId == user.uid).length} posts with new profile data');
+    }
+  }
+
+  // Delete post
+  Future<bool> deletePost(String postId) async {
+    try {
+      // Add to deleted posts set to prevent reappearing
+      _deletedPostIds.add(postId);
+      
+      // Optimistic update - remove from UI immediately
+      final postIndex = _posts.indexWhere((post) => post.id == postId);
+      if (postIndex != -1) {
+        _posts.removeAt(postIndex);
+        notifyListeners();
+      }
+
+      // Try to delete from backend (don't revert on failure)
+      try {
+        await CommunityApiService.deletePost(postId);
+        DebugLogger.log('✅ Post deleted from backend');
+      } catch (e) {
+        DebugLogger.log('⚠️ Backend delete failed, keeping local deletion: $e');
+      }
+      
+      return true;
+    } catch (e) {
+      DebugLogger.error('Failed to delete post: $e');
+      return false;
+    }
+  }
+
+  // Edit post
+  Future<bool> editPost({
+    required String postId,
+    required String content,
+    required String location,
+    List<String> images = const [],
+    List<String> hashtags = const [],
+  }) async {
+    try {
+      final updatedPost = await CommunityApiService.editPost(
+        postId: postId,
+        content: content,
+        location: location,
+        images: images,
+        hashtags: hashtags,
+      );
+
+      if (updatedPost != null) {
+        // Update the post in the list
+        final postIndex = _posts.indexWhere((post) => post.id == postId);
+        if (postIndex != -1) {
+          _posts[postIndex] = updatedPost;
+          notifyListeners();
+        }
+        return true;
+      }
+      return false;
+    } catch (e) {
+      DebugLogger.error('Failed to edit post: $e');
+      return false;
     }
   }
 }

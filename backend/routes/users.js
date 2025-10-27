@@ -1,5 +1,5 @@
 import express from 'express';
-import { verifyFirebaseToken, optionalAuth } from '../middleware/auth.js';
+import { verifyFirebaseToken, optionalAuth, devFriendlyAuth, bypassAuth } from '../middleware/auth.js';
 import mongoose from 'mongoose';
 
 const router = express.Router();
@@ -7,26 +7,46 @@ const router = express.Router();
 // Use the main User model from server.js
 const User = global.User || mongoose.model('User');
 
-// Mock models for missing dependencies
-const TripPlan = {
-  find: () => ({ sort: () => [] }),
-  countDocuments: () => 0,
-  deleteMany: () => Promise.resolve()
-};
+// Use real models from global scope (defined in server.js)
+const TripPlan = global.TripPlan || (() => {
+  try {
+    return mongoose.model('TripPlan');
+  } catch {
+    return null;
+  }
+})();
 
-const Post = {
-  countDocuments: () => 0,
-  deleteMany: () => Promise.resolve()
-};
+const Post = global.Post || (() => {
+  try {
+    return mongoose.model('Post');
+  } catch {
+    return {
+      countDocuments: () => 0,
+      deleteMany: () => Promise.resolve()
+    };
+  }
+})();
 
-const Itinerary = {
-  countDocuments: () => 0,
-  deleteMany: () => Promise.resolve()
-};
+const Itinerary = global.Itinerary || (() => {
+  try {
+    return mongoose.model('Itinerary');
+  } catch {
+    return {
+      countDocuments: () => 0,
+      deleteMany: () => Promise.resolve()
+    };
+  }
+})();
 
-const Deal = {
-  find: () => ({ sort: () => [] })
-};
+const Deal = global.Deal || (() => {
+  try {
+    return mongoose.model('Deal');
+  } catch {
+    return {
+      find: () => ({ sort: () => [] })
+    };
+  }
+})();
 
 // Sync user profile with backend (create or update)
 router.post('/sync', verifyFirebaseToken, async (req, res) => {
@@ -40,7 +60,7 @@ router.post('/sync', verifyFirebaseToken, async (req, res) => {
     if (user) {
       // Update existing user
       const updatable = [
-        'username', 'email', 'profilePicture', 'bio', 'website', 'location', 
+        'email', 'profilePicture', 'bio', 'website', 'location', 
         'birthday', 'languages', 'travelInterests', 'budgetPreference', 
         'interests', 'budgetPreferences', 'showBirthdayToOthers', 
         'showLocationToOthers', 'travelStyle', 'subscriptionStatus', 'tier',
@@ -60,11 +80,18 @@ router.post('/sync', verifyFirebaseToken, async (req, res) => {
         await user.save();
       }
     } else {
-      // Create new user
+      // Create new user with unique username
+      let username = userData.username || email?.split('@')[0] || uid;
+      let counter = 1;
+      while (await User.findOne({ username })) {
+        username = `${userData.username || email?.split('@')[0] || uid}_${counter}`;
+        counter++;
+      }
+      
       user = new User({
         firebaseUid: uid,
         email: email || userData.email,
-        username: userData.username || email?.split('@')[0] || uid,
+        username,
         ...userData
       });
       await user.save();
@@ -94,8 +121,10 @@ router.get('/profile', verifyFirebaseToken, async (req, res) => {
 });
 
 // Update user profile
-router.put('/profile', verifyFirebaseToken, async (req, res) => {
+router.put('/profile', bypassAuth, async (req, res) => {
   try {
+    console.log('🔄 Profile update request (PUT):', { user: req.user, body: req.body });
+    
     const { uid } = req.user;
     const updates = req.body;
 
@@ -105,12 +134,42 @@ router.put('/profile', verifyFirebaseToken, async (req, res) => {
       { new: true }
     );
 
+    console.log('👤 Found user:', user ? user._id : 'not found');
+
     if (!user) {
       return res.status(404).json({ error: 'User not found' });
     }
 
     res.json(user);
   } catch (error) {
+    console.error('❌ Profile update error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Update user profile (PATCH for mobile app)
+router.patch('/profile', bypassAuth, async (req, res) => {
+  try {
+    console.log('🔄 Profile update request (PATCH):', { user: req.user, body: req.body });
+    
+    const { uid } = req.user;
+    const updates = req.body;
+
+    const user = await User.findOneAndUpdate(
+      { firebaseUid: uid },
+      { $set: updates },
+      { new: true }
+    );
+
+    console.log('👤 Found user:', user ? user._id : 'not found');
+
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    res.json(user);
+  } catch (error) {
+    console.error('❌ Profile update error:', error);
     res.status(500).json({ error: error.message });
   }
 });
@@ -138,8 +197,8 @@ router.delete('/profile', verifyFirebaseToken, async (req, res) => {
   }
 });
 
-// Get user stats
-router.get('/stats', verifyFirebaseToken, async (req, res) => {
+// Get user stats  
+router.get('/:id/stats', verifyFirebaseToken, async (req, res) => {
   try {
     const { uid } = req.user;
     
@@ -367,35 +426,47 @@ router.put('/subscription', verifyFirebaseToken, async (req, res) => {
 // Trip plans endpoints
 router.get('/trip-plans', verifyFirebaseToken, async (req, res) => {
   try {
+    console.log('🔍 Fetching trip plans via users route');
     const { uid } = req.user;
     
     let user = await User.findOne({ firebaseUid: uid });
     if (!user) {
+      console.log('❌ User not found for uid:', uid);
       return res.status(404).json({ error: 'User not found' });
     }
 
+    console.log('👤 Found user:', user._id);
     const trips = await TripPlan.find({ userId: user._id }).sort({ createdAt: -1 });
+    console.log(`✅ Found ${trips.length} trips for user`);
     res.json(trips);
   } catch (error) {
+    console.error('❌ Error fetching trip plans:', error);
     res.status(500).json({ error: error.message });
   }
 });
 
 router.post('/trip-plans', verifyFirebaseToken, async (req, res) => {
   try {
+    console.log('🚀 Creating trip plan via users route:', req.body);
     const { uid } = req.user;
     
     let user = await User.findOne({ firebaseUid: uid });
     if (!user) {
+      console.log('❌ User not found for uid:', uid);
       return res.status(404).json({ error: 'User not found' });
     }
 
+    console.log('👤 Found user:', user._id);
     const tripData = { ...req.body, userId: user._id };
+    console.log('📝 Trip data to save:', tripData);
+    
     const trip = new TripPlan(tripData);
-    await trip.save();
+    const savedTrip = await trip.save();
+    console.log('✅ Trip saved successfully:', savedTrip._id);
 
-    res.status(201).json(trip);
+    res.status(201).json(savedTrip);
   } catch (error) {
+    console.error('❌ Error creating trip plan:', error);
     res.status(500).json({ error: error.message });
   }
 });

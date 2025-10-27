@@ -64,7 +64,7 @@ class _AITravelPlanScreenState extends State<AITravelPlanScreen> {
                   children: [
                     Expanded(
                       child: DropdownButtonFormField<String>(
-                        value: _selectedUserType,
+                        initialValue: _selectedUserType,
                         decoration: const InputDecoration(
                           labelText: 'Traveler Type',
                           border: OutlineInputBorder(),
@@ -80,7 +80,7 @@ class _AITravelPlanScreenState extends State<AITravelPlanScreen> {
                     const SizedBox(width: 8),
                     Expanded(
                       child: DropdownButtonFormField<String>(
-                        value: _selectedVibe,
+                        initialValue: _selectedVibe,
                         decoration: const InputDecoration(
                           labelText: 'Vibe',
                           border: OutlineInputBorder(),
@@ -100,7 +100,7 @@ class _AITravelPlanScreenState extends State<AITravelPlanScreen> {
                   children: [
                     Expanded(
                       child: DropdownButtonFormField<String>(
-                        value: _selectedLanguage,
+                        initialValue: _selectedLanguage,
                         decoration: const InputDecoration(
                           labelText: 'Language',
                           border: OutlineInputBorder(),

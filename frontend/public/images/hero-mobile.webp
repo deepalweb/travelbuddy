@@ -1,0 +1,3 @@
+# Placeholder for hero-mobile.webp (640x960, ≤120kB, 85% quality)
+# This would be the actual optimized WebP image file
+# Generated with: cwebp -q 85 -resize 640 960 source.jpg -o hero-mobile.webp

@@ -90,7 +90,7 @@ class PlaceService {
         print('📄 First place sample: ${places[0]}');
       }
       
-      final parsedPlaces = (places as List)
+      final parsedPlaces = (places)
           .map((result) {
             try {
               return Place.fromBackend(result);

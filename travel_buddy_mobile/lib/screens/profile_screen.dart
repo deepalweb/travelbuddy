@@ -198,8 +198,23 @@ class ProfileScreen extends StatelessWidget {
                       ListTile(
                         leading: const Icon(Icons.edit_note),
                         title: const Text('Status'),
-                        subtitle: Text(user?.status?.isNotEmpty == true ? user!.status! : 'Set your current status'),
-                        trailing: const Icon(Icons.chevron_right),
+                        subtitle: Text(user?.status?.isNotEmpty == true ? user!.status! : 'Tap to set your status'),
+                        trailing: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            if (user?.status?.isNotEmpty == true)
+                              Container(
+                                width: 8,
+                                height: 8,
+                                decoration: const BoxDecoration(
+                                  color: Colors.green,
+                                  shape: BoxShape.circle,
+                                ),
+                              ),
+                            const SizedBox(width: 8),
+                            const Icon(Icons.chevron_right),
+                          ],
+                        ),
                         onTap: () => _editStatus(context, appProvider),
                       ),
                       const Divider(height: 1),
@@ -908,30 +923,71 @@ Join Travel Buddy and discover amazing places together!
               decoration: const InputDecoration(
                 hintText: 'What\'s on your mind?',
                 border: OutlineInputBorder(),
+                prefixIcon: Icon(Icons.edit_note),
               ),
               maxLength: 100,
               maxLines: 2,
+              autofocus: true,
+            ),
+            const SizedBox(height: 8),
+            const Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                'Quick status options:',
+                style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
+              ),
             ),
             const SizedBox(height: 8),
             Wrap(
               spacing: 8,
+              runSpacing: 4,
               children: [
-                '🌍 Exploring',
+                '🌍 Exploring new places',
                 '✈️ Traveling',
                 '🏖️ On vacation',
                 '🏠 At home',
-                '📍 Planning trip',
+                '📍 Planning next trip',
                 '📸 Sharing memories',
+                '🍽️ Trying local food',
+                '🗺️ Adventure mode',
               ].map((status) => ActionChip(
-                label: Text(status),
+                label: Text(status, style: const TextStyle(fontSize: 11)),
                 onPressed: () {
                   statusController.text = status;
                 },
+                backgroundColor: Colors.blue.withOpacity(0.1),
               )).toList(),
             ),
           ],
         ),
         actions: [
+          if (appProvider.currentUser?.status?.isNotEmpty == true)
+            TextButton(
+              onPressed: () async {
+                try {
+                  await appProvider.updateUserProfile(status: '');
+                  if (context.mounted) {
+                    Navigator.pop(context);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Status cleared!'),
+                        backgroundColor: Colors.orange,
+                      ),
+                    );
+                  }
+                } catch (e) {
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('Failed to clear status: $e'),
+                        backgroundColor: Colors.red,
+                      ),
+                    );
+                  }
+                }
+              },
+              child: const Text('Clear'),
+            ),
           TextButton(
             onPressed: () => Navigator.pop(context),
             child: const Text('Cancel'),
@@ -939,13 +995,18 @@ Join Travel Buddy and discover amazing places together!
           ElevatedButton(
             onPressed: () async {
               final newStatus = statusController.text.trim();
+              if (newStatus.isEmpty) {
+                Navigator.pop(context);
+                return;
+              }
+              
               try {
                 await appProvider.updateUserProfile(status: newStatus);
                 if (context.mounted) {
                   Navigator.pop(context);
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(
-                      content: Text('Status updated!'),
+                      content: Text('Status updated successfully!'),
                       backgroundColor: Colors.green,
                     ),
                   );

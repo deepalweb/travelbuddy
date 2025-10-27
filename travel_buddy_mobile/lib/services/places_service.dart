@@ -5,6 +5,7 @@ import 'dart:math' as math;
 import 'package:http/http.dart' as http;
 import '../models/place.dart';
 import '../config/environment.dart';
+import '../utils/debug_logger.dart';
 import 'gemini_places_service.dart';
 import '../providers/user_profile_provider.dart';
 
@@ -12,7 +13,7 @@ class PlacesService {
   static final PlacesService _instance = PlacesService._internal();
   factory PlacesService() => _instance;
   PlacesService._internal() {
-    print('🚀 PlacesService initialized with backend URL: ${Environment.backendUrl}');
+    DebugLogger.info('🚀 PlacesService initialized with backend URL: ${Environment.backendUrl}');
   }
 
   final AzureAIPlacesService _azureAIService = AzureAIPlacesService();
@@ -51,20 +52,20 @@ class PlacesService {
     // Check cache first
     final cacheKey = '${latitude.toStringAsFixed(3)}_${longitude.toStringAsFixed(3)}_$query';
     if (_isValidCache(cacheKey)) {
-      print('💾 Using cached places (${_cache[cacheKey]!.length} found) - API call avoided');
+      DebugLogger.log('💾 Using cached places (${_cache[cacheKey]!.length} found) - API call avoided');
       return _cache[cacheKey]!.take(topN).toList();
     }
     
     // Rate limiting check
     if (_isRateLimited(cacheKey)) {
-      print('⏱️ Rate limited, using AI fallback');
+      DebugLogger.log('⏱️ Rate limited, using AI fallback');
       return await _fetchAIPlaces(latitude, longitude, query, radius, userType, vibe, language)
           .timeout(const Duration(seconds: 10));
     }
     
     // Subscription limit check
     if (!_canMakeApiCall()) {
-      print('🚫 Daily API limit reached for subscription, using AI fallback');
+      DebugLogger.log('🚫 Daily API limit reached for subscription, using AI fallback');
       _notifyLimitReached();
       return await _fetchAIPlaces(latitude, longitude, query, radius, userType, vibe, language)
           .timeout(const Duration(seconds: 10));
@@ -72,7 +73,7 @@ class PlacesService {
     
     try {
       // Primary: Google Places API for real, accurate data
-      print('🔍 Using Google Places API for real places data');
+      DebugLogger.log('🔍 Using Google Places API for real places data');
       _lastApiCalls[cacheKey] = DateTime.now();
       _incrementApiCall();
       final realPlaces = await _fetchRealPlaces(latitude, longitude, query, radius, offset, topN)
@@ -81,13 +82,13 @@ class PlacesService {
       if (realPlaces.length >= (topN * 0.5)) { // If Google provides 50%+ of needed places
         final filteredPlaces = realPlaces.where((p) => p.rating >= 3.0).take(topN).toList();
         _updateCache(cacheKey, filteredPlaces);
-        print('✅ Using Google Places API (${filteredPlaces.length} found) - Real places data');
+        DebugLogger.log('✅ Using Google Places API (${filteredPlaces.length} found) - Real places data');
         return filteredPlaces;
       }
       
       // Hybrid: Use Google + AI for gaps if Google has some results
       if (realPlaces.isNotEmpty) {
-        print('🔄 Google provided ${realPlaces.length} places, filling gaps with AI');
+        DebugLogger.log('🔄 Google provided ${realPlaces.length} places, filling gaps with AI');
         final remainingNeeded = topN - realPlaces.length;
         
         if (remainingNeeded > 0) {
@@ -97,7 +98,7 @@ class PlacesService {
           final combined = <Place>[...realPlaces, ...aiPlaces.take(remainingNeeded)];
           final filteredCombined = combined.where((p) => p.rating >= 3.0).take(topN).toList();
           _updateCache(cacheKey, filteredCombined);
-          print('✅ Hybrid result: ${realPlaces.length} Google + ${aiPlaces.take(remainingNeeded).length} AI = ${filteredCombined.length} total');
+          DebugLogger.log('✅ Hybrid result: ${realPlaces.length} Google + ${aiPlaces.take(remainingNeeded).length} AI = ${filteredCombined.length} total');
           return filteredCombined;
         }
         
@@ -107,22 +108,22 @@ class PlacesService {
       }
       
       // Fallback: AI if Google fails completely
-      print('⚠️ Google Places failed, trying AI fallback');
+      DebugLogger.log('⚠️ Google Places failed, trying AI fallback');
       final aiPlaces = await _fetchAIPlaces(latitude, longitude, query, radius, userType, vibe, language)
           .timeout(const Duration(seconds: 15));
       
       if (aiPlaces.isNotEmpty) {
         final filteredAI = aiPlaces.where((p) => p.rating >= 3.0).take(topN).toList();
         _updateCache(cacheKey, filteredAI);
-        print('✅ Using AI fallback (${filteredAI.length} places)');
+        DebugLogger.log('✅ Using AI fallback (${filteredAI.length} places)');
         return filteredAI;
       }
       
-      print('⚠️ Both Google and AI failed, using mock data');
+      DebugLogger.log('⚠️ Both Google and AI failed, using mock data');
       return _generateEnhancedMockPlaces(latitude, longitude, query, topN);
       
     } catch (e) {
-      print('❌ Places pipeline failed: $e - using mock data fallback');
+      DebugLogger.error('Places pipeline failed: $e - using mock data fallback');
       return _generateEnhancedMockPlaces(latitude, longitude, query, topN);
     }
   }
@@ -130,7 +131,7 @@ class PlacesService {
   // Enhanced AI Places using Gemini service
   Future<List<Place>> _fetchAIPlaces(double lat, double lng, String query, int radius, String? userType, String? vibe, String? language) async {
     try {
-      print('🤖 Using Azure OpenAI for places generation (cost-effective)');
+      DebugLogger.log('🤖 Using Azure OpenAI for places generation (cost-effective)');
       
       final places = await _azureAIService.generatePlaces(
         latitude: lat,
@@ -143,7 +144,7 @@ class PlacesService {
       );
       
       if (places.isNotEmpty) {
-        print('🤖 Azure OpenAI generated ${places.length} high-quality places');
+        DebugLogger.log('🤖 Azure OpenAI generated ${places.length} high-quality places');
         return places;
       }
       
@@ -151,7 +152,7 @@ class PlacesService {
       return await _fetchBackendAIPlaces(lat, lng, query, radius, userType, vibe, language);
       
     } catch (e) {
-      print('❌ Azure OpenAI failed: $e, trying backend AI');
+      DebugLogger.log('❌ Azure OpenAI failed: $e, trying backend AI');
       return await _fetchBackendAIPlaces(lat, lng, query, radius, userType, vibe, language);
     }
   }

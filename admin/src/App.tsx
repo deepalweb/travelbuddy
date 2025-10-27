@@ -1,24 +1,7 @@
 import React, { useState } from 'react'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { 
-  Users, 
-  MapPin, 
-  CurrencyDollar, 
-  Flag, 
-  TrendUp, 
-  Gear,
-  Bell,
-  MagnifyingGlass,
-  Funnel,
-  DotsThreeOutline,
-  UserCheck,
-  Warning,
-  Eye,
-  ChatCircle
-} from '@phosphor-icons/react'
+import { Bell } from '@phosphor-icons/react'
 import AdminSidebar from '@/components/AdminSidebar'
 import DashboardOverview from '@/components/DashboardOverview'
 import UserManagement from '@/components/UserManagement'
@@ -27,9 +10,12 @@ import BusinessManagement from '@/components/BusinessManagement'
 import AnalyticsHub from '@/components/AnalyticsHub'
 import SystemSettings from '@/components/SystemSettings'
 import ErrorBoundary from '@/components/ErrorBoundary'
+import AdminLogin from '@/components/AdminLogin'
+import { AdminAuthProvider, useAdminAuth } from '@/contexts/AdminAuthContext'
 
-function App() {
+const AdminDashboard = () => {
   const [activeSection, setActiveSection] = useState('dashboard')
+  const { user, logout } = useAdminAuth()
 
   const renderActiveSection = () => {
     const getComponent = () => {
@@ -83,12 +69,15 @@ function App() {
               
               <div className="flex items-center gap-3 pl-4 border-l">
                 <div className="w-8 h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-sm font-medium">
-                  A
+                  {user?.username?.[0]?.toUpperCase() || 'A'}
                 </div>
                 <div className="text-right">
-                  <p className="text-sm font-medium">Admin User</p>
-                  <p className="text-xs text-muted-foreground">Super Admin</p>
+                  <p className="text-sm font-medium">{user?.username || 'Admin'}</p>
+                  <p className="text-xs text-muted-foreground">{user?.email}</p>
                 </div>
+                <Button variant="outline" size="sm" onClick={logout}>
+                  Logout
+                </Button>
               </div>
             </div>
           </div>
@@ -100,6 +89,37 @@ function App() {
       </main>
     </div>
   )
+}
+
+}
+
+function App() {
+  return (
+    <AdminAuthProvider>
+      <AdminApp />
+    </AdminAuthProvider>
+  )
+}
+
+const AdminApp = () => {
+  const { user, isLoading } = useAdminAuth()
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+          <p>Loading...</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (!user) {
+    return <AdminLogin />
+  }
+
+  return <AdminDashboard />
 }
 
 export default App

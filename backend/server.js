@@ -409,6 +409,28 @@ app.post('/api/dishes/generate', async (req, res) => {
   }
 });
 
+// Helper functions for enhanced trip generation
+function getTravelerProfile(travelers, budget) {
+  if (budget === 'high') return 'luxury';
+  if (travelers === '1') return 'solo';
+  if (travelers === '5+') return 'family';
+  if (budget === 'low') return 'backpacker';
+  return 'general';
+}
+
+function getProfileAdjustments(profile) {
+  const adjustments = {
+    family: '- Include kid-friendly activities and shorter walking distances\n- Suggest family restaurants with high chairs\n- Add playground/park stops between major attractions',
+    backpacker: '- Focus on budget accommodations and street food\n- Include free walking tours and public transport\n- Suggest hostels and budget guesthouses',
+    luxury: '- Recommend boutique hotels and fine dining\n- Include spa treatments and premium experiences\n- Suggest private tours and luxury transport',
+    solo: '- Include solo-friendly activities and safe areas\n- Suggest group tours and social experiences\n- Add solo dining and cafe recommendations',
+    general: '- Balance of popular attractions and local experiences\n- Mix of different activity types and price ranges\n- Suitable for most fitness levels and interests'
+  };
+  return adjustments[profile] || adjustments.general;
+}
+
+
+
 // Helper functions
 function buildDishFilters(filters) {
   const parts = [];
@@ -631,6 +653,11 @@ app.use(apiRateLimit);
 app.use(sanitizeInput);
 
 // Middleware
+app.use((req, res, next) => {
+  console.log('🔍 Request:', req.method, req.path);
+  next();
+});
+
 app.use(cors({
   origin: process.env.NODE_ENV === 'production' 
     ? [process.env.CLIENT_URL, process.env.WEBSITE_HOSTNAME]
@@ -639,12 +666,17 @@ app.use(cors({
 }));
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ limit: '10mb', extended: true }));
-// Serve static files from dist directory
+
+
+
+// Firebase user sync endpoint is now handled by routes/users.js
+// Serve static files from public directory (Azure deployment)
 const staticPaths = [
+  path.join(__dirname, 'public'),
   path.join(__dirname, '../dist'),
   path.join(__dirname, '../frontend/dist'),
-  path.join('/home/site/wwwroot/dist'),
-  path.join(process.cwd(), 'dist')
+  path.join('/home/site/wwwroot/public'),
+  path.join(process.cwd(), 'public')
 ];
 
 // Find the first existing static path
@@ -708,6 +740,15 @@ try {
   console.log('✅ Azure OpenAI routes loaded');
 } catch (error) {
   console.error('❌ Failed to load Azure OpenAI routes:', error);
+}
+
+// Load search routes
+try {
+  const searchRouter = (await import('./routes/search.js')).default;
+  app.use('/api/search', searchRouter);
+  console.log('✅ Search routes loaded');
+} catch (error) {
+  console.error('❌ Failed to load search routes:', error);
 }
 
 // Load emergency services routes
@@ -806,6 +847,8 @@ try {
   console.log('✅ Firebase Admin initialized successfully');
 } catch (e) {
   console.warn('❌ Firebase Admin initialization failed:', e?.message || String(e));
+  // Set adminAuth to null so the auth middleware can handle it properly
+  adminAuth = null;
 }
 
 // Protect admin endpoints either with an API key header or with a Firebase ID token that has admin=true claim
@@ -1024,6 +1067,227 @@ const User = mongoose.model('User', userSchema);
 app.set('User', User);
 global.User = User;
 
+// Load user profile routes RIGHT AFTER User model is defined
+try {
+  const usersRouter = (await import('./routes/users.js')).default;
+  app.use('/api/users', (req, res, next) => {
+    console.log('🔍 Users route intercepted:', req.method, req.path, req.headers.authorization?.substring(0, 30));
+    next();
+  }, usersRouter);
+  console.log('✅ User profile routes loaded after User model');
+} catch (error) {
+  console.error('❌ Failed to load user routes:', error);
+}
+
+// Trip generation endpoint with Azure OpenAI - no authentication required for public access
+app.post('/api/trips/generate', async (req, res) => {
+  const startTime = Date.now();
+  
+  try {
+    console.log('🚀 Trip generation request received:', req.body);
+    const { destination, duration, budget, interests = [], selectedPlaces = [] } = req.body;
+
+    if (!destination || !duration) {
+      console.log('❌ Missing required fields:', { destination, duration });
+      return res.status(400).json({ error: 'Destination and duration are required' });
+    }
+    
+    console.log('📍 Selected places from Explore:', selectedPlaces.length);
+    
+    console.log('✅ Request validation passed');
+    console.log('🔑 Azure OpenAI Config:', {
+      endpoint: process.env.AZURE_OPENAI_ENDPOINT ? 'configured' : 'missing',
+      apiKey: process.env.AZURE_OPENAI_API_KEY ? 'configured' : 'missing',
+      deployment: process.env.AZURE_OPENAI_DEPLOYMENT_NAME
+    });
+
+    const { travelers, travelStyle, interests: interestArray } = req.body;
+    const travelerProfile = getTravelerProfile(travelers, budget);
+    const profileAdjustments = getProfileAdjustments(travelerProfile);
+    
+    // Build selected places context
+    let selectedPlacesContext = '';
+    if (selectedPlaces && selectedPlaces.length > 0) {
+      selectedPlacesContext = `\n\nIMPORTANT - MUST INCLUDE THESE SELECTED PLACES:\n`;
+      selectedPlaces.forEach((place, index) => {
+        selectedPlacesContext += `${index + 1}. ${place.name} - ${place.description || 'Selected attraction'}\n`;
+        selectedPlacesContext += `   Location: ${place.location?.city || ''}, ${place.location?.country || ''}\n`;
+        selectedPlacesContext += `   Category: ${place.category || 'attraction'}\n`;
+        if (place.highlights && place.highlights.length > 0) {
+          selectedPlacesContext += `   Highlights: ${place.highlights.join(', ')}\n`;
+        }
+      });
+      selectedPlacesContext += `\nThese ${selectedPlaces.length} places MUST be included in the daily itinerary. Build the trip around visiting these specific locations.\n`;
+    }
+    
+    const prompt = `Create a comprehensive TravelBuddy Trip Template for ${destination} (${duration}).${selectedPlacesContext}
+
+TRIP DETAILS:
+- Destination: ${destination}
+- Duration: ${duration}
+- Travelers: ${travelers || '1-2'}
+- Budget: ${budget} range
+- Travel Style: ${travelStyle || 'balanced'}
+- Interests: ${interestArray?.join(', ') || interests || 'general sightseeing'}
+- Profile: ${travelerProfile} travelers
+
+STYLE REQUIREMENTS:
+${travelStyle === 'relaxed' ? '- Slow pace, plenty of rest time, max 2-3 activities per day\n- Include relaxation breaks and leisurely meals\n- Focus on comfort and minimal rushing' : 
+  travelStyle === 'packed' ? '- Maximum activities, efficient scheduling, 4-5 activities per day\n- Early starts and full days\n- Optimize time with strategic planning' : 
+  '- Balanced mix of activities and downtime, 3-4 activities per day\n- Mix of must-see attractions and local experiences\n- Reasonable pace with flexibility'}
+
+PROFILE ADJUSTMENTS:
+${profileAdjustments}
+
+INTEREST-BASED CUSTOMIZATION:
+${interestArray?.includes('culture') ? '- Prioritize museums, historical sites, and cultural experiences' : ''}
+${interestArray?.includes('food') ? '- Include food tours, local markets, and authentic dining experiences' : ''}
+${interestArray?.includes('nature') ? '- Add parks, gardens, outdoor activities, and scenic viewpoints' : ''}
+${interestArray?.includes('adventure') ? '- Include adventure sports, hiking, and active experiences' : ''}
+${interestArray?.includes('photography') ? '- Highlight photogenic spots and golden hour opportunities' : ''}
+${interestArray?.includes('nightlife') ? '- Add evening entertainment, bars, and nightlife districts' : ''}
+
+${selectedPlaces.length > 0 ? `CRITICAL REQUIREMENT: The itinerary MUST include visits to these ${selectedPlaces.length} selected places: ${selectedPlaces.map(p => p.name).join(', ')}. Organize the daily plans to visit these specific locations and build activities around them.` : ''}
+
+Return ONLY valid JSON with detailed, personalized content:
+{
+  "tripTitle": "${destination} ${duration} ${travelStyle === 'relaxed' ? 'Relaxed' : travelStyle === 'packed' ? 'Action-Packed' : 'Balanced'} Adventure",
+  "destination": "${destination}",
+  "duration": "${duration}",
+  "introduction": "🌍 **Welcome to ${destination}!**\n\n🏃 **Your Pace:** ${travelStyle || 'balanced'} - ${travelStyle === 'relaxed' ? 'Take your time and savor each moment' : travelStyle === 'packed' ? 'Maximum experiences in minimum time' : 'Perfect balance of adventure and relaxation'}\n💰 **Budget:** ${budget} range\n👥 **Group:** ${travelers} ${travelerProfile} travelers\n🎯 **Focus:** ${interestArray?.join(', ') || 'General exploration'}\n\nThis carefully crafted itinerary combines must-see attractions with authentic local experiences, tailored specifically for your travel style and interests. Get ready for an unforgettable journey!",
+  "conclusion": "🎉 **Trip Highlights Recap**\n\nYour ${destination} adventure offers the perfect blend of ${interestArray?.slice(0,2).join(' and ') || 'sightseeing and culture'}. From iconic landmarks to hidden local gems, this itinerary ensures you experience the best of what ${destination} has to offer.\n\n💡 **Final Tips:**\n- Download offline maps and translation apps\n- Keep copies of important documents\n- Stay flexible - some of the best travel moments are unplanned!\n\nSafe travels and enjoy every moment of your ${destination} adventure! 🌟",
+  "totalEstimatedCost": "${budget === 'low' ? '$300-600' : budget === 'medium' ? '$600-1200' : '$1200-2500'} per person for ${duration}",
+  "estimatedWalkingDistance": "${travelStyle === 'relaxed' ? '3-5 km' : travelStyle === 'packed' ? '8-12 km' : '5-8 km'} per day average",
+  "dailyPlans": [
+    {
+      "day": 1,
+      "title": "Day 1 – Arrival & First Impressions",
+      "activities": [
+        {
+          "timeOfDay": "🌅 Morning (9:00 AM)",
+          "activityTitle": "Arrival & City Orientation",
+          "description": "**What to do:** Arrive, check-in, and get your bearings with a gentle introduction to the city\n\n🚗 **Transport:** Airport transfer (taxi/metro) - $15-25\n💰 **Cost:** Free (walking tour)\n⏰ **Best Time:** Morning arrival allows full day exploration\n💡 **Insider Tip:** Grab a local SIM card at the airport for easy navigation and communication",
+          "duration": "2-3 hours",
+          "estimatedCost": "$20-30",
+          "isVisited": false,
+          "rating": 4.2,
+          "category": "orientation",
+          "icon": "🗺️"
+        },
+        {
+          "timeOfDay": "🕛 Lunch (12:30 PM)",
+          "activityTitle": "Welcome Lunch at Local Favorite",
+          "description": "**Where:** Try the city's signature dish at a recommended local restaurant\n💰 **Cost:** ${budget === 'low' ? '$8-12' : budget === 'medium' ? '$15-25' : '$25-40'}\n🍽️ **Good For:** First taste of authentic local cuisine\n💡 **Tip:** Ask locals for their favorite nearby spots - they know best!",
+          "duration": "1 hour",
+          "estimatedCost": "${budget === 'low' ? '$10' : budget === 'medium' ? '$20' : '$35'}",
+          "isVisited": false,
+          "rating": 4.3,
+          "category": "food",
+          "icon": "🍽️"
+        },
+        {
+          "timeOfDay": "🕐 Afternoon (2:00 PM)",
+          "activityTitle": "Main Attraction Discovery",
+          "description": "**Highlights:** Visit the city's most iconic landmark or attraction\n\n🚗 **Transport:** Walking or public transport - $2-5\n💰 **Cost:** ${budget === 'low' ? '$10-15' : budget === 'medium' ? '$20-30' : '$30-50'} entrance fee\n⏰ **Best Time:** Afternoon light is perfect for photos\n💡 **Insider Tip:** Book tickets online in advance to skip the lines",
+          "duration": "2-3 hours",
+          "estimatedCost": "${budget === 'low' ? '$15' : budget === 'medium' ? '$25' : '$40'}",
+          "isVisited": false,
+          "rating": 4.6,
+          "category": "sightseeing",
+          "icon": "🏛️"
+        },
+        {
+          "timeOfDay": "🌅 Evening (6:00 PM)",
+          "activityTitle": "Sunset Views & Welcome Dinner",
+          "description": "**Activity:** Find the best sunset viewpoint in the city\n**Dinner Options:** Choose from 2-3 highly-rated restaurants nearby\n\n💰 **Cost:** ${budget === 'low' ? '$15-25' : budget === 'medium' ? '$25-40' : '$40-70'} for dinner\n⏰ **Best Time:** 1 hour before sunset for perfect lighting\n💡 **Tip:** Many rooftop bars offer great views - perfect for celebrating your arrival!",
+          "duration": "3 hours",
+          "estimatedCost": "${budget === 'low' ? '$20' : budget === 'medium' ? '$35' : '$55'}",
+          "isVisited": false,
+          "rating": 4.5,
+          "category": "dining",
+          "icon": "🌆"
+        }
+      ]
+    }
+  ],
+  "packingTips": [
+    "Comfortable walking shoes (you'll be doing lots of exploring!)",
+    "Weather-appropriate clothing for ${destination}",
+    "Portable phone charger and universal adapter",
+    "Small daypack for daily excursions",
+    "${interestArray?.includes('photography') ? 'Camera gear and extra batteries' : 'Smartphone with good camera'}",
+    "${budget === 'low' ? 'Reusable water bottle to save money' : 'Travel insurance documents'}"
+  ],
+  "transportationTips": [
+    "Download the local transport app before arrival",
+    "${budget === 'low' ? 'Use public transport - it\'s cheaper and more authentic' : 'Mix of public transport and occasional taxis for convenience'}",
+    "Learn basic phrases: 'Where is...?' and 'How much?'",
+    "Keep small change handy for tips and small purchases",
+    "${travelStyle === 'packed' ? 'Pre-book airport transfers to save time' : 'Take your time with transport - it\'s part of the experience'}"
+  ],
+  "culturalEtiquette": [
+    "Research local customs and dress codes for ${destination}",
+    "Learn the tipping culture - it varies significantly by country",
+    "Respect photography rules at religious and cultural sites",
+    "${interestArray?.includes('culture') ? 'Visit cultural sites during appropriate hours and dress modestly' : 'Be mindful of local customs and traditions'}",
+    "Greet locals in their language - even 'hello' and 'thank you' go a long way!"
+  ]
+}`;
+
+    const completion = await openai.chat.completions.create({
+      model: process.env.AZURE_OPENAI_DEPLOYMENT_NAME,
+      messages: [{ role: "user", content: prompt }],
+      temperature: 0.7
+    });
+    
+    const responseText = completion.choices[0].message.content;
+    
+    let tripData;
+    try {
+      const jsonMatch = responseText.match(/\{[\s\S]*\}/);
+      tripData = jsonMatch ? JSON.parse(jsonMatch[0]) : null;
+    } catch (parseError) {
+      throw new Error('Invalid JSON response from AI');
+    }
+
+    if (!tripData) {
+      throw new Error('No valid trip data generated');
+    }
+
+    recordUsage({
+      api: 'openai',
+      action: 'generate_trip',
+      status: 'success',
+      durationMs: Date.now() - startTime,
+      meta: { destination, duration, budget }
+    });
+
+    res.json(tripData);
+
+  } catch (error) {
+    console.error('❌ Error generating trip:', error);
+    console.error('❌ Error details:', {
+      name: error.name,
+      message: error.message,
+      code: error.code
+    });
+    
+    recordUsage({
+      api: 'openai',
+      action: 'generate_trip',
+      status: 'error',
+      durationMs: Date.now() - startTime,
+      meta: { error: error.message }
+    });
+
+    res.status(500).json({
+      error: 'Failed to generate trip',
+      message: error.message,
+      details: error.code || 'Unknown error'
+    });
+  }
+});
+
 // Load persisted cost config from DB on startup (if DB available)
 (async () => {
   try {
@@ -1082,11 +1346,31 @@ const tripPlanSchema = new mongoose.Schema({
   tripTitle: String,
   destination: String,
   duration: String,
-  dailyPlans: [Object],
+  introduction: { type: String, default: '' },
+  conclusion: { type: String, default: '' },
+  totalEstimatedCost: { type: String, default: '$0' },
+  estimatedWalkingDistance: { type: String, default: '0 km' },
+  dailyPlans: [{
+    day: Number,
+    title: String,
+    activities: [{
+      timeOfDay: String,
+      activityTitle: String,
+      description: String,
+      duration: String,
+      estimatedCost: String,
+      isVisited: { type: Boolean, default: false },
+      visitedDate: Date,
+      rating: Number
+    }]
+  }],
   createdAt: { type: Date, default: Date.now }
 });
 
 const TripPlan = mongoose.model('TripPlan', tripPlanSchema);
+
+// Make TripPlan available globally for routes
+global.TripPlan = TripPlan;
 
 // Post Schema
 const postSchema = new mongoose.Schema({
@@ -1135,6 +1419,7 @@ postSchema.index({ userId: 1, createdAt: -1 });
 postSchema.index({ moderationStatus: 1 });
 
 const Post = mongoose.model('Post', postSchema);
+global.Post = Post;
 
 // Review Schema
 const reviewSchema = new mongoose.Schema({
@@ -1184,6 +1469,7 @@ const dealSchema = new mongoose.Schema({
 });
 
 const Deal = mongoose.model('Deal', dealSchema);
+global.Deal = Deal;
 
 // Event Schema
 const eventSchema = new mongoose.Schema({
@@ -1211,6 +1497,7 @@ const itinerarySchema = new mongoose.Schema({
 });
 
 const Itinerary = mongoose.model('Itinerary', itinerarySchema);
+global.Itinerary = Itinerary;
 
 // Local Dish Schema
 const dishSchema = new mongoose.Schema({
@@ -1901,6 +2188,58 @@ app.get('/api/places/nearby', enforcePolicy('places'), async (req, res) => {
   }
 });
 
+// User sync endpoint for Firebase integration
+app.post('/api/users/sync', async (req, res) => {
+  try {
+    const authHeader = req.headers['authorization'] || '';
+    const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
+    
+    if (!token) {
+      return res.status(401).json({ error: 'No token provided' });
+    }
+
+    const { email, username, firebaseUid } = req.body;
+    
+    if (!email) {
+      return res.status(400).json({ error: 'Email is required' });
+    }
+
+    // Find or create user
+    let user = await User.findOne({ 
+      $or: [{ email }, { firebaseUid }]
+    });
+    
+    if (!user) {
+      user = new User({
+        email,
+        username: username || email.split('@')[0],
+        firebaseUid,
+        tier: 'free',
+        subscriptionStatus: 'none'
+      });
+      await user.save();
+    } else {
+      // Update user info if needed
+      let updated = false;
+      if (firebaseUid && !user.firebaseUid) {
+        user.firebaseUid = firebaseUid;
+        updated = true;
+      }
+      if (username && user.username !== username) {
+        user.username = username;
+        updated = true;
+      }
+      if (updated) {
+        await user.save();
+      }
+    }
+    
+    res.json(user);
+  } catch (error) {
+    res.status(500).json({ error: 'User sync failed' });
+  }
+});
+
 // Users
 app.post('/api/users', asyncHandler(async (req, res) => {
   try {
@@ -2563,10 +2902,13 @@ app.post('/api/trips', authenticateJWT, asyncHandler(async (req, res) => {
 // Trip Plans API alias for mobile app
 app.post('/api/trip-plans', async (req, res) => {
   try {
+    console.log('📝 Creating trip plan:', req.body);
     const trip = new TripPlan(req.body);
     await trip.save();
+    console.log('✅ Trip plan saved with ID:', trip._id);
     res.json(trip);
   } catch (error) {
+    console.error('❌ Trip creation error:', error);
     res.status(400).json({ error: error.message });
   }
 });
@@ -2580,9 +2922,43 @@ app.get('/api/trip-plans', async (req, res) => {
   }
 });
 
+app.get('/api/trip-plans/:id', async (req, res) => {
+  try {
+    const trip = await TripPlan.findById(req.params.id).populate('userId', 'username');
+    if (!trip) {
+      return res.status(404).json({ error: 'Trip not found' });
+    }
+    res.json(trip);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 app.delete('/api/trip-plans/:id', async (req, res) => {
   try {
     await TripPlan.findByIdAndDelete(req.params.id);
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Update activity status
+app.put('/api/trip-plans/:id/activity-status', async (req, res) => {
+  try {
+    const { dayIndex, activityIndex, isVisited } = req.body;
+    const trip = await TripPlan.findById(req.params.id);
+    
+    if (!trip) {
+      return res.status(404).json({ error: 'Trip not found' });
+    }
+    
+    if (trip.dailyPlans[dayIndex] && trip.dailyPlans[dayIndex].activities[activityIndex]) {
+      trip.dailyPlans[dayIndex].activities[activityIndex].isVisited = isVisited;
+      trip.dailyPlans[dayIndex].activities[activityIndex].visitedDate = isVisited ? new Date().toISOString() : null;
+      await trip.save();
+    }
+    
     res.json({ success: true });
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -3458,6 +3834,61 @@ app.get('/api/ai/test-key', (req, res) => {
   });
 });
 
+// Azure OpenAI Place Search
+app.get('/api/search/places', enforcePolicy('openai'), async (req, res) => {
+  const startTime = Date.now();
+  
+  try {
+    const { q: query, category, rating } = req.query;
+    
+    if (!query) {
+      return res.status(400).json({ error: 'Search query is required' });
+    }
+
+    const prompt = `Find popular places and attractions for: "${query}"
+    ${category ? `Category filter: ${category}` : ''}
+    ${rating ? `Minimum rating: ${rating}` : ''}
+    
+    Return ONLY a JSON array with exactly 8 places:
+    [
+      {
+        "id": "unique_id",
+        "name": "Place Name",
+        "description": "Brief description",
+        "category": "restaurant|attraction|hotel|shopping",
+        "rating": 4.5,
+        "location": "City, Country",
+        "image": "https://images.unsplash.com/photo-relevant?w=300&h=200&fit=crop",
+        "highlights": ["feature1", "feature2"]
+      }
+    ]`;
+
+    const completion = await openai.chat.completions.create({
+      model: process.env.AZURE_OPENAI_DEPLOYMENT_NAME,
+      messages: [{ role: "user", content: prompt }],
+      temperature: 0.7
+    });
+    
+    const text = completion.choices[0].message.content;
+    
+    // Parse JSON response
+    let places;
+    try {
+      const jsonMatch = text.match(/\[.*\]/s);
+      places = jsonMatch ? JSON.parse(jsonMatch[0]) : [];
+    } catch (parseError) {
+      throw new Error('Invalid JSON response from AI');
+    }
+
+    recordUsage({ api: 'openai', action: 'search_places', status: 'success', durationMs: Date.now() - startTime });
+    res.json(places);
+    
+  } catch (error) {
+    recordUsage({ api: 'openai', action: 'search_places', status: 'error', durationMs: Date.now() - startTime });
+    res.status(500).json({ error: 'Search failed', details: error.message });
+  }
+});
+
 // Test OpenAI with simple request
 app.get('/api/ai/test-generate', async (req, res) => {
   try {
@@ -3588,6 +4019,8 @@ const ENABLE_FIREBASE_AUTH = String(process.env.ENABLE_FIREBASE_AUTH || '').toLo
 if (ENABLE_FIREBASE_AUTH && !adminAuth) {
   console.warn('Firebase Admin not configured. Set FIREBASE_ADMIN_CREDENTIALS_BASE64, FIREBASE_ADMIN_CREDENTIALS_JSON, or GOOGLE_APPLICATION_CREDENTIALS to enable auth verification.');
 }
+
+// Firebase user sync endpoint moved above to avoid route conflicts
 
 // Authentication endpoints for frontend
 app.post('/api/auth/register', async (req, res) => {
@@ -4515,14 +4948,7 @@ app.put('/api/business/profile', async (req, res) => {
   }
 });
 
-// User profile routes
-/*try {
-  const usersRouter = (await import('./routes/users.js')).default;
-  app.use('/api/users', usersRouter);
-  console.log('✅ User profile routes loaded');
-} catch (error) {
-  console.error('❌ Failed to load user routes:', error);
-}
+
 
 // Merchant routes
 try {
@@ -4559,11 +4985,20 @@ try {
   console.error('❌ Failed to load bookings routes:', error);
 }
 
-// Admin routes
+// Demo auth routes for testing
+try {
+  const demoAuthRouter = (await import('./routes/demo-auth.js')).default;
+  app.use('/api/demo-auth', demoAuthRouter);
+  console.log('✅ Demo auth routes loaded');
+} catch (error) {
+  console.error('❌ Failed to load demo auth routes:', error);
+}
+
+// Admin routes - Enhanced with middleware
 try {
   const adminRouter = (await import('./routes/admin.js')).default;
-  app.use('/api/admin', adminRouter);
-  console.log('✅ Admin routes loaded');
+  app.use('/api/admin', requireAdminAuth, adminRouter);
+  console.log('✅ Admin routes loaded with authentication');
 } catch (error) {
   console.error('❌ Failed to load admin routes:', error);
 }
@@ -4575,7 +5010,7 @@ try {
   console.log('✅ Deals routes loaded');
 } catch (error) {
   console.error('❌ Failed to load deals routes:', error);
-}*/
+}
 
 
 
@@ -4609,6 +5044,7 @@ app.get('*', (req, res) => {
   // Serve index.html for SPA routing
   const indexPaths = [
     staticPath ? path.join(staticPath, 'index.html') : null,
+    path.join(__dirname, 'public/index.html'),
     path.join(__dirname, '../dist/index.html'),
     path.join(__dirname, '../frontend/dist/index.html')
   ].filter(Boolean);

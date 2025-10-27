@@ -7,11 +7,13 @@ import 'package:geocoding/geocoding.dart';
 import '../providers/community_provider.dart';
 import '../services/image_service.dart';
 import '../widgets/location_picker_map.dart';
+import '../models/community_post.dart';
 
 class CreatePostScreen extends StatefulWidget {
   final String? initialPostType;
+  final CommunityPost? editingPost;
   
-  const CreatePostScreen({super.key, this.initialPostType});
+  const CreatePostScreen({super.key, this.initialPostType, this.editingPost});
 
   @override
   State<CreatePostScreen> createState() => _CreatePostScreenState();
@@ -44,7 +46,14 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
   void initState() {
     super.initState();
     _imageService.initialize();
-    if (widget.initialPostType != null) {
+    
+    if (widget.editingPost != null) {
+      // Pre-fill form for editing
+      _contentController.text = widget.editingPost!.content;
+      _locationController.text = widget.editingPost!.location;
+      _selectedPostType = widget.editingPost!.postType.name;
+      _hashtags.addAll(widget.editingPost!.hashtags);
+    } else if (widget.initialPostType != null) {
       _selectedPostType = widget.initialPostType!;
     }
   }
@@ -61,7 +70,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Create Post'),
+        title: Text(widget.editingPost != null ? 'Edit Post' : 'Create Post'),
         backgroundColor: Colors.blue[600],
         foregroundColor: Colors.white,
         elevation: 0,
@@ -85,9 +94,9 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                       height: 16,
                       child: CircularProgressIndicator(strokeWidth: 2),
                     )
-                  : const Text(
-                      'POST',
-                      style: TextStyle(fontWeight: FontWeight.bold),
+                  : Text(
+                      widget.editingPost != null ? 'UPDATE' : 'POST',
+                      style: const TextStyle(fontWeight: FontWeight.bold),
                     ),
             ),
           ),
@@ -849,46 +858,51 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
     List<String> imageUrls = [];
     if (_selectedImages.isNotEmpty) {
       imageUrls = await _imageService.uploadImages(_selectedImages);
+    } else if (widget.editingPost != null) {
+      // Keep existing images if no new images selected
+      imageUrls = widget.editingPost!.images;
     }
 
-    print('🚀 [CREATE] Starting post creation...');
-    print('🚀 [CREATE] Content: ${_contentController.text.trim()}');
-    print('🚀 [CREATE] Location: ${_locationController.text.trim()}');
-    print('🚀 [CREATE] Images: ${imageUrls.length}');
-    
-    final success = await context.read<CommunityProvider>().createPost(
-      content: _contentController.text.trim(),
-      location: _locationController.text.trim(),
-      postType: _selectedPostType,
-      images: imageUrls,
-      hashtags: _hashtags,
-      allowComments: _allowComments,
-      visibility: _visibility,
-      context: context,
-    );
-    
-    print('🚀 [CREATE] Post creation result: $success');
+    bool success;
+    if (widget.editingPost != null) {
+      // Edit existing post
+      success = await context.read<CommunityProvider>().editPost(
+        postId: widget.editingPost!.id,
+        content: _contentController.text.trim(),
+        location: _locationController.text.trim(),
+        images: imageUrls,
+        hashtags: _hashtags,
+      );
+    } else {
+      // Create new post
+      success = await context.read<CommunityProvider>().createPost(
+        content: _contentController.text.trim(),
+        location: _locationController.text.trim(),
+        postType: _selectedPostType,
+        images: imageUrls,
+        hashtags: _hashtags,
+        allowComments: _allowComments,
+        visibility: _visibility,
+        context: context,
+      );
+    }
 
     setState(() {
       _isPosting = false;
     });
-
-    print('🚀 [CREATE] Final success result: $success');
     
     if (success) {
-      print('✅ [CREATE] Post created successfully - navigating back');
-      Navigator.of(context).pop(true); // Return true to indicate success
+      Navigator.of(context).pop(true);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Post created successfully!'),
+        SnackBar(
+          content: Text(widget.editingPost != null ? 'Post updated successfully!' : 'Post created successfully!'),
           backgroundColor: Colors.green,
         ),
       );
     } else {
-      print('❌ [CREATE] Post creation failed - showing error');
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Failed to create post. Please try again.'),
+        SnackBar(
+          content: Text(widget.editingPost != null ? 'Failed to update post. Please try again.' : 'Failed to create post. Please try again.'),
           backgroundColor: Colors.red,
         ),
       );

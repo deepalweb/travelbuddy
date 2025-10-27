@@ -1,4 +1,3 @@
-import 'dart:math';
 import 'package:geolocator/geolocator.dart';
 import '../models/place.dart';
 import '../models/route_models.dart';

@@ -1,8 +1,9 @@
 class Environment {
-  // Backend configuration - AZURE PRODUCTION
-  static const String backendUrl = 'https://travelbuddy-b2c6hgbbgeh4esdh.eastus2-01.azurewebsites.net';
+  // Backend configuration - LOCAL DEVELOPMENT (for testing sync with web app)
+  static const String backendUrl = 'http://localhost:3001';
   static const String baseUrl = backendUrl; // Add baseUrl alias
-  static const bool isProduction = true; // Production mode
+  static const bool isProduction = false; // Development mode
+  static const bool enableDebugLogging = true; // Enable debug logging in development
   
   // PayPal configuration (sandbox values)
   static const String paypalClientId = 'YOUR_SANDBOX_CLIENT_ID';

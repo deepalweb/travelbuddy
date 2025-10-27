@@ -8,10 +8,8 @@ import '../services/route_tracking_service.dart';
 import '../widgets/place_card.dart';
 import '../widgets/route_progress_widget.dart';
 import '../screens/place_details_screen.dart';
-import '../screens/route_map_screen.dart';
 import '../screens/route_preferences_screen.dart';
 import '../screens/simple_route_map_screen.dart';
-import '../services/simple_smart_route_service.dart';
 
 class RoutePlanScreen extends StatefulWidget {
   final List<Place> places;

@@ -10,7 +10,6 @@ import '../models/travel_stats.dart';
 import '../models/community_post.dart' as community;
 import '../models/user_profile.dart';
 import '../models/safety_info.dart';
-import 'mock_backend_service.dart';
 import 'auth_api_service.dart';
 import 'dart:math' as math;
 

@@ -1,4 +1,3 @@
-import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/app_provider.dart';
@@ -49,6 +48,10 @@ class _CommunityScreenState extends State<CommunityScreen> {
         ),
       ),
       actions: [
+        IconButton(
+          icon: const Icon(Icons.bug_report, color: Colors.red, size: 20),
+          onPressed: () => _debugUserOwnership(),
+        ),
         IconButton(
           icon: const Icon(Icons.search, color: Colors.black, size: 26),
           onPressed: () => _showUserSearch(),
@@ -209,6 +212,71 @@ class _CommunityScreenState extends State<CommunityScreen> {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  void _debugUserOwnership() {
+    final appProvider = Provider.of<AppProvider>(context, listen: false);
+    final communityProvider = Provider.of<CommunityProvider>(context, listen: false);
+    
+    final currentUser = appProvider.currentUser;
+    final posts = communityProvider.posts;
+    
+    print('🔍 DEBUG: User Ownership Check');
+    print('================================');
+    
+    if (currentUser == null) {
+      print('❌ No current user found!');
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('❌ No current user found! Please sign in.')),
+      );
+      return;
+    }
+    
+    print('👤 Current User:');
+    print('  - Username: ${currentUser.username}');
+    print('  - UID: ${currentUser.uid}');
+    print('  - MongoDB ID: ${currentUser.mongoId}');
+    print('  - Email: ${currentUser.email}');
+    
+    print('\n📝 Posts Analysis:');
+    print('  - Total posts: ${posts.length}');
+    
+    int ownPostsCount = 0;
+    for (int i = 0; i < posts.length && i < 5; i++) {
+      final post = posts[i];
+      print('\n  Post ${i + 1}:');
+      print('    - ID: ${post.id}');
+      print('    - User ID: ${post.userId}');
+      print('    - User Name: ${post.userName}');
+      
+      // Check ownership
+      final isOwnByMongoId = post.userId == currentUser.mongoId;
+      final isOwnByUid = post.userId == currentUser.uid;
+      final isOwnByUsername = post.userName == currentUser.username;
+      
+      print('    - Own by MongoDB ID: $isOwnByMongoId');
+      print('    - Own by UID: $isOwnByUid');
+      print('    - Own by Username: $isOwnByUsername');
+      
+      final isOwn = isOwnByMongoId || isOwnByUid || isOwnByUsername;
+      print('    - IS OWN POST: $isOwn');
+      
+      if (isOwn) ownPostsCount++;
+    }
+    
+    print('\n📊 Summary:');
+    print('  - User has $ownPostsCount own posts (in first 5)');
+    print('  - Should see delete button on $ownPostsCount posts');
+    
+    // Show result to user
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          'Debug: User "${currentUser.username}" has $ownPostsCount own posts. Check console for details.'
+        ),
+        duration: const Duration(seconds: 3),
       ),
     );
   }

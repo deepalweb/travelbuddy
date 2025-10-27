@@ -181,7 +181,7 @@ class ScheduledStopCard extends StatelessWidget {
                         ],
                       ),
                     ],
-                    if (stop.notes?.isNotEmpty == true) ...[
+                    if (stop.notes.isNotEmpty == true) ...[
                       const SizedBox(height: 8),
                       Container(
                         padding: const EdgeInsets.all(8),
@@ -200,7 +200,7 @@ class ScheduledStopCard extends StatelessWidget {
                             const SizedBox(width: 8),
                             Expanded(
                               child: Text(
-                                stop.notes!,
+                                stop.notes,
                                 style: TextStyle(
                                   fontSize: 12,
                                   color: Colors.yellow[700],
