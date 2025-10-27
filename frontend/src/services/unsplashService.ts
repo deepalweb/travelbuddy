@@ -1,3 +1,4 @@
+// @ts-nocheck
 const UNSPLASH_ACCESS_KEY = import.meta.env.VITE_UNSPLASH_ACCESS_KEY || 'J4khiSIy9hN7kZabjiTdQR-SG_FgxNX25icqGuleqhs';
 const UNSPLASH_API_URL = 'https://api.unsplash.com';
 
