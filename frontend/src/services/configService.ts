@@ -33,10 +33,14 @@ class ConfigService {
   }
 
   private async fetchConfig(): Promise<RuntimeConfig> {
-    // In production, use same origin; in development, use env var
-    const baseUrl = import.meta.env.PROD 
-      ? window.location.origin 
-      : (import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001');
+    // Skip runtime config in production, use build-time env vars
+    if (import.meta.env.PROD) {
+      console.log('Production mode: using build-time environment variables');
+      return this.getBuildTimeConfig();
+    }
+
+    // Development: try runtime config first
+    const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001';
     
     try {
       const response = await fetch(`${baseUrl}/api/config`);
@@ -46,27 +50,31 @@ class ConfigService {
       return await response.json();
     } catch (error) {
       console.error('Failed to fetch runtime config, using fallback:', error);
-      
-      // Fallback to build-time env vars
-      return {
-        apiBaseUrl: import.meta.env.PROD 
-          ? window.location.origin 
-          : (import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001'),
-        firebase: {
-          apiKey: import.meta.env.VITE_FIREBASE_API_KEY || '',
-          authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || '',
-          projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || '',
-          storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || '',
-          messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || '',
-          appId: import.meta.env.VITE_FIREBASE_APP_ID || ''
-        },
-        googleMapsApiKey: import.meta.env.VITE_GOOGLE_MAPS_API_KEY || '',
-        unsplash: {
-          accessKey: import.meta.env.VITE_UNSPLASH_ACCESS_KEY || ''
-        }
-      };
+      return this.getBuildTimeConfig();
     }
   }
+
+  private getBuildTimeConfig(): RuntimeConfig {
+    return {
+      apiBaseUrl: import.meta.env.PROD 
+        ? window.location.origin 
+        : (import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001'),
+      firebase: {
+        apiKey: import.meta.env.VITE_FIREBASE_API_KEY || '',
+        authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || '',
+        projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || '',
+        storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || '',
+        messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || '',
+        appId: import.meta.env.VITE_FIREBASE_APP_ID || ''
+      },
+      googleMapsApiKey: import.meta.env.VITE_GOOGLE_MAPS_API_KEY || '',
+      unsplash: {
+        accessKey: import.meta.env.VITE_UNSPLASH_ACCESS_KEY || ''
+      }
+    };
+  }
+
+
 }
 
 export const configService = new ConfigService();
