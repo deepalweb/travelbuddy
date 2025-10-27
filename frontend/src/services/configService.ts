@@ -33,7 +33,10 @@ class ConfigService {
   }
 
   private async fetchConfig(): Promise<RuntimeConfig> {
-    const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001';
+    // In production, use same origin; in development, use env var
+    const baseUrl = import.meta.env.PROD 
+      ? window.location.origin 
+      : (import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001');
     
     try {
       const response = await fetch(`${baseUrl}/api/config`);
@@ -46,7 +49,9 @@ class ConfigService {
       
       // Fallback to build-time env vars
       return {
-        apiBaseUrl: import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001',
+        apiBaseUrl: import.meta.env.PROD 
+          ? window.location.origin 
+          : (import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001'),
         firebase: {
           apiKey: import.meta.env.VITE_FIREBASE_API_KEY || '',
           authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || '',
