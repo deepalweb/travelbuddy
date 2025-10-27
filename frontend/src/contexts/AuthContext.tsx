@@ -8,7 +8,8 @@ import {
   GoogleAuthProvider,
   type User as FirebaseUser
 } from 'firebase/auth'
-import { auth } from '../lib/firebase'
+import { useFirebase } from '../hooks/useFirebase'
+import { useConfig } from './ConfigContext'
 import { apiService } from '../lib/api'
 
 interface User {
@@ -46,8 +47,14 @@ export const useAuth = () => {
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null)
   const [isLoading, setIsLoading] = useState(true)
+  const { firebase, loading: firebaseLoading } = useFirebase()
+  const { config, loading: configLoading } = useConfig()
 
   useEffect(() => {
+    if (firebaseLoading || configLoading || !firebase || !config) {
+      return
+    }
+
     // Check for demo token first
     const demoToken = localStorage.getItem('demo_token')
     if (demoToken) {
@@ -55,7 +62,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return
     }
 
-    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+    const unsubscribe = onAuthStateChanged(firebase.auth, async (firebaseUser) => {
       if (firebaseUser) {
         await syncUserProfile(firebaseUser)
       } else {
@@ -65,14 +72,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     })
 
     return () => unsubscribe()
-  }, [])
+  }, [firebase, config, firebaseLoading, configLoading])
 
   const syncUserProfile = async (firebaseUser: FirebaseUser) => {
     try {
       const token = await firebaseUser.getIdToken()
       
       // Try to sync user with backend
-      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001'}/api/users/sync`, {
+      const response = await fetch(`${config?.apiBaseUrl || 'http://localhost:3001'}/api/users/sync`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -125,8 +132,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }
 
   const login = async (email: string, password: string) => {
+    if (!firebase) throw new Error('Firebase not initialized')
     try {
-      const userCredential = await signInWithEmailAndPassword(auth, email, password)
+      const userCredential = await signInWithEmailAndPassword(firebase.auth, email, password)
       // User state will be updated by onAuthStateChanged
     } catch (error: any) {
       throw new Error(error.message || 'Login failed')
@@ -134,8 +142,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }
 
   const register = async (username: string, email: string, password: string) => {
+    if (!firebase) throw new Error('Firebase not initialized')
     try {
-      const userCredential = await createUserWithEmailAndPassword(auth, email, password)
+      const userCredential = await createUserWithEmailAndPassword(firebase.auth, email, password)
       // User state will be updated by onAuthStateChanged with username
     } catch (error: any) {
       throw new Error(error.message || 'Registration failed')
@@ -144,10 +153,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const updateProfile = async (data: Partial<User>) => {
     try {
-      if (!auth.currentUser) throw new Error('Not authenticated')
+      if (!firebase?.auth.currentUser) throw new Error('Not authenticated')
       
-      const token = await auth.currentUser.getIdToken()
-      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/users/profile`, {
+      const token = await firebase.auth.currentUser.getIdToken()
+      const response = await fetch(`${config?.apiBaseUrl}/api/users/profile`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -172,9 +181,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }
 
   const loginWithGoogle = async () => {
+    if (!firebase) throw new Error('Firebase not initialized')
     try {
       const provider = new GoogleAuthProvider()
-      const result = await signInWithPopup(auth, provider)
+      const result = await signInWithPopup(firebase.auth, provider)
       // User state will be updated by onAuthStateChanged
     } catch (error: any) {
       throw new Error(error.message || 'Google sign-in failed')
@@ -183,7 +193,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const loginDemo = async () => {
     try {
-      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001'}/api/demo-auth/demo-login`, {
+      const response = await fetch(`${config?.apiBaseUrl || 'http://localhost:3001'}/api/demo-auth/demo-login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: 'admin@travelbuddy.com', password: 'demo' })
@@ -212,7 +222,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const logout = async () => {
     try {
       localStorage.removeItem('demo_token')
-      await signOut(auth)
+      if (firebase) {
+        await signOut(firebase.auth)
+      }
       setUser(null)
     } catch (error) {
       console.error('Logout failed:', error)

@@ -1,8 +1,20 @@
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api'
+import { configService } from '../services/configService'
+
+let API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api'
 
 class ApiService {
+  private async getBaseUrl(): Promise<string> {
+    try {
+      const config = await configService.getConfig()
+      return `${config.apiBaseUrl}/api`
+    } catch {
+      return API_BASE_URL
+    }
+  }
+
   private async request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
-    const url = `${API_BASE_URL}${endpoint}`
+    const baseUrl = await this.getBaseUrl()
+    const url = `${baseUrl}${endpoint}`
     
     const config: RequestInit = {
       headers: {
