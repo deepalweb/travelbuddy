@@ -33,21 +33,25 @@ class ConfigService {
   }
 
   private async fetchConfig(): Promise<RuntimeConfig> {
-    // Skip runtime config in production, use build-time env vars
-    if (import.meta.env.PROD) {
-      console.log('Production mode: using build-time environment variables');
-      return this.getBuildTimeConfig();
-    }
-
-    // Development: try runtime config first
-    const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001';
+    const baseUrl = import.meta.env.PROD 
+      ? window.location.origin 
+      : (import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001');
     
     try {
-      const response = await fetch(`${baseUrl}/api/config`);
+      const response = await fetch(`${baseUrl}/api/runtime-config`);
       if (!response.ok) {
         throw new Error(`Config fetch failed: ${response.status}`);
       }
-      return await response.json();
+      const runtimeConfig = await response.json();
+      
+      return {
+        apiBaseUrl: baseUrl,
+        firebase: runtimeConfig.firebase,
+        googleMapsApiKey: import.meta.env.VITE_GOOGLE_MAPS_API_KEY || '',
+        unsplash: {
+          accessKey: import.meta.env.VITE_UNSPLASH_ACCESS_KEY || ''
+        }
+      };
     } catch (error) {
       console.error('Failed to fetch runtime config, using fallback:', error);
       return this.getBuildTimeConfig();
