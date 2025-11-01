@@ -94,8 +94,6 @@ const AdminDashboard = () => {
   )
 }
 
-}
-
 function App() {
   return (
     <AdminAuthProvider>
