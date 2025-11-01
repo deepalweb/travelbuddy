@@ -59,17 +59,19 @@ class ConfigService {
   }
 
   private getBuildTimeConfig(): RuntimeConfig {
+    const firebaseApiKey = import.meta.env.VITE_FIREBASE_API_KEY || 'AIzaSyCuJr5N0ytr1h_Aq_5qQazNL0wQUnsZlAw';
+    
     return {
       apiBaseUrl: import.meta.env.PROD 
         ? window.location.origin 
         : (import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001'),
       firebase: {
-        apiKey: import.meta.env.VITE_FIREBASE_API_KEY || '',
-        authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || '',
-        projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || '',
-        storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || '',
-        messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || '',
-        appId: import.meta.env.VITE_FIREBASE_APP_ID || ''
+        apiKey: firebaseApiKey,
+        authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || 'travelbuddy-2d1c5.firebaseapp.com',
+        projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || 'travelbuddy-2d1c5',
+        storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || 'travelbuddy-2d1c5.firebasestorage.app',
+        messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || '45425409967',
+        appId: import.meta.env.VITE_FIREBASE_APP_ID || '1:45425409967:web:782638c65a40dcb156b95a'
       },
       googleMapsApiKey: import.meta.env.VITE_GOOGLE_MAPS_API_KEY || '',
       unsplash: {

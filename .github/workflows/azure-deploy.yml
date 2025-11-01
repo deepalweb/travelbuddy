@@ -50,30 +50,83 @@ jobs:
         cd admin
         npm ci --prefer-offline --no-audit
     
+    - name: 🔐 Azure Login
+      uses: azure/login@v1
+      with:
+        creds: ${{ secrets.AZURE_CREDENTIALS }}
+      continue-on-error: true
+    
+    - name: 🔑 Get Azure Environment Variables
+      run: |
+        echo "Fetching environment variables from Azure App Service..."
+        
+        # Try to get environment variables from Azure, fallback to hardcoded values
+        if az webapp config appsettings list --resource-group travelbuddy --name travelbuddy --output json > azure_env.json 2>/dev/null; then
+          echo "Successfully fetched Azure environment variables"
+          
+          # Extract values from Azure
+          VITE_FIREBASE_API_KEY=$(jq -r '.[] | select(.name=="VITE_FIREBASE_API_KEY") | .value // "AIzaSyCuJr5N0ytr1h_Aq_5qQazNL0wQUnsZlAw"' azure_env.json)
+          VITE_FIREBASE_AUTH_DOMAIN=$(jq -r '.[] | select(.name=="VITE_FIREBASE_AUTH_DOMAIN") | .value // "travelbuddy-2d1c5.firebaseapp.com"' azure_env.json)
+          VITE_FIREBASE_PROJECT_ID=$(jq -r '.[] | select(.name=="VITE_FIREBASE_PROJECT_ID") | .value // "travelbuddy-2d1c5"' azure_env.json)
+          VITE_FIREBASE_STORAGE_BUCKET=$(jq -r '.[] | select(.name=="VITE_FIREBASE_STORAGE_BUCKET") | .value // "travelbuddy-2d1c5.firebasestorage.app"' azure_env.json)
+          VITE_FIREBASE_MESSAGING_SENDER_ID=$(jq -r '.[] | select(.name=="VITE_FIREBASE_MESSAGING_SENDER_ID") | .value // "45425409967"' azure_env.json)
+          VITE_FIREBASE_APP_ID=$(jq -r '.[] | select(.name=="VITE_FIREBASE_APP_ID") | .value // "1:45425409967:web:782638c65a40dcb156b95a"' azure_env.json)
+          VITE_GOOGLE_MAPS_API_KEY=$(jq -r '.[] | select(.name=="VITE_GOOGLE_MAPS_API_KEY") | .value // ""' azure_env.json)
+          VITE_UNSPLASH_ACCESS_KEY=$(jq -r '.[] | select(.name=="VITE_UNSPLASH_ACCESS_KEY") | .value // ""' azure_env.json)
+          
+          rm azure_env.json
+        else
+          echo "Failed to fetch from Azure, using fallback values"
+          
+          # Fallback to hardcoded values
+          VITE_FIREBASE_API_KEY="AIzaSyCuJr5N0ytr1h_Aq_5qQazNL0wQUnsZlAw"
+          VITE_FIREBASE_AUTH_DOMAIN="travelbuddy-2d1c5.firebaseapp.com"
+          VITE_FIREBASE_PROJECT_ID="travelbuddy-2d1c5"
+          VITE_FIREBASE_STORAGE_BUCKET="travelbuddy-2d1c5.firebasestorage.app"
+          VITE_FIREBASE_MESSAGING_SENDER_ID="45425409967"
+          VITE_FIREBASE_APP_ID="1:45425409967:web:782638c65a40dcb156b95a"
+          VITE_GOOGLE_MAPS_API_KEY="AIzaSyAey-fuui7b3I-PkzJDVfsTFa9Kv_b_6ls"
+          VITE_UNSPLASH_ACCESS_KEY="J4khiSIy9hN7kZabjiTdQR-SG_FgxNX25icqGuleqhs"
+        fi
+        
+        # Export to GitHub environment
+        echo "VITE_FIREBASE_API_KEY=$VITE_FIREBASE_API_KEY" >> $GITHUB_ENV
+        echo "VITE_FIREBASE_AUTH_DOMAIN=$VITE_FIREBASE_AUTH_DOMAIN" >> $GITHUB_ENV
+        echo "VITE_FIREBASE_PROJECT_ID=$VITE_FIREBASE_PROJECT_ID" >> $GITHUB_ENV
+        echo "VITE_FIREBASE_STORAGE_BUCKET=$VITE_FIREBASE_STORAGE_BUCKET" >> $GITHUB_ENV
+        echo "VITE_FIREBASE_MESSAGING_SENDER_ID=$VITE_FIREBASE_MESSAGING_SENDER_ID" >> $GITHUB_ENV
+        echo "VITE_FIREBASE_APP_ID=$VITE_FIREBASE_APP_ID" >> $GITHUB_ENV
+        echo "VITE_GOOGLE_MAPS_API_KEY=$VITE_GOOGLE_MAPS_API_KEY" >> $GITHUB_ENV
+        echo "VITE_UNSPLASH_ACCESS_KEY=$VITE_UNSPLASH_ACCESS_KEY" >> $GITHUB_ENV
+        
+        echo "✅ Environment variables configured"
+    
     - name: 🌍 Create Production Environment Files
       run: |
         # Frontend environment
         cd frontend
-        cat > .env.production << 'EOF'
-        VITE_API_BASE_URL=${{ secrets.VITE_API_BASE_URL || 'https://travelbuddy-b2c6hgbbgeh4esdh.eastus2-01.azurewebsites.net' }}
-        VITE_FIREBASE_API_KEY=${{ secrets.VITE_FIREBASE_API_KEY }}
-        VITE_FIREBASE_AUTH_DOMAIN=${{ secrets.VITE_FIREBASE_AUTH_DOMAIN }}
-        VITE_FIREBASE_PROJECT_ID=${{ secrets.VITE_FIREBASE_PROJECT_ID }}
-        VITE_FIREBASE_STORAGE_BUCKET=${{ secrets.VITE_FIREBASE_STORAGE_BUCKET }}
-        VITE_FIREBASE_MESSAGING_SENDER_ID=${{ secrets.VITE_FIREBASE_MESSAGING_SENDER_ID }}
-        VITE_FIREBASE_APP_ID=${{ secrets.VITE_FIREBASE_APP_ID }}
-        VITE_GOOGLE_MAPS_API_KEY=${{ secrets.VITE_GOOGLE_MAPS_API_KEY }}
-        VITE_UNSPLASH_ACCESS_KEY=${{ secrets.VITE_UNSPLASH_ACCESS_KEY }}
+        cat > .env.production << EOF
+        VITE_API_BASE_URL=https://travelbuddy-b2c6hgbbgeh4esdh.eastus2-01.azurewebsites.net
+        VITE_FIREBASE_API_KEY=$VITE_FIREBASE_API_KEY
+        VITE_FIREBASE_AUTH_DOMAIN=$VITE_FIREBASE_AUTH_DOMAIN
+        VITE_FIREBASE_PROJECT_ID=$VITE_FIREBASE_PROJECT_ID
+        VITE_FIREBASE_STORAGE_BUCKET=$VITE_FIREBASE_STORAGE_BUCKET
+        VITE_FIREBASE_MESSAGING_SENDER_ID=$VITE_FIREBASE_MESSAGING_SENDER_ID
+        VITE_FIREBASE_APP_ID=$VITE_FIREBASE_APP_ID
+        VITE_GOOGLE_MAPS_API_KEY=$VITE_GOOGLE_MAPS_API_KEY
+        VITE_UNSPLASH_ACCESS_KEY=$VITE_UNSPLASH_ACCESS_KEY
         EOF
         
         # Admin environment
         cd ../admin
-        cat > .env.production << 'EOF'
-        VITE_API_BASE_URL=${{ secrets.VITE_API_BASE_URL || 'https://travelbuddy-b2c6hgbbgeh4esdh.eastus2-01.azurewebsites.net' }}
-        VITE_FIREBASE_API_KEY=${{ secrets.VITE_FIREBASE_API_KEY }}
-        VITE_FIREBASE_AUTH_DOMAIN=${{ secrets.VITE_FIREBASE_AUTH_DOMAIN }}
-        VITE_FIREBASE_PROJECT_ID=${{ secrets.VITE_FIREBASE_PROJECT_ID }}
+        cat > .env.production << EOF
+        VITE_API_BASE_URL=https://travelbuddy-b2c6hgbbgeh4esdh.eastus2-01.azurewebsites.net
+        VITE_FIREBASE_API_KEY=$VITE_FIREBASE_API_KEY
+        VITE_FIREBASE_AUTH_DOMAIN=$VITE_FIREBASE_AUTH_DOMAIN
+        VITE_FIREBASE_PROJECT_ID=$VITE_FIREBASE_PROJECT_ID
         EOF
+        
+        echo "✅ Production environment files created"
     
     - name: 🏗️ Build Frontend
       run: |
