@@ -29,4 +29,15 @@ router.get('/runtime', (req, res) => {
   });
 });
 
+// Debug endpoint to check Azure environment variables
+router.get('/debug-env', (req, res) => {
+  res.json({
+    hasFirebaseApiKey: !!process.env.VITE_FIREBASE_API_KEY,
+    hasFirebaseAuthDomain: !!process.env.VITE_FIREBASE_AUTH_DOMAIN,
+    hasFirebaseProjectId: !!process.env.VITE_FIREBASE_PROJECT_ID,
+    nodeEnv: process.env.NODE_ENV,
+    apiKeyPreview: process.env.VITE_FIREBASE_API_KEY ? process.env.VITE_FIREBASE_API_KEY.substring(0, 10) + '...' : 'Missing'
+  });
+});
+
 export default router;
