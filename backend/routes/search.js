@@ -44,8 +44,8 @@ const getPlacePhoto = async (placeName, city) => {
     if (searchData.candidates && searchData.candidates[0] && searchData.candidates[0].photos) {
       const photoReference = searchData.candidates[0].photos[0].photo_reference
       
-      // Step 2: Get photo URL
-      const photoUrl = `https://maps.googleapis.com/maps/api/place/photo?maxwidth=400&photo_reference=${photoReference}&key=${process.env.GOOGLE_PLACES_API_KEY}`
+      // Step 2: Get photo URL with higher quality
+      const photoUrl = `https://maps.googleapis.com/maps/api/place/photo?maxwidth=800&photo_reference=${photoReference}&key=${process.env.GOOGLE_PLACES_API_KEY}`
       
       // Cache the result
       photoCache.set(cacheKey, {
@@ -59,8 +59,14 @@ const getPlacePhoto = async (placeName, city) => {
     console.error('Google Places API error:', error)
   }
   
-  // Fallback to enhanced Unsplash
-  return `https://images.unsplash.com/search/photos?query=${encodeURIComponent(placeName + ' ' + city)}&w=400&h=300&fit=crop`
+  // Enhanced fallback with multiple sources
+  const fallbackSources = [
+    `https://source.unsplash.com/800x600/?${encodeURIComponent(placeName)},${encodeURIComponent(city)},landmark`,
+    `https://source.unsplash.com/800x600/?${encodeURIComponent(placeName)},travel,destination`,
+    `https://picsum.photos/seed/${encodeURIComponent(placeName + city)}/800/600`
+  ]
+  
+  return fallbackSources[0] // Return first fallback, frontend will handle others
 }
 
 // AI-powered places search
@@ -285,9 +291,16 @@ Return detailed information in this JSON format:
     "highlights": ["highlight1", "highlight2", "highlight3"]
   },
   "images": {
-    "hero": "https://images.unsplash.com/photo-relevant?w=1200&h=800&fit=crop",
-    "gallery": ["url1", "url2", "url3", "url4", "url5", "url6"],
-    "count": 25
+    "hero": "https://source.unsplash.com/1200x800/?${encodeURIComponent(placeName)},landmark,travel",
+    "gallery": [
+      "https://source.unsplash.com/1200x800/?${encodeURIComponent(placeName)},landmark,travel",
+      "https://source.unsplash.com/1200x800/?${encodeURIComponent(placeName)},architecture,building",
+      "https://source.unsplash.com/1200x800/?${encodeURIComponent(placeName)},interior,inside",
+      "https://source.unsplash.com/1200x800/?${encodeURIComponent(placeName)},food,cuisine",
+      "https://source.unsplash.com/1200x800/?${encodeURIComponent(placeName)},people,culture",
+      "https://source.unsplash.com/1200x800/?${encodeURIComponent(placeName)},night,evening"
+    ],
+    "count": 6
   },
   "rating": {
     "overall": 4.7,

@@ -1,4 +1,4 @@
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001'
 
 export interface Trip {
   _id?: string
@@ -42,79 +42,120 @@ export interface Activity {
 
 export const tripService = {
   async createTrip(trip: Omit<Trip, '_id' | 'createdAt'>): Promise<Trip> {
-    const response = await fetch(`${API_BASE_URL}/api/users/${trip.userId}/trip-plans`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify(trip)
-    })
-    
-    if (!response.ok) {
-      throw new Error('Failed to create trip')
+    if (!trip.tripTitle?.trim() || !trip.destination?.trim()) {
+      throw new Error('Trip title and destination are required')
     }
     
-    return response.json()
+    try {
+      const newTrip: Trip = {
+        ...trip,
+        _id: Date.now().toString(),
+        createdAt: new Date().toISOString(),
+        tripTitle: trip.tripTitle.trim(),
+        destination: trip.destination.trim()
+      }
+      
+      const existingTrips = JSON.parse(localStorage.getItem('trips') || '[]')
+      if (!Array.isArray(existingTrips)) {
+        throw new Error('Invalid trips data in storage')
+      }
+      
+      existingTrips.push(newTrip)
+      localStorage.setItem('trips', JSON.stringify(existingTrips))
+      
+      return newTrip
+    } catch (error) {
+      console.error('Error creating trip:', error)
+      if (error instanceof Error) {
+        throw error
+      }
+      throw new Error('Failed to create trip: Unknown error')
+    }
   },
 
   async getTrips(userId?: string): Promise<Trip[]> {
-    const endpoint = userId ? `/api/users/${userId}/trip-plans` : '/api/trip-plans'
-    const response = await fetch(`${API_BASE_URL}${endpoint}`)
-    
-    if (!response.ok) {
-      throw new Error('Failed to fetch trips')
+    try {
+      const tripsData = localStorage.getItem('trips')
+      if (!tripsData) return []
+      
+      const trips = JSON.parse(tripsData)
+      if (!Array.isArray(trips)) {
+        console.warn('Invalid trips data format, resetting storage')
+        localStorage.setItem('trips', '[]')
+        return []
+      }
+      
+      return userId ? trips.filter((trip: Trip) => trip.userId === userId) : trips
+    } catch (error) {
+      console.error('Error fetching trips:', error)
+      localStorage.setItem('trips', '[]') // Reset corrupted data
+      return []
     }
-    
-    return response.json()
   },
 
   async getUserTrips(userId: string): Promise<Trip[]> {
-    const response = await fetch(`${API_BASE_URL}/api/users/${userId}/trip-plans`)
-    
-    if (!response.ok) {
-      throw new Error('Failed to fetch user trips')
+    if (!userId?.trim()) {
+      throw new Error('User ID is required')
     }
     
-    return response.json()
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/users/${encodeURIComponent(userId.trim())}/trip-plans`)
+      
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ message: 'Request failed' }))
+        throw new Error(errorData.message || `Failed to fetch user trips: HTTP ${response.status}`)
+      }
+      
+      const data = await response.json()
+      return Array.isArray(data) ? data : []
+    } catch (error) {
+      console.error('Error fetching user trips:', error)
+      if (error instanceof TypeError && error.message.includes('fetch')) {
+        throw new Error('Network connection failed. Please check your internet connection.')
+      }
+      throw error
+    }
   },
 
   async getTripById(tripId: string): Promise<Trip> {
-    console.log('🔍 Making API call to:', `${API_BASE_URL}/api/trip-plans/${tripId}`)
-    const response = await fetch(`${API_BASE_URL}/api/trip-plans/${tripId}`)
-    
-    console.log('📊 Response status:', response.status)
-    
-    if (!response.ok) {
-      const errorText = await response.text()
-      console.error('❌ API Error:', errorText)
-      throw new Error(`Failed to fetch trip: ${response.status} ${errorText}`)
+    try {
+      // Load trip from localStorage
+      const trips = JSON.parse(localStorage.getItem('trips') || '[]')
+      const trip = trips.find((t: Trip) => t._id === tripId)
+      
+      if (!trip) {
+        throw new Error('Trip not found')
+      }
+      
+      return trip
+    } catch (error) {
+      console.error('Error fetching trip:', error)
+      throw new Error('Failed to fetch trip')
     }
-    
-    const data = await response.json()
-    console.log('✅ Trip data received:', data)
-    return data
   },
 
   async deleteTrip(tripId: string): Promise<void> {
-    const response = await fetch(`${API_BASE_URL}/api/trip-plans/${tripId}`, {
-      method: 'DELETE'
-    })
-    
-    if (!response.ok) {
+    try {
+      const trips = JSON.parse(localStorage.getItem('trips') || '[]')
+      const filteredTrips = trips.filter((trip: Trip) => trip._id !== tripId)
+      localStorage.setItem('trips', JSON.stringify(filteredTrips))
+    } catch (error) {
+      console.error('Error deleting trip:', error)
       throw new Error('Failed to delete trip')
     }
   },
 
   async updateActivityStatus(tripId: string, dayIndex: number, activityIndex: number, isVisited: boolean): Promise<void> {
-    const response = await fetch(`${API_BASE_URL}/api/trip-plans/${tripId}/activity-status`, {
-      method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({ dayIndex, activityIndex, isVisited })
-    })
-    
-    if (!response.ok) {
+    try {
+      const trips = JSON.parse(localStorage.getItem('trips') || '[]')
+      const tripIndex = trips.findIndex((trip: Trip) => trip._id === tripId)
+      
+      if (tripIndex !== -1) {
+        trips[tripIndex].dailyPlans[dayIndex].activities[activityIndex].isVisited = isVisited
+        localStorage.setItem('trips', JSON.stringify(trips))
+      }
+    } catch (error) {
+      console.error('Error updating activity status:', error)
       throw new Error('Failed to update activity status')
     }
   }

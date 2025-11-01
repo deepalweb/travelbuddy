@@ -22,12 +22,17 @@ class ApiService {
       const response = await fetch(url, config);
       
       if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+        const errorData = await response.json().catch(() => ({ message: 'Request failed' }));
+        throw new Error(errorData.message || `HTTP ${response.status}: ${response.statusText}`);
       }
       
-      return await response.json();
+      const data = await response.json();
+      return data;
     } catch (error) {
-      console.error(`API request failed: ${endpoint}`, error);
+      console.error(`API request failed [${endpoint}]:`, error);
+      if (error instanceof TypeError && error.message.includes('fetch')) {
+        throw new Error('Network connection failed. Please check your internet connection.');
+      }
       throw error;
     }
   }

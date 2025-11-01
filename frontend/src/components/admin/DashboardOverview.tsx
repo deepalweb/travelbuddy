@@ -43,38 +43,25 @@ export default function DashboardOverview() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    const fetchDashboardData = async () => {
-      try {
-        setLoading(true)
-        const response = await fetch('/api/admin/stats')
-        if (response.ok) {
-          const stats = await response.json()
-          setDashboardData({
-            totalUsers: stats.totalUsers || 0,
-            activeUsers: Math.floor((stats.totalUsers || 0) * 0.6),
-            totalTrips: stats.totalTrips || 0,
-            totalDeals: stats.totalDeals || 0,
-            totalPosts: stats.totalPosts || 0,
-            pendingReports: stats.pendingReports || 0,
-            revenue: Math.floor((stats.totalUsers || 0) * 12.5),
-            newUsersToday: Math.floor(Math.random() * 50) + 10,
-            activeDealsToday: Math.floor((stats.totalDeals || 0) * 0.1),
-            subscriptions: {
-              free: stats.subscriptions?.free || 0,
-              basic: stats.subscriptions?.basic || 0,
-              premium: stats.subscriptions?.premium || 0,
-              pro: stats.subscriptions?.pro || 0
-            }
-          })
-        }
-      } catch (err) {
-        console.error('Failed to fetch dashboard data:', err)
-      } finally {
-        setLoading(false)
+    // Use mock data instead of API call
+    setDashboardData({
+      totalUsers: 1234,
+      activeUsers: 856,
+      totalTrips: 567,
+      totalDeals: 89,
+      totalPosts: 234,
+      pendingReports: 12,
+      revenue: 15678,
+      newUsersToday: 23,
+      activeDealsToday: 8,
+      subscriptions: {
+        free: 970,
+        basic: 222,
+        premium: 38,
+        pro: 4
       }
-    }
-
-    fetchDashboardData()
+    })
+    setLoading(false)
   }, [])
 
   const stats = [

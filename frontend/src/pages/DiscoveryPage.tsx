@@ -4,6 +4,11 @@ import { SearchBar } from '../components/SearchBar'
 import { Card, CardContent, CardHeader, CardTitle } from '../components/Card'
 import { Badge } from '../components/Badge'
 import { Button } from '../components/Button'
+import { PlaceCardSkeleton } from '../components/SkeletonLoader'
+import { ErrorState } from '../components/ErrorState'
+import { EmptyState } from '../components/EmptyState'
+import { SearchFilters } from '../components/SearchFilters'
+
 import PlaceDetailsModal from '../components/PlaceDetailsModal'
 import { apiService } from '../lib/api'
 import { 
@@ -68,6 +73,9 @@ const DiscoveryPage: React.FC = () => {
   const [searchContext, setSearchContext] = useState(globalSearchState.context)
   const [hasMore, setHasMore] = useState(globalSearchState.places.length > 0)
   const [selectedPlaces, setSelectedPlaces] = useState<Place[]>([])
+  const [showFilters, setShowFilters] = useState(false)
+  const [activeFilters, setActiveFilters] = useState({ category: [], priceRange: [], rating: 0, location: '' })
+  const [showMap, setShowMap] = useState(false)
 
   const handleSearch = async (query: string, isNewSearch = true) => {
     if (!query.trim()) return
@@ -220,15 +228,78 @@ const DiscoveryPage: React.FC = () => {
         </div>
       </div>
 
+      {/* Region Quick Access Shortcuts */}
+      <div className="bg-white border-b border-gray-100 py-6">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex flex-col items-center gap-4">
+            {/* Country Dropdown */}
+            <div className="flex items-center gap-3">
+              <span className="text-sm font-medium text-gray-700">Explore by Country:</span>
+              <select 
+                className="px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                onChange={(e) => e.target.value && handleSearch(`best places in ${e.target.value}`, true)}
+                defaultValue=""
+              >
+                <option value="">Select a country</option>
+                <option value="Japan">🇯🇵 Japan</option>
+                <option value="France">🇫🇷 France</option>
+                <option value="Italy">🇮🇹 Italy</option>
+                <option value="Thailand">🇹🇭 Thailand</option>
+                <option value="United States">🇺🇸 United States</option>
+                <option value="United Kingdom">🇬🇧 United Kingdom</option>
+                <option value="Spain">🇪🇸 Spain</option>
+                <option value="Germany">🇩🇪 Germany</option>
+                <option value="Australia">🇦🇺 Australia</option>
+                <option value="Canada">🇨🇦 Canada</option>
+                <option value="India">🇮🇳 India</option>
+                <option value="China">🇨🇳 China</option>
+                <option value="Brazil">🇧🇷 Brazil</option>
+                <option value="Mexico">🇲🇽 Mexico</option>
+                <option value="Sri Lanka">🇱🇰 Sri Lanka</option>
+              </select>
+            </div>
+            
+            {/* Region Chips */}
+            <div className="flex flex-wrap justify-center gap-3">
+              {[
+                { label: '🌍 Asia', query: 'attractions in Asia' },
+                { label: '🇪🇺 Europe', query: 'attractions in Europe' },
+                { label: '🇺🇸 Americas', query: 'attractions in Americas' },
+                { label: '🌊 Islands', query: 'tropical islands destinations' },
+                { label: '🏔️ Mountains', query: 'mountain destinations' },
+                { label: '🏛️ Culture', query: 'cultural attractions museums' }
+              ].map((region) => (
+                <Button
+                  key={region.label}
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleSearch(region.query, true)}
+                  className="border-gray-300 text-gray-700 hover:bg-blue-50 hover:border-blue-300 hover:text-blue-700 transition-colors"
+                >
+                  {region.label}
+                </Button>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+
       {/* Results Section */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         {loading && (
-          <div className="text-center py-12">
-            <div className="inline-flex items-center">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mr-3"></div>
-              <span className="text-lg text-gray-600">AI is discovering amazing places for you...</span>
+          <>
+            <div className="text-center py-8">
+              <div className="inline-flex items-center">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mr-3"></div>
+                <span className="text-lg text-gray-600">AI is discovering amazing places for you...</span>
+              </div>
             </div>
-          </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+              {Array.from({ length: 8 }).map((_, i) => (
+                <PlaceCardSkeleton key={i} />
+              ))}
+            </div>
+          </>
         )}
 
         {searchContext && !loading && (
@@ -238,15 +309,40 @@ const DiscoveryPage: React.FC = () => {
                 <TrendingUp className="h-5 w-5 text-blue-600 mr-2" />
                 <h2 className="text-2xl font-bold text-gray-900">Discovery Results</h2>
               </div>
-              {selectedPlaces.length > 0 && (
+              <div className="flex items-center space-x-3">
                 <Button
-                  onClick={handleGenerateTrip}
-                  className="bg-gradient-to-r from-green-600 to-teal-600 hover:from-green-700 hover:to-teal-700 text-white"
+                  onClick={() => setShowFilters(true)}
+                  variant="outline"
+                  size="sm"
+                  className="flex items-center"
                 >
-                  <Plane className="h-4 w-4 mr-2" />
-                  Generate Trip ({selectedPlaces.length})
+                  <Navigation className="h-4 w-4 mr-2" />
+                  Filters
+                  {(activeFilters.category.length > 0 || activeFilters.priceRange.length > 0) && (
+                    <span className="ml-2 bg-blue-600 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
+                      {activeFilters.category.length + activeFilters.priceRange.length}
+                    </span>
+                  )}
                 </Button>
-              )}
+                <Button
+                  onClick={() => setShowMap(!showMap)}
+                  variant="outline"
+                  size="sm"
+                  className="flex items-center"
+                >
+                  <MapPin className="h-4 w-4 mr-2" />
+                  {showMap ? 'Hide Map' : 'Show Map'}
+                </Button>
+                {selectedPlaces.length > 0 && (
+                  <Button
+                    onClick={handleGenerateTrip}
+                    className="bg-gradient-to-r from-green-600 to-teal-600 hover:from-green-700 hover:to-teal-700 text-white"
+                  >
+                    <Plane className="h-4 w-4 mr-2" />
+                    Generate Trip ({selectedPlaces.length})
+                  </Button>
+                )}
+              </div>
             </div>
             <p className="text-gray-600">{searchContext}</p>
             <p className="text-sm text-gray-500 mt-1">
@@ -259,18 +355,54 @@ const DiscoveryPage: React.FC = () => {
 
         {places.length > 0 && !loading && (
           <>
+
+            
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
               {places.map((place) => (
-                <Card key={place.id} className="overflow-hidden hover:shadow-xl transition-all duration-300 hover:scale-105">
+                <Card key={place.id} className="overflow-hidden hover:shadow-xl transition-all duration-300 hover:scale-105 hover:-translate-y-1 group">
                   <div className="relative">
-                    <img 
-                      src={place.image} 
-                      alt={place.name}
-                      className="w-full h-48 object-cover"
-                      onError={(e) => {
-                        (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=400&h=300&fit=crop'
-                      }}
-                    />
+                    <div className="relative w-full h-48 bg-gray-200 overflow-hidden">
+                      <img 
+                        src={place.image} 
+                        alt={place.name}
+                        className="w-full h-48 object-cover transition-all duration-300 hover:scale-105"
+                        loading="lazy"
+                        onLoad={(e) => {
+                          const target = e.target as HTMLImageElement
+                          target.style.opacity = '1'
+                          const loader = target.parentElement?.querySelector('.image-loader')
+                          if (loader) loader.classList.add('hidden')
+                        }}
+                        onError={(e) => {
+                          const target = e.target as HTMLImageElement
+                          const loader = target.parentElement?.querySelector('.image-loader')
+                          if (loader) loader.classList.add('hidden')
+                          
+                          if (!target.src.includes('source.unsplash.com')) {
+                            target.src = `https://source.unsplash.com/800x600/?${encodeURIComponent(place.name)},${encodeURIComponent(place.location.city)},landmark`
+                          } else if (!target.src.includes('picsum.photos')) {
+                            target.src = `https://picsum.photos/seed/${encodeURIComponent(place.id)}/800/600`
+                          } else {
+                            target.style.display = 'none'
+                            const placeholder = target.parentElement?.querySelector('.image-placeholder')
+                            if (placeholder) placeholder.classList.remove('hidden')
+                          }
+                        }}
+                        style={{ opacity: 0 }}
+                      />
+                      <div className="image-loader absolute inset-0 flex items-center justify-center bg-gray-100">
+                        <div className="animate-pulse flex items-center justify-center">
+                          <div className="w-8 h-8 bg-gray-300 rounded-full animate-bounce"></div>
+                        </div>
+                      </div>
+                      <div className="image-placeholder hidden absolute inset-0 flex items-center justify-center bg-gradient-to-br from-blue-100 to-purple-100">
+                        <div className="text-center">
+                          <MapPin className="h-12 w-12 text-gray-400 mx-auto mb-2" />
+                          <p className="text-sm text-gray-500 font-medium">{place.category}</p>
+                          <p className="text-xs text-gray-400">{place.name}</p>
+                        </div>
+                      </div>
+                    </div>
                     <div className="absolute top-3 left-3">
                       <Badge className={getCategoryColor(place.category)}>
                         {place.category}
@@ -435,13 +567,13 @@ const DiscoveryPage: React.FC = () => {
         )}
 
         {!loading && places.length === 0 && searchQuery && (
-          <div className="text-center py-12">
-            <div className="text-gray-500">
-              <Sparkles className="h-12 w-12 mx-auto mb-4 opacity-50" />
-              <h3 className="text-lg font-medium mb-2">No results found</h3>
-              <p>Try a different search term or check your spelling</p>
-            </div>
-          </div>
+          <EmptyState
+            title="No results found"
+            message="Try a different search term or check your spelling"
+            actionLabel="Try Popular Searches"
+            onAction={() => handleSearch('restaurants in Tokyo', true)}
+            icon={<Sparkles className="h-8 w-8 text-gray-400" />}
+          />
         )}
 
         {!loading && places.length === 0 && !searchQuery && (
@@ -449,9 +581,9 @@ const DiscoveryPage: React.FC = () => {
             <div className="text-gray-500">
               <Sparkles className="h-16 w-16 mx-auto mb-4 opacity-50" />
               <h3 className="text-xl font-medium mb-2">Ready to Discover?</h3>
-              <p className="mb-4">Use the search bar above to find amazing places, then select them to generate a custom trip</p>
+              <p className="mb-6">Use the search bar above to find amazing places, then select them to generate a custom trip</p>
               <div className="flex flex-wrap justify-center gap-2">
-                {['Tokyo restaurants', 'Paris museums', 'NYC hotels', 'London attractions'].map((suggestion) => (
+                {['restaurants in Colombo', 'temples in Kandy', 'hotels in Galle', 'beaches in Mirissa'].map((suggestion) => (
                   <Button 
                     key={suggestion}
                     variant="outline" 
@@ -466,6 +598,13 @@ const DiscoveryPage: React.FC = () => {
           </div>
         )}
       </div>
+
+      {/* Search Filters */}
+      <SearchFilters
+        isOpen={showFilters}
+        onClose={() => setShowFilters(false)}
+        onFiltersChange={setActiveFilters}
+      />
 
       {/* Place Details Modal */}
       <PlaceDetailsModal 

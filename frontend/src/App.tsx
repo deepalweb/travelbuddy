@@ -10,6 +10,9 @@ import { TripDetailPage } from './pages/TripDetailPage'
 import PlaceDetailsPage from './pages/PlaceDetailsPage'
 import { AdminLayout } from './components/AdminLayout'
 import { AdminDashboard } from './pages/AdminDashboard'
+import { AgentRegistration } from './pages/AgentRegistration'
+import { TravelAgents } from './pages/TravelAgents'
+import { StoryDetailPage } from './pages/StoryDetailPage'
 import { LoadingScreen } from './components/LoadingScreen'
 
 const AppContent: React.FC = () => {
@@ -43,8 +46,11 @@ const AppContent: React.FC = () => {
           <Routes>
             <Route path="/login" element={<LoginPage />} />
             <Route path="/register" element={<RegisterPage />} />
+            <Route path="/travel-agents" element={<TravelAgents />} />
+            <Route path="/agent-registration" element={<AgentRegistration />} />
             <Route path="/trips/:id" element={<TripDetailPage />} />
             <Route path="/places/:id" element={<PlaceDetailsPage />} />
+            <Route path="/community/story/:id" element={<StoryDetailPage />} />
             <Route path="/admin" element={<AdminDashboard />} />
             <Route path="/admin/*" element={<AdminLayout />} />
             <Route path="/*" element={<Layout />} />

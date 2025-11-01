@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react'
+import { Link } from 'react-router-dom'
 import { Card, CardContent } from '../components/Card'
 import { Button } from '../components/Button'
 import { 
@@ -345,9 +346,11 @@ export const TravelAgentsPage: React.FC = () => {
           <p className="text-gray-600 mb-6 max-w-2xl mx-auto">
             Join our network of verified travel professionals and connect with travelers looking for authentic experiences.
           </p>
-          <Button className="bg-gradient-to-r from-teal-600 to-blue-600 hover:from-teal-700 hover:to-blue-700 text-white px-8 py-3 rounded-xl">
-            Register as Agent
-          </Button>
+          <Link to="/agent-registration">
+            <Button className="bg-gradient-to-r from-teal-600 to-blue-600 hover:from-teal-700 hover:to-blue-700 text-white px-8 py-3 rounded-xl">
+              Register as Agent
+            </Button>
+          </Link>
         </div>
 
         {/* Agent Profile Modal */}

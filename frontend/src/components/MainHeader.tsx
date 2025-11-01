@@ -3,7 +3,7 @@ import { Link, useLocation } from 'react-router-dom'
 import { 
   Compass, Home, Globe, MapPin, Hotel, Car, Calendar, 
   Users, Bot, Search, Heart, User, ChevronDown, Menu, X,
-  Bell, Settings, LogOut, BookOpen, Plane
+  Bell, Settings, LogOut, BookOpen, Plane, Tag
 } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import { Button } from './Button'
@@ -13,6 +13,8 @@ const navigationItems = [
   { id: 'home', label: 'Home', icon: Home, path: '/' },
   { id: 'discover', label: 'Explore', icon: Globe, path: '/places' },
   { id: 'planner', label: 'Plan Trip', icon: MapPin, path: '/trips' },
+  { id: 'deals', label: 'Deals', icon: Tag, path: '/deals' },
+  { id: 'community', label: 'Community', icon: Users, path: '/community' },
   { 
     id: 'transport', 
     label: 'Transport', 

@@ -13,6 +13,8 @@ import { TransportationPage } from '../pages/TransportationPage'
 import { TravelPreferencesPage } from '../pages/TravelPreferencesPage'
 import { NotificationsPage } from '../pages/NotificationsPage'
 import { SettingsPage } from '../pages/SettingsPage'
+import { DealsPage } from '../pages/DealsPage'
+import { CommunityPage } from '../pages/CommunityPage'
 import { useApp } from '../contexts/AppContext'
 import { useAuth } from '../contexts/AuthContext'
 
@@ -69,9 +71,9 @@ export const Layout: React.FC = () => {
       case '/transport':
         return <TransportationPage />
       case '/deals':
-        return <PlaceholderPage title="Deals" />
+        return <DealsPage />
       case '/community':
-        return <PlaceholderPage title="Community" />
+        return <CommunityPage />
       case '/profile':
         return <ProfilePage />
       case '/preferences':

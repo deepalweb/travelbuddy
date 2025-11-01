@@ -3,10 +3,12 @@ import { useAuth } from '../contexts/AuthContext'
 import { useNavigate } from 'react-router-dom'
 import { Card, CardContent, CardHeader, CardTitle } from '../components/Card'
 import { Button } from '../components/Button'
-import { MapPin, Calendar, Clock, Trash2, Eye, Sparkles, DollarSign, Navigation, Star, Users, Plane } from 'lucide-react'
+import { MapPin, Calendar, Clock, Trash2, Eye, Sparkles, DollarSign, Navigation, Star, Users, Plane, Map, List } from 'lucide-react'
 import { tripService } from '../services/tripService'
 import { AITripGenerator } from '../components/AITripGenerator'
 import { TripForm } from '../components/TripForm'
+
+import { DragDropItinerary } from '../components/DragDropItinerary'
 
 interface Trip {
   _id: string
@@ -26,6 +28,8 @@ export const TripPlanningPage: React.FC = () => {
   const [showTripForm, setShowTripForm] = useState(false)
   const [loading, setLoading] = useState(true)
   const [selectedPlaces, setSelectedPlaces] = useState<any[]>([])
+  const [viewMode, setViewMode] = useState<'list' | 'map'>('list')
+  const [generatedItinerary, setGeneratedItinerary] = useState<any>(null)
   const navigate = useNavigate()
 
   useEffect(() => {
@@ -93,8 +97,27 @@ export const TripPlanningPage: React.FC = () => {
               Your Travel Adventures
             </h1>
             <p className="text-xl sm:text-2xl text-blue-100 mb-8 max-w-3xl mx-auto">
-              Create personalized itineraries with AI-powered trip planning
+              Create personalized itineraries with AI-powered trip planning. Drag & drop to organize, visualize on maps.
             </p>
+            
+            <div className="flex justify-center space-x-2 mb-8">
+              <Button
+                variant={viewMode === 'list' ? 'default' : 'outline'}
+                onClick={() => setViewMode('list')}
+                className="flex items-center bg-white/20 backdrop-blur-sm border-white/30 text-white hover:bg-white/30"
+              >
+                <List className="w-4 h-4 mr-2" />
+                List View
+              </Button>
+              <Button
+                variant={viewMode === 'map' ? 'default' : 'outline'}
+                onClick={() => setViewMode('map')}
+                className="flex items-center bg-white/20 backdrop-blur-sm border-white/30 text-white hover:bg-white/30"
+              >
+                <Map className="w-4 h-4 mr-2" />
+                Map View
+              </Button>
+            </div>
             <div className="flex justify-center">
               <Button 
                 onClick={() => setShowAIGenerator(true)}

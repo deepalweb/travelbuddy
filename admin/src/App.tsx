@@ -5,6 +5,7 @@ import { Bell } from '@phosphor-icons/react'
 import AdminSidebar from '@/components/AdminSidebar'
 import DashboardOverview from '@/components/DashboardOverview'
 import UserManagement from '@/components/UserManagement'
+import PartnerManagement from '@/components/PartnerManagement'
 import ContentModeration from '@/components/ContentModeration'
 import BusinessManagement from '@/components/BusinessManagement'
 import AnalyticsHub from '@/components/AnalyticsHub'
@@ -24,6 +25,8 @@ const AdminDashboard = () => {
           return <DashboardOverview />
         case 'users':
           return <UserManagement />
+        case 'partners':
+          return <PartnerManagement />
         case 'content':
           return <ContentModeration />
         case 'business':

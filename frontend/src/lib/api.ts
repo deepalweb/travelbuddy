@@ -28,12 +28,17 @@ class ApiService {
       const response = await fetch(url, config)
       
       if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`)
+        const errorData = await response.json().catch(() => ({ message: 'Network error' }))
+        throw new Error(errorData.message || `HTTP ${response.status}: ${response.statusText}`)
       }
       
-      return await response.json()
+      const data = await response.json()
+      return data
     } catch (error) {
-      console.error('API request failed:', error)
+      console.error(`API request failed [${endpoint}]:`, error)
+      if (error instanceof TypeError && error.message.includes('fetch')) {
+        throw new Error('Network connection failed. Please check your internet connection.')
+      }
       throw error
     }
   }
@@ -45,13 +50,21 @@ class ApiService {
 
   // Places API
   async getNearbyPlaces(lat: number, lng: number, query?: string, radius?: number) {
+    if (!lat || !lng || isNaN(lat) || isNaN(lng)) {
+      throw new Error('Valid latitude and longitude are required')
+    }
+    
+    if (Math.abs(lat) > 90 || Math.abs(lng) > 180) {
+      throw new Error('Invalid coordinates: latitude must be between -90 and 90, longitude between -180 and 180')
+    }
+    
     const params = new URLSearchParams({
       lat: lat.toString(),
       lng: lng.toString(),
     })
     
-    if (query) params.append('q', query)
-    if (radius) params.append('radius', radius.toString())
+    if (query?.trim()) params.append('q', query.trim())
+    if (radius && radius > 0) params.append('radius', radius.toString())
     
     return this.request(`/places/nearby?${params}`)
   }
@@ -128,19 +141,28 @@ class ApiService {
 
   // AI-powered Search API
   async searchPlaces(query: string, filters?: any) {
-    const params = new URLSearchParams({ q: query })
-    if (filters?.category) params.append('category', filters.category)
-    if (filters?.limit) params.append('limit', filters.limit.toString())
-    
-    const response = await this.request<any>(`/search/places?${params}`)
-    
-    // Handle new AI response format
-    if (response.success && response.data) {
-      return response.data.places || []
+    if (!query?.trim()) {
+      throw new Error('Search query is required')
     }
     
-    // Fallback for direct array response
-    return Array.isArray(response) ? response : []
+    const params = new URLSearchParams({ q: query.trim() })
+    if (filters?.category) params.append('category', filters.category)
+    if (filters?.limit && filters.limit > 0) params.append('limit', filters.limit.toString())
+    
+    try {
+      const response = await this.request<any>(`/search/places?${params}`)
+      
+      // Handle new AI response format
+      if (response?.success && response.data) {
+        return Array.isArray(response.data.places) ? response.data.places : []
+      }
+      
+      // Fallback for direct array response
+      return Array.isArray(response) ? response : []
+    } catch (error) {
+      console.error('Search places failed:', error)
+      return []
+    }
   }
 
   // Search suggestions for autocomplete

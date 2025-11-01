@@ -104,7 +104,7 @@ try {
 const app = express();
 // Enable gzip compression for faster API responses
 app.use(compression({ threshold: 1024 }));
-const PORT = process.env.PORT || 8080;
+const PORT = process.env.PORT || 3001;
 
 // Create HTTP/HTTPS server and Socket.io for real-time metrics
 let httpServer;
@@ -675,6 +675,20 @@ app.use(securityHeaders);
 app.use(apiRateLimit);
 app.use(sanitizeInput);
 
+// Simple CORS headers for development
+app.use((req, res, next) => {
+  res.header('Access-Control-Allow-Origin', 'http://localhost:3000');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization, x-user-id, x-firebase-uid, x-user-tier, x-admin-secret');
+  res.header('Access-Control-Allow-Credentials', 'true');
+  
+  if (req.method === 'OPTIONS') {
+    res.sendStatus(200);
+  } else {
+    next();
+  }
+});
+
 // Middleware
 app.use((req, res, next) => {
   console.log('🔍 Request:', req.method, req.path);
@@ -682,13 +696,40 @@ app.use((req, res, next) => {
 });
 
 app.use(cors({
-  origin: process.env.NODE_ENV === 'production' 
-    ? [process.env.CLIENT_URL, process.env.WEBSITE_HOSTNAME]
-    : ['http://localhost:3000', 'http://localhost:5173'],
-  credentials: true
+  origin: function (origin, callback) {
+    // Allow requests with no origin (like mobile apps or curl requests)
+    if (!origin) return callback(null, true);
+    
+    const allowedOrigins = process.env.NODE_ENV === 'production' 
+      ? [process.env.CLIENT_URL, process.env.WEBSITE_HOSTNAME].filter(Boolean)
+      : ['http://localhost:3000', 'http://localhost:5173', 'http://localhost:3001', 'http://127.0.0.1:3000'];
+    
+    if (allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    }
+    
+    // Allow any localhost origin in development
+    if (process.env.NODE_ENV !== 'production' && origin && origin.includes('localhost')) {
+      return callback(null, true);
+    }
+    
+    console.log('CORS blocked origin:', origin);
+    callback(new Error('Not allowed by CORS'));
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'x-user-id', 'x-firebase-uid', 'x-user-tier', 'x-admin-secret']
 }));
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ limit: '10mb', extended: true }));
+
+// Handle preflight OPTIONS requests
+app.options('*', cors({
+  origin: true, // Allow all origins for OPTIONS requests
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'x-user-id', 'x-firebase-uid', 'x-user-tier', 'x-admin-secret']
+}));
 
 
 
@@ -1100,6 +1141,55 @@ try {
   console.log('✅ User profile routes loaded after User model');
 } catch (error) {
   console.error('❌ Failed to load user routes:', error);
+}
+
+// Direct auth status endpoint
+app.get('/api/auth/status', async (req, res) => {
+  try {
+    const status = {
+      timestamp: new Date().toISOString(),
+      firebase: {
+        configured: !!(process.env.VITE_FIREBASE_API_KEY || process.env.FIREBASE_ADMIN_CREDENTIALS_JSON),
+        adminConfigured: !!process.env.FIREBASE_ADMIN_CREDENTIALS_JSON,
+        clientConfigured: !!process.env.VITE_FIREBASE_API_KEY
+      },
+      authentication: {
+        methods: [],
+        endpoints: {
+          demoLogin: '/api/demo-auth/demo-login',
+          firebaseSync: '/api/users/sync',
+          createAdmin: '/api/setup/create-admin'
+        }
+      },
+      database: {
+        connected: mongoose.connection.readyState === 1,
+        models: ['User', 'Post', 'TripPlan', 'Deal'].filter(model => global[model])
+      }
+    };
+
+    if (status.firebase.configured) {
+      status.authentication.methods.push('Firebase Auth', 'Google Sign-in');
+    }
+    if (process.env.ADMIN_API_KEY) {
+      status.authentication.methods.push('Demo Admin Login');
+    }
+
+    res.json(status);
+  } catch (error) {
+    res.status(500).json({ 
+      error: 'Failed to check auth status', 
+      details: error.message 
+    });
+  }
+});
+
+// Auth status routes - load early
+try {
+  const authStatusRouter = (await import('./routes/auth-status.js')).default;
+  app.use('/api/auth', authStatusRouter);
+  console.log('✅ Auth status routes loaded');
+} catch (error) {
+  console.error('❌ Failed to load auth status routes:', error);
 }
 
 // Trip generation endpoint with Azure OpenAI - no authentication required for public access
@@ -2211,7 +2301,7 @@ app.get('/api/places/nearby', enforcePolicy('places'), async (req, res) => {
   }
 });
 
-// User sync endpoint for Firebase integration
+// User sync endpoint for Firebase integration - with flexible auth
 app.post('/api/users/sync', async (req, res) => {
   try {
     const authHeader = req.headers['authorization'] || '';
@@ -2221,45 +2311,87 @@ app.post('/api/users/sync', async (req, res) => {
       return res.status(401).json({ error: 'No token provided' });
     }
 
-    const { email, username, firebaseUid } = req.body;
+    // Extract user info from token (development-friendly)
+    let extractedUid = null;
+    let extractedEmail = null;
     
-    if (!email) {
-      return res.status(400).json({ error: 'Email is required' });
+    // Try Firebase JWT format first
+    try {
+      const parts = token.split('.');
+      if (parts.length === 3) {
+        const payload = JSON.parse(Buffer.from(parts[1], 'base64').toString('utf8'));
+        extractedUid = payload.user_id || payload.sub || payload.uid;
+        extractedEmail = payload.email;
+        console.log('✅ Extracted from Firebase JWT:', { uid: extractedUid, email: extractedEmail });
+      }
+    } catch (e) {
+      console.log('⚠️ Not a Firebase JWT, trying simple decode');
+    }
+    
+    // Fallback to simple token format
+    if (!extractedUid) {
+      try {
+        const decoded = Buffer.from(token, 'base64').toString('utf8');
+        const [uid] = decoded.split(':');
+        extractedUid = uid;
+        console.log('✅ Extracted from simple token:', extractedUid);
+      } catch (e) {
+        console.log('⚠️ Token decode failed, using fallback');
+        extractedUid = 'sync-user-' + Date.now();
+      }
+    }
+
+    const { email, username, firebaseUid } = req.body;
+    const finalEmail = email || extractedEmail;
+    const finalFirebaseUid = firebaseUid || extractedUid;
+    
+    if (!finalEmail && !finalFirebaseUid) {
+      return res.status(400).json({ error: 'Email or Firebase UID is required' });
     }
 
     // Find or create user
     let user = await User.findOne({ 
-      $or: [{ email }, { firebaseUid }]
+      $or: [
+        ...(finalEmail ? [{ email: finalEmail }] : []),
+        ...(finalFirebaseUid ? [{ firebaseUid: finalFirebaseUid }] : [])
+      ]
     });
     
     if (!user) {
       user = new User({
-        email,
-        username: username || email.split('@')[0],
-        firebaseUid,
+        email: finalEmail || `${finalFirebaseUid}@sync.local`,
+        username: username || finalEmail?.split('@')[0] || finalFirebaseUid,
+        firebaseUid: finalFirebaseUid,
         tier: 'free',
         subscriptionStatus: 'none'
       });
       await user.save();
+      console.log('✅ Created new user via sync:', user._id);
     } else {
       // Update user info if needed
       let updated = false;
-      if (firebaseUid && !user.firebaseUid) {
-        user.firebaseUid = firebaseUid;
+      if (finalFirebaseUid && !user.firebaseUid) {
+        user.firebaseUid = finalFirebaseUid;
         updated = true;
       }
       if (username && user.username !== username) {
         user.username = username;
         updated = true;
       }
+      if (finalEmail && user.email !== finalEmail) {
+        user.email = finalEmail;
+        updated = true;
+      }
       if (updated) {
         await user.save();
+        console.log('✅ Updated existing user via sync:', user._id);
       }
     }
     
     res.json(user);
   } catch (error) {
-    res.status(500).json({ error: 'User sync failed' });
+    console.error('❌ User sync error:', error);
+    res.status(500).json({ error: 'User sync failed', details: error.message });
   }
 });
 
@@ -5024,6 +5156,15 @@ try {
   console.log('✅ Setup routes loaded');
 } catch (error) {
   console.error('❌ Failed to load setup routes:', error);
+}
+
+// Load partners routes
+try {
+  const partnersRouter = (await import('./routes/partners.js')).default;
+  app.use('/api/partners', partnersRouter);
+  console.log('✅ Partners routes loaded');
+} catch (error) {
+  console.error('❌ Failed to load partners routes:', error);
 }
 
 // Admin routes - Enhanced with middleware

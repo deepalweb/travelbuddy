@@ -1,4 +1,4 @@
-name: Deploy Travel Buddy to Azure
+name: Deploy TravelBuddy to Azure App Service
 
 on:
   push:
@@ -6,22 +6,36 @@ on:
     paths:
       - 'frontend/**'
       - 'backend/**'
+      - 'admin/**'
       - '.github/workflows/**'
   workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Deployment environment'
+        required: true
+        default: 'production'
+        type: choice
+        options:
+          - production
+          - staging
 
 env:
   NODE_VERSION: '20'
   AZURE_WEBAPP_NAME: 'travelbuddy-b2c6hgbbgeh4esdh'
+  DEPLOYMENT_BRANCH: ${{ github.ref_name }}
 
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
+    environment: ${{ github.event.inputs.environment || 'production' }}
     
     steps:
-    - name: Checkout code
+    - name: 🚀 Checkout Repository
       uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
     
-    - name: Setup Node.js
+    - name: 📦 Setup Node.js ${{ env.NODE_VERSION }}
       uses: actions/setup-node@v4
       with:
         node-version: ${{ env.NODE_VERSION }}
@@ -29,43 +43,81 @@ jobs:
         cache-dependency-path: |
           frontend/package-lock.json
           backend/package-lock.json
+          admin/package-lock.json
     
-    - name: Install frontend dependencies
+    - name: 🔧 Install Frontend Dependencies
       run: |
         cd frontend
-        npm ci
+        npm ci --prefer-offline --no-audit
     
-    - name: Create production environment file
+    - name: 🔧 Install Admin Dependencies
       run: |
+        cd admin
+        npm ci --prefer-offline --no-audit
+    
+    - name: 🌍 Create Production Environment Files
+      run: |
+        # Frontend environment
         cd frontend
         cat > .env.production << 'EOF'
-        VITE_API_BASE_URL=https://travelbuddy-b2c6hgbbgeh4esdh.eastus2-01.azurewebsites.net
-        VITE_FIREBASE_API_KEY=AIzaSyCuJr5N0ytr1h_Aq_5qQazNL0wQUnsZlAw
-        VITE_FIREBASE_AUTH_DOMAIN=travelbuddy-2d1c5.firebaseapp.com
-        VITE_FIREBASE_PROJECT_ID=travelbuddy-2d1c5
-        VITE_FIREBASE_STORAGE_BUCKET=travelbuddy-2d1c5.firebasestorage.app
-        VITE_FIREBASE_MESSAGING_SENDER_ID=45425409967
-        VITE_FIREBASE_APP_ID=1:45425409967:web:782638c65a40dcb156b95a
-        VITE_GOOGLE_MAPS_API_KEY=AIzaSyAey-fuui7b3I-PkzJDVfsTFa9Kv_b_6ls
-        VITE_UNSPLASH_ACCESS_KEY=J4khiSIy9hN7kZabjiTdQR-SG_FgxNX25icqGuleqhs
+        VITE_API_BASE_URL=${{ secrets.VITE_API_BASE_URL || 'https://travelbuddy-b2c6hgbbgeh4esdh.eastus2-01.azurewebsites.net' }}
+        VITE_FIREBASE_API_KEY=${{ secrets.VITE_FIREBASE_API_KEY }}
+        VITE_FIREBASE_AUTH_DOMAIN=${{ secrets.VITE_FIREBASE_AUTH_DOMAIN }}
+        VITE_FIREBASE_PROJECT_ID=${{ secrets.VITE_FIREBASE_PROJECT_ID }}
+        VITE_FIREBASE_STORAGE_BUCKET=${{ secrets.VITE_FIREBASE_STORAGE_BUCKET }}
+        VITE_FIREBASE_MESSAGING_SENDER_ID=${{ secrets.VITE_FIREBASE_MESSAGING_SENDER_ID }}
+        VITE_FIREBASE_APP_ID=${{ secrets.VITE_FIREBASE_APP_ID }}
+        VITE_GOOGLE_MAPS_API_KEY=${{ secrets.VITE_GOOGLE_MAPS_API_KEY }}
+        VITE_UNSPLASH_ACCESS_KEY=${{ secrets.VITE_UNSPLASH_ACCESS_KEY }}
+        EOF
+        
+        # Admin environment
+        cd ../admin
+        cat > .env.production << 'EOF'
+        VITE_API_BASE_URL=${{ secrets.VITE_API_BASE_URL || 'https://travelbuddy-b2c6hgbbgeh4esdh.eastus2-01.azurewebsites.net' }}
+        VITE_FIREBASE_API_KEY=${{ secrets.VITE_FIREBASE_API_KEY }}
+        VITE_FIREBASE_AUTH_DOMAIN=${{ secrets.VITE_FIREBASE_AUTH_DOMAIN }}
+        VITE_FIREBASE_PROJECT_ID=${{ secrets.VITE_FIREBASE_PROJECT_ID }}
         EOF
     
-    - name: Build frontend
+    - name: 🏗️ Build Frontend
       run: |
         cd frontend
         npm run build
+        echo "✅ Frontend build completed"
+        ls -la dist/
     
-    - name: Install backend dependencies
+    - name: 🏗️ Build Admin Dashboard
+      run: |
+        cd admin
+        npm run build
+        echo "✅ Admin build completed"
+        ls -la dist/
+    
+    - name: 🔧 Install Backend Dependencies
       run: |
         cd backend
-        npm ci --omit=dev
+        npm ci --omit=dev --prefer-offline --no-audit
     
-    - name: Copy frontend build to backend
+    - name: 📁 Prepare Deployment Structure
       run: |
+        # Create deployment directory structure
         mkdir -p backend/public
+        mkdir -p backend/admin
+        
+        # Copy frontend build
         cp -r frontend/dist/* backend/public/
+        
+        # Copy admin build
+        cp -r admin/dist/* backend/admin/
+        
+        echo "✅ Deployment structure prepared"
+        echo "Frontend files:"
+        ls -la backend/public/
+        echo "Admin files:"
+        ls -la backend/admin/
     
-    - name: Create web.config for Azure
+    - name: ⚙️ Create Optimized web.config
       run: |
         cat > backend/web.config << 'EOF'
         <?xml version="1.0" encoding="utf-8"?>
@@ -76,99 +128,273 @@ jobs:
             </handlers>
             <rewrite>
               <rules>
-                <rule name="StaticFiles" stopProcessing="true">
-                  <match url="^(assets/.*|js/.*|css/.*|.*\.(css|js|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot|json))$" />
+                <!-- Static Assets -->
+                <rule name="StaticAssets" stopProcessing="true">
+                  <match url="^(assets/.*|static/.*|js/.*|css/.*|images/.*|fonts/.*|.*\.(css|js|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot|json|webp|avif))$" />
                   <action type="Rewrite" url="public/{R:0}" />
                 </rule>
-                <rule name="SPA" stopProcessing="true">
-                  <match url=".*" />
+                
+                <!-- Admin Routes -->
+                <rule name="AdminStatic" stopProcessing="true">
+                  <match url="^admin/(assets/.*|static/.*|.*\.(css|js|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot|json))$" />
+                  <action type="Rewrite" url="admin/{R:1}" />
+                </rule>
+                
+                <rule name="AdminSPA" stopProcessing="true">
+                  <match url="^admin/(.*)" />
                   <conditions logicalGrouping="MatchAll">
                     <add input="{REQUEST_FILENAME}" matchType="IsFile" negate="true" />
-                    <add input="{REQUEST_URI}" pattern="^/api/" negate="true" />
                   </conditions>
-                  <action type="Rewrite" url="public/index.html" />
+                  <action type="Rewrite" url="admin/index.html" />
                 </rule>
+                
+                <!-- API Routes -->
                 <rule name="API" stopProcessing="true">
                   <match url="^api/(.*)" />
                   <action type="Rewrite" url="server.js" />
                 </rule>
+                
+                <!-- Frontend SPA -->
+                <rule name="FrontendSPA" stopProcessing="true">
+                  <match url=".*" />
+                  <conditions logicalGrouping="MatchAll">
+                    <add input="{REQUEST_FILENAME}" matchType="IsFile" negate="true" />
+                    <add input="{REQUEST_URI}" pattern="^/api/" negate="true" />
+                    <add input="{REQUEST_URI}" pattern="^/admin/" negate="true" />
+                  </conditions>
+                  <action type="Rewrite" url="public/index.html" />
+                </rule>
               </rules>
             </rewrite>
+            
+            <!-- Static Content Configuration -->
             <staticContent>
-              <mimeMap fileExtension=".js" mimeType="application/javascript" />
-              <mimeMap fileExtension=".css" mimeType="text/css" />
-              <mimeMap fileExtension=".json" mimeType="application/json" />
+              <mimeMap fileExtension=".js" mimeType="application/javascript; charset=utf-8" />
+              <mimeMap fileExtension=".mjs" mimeType="application/javascript; charset=utf-8" />
+              <mimeMap fileExtension=".css" mimeType="text/css; charset=utf-8" />
+              <mimeMap fileExtension=".json" mimeType="application/json; charset=utf-8" />
               <mimeMap fileExtension=".woff" mimeType="font/woff" />
               <mimeMap fileExtension=".woff2" mimeType="font/woff2" />
+              <mimeMap fileExtension=".webp" mimeType="image/webp" />
+              <mimeMap fileExtension=".avif" mimeType="image/avif" />
             </staticContent>
+            
+            <!-- Security Configuration -->
             <security>
               <requestFiltering>
                 <hiddenSegments>
                   <remove segment="bin"/>
                 </hiddenSegments>
+                <requestLimits maxAllowedContentLength="52428800" />
               </requestFiltering>
             </security>
+            
+            <!-- Compression -->
+            <urlCompression doStaticCompression="true" doDynamicCompression="true" />
+            
+            <!-- Caching -->
+            <staticContent>
+              <clientCache cacheControlMode="UseMaxAge" cacheControlMaxAge="7.00:00:00" />
+            </staticContent>
+            
+            <!-- Error Handling -->
             <httpErrors existingResponse="PassThrough" />
-            <iisnode watchedFiles="web.config;*.js"/>
+            
+            <!-- IISNode Configuration -->
+            <iisnode 
+              watchedFiles="web.config;*.js"
+              loggingEnabled="true"
+              debuggingEnabled="false"
+              nodeProcessCountPerApplication="1"
+              maxConcurrentRequestsPerProcess="1024"
+              maxNamedPipeConnectionRetry="3"
+              namedPipeConnectionRetryDelay="2000"
+              maxNamedPipeConnectionPoolSize="512"
+              maxNamedPipePooledConnectionAge="30000"
+              asyncCompletionThreadCount="0"
+              initialRequestBufferSize="4096"
+              maxRequestBufferSize="65536"
+              uncFileChangesPollingInterval="5000"
+            />
           </system.webServer>
         </configuration>
         EOF
     
-    - name: Create deployment package
+    - name: 📦 Create Optimized Deployment Package
       run: |
         cd backend
-        zip -r ../deployment.zip . -x "node_modules/.cache/*" "*.log"
+        
+        # Create .deployignore to exclude unnecessary files
+        cat > .deployignore << 'EOF'
+        .git/
+        .github/
+        node_modules/.cache/
+        *.log
+        *.tmp
+        .env.local
+        .env.development
+        coverage/
+        .nyc_output/
+        test/
+        tests/
+        __tests__/
+        *.test.js
+        *.spec.js
+        .DS_Store
+        Thumbs.db
+        EOF
+        
+        # Create deployment package with better compression
+        zip -r ../deployment.zip . \
+          -x "node_modules/.cache/*" \
+          -x "*.log" \
+          -x "*.tmp" \
+          -x ".env.local" \
+          -x ".env.development" \
+          -x "coverage/*" \
+          -x ".nyc_output/*" \
+          -x "test/*" \
+          -x "tests/*" \
+          -x "__tests__/*" \
+          -x "*.test.js" \
+          -x "*.spec.js"
+        
+        echo "✅ Deployment package created"
+        ls -lh ../deployment.zip
     
-    - name: Deploy to Azure Web App
-      uses: azure/webapps-deploy@v2
+    - name: 🚀 Deploy to Azure Web App
+      uses: azure/webapps-deploy@v3
       with:
-        app-name: ${{ secrets.AZURE_WEBAPP_NAME }}
+        app-name: ${{ secrets.AZURE_WEBAPP_NAME || env.AZURE_WEBAPP_NAME }}
         publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
         package: deployment.zip
     
-    - name: Clean up
-      run: rm deployment.zip
+    - name: 🧹 Cleanup
+      if: always()
+      run: |
+        rm -f deployment.zip
+        echo "✅ Cleanup completed"
 
-  # Health check after deployment
+  # Comprehensive Health Check
   health-check:
     runs-on: ubuntu-latest
     needs: build-and-deploy
+    if: success()
     
     steps:
-    - name: Wait for deployment
-      run: sleep 45
-    
-    - name: Health check
+    - name: ⏳ Wait for Deployment Stabilization
       run: |
-        response=$(curl -s -o /dev/null -w "%{http_code}" https://${{ secrets.AZURE_WEBAPP_NAME }}.azurewebsites.net/api/health)
-        if [ $response -eq 200 ]; then
-          echo "✅ API health check passed"
+        echo "Waiting for deployment to stabilize..."
+        sleep 60
+    
+    - name: 🏥 Comprehensive Health Check
+      run: |
+        APP_URL="https://${{ secrets.AZURE_WEBAPP_NAME || env.AZURE_WEBAPP_NAME }}.azurewebsites.net"
+        
+        echo "🔍 Testing deployment health for: $APP_URL"
+        
+        # API Health Check
+        echo "Testing API health..."
+        api_response=$(curl -s -o /dev/null -w "%{http_code}" "$APP_URL/api/health" || echo "000")
+        if [ "$api_response" = "200" ]; then
+          echo "✅ API health check passed (200)"
         else
-          echo "❌ API health check failed with status code: $response"
+          echo "❌ API health check failed with status code: $api_response"
+          curl -s "$APP_URL/api/health" || echo "Failed to get response"
         fi
         
-        # Check frontend
-        frontend_response=$(curl -s -o /dev/null -w "%{http_code}" https://${{ secrets.AZURE_WEBAPP_NAME }}.azurewebsites.net/)
-        if [ $frontend_response -eq 200 ]; then
-          echo "✅ Frontend health check passed"
+        # Frontend Health Check
+        echo "Testing frontend..."
+        frontend_response=$(curl -s -o /dev/null -w "%{http_code}" "$APP_URL/" || echo "000")
+        if [ "$frontend_response" = "200" ]; then
+          echo "✅ Frontend health check passed (200)"
         else
           echo "❌ Frontend health check failed with status code: $frontend_response"
         fi
+        
+        # Admin Dashboard Check
+        echo "Testing admin dashboard..."
+        admin_response=$(curl -s -o /dev/null -w "%{http_code}" "$APP_URL/admin/" || echo "000")
+        if [ "$admin_response" = "200" ]; then
+          echo "✅ Admin dashboard health check passed (200)"
+        else
+          echo "❌ Admin dashboard health check failed with status code: $admin_response"
+        fi
+        
+        # Test API endpoints
+        echo "Testing key API endpoints..."
+        config_response=$(curl -s -o /dev/null -w "%{http_code}" "$APP_URL/api/config/maps-key" || echo "000")
+        echo "Config endpoint: $config_response"
+        
+        # Overall health assessment
+        if [ "$api_response" = "200" ] && [ "$frontend_response" = "200" ]; then
+          echo "🎉 Overall deployment health: HEALTHY"
+          exit 0
+        else
+          echo "💥 Overall deployment health: UNHEALTHY"
+          exit 1
+        fi
 
-  # Notification
-  notify:
+  # Deployment Notification & Rollback
+  notify-and-rollback:
     runs-on: ubuntu-latest
     needs: [build-and-deploy, health-check]
     if: always()
     
     steps:
-    - name: Notify deployment status
+    - name: 📊 Deployment Status Summary
       run: |
+        APP_URL="https://${{ secrets.AZURE_WEBAPP_NAME || env.AZURE_WEBAPP_NAME }}.azurewebsites.net"
+        
+        echo "=== TravelBuddy Deployment Summary ==="
+        echo "🌍 Environment: ${{ github.event.inputs.environment || 'production' }}"
+        echo "🌿 Branch: ${{ env.DEPLOYMENT_BRANCH }}"
+        echo "📦 Commit: ${{ github.sha }}"
+        echo "👤 Triggered by: ${{ github.actor }}"
+        echo "⏰ Timestamp: $(date -u)"
+        echo ""
+        echo "📋 Job Results:"
+        echo "  Build & Deploy: ${{ needs.build-and-deploy.result }}"
+        echo "  Health Check: ${{ needs.health-check.result }}"
+        echo ""
+        
         if [ "${{ needs.build-and-deploy.result }}" == "success" ] && [ "${{ needs.health-check.result }}" == "success" ]; then
-          echo "🚀 Travel Buddy deployment successful!"
-          echo "🌐 App URL: https://${{ secrets.AZURE_WEBAPP_NAME }}.azurewebsites.net"
+          echo "🎉 ✅ TravelBuddy deployment SUCCESSFUL!"
+          echo ""
+          echo "🔗 Application URLs:"
+          echo "  🌐 Main App: $APP_URL"
+          echo "  ⚙️ Admin Panel: $APP_URL/admin"
+          echo "  🏥 Health Check: $APP_URL/api/health"
+          echo "  📊 API Status: $APP_URL/api/test-deployment"
+          echo ""
+          echo "🚀 Deployment completed successfully!"
         else
-          echo "💥 Travel Buddy deployment failed"
-          echo "Build status: ${{ needs.build-and-deploy.result }}"
-          echo "Health check status: ${{ needs.health-check.result }}"
+          echo "💥 ❌ TravelBuddy deployment FAILED!"
+          echo ""
+          echo "📋 Failure Details:"
+          echo "  Build status: ${{ needs.build-and-deploy.result }}"
+          echo "  Health check status: ${{ needs.health-check.result }}"
+          echo ""
+          echo "🔧 Troubleshooting:"
+          echo "  1. Check Azure App Service logs"
+          echo "  2. Verify environment variables"
+          echo "  3. Check build artifacts"
+          echo "  4. Review deployment configuration"
+          
+          # Set exit code for failed deployment
+          exit 1
         fi
+        
+        # Create deployment summary artifact
+        echo "deployment_status=${{ needs.build-and-deploy.result == 'success' && needs.health-check.result == 'success' }}" >> $GITHUB_OUTPUT
+        echo "app_url=https://${{ secrets.AZURE_WEBAPP_NAME || env.AZURE_WEBAPP_NAME }}.azurewebsites.net" >> $GITHUB_OUTPUT
+    
+    - name: 🔄 Rollback on Critical Failure
+      if: needs.build-and-deploy.result == 'failure' || needs.health-check.result == 'failure'
+      run: |
+        echo "🚨 Critical deployment failure detected!"
+        echo "Consider implementing automatic rollback to previous version"
+        echo "Manual intervention may be required"
+        
+        # Future: Implement automatic rollback logic here
+        # az webapp deployment slot swap --name $APP_NAME --resource-group $RG --slot staging --target-slot production

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { Skeleton } from './SkeletonLoader';
 
 interface ImageWithFallbackProps {
   src: string;
@@ -27,6 +28,13 @@ export const ImageWithFallback: React.FC<ImageWithFallbackProps> = ({
     setIsLoading(true);
     setHasError(false);
     setRetryCount(0);
+    
+    // Timeout fallback to prevent infinite loading
+    const timeout = setTimeout(() => {
+      setIsLoading(false);
+    }, 3000);
+    
+    return () => clearTimeout(timeout);
   }, [src]);
 
   const handleLoad = () => {
@@ -37,6 +45,7 @@ export const ImageWithFallback: React.FC<ImageWithFallbackProps> = ({
 
   const handleError = () => {
     setIsLoading(false);
+    setHasError(false); // Reset error state for retry
     
     if (retryCount === 0 && fallbackSrc && currentSrc !== fallbackSrc) {
       // First error: try fallback image
@@ -70,9 +79,7 @@ export const ImageWithFallback: React.FC<ImageWithFallbackProps> = ({
   return (
     <div className="relative">
       {isLoading && (
-        <div className={`absolute inset-0 bg-gray-200 flex items-center justify-center z-10 ${className}`}>
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-500"></div>
-        </div>
+        <Skeleton className={`absolute inset-0 z-10 ${className}`} />
       )}
       <img
         src={currentSrc}

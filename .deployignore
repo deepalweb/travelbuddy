@@ -1,8 +1,77 @@
-travel_buddy_mobile/
-*.md
-test-*
-*.log
+# Azure App Service Deployment Ignore File
+# Files and directories to exclude from deployment
+
+# Development files
 .git/
 .github/
-node_modules/
-**/*.map
+.vscode/
+.idea/
+
+# Node modules cache
+node_modules/.cache/
+.npm/
+.yarn/
+
+# Build artifacts (keep only final builds)
+frontend/dist/
+admin/dist/
+frontend/node_modules/
+admin/node_modules/
+
+# Log files
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Environment files (use Azure App Settings instead)
+.env.local
+.env.development
+.env.test
+
+# Test files
+coverage/
+.nyc_output/
+test/
+tests/
+__tests__/
+*.test.js
+*.spec.js
+*.test.ts
+*.spec.ts
+
+# Temporary files
+*.tmp
+*.temp
+.cache/
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# IDE files
+*.swp
+*.swo
+*~
+
+# Source maps (optional - remove if you want them in production)
+*.map
+
+# Documentation
+docs/
+README.md
+CHANGELOG.md
+LICENSE
+
+# Development scripts
+scripts/dev/
+scripts/test/
+
+# Backup files
+*.bak
+*.backup

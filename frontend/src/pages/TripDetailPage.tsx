@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { Card, CardContent, CardHeader, CardTitle } from '../components/Card'
 import { Button } from '../components/Button'
-import { MapPin, Clock, Euro, CheckCircle, Circle, Star, Navigation, Save, Calendar, Users, DollarSign, ArrowLeft, Download, Share2, Filter, RotateCcw } from 'lucide-react'
+import { MapPin, Clock, Euro, CheckCircle, Circle, Star, Navigation, Save, Calendar, Users, DollarSign, ArrowLeft, Download, Share2, Filter, RotateCcw, List, Map, FileText, BarChart3, Cloud, Edit3 } from 'lucide-react'
 import { tripService } from '../services/tripService'
 
 interface Trip {
@@ -39,10 +39,17 @@ export const TripDetailPage: React.FC = () => {
   const navigate = useNavigate()
   const [trip, setTrip] = useState<Trip | null>(null)
   const [loading, setLoading] = useState(true)
+  const [viewMode, setViewMode] = useState<'list' | 'map'>('list')
+  const [showNotes, setShowNotes] = useState(false)
+  const [tripNotes, setTripNotes] = useState('')
+  const [showAnalytics, setShowAnalytics] = useState(false)
 
   useEffect(() => {
     if (id) {
       fetchTrip(id)
+      // Load notes from localStorage
+      const savedNotes = localStorage.getItem(`trip-notes-${id}`)
+      if (savedNotes) setTripNotes(savedNotes)
     }
   }, [id])
 
@@ -106,10 +113,42 @@ export const TripDetailPage: React.FC = () => {
     
     try {
       await tripService.updateTrip(id, trip)
+      // Save notes
+      localStorage.setItem(`trip-notes-${id}`, tripNotes)
       alert('Trip saved successfully!')
     } catch (error) {
       console.error('Failed to save trip:', error)
       alert('Failed to save trip')
+    }
+  }
+
+  const calculateAnalytics = () => {
+    if (!trip) return null
+    
+    const totalActivities = trip.dailyPlans.reduce((acc, day) => acc + day.activities.length, 0)
+    const completedActivities = trip.dailyPlans.reduce((acc, day) => 
+      acc + day.activities.filter(activity => activity.isVisited).length, 0
+    )
+    const totalCost = trip.dailyPlans.reduce((acc, day) => 
+      acc + day.activities.reduce((dayAcc, activity) => 
+        dayAcc + (parseFloat(activity.estimatedCost.replace(/[^0-9.]/g, '')) || 0), 0
+      ), 0
+    )
+    const totalDuration = trip.dailyPlans.reduce((acc, day) => 
+      acc + day.activities.reduce((dayAcc, activity) => 
+        dayAcc + (parseFloat(activity.duration.replace(/[^0-9.]/g, '')) || 0), 0
+      ), 0
+    )
+    
+    return {
+      totalActivities,
+      completedActivities,
+      completionRate: Math.round((completedActivities / totalActivities) * 100),
+      totalCost: totalCost.toFixed(2),
+      totalDuration: totalDuration.toFixed(1),
+      daysCompleted: trip.dailyPlans.filter(day => 
+        day.activities.every(activity => activity.isVisited)
+      ).length
     }
   }
 
@@ -250,38 +289,159 @@ export const TripDetailPage: React.FC = () => {
           </CardContent>
         </Card>
 
-        {/* Action Bar */}
-        <div className="flex flex-wrap gap-4 mb-8">
-          <Button onClick={saveTrip} variant="outline" className="flex items-center">
-            <Save className="w-4 h-4 mr-2" />
-            Save Trip
-          </Button>
-          <Button onClick={openInGoogleMaps} className="flex items-center">
-            <Navigation className="w-4 h-4 mr-2" />
-            Open in Google Maps
-          </Button>
-          <Button variant="outline" className="flex items-center">
-            <Download className="w-4 h-4 mr-2" />
-            Download PDF
-          </Button>
-          <Button variant="outline" className="flex items-center">
-            <Share2 className="w-4 h-4 mr-2" />
-            Share Trip
-          </Button>
+        {/* Enhanced Action Bar */}
+        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 mb-8">
+          <div className="flex flex-wrap justify-between items-center gap-4">
+            <div className="flex flex-wrap gap-3">
+              <Button onClick={saveTrip} variant="outline" className="flex items-center">
+                <Save className="w-4 h-4 mr-2" />
+                Save Trip
+              </Button>
+              <Button onClick={openInGoogleMaps} className="flex items-center">
+                <Navigation className="w-4 h-4 mr-2" />
+                Open in Google Maps
+              </Button>
+              <Button 
+                onClick={() => setShowNotes(!showNotes)} 
+                variant={showNotes ? 'default' : 'outline'} 
+                className="flex items-center"
+              >
+                <FileText className="w-4 h-4 mr-2" />
+                Trip Notes
+              </Button>
+              <Button 
+                onClick={() => setShowAnalytics(!showAnalytics)} 
+                variant={showAnalytics ? 'default' : 'outline'} 
+                className="flex items-center"
+              >
+                <BarChart3 className="w-4 h-4 mr-2" />
+                Analytics
+              </Button>
+            </div>
+            
+            <div className="flex items-center space-x-2 bg-gray-100 rounded-lg p-1">
+              <Button
+                variant={viewMode === 'list' ? 'default' : 'ghost'}
+                size="sm"
+                onClick={() => setViewMode('list')}
+                className="flex items-center"
+              >
+                <List className="w-4 h-4 mr-1" />
+                List
+              </Button>
+              <Button
+                variant={viewMode === 'map' ? 'default' : 'ghost'}
+                size="sm"
+                onClick={() => setViewMode('map')}
+                className="flex items-center"
+              >
+                <Map className="w-4 h-4 mr-1" />
+                Map
+              </Button>
+            </div>
+          </div>
         </div>
 
-        {/* Tier 3: Daily Itinerary Timeline */}
-        <div className="space-y-8">
+        {/* Trip Notes Section */}
+        {showNotes && (
+          <Card className="mb-8 bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200">
+            <CardContent className="p-6">
+              <div className="flex items-center mb-4">
+                <Edit3 className="w-5 h-5 text-blue-600 mr-2" />
+                <h3 className="text-lg font-semibold text-gray-900">Trip Journal & Notes</h3>
+              </div>
+              <textarea
+                value={tripNotes}
+                onChange={(e) => setTripNotes(e.target.value)}
+                placeholder="Write your travel thoughts, experiences, reminders, or tips here..."
+                className="w-full h-32 p-4 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+              />
+              <p className="text-sm text-gray-500 mt-2">💡 Your notes are automatically saved when you save the trip</p>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Trip Analytics */}
+        {showAnalytics && (() => {
+          const analytics = calculateAnalytics()
+          return analytics ? (
+            <Card className="mb-8 bg-gradient-to-r from-purple-50 to-pink-50 border-purple-200">
+              <CardContent className="p-6">
+                <div className="flex items-center mb-6">
+                  <BarChart3 className="w-5 h-5 text-purple-600 mr-2" />
+                  <h3 className="text-lg font-semibold text-gray-900">Trip Analytics</h3>
+                </div>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <div className="bg-white rounded-lg p-4 text-center">
+                    <div className="text-2xl font-bold text-blue-600">{analytics.completionRate}%</div>
+                    <div className="text-sm text-gray-600">Completed</div>
+                  </div>
+                  <div className="bg-white rounded-lg p-4 text-center">
+                    <div className="text-2xl font-bold text-green-600">${analytics.totalCost}</div>
+                    <div className="text-sm text-gray-600">Est. Budget</div>
+                  </div>
+                  <div className="bg-white rounded-lg p-4 text-center">
+                    <div className="text-2xl font-bold text-orange-600">{analytics.totalDuration}h</div>
+                    <div className="text-sm text-gray-600">Total Time</div>
+                  </div>
+                  <div className="bg-white rounded-lg p-4 text-center">
+                    <div className="text-2xl font-bold text-purple-600">{analytics.daysCompleted}</div>
+                    <div className="text-sm text-gray-600">Days Done</div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          ) : null
+        })()}
+
+        {/* Map View */}
+        {viewMode === 'map' && (
+          <Card className="mb-8 bg-gradient-to-r from-green-50 to-teal-50 border-green-200">
+            <CardContent className="p-6">
+              <div className="flex items-center mb-4">
+                <Map className="w-5 h-5 text-green-600 mr-2" />
+                <h3 className="text-lg font-semibold text-gray-900">Interactive Route Map</h3>
+              </div>
+              <div className="bg-white rounded-lg p-8 text-center border-2 border-dashed border-gray-300">
+                <Map className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+                <h4 className="text-lg font-semibold text-gray-700 mb-2">Interactive Map Coming Soon</h4>
+                <p className="text-gray-500 mb-4">Color-coded markers by day, route optimization, and distance calculations</p>
+                <Button onClick={openInGoogleMaps} className="flex items-center mx-auto">
+                  <Navigation className="w-4 h-4 mr-2" />
+                  Open in Google Maps
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Daily Itinerary Timeline */}
+        <div className={`space-y-8 ${viewMode === 'map' ? 'hidden' : ''}`}>
           {trip.dailyPlans.map((day, dayIndex) => (
             <div key={day.day} className="relative">
-              {/* Day Header */}
-              <div className="flex items-center mb-6">
-                <div className="w-12 h-12 bg-gradient-to-r from-teal-500 to-blue-600 rounded-full flex items-center justify-center text-white font-bold text-lg mr-4">
-                  {day.day}
-                </div>
-                <div>
-                  <h3 className="text-2xl font-bold text-gray-900">Day {day.day}</h3>
-                  <p className="text-gray-600">{day.title}</p>
+              {/* Enhanced Day Header */}
+              <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 mb-6">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center">
+                    <div className="w-12 h-12 bg-gradient-to-r from-teal-500 to-blue-600 rounded-full flex items-center justify-center text-white font-bold text-lg mr-4">
+                      {day.day}
+                    </div>
+                    <div>
+                      <h3 className="text-2xl font-bold text-gray-900">Day {day.day}</h3>
+                      <p className="text-gray-600">{day.title}</p>
+                    </div>
+                  </div>
+                  
+                  {/* Weather Widget */}
+                  <div className="flex items-center space-x-4">
+                    <div className="bg-blue-50 rounded-lg p-3 flex items-center space-x-2">
+                      <Cloud className="w-5 h-5 text-blue-600" />
+                      <div className="text-sm">
+                        <div className="font-semibold text-gray-900">24°C</div>
+                        <div className="text-gray-500">Sunny</div>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
               

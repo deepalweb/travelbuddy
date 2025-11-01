@@ -2,7 +2,7 @@ import React, { useState } from 'react'
 import { 
   Search, MapPin, Star, Phone, MessageCircle, Car, Plane, 
   Bus, Bike, Filter, Grid, List, Map, Heart, Clock, 
-  Shield, Users, DollarSign, ChevronDown, X, Eye
+  Shield, Users, DollarSign, ChevronDown, X, Eye, Upload, Trash2
 } from 'lucide-react'
 import { Button } from '../components/Button'
 
@@ -48,7 +48,7 @@ const mockProviders: TransportProvider[] = [
     specialties: ['Airport Pickup', 'Hotel Transfers', 'Day Tours'],
     contactPhone: '+62 361 123456',
     contactEmail: 'info@gobalitransfers.com',
-    responseTime: '&lt; 30 minutes'
+    responseTime: '< 30 minutes'
   },
   {
     id: '2',
@@ -69,7 +69,7 @@ const mockProviders: TransportProvider[] = [
     specialties: ['Group Tours', 'Cultural Sites', 'Nature Trips'],
     contactPhone: '+62 361 789012',
     contactEmail: 'bookings@blueskyvans.com',
-    responseTime: '&lt; 1 hour'
+    responseTime: '< 1 hour'
   },
   {
     id: '3',
@@ -90,7 +90,7 @@ const mockProviders: TransportProvider[] = [
     specialties: ['Eco Transport', 'City Tours', 'Beach Access'],
     contactPhone: '+62 361 345678',
     contactEmail: 'hello@ecoridebali.com',
-    responseTime: '&lt; 45 minutes'
+    responseTime: '< 45 minutes'
   }
 ]
 
@@ -114,6 +114,25 @@ export const TransportationPage: React.FC = () => {
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
   const [showFilters, setShowFilters] = useState(false)
   const [selectedProvider, setSelectedProvider] = useState<TransportProvider | null>(null)
+  const [showPartnerModal, setShowPartnerModal] = useState(false)
+  const [partnerForm, setPartnerForm] = useState({
+    businessName: '',
+    contactName: '',
+    email: '',
+    phone: '',
+    location: '',
+    serviceTypes: [] as string[],
+    fleetSize: '',
+    yearsInBusiness: '',
+    description: '',
+    languages: [] as string[],
+    operatingHours: '',
+    specialties: [] as string[],
+    priceRange: '',
+    responseTime: ''
+  })
+  const [uploadedImages, setUploadedImages] = useState<File[]>([])
+  const [imagePreviews, setImagePreviews] = useState<string[]>([])
 
   const filteredProviders = mockProviders.filter(provider => {
     const matchesSearch = provider.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -421,11 +440,384 @@ export const TransportationPage: React.FC = () => {
           <Car className="w-12 h-12 mx-auto mb-4 text-blue-200" />
           <h3 className="text-2xl font-bold mb-2">Are you a transportation provider?</h3>
           <p className="text-blue-100 mb-6">Join our network to reach thousands of travelers</p>
-          <Button className="bg-white text-blue-600 hover:bg-blue-50">
+          <Button 
+            onClick={() => setShowPartnerModal(true)}
+            className="bg-white text-blue-600 hover:bg-blue-50"
+          >
             Register as Partner →
           </Button>
         </div>
       </div>
+
+      {/* Partner Registration Modal */}
+      {showPartnerModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-8">
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-2xl font-bold text-gray-900">Register as Transport Partner</h2>
+                <button
+                  onClick={() => setShowPartnerModal(false)}
+                  className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+              
+              <form className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Business Name *</label>
+                    <input
+                      type="text"
+                      value={partnerForm.businessName}
+                      onChange={(e) => setPartnerForm({...partnerForm, businessName: e.target.value})}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      placeholder="Your transport business name"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Contact Name *</label>
+                    <input
+                      type="text"
+                      value={partnerForm.contactName}
+                      onChange={(e) => setPartnerForm({...partnerForm, contactName: e.target.value})}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      placeholder="Your full name"
+                    />
+                  </div>
+                </div>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Email *</label>
+                    <input
+                      type="email"
+                      value={partnerForm.email}
+                      onChange={(e) => setPartnerForm({...partnerForm, email: e.target.value})}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      placeholder="your@email.com"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Phone *</label>
+                    <input
+                      type="tel"
+                      value={partnerForm.phone}
+                      onChange={(e) => setPartnerForm({...partnerForm, phone: e.target.value})}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      placeholder="+1 (555) 123-4567"
+                    />
+                  </div>
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Location *</label>
+                  <input
+                    type="text"
+                    value={partnerForm.location}
+                    onChange={(e) => setPartnerForm({...partnerForm, location: e.target.value})}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="City, Country"
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Service Types *</label>
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                    {serviceTypes.map(service => {
+                      const Icon = service.icon
+                      return (
+                        <label key={service.id} className="flex items-center space-x-2 p-3 border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={partnerForm.serviceTypes.includes(service.id)}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setPartnerForm({...partnerForm, serviceTypes: [...partnerForm.serviceTypes, service.id]})
+                              } else {
+                                setPartnerForm({...partnerForm, serviceTypes: partnerForm.serviceTypes.filter(s => s !== service.id)})
+                              }
+                            }}
+                            className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                          />
+                          <Icon className="w-4 h-4 text-gray-600" />
+                          <span className="text-sm">{service.label}</span>
+                        </label>
+                      )
+                    })}
+                  </div>
+                </div>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Fleet Size</label>
+                    <input
+                      type="number"
+                      value={partnerForm.fleetSize}
+                      onChange={(e) => setPartnerForm({...partnerForm, fleetSize: e.target.value})}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      placeholder="Number of vehicles"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Years in Business</label>
+                    <input
+                      type="number"
+                      value={partnerForm.yearsInBusiness}
+                      onChange={(e) => setPartnerForm({...partnerForm, yearsInBusiness: e.target.value})}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      placeholder="Years of experience"
+                    />
+                  </div>
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Business Description</label>
+                  <textarea
+                    value={partnerForm.description}
+                    onChange={(e) => setPartnerForm({...partnerForm, description: e.target.value})}
+                    rows={4}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="Tell us about your transport services, specialties, and what makes you unique..."
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Languages Spoken *</label>
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                    {['English', 'Bahasa Indonesia', 'Japanese', 'Chinese', 'Korean', 'German'].map(language => (
+                      <label key={language} className="flex items-center space-x-2 p-3 border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={partnerForm.languages.includes(language)}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setPartnerForm({...partnerForm, languages: [...partnerForm.languages, language]})
+                            } else {
+                              setPartnerForm({...partnerForm, languages: partnerForm.languages.filter(l => l !== language)})
+                            }
+                          }}
+                          className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                        />
+                        <span className="text-sm">{language}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Operating Hours *</label>
+                    <input
+                      type="text"
+                      value={partnerForm.operatingHours}
+                      onChange={(e) => setPartnerForm({...partnerForm, operatingHours: e.target.value})}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      placeholder="e.g., 6AM - 10PM or 24/7"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Response Time *</label>
+                    <select
+                      value={partnerForm.responseTime}
+                      onChange={(e) => setPartnerForm({...partnerForm, responseTime: e.target.value})}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    >
+                      <option value="">Select response time</option>
+                      <option value="Under 15 minutes">Under 15 minutes</option>
+                      <option value="Under 30 minutes">Under 30 minutes</option>
+                      <option value="Under 1 hour">Under 1 hour</option>
+                      <option value="Under 2 hours">Under 2 hours</option>
+                      <option value="Same day">Same day</option>
+                    </select>
+                  </div>
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Price Range *</label>
+                  <input
+                    type="text"
+                    value={partnerForm.priceRange}
+                    onChange={(e) => setPartnerForm({...partnerForm, priceRange: e.target.value})}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="e.g., $50-80 per day or From $15 per ride"
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Specialties</label>
+                  <p className="text-sm text-gray-500 mb-3">What are you specialized in? (Select all that apply)</p>
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                    {['Airport Pickup', 'Hotel Transfers', 'Day Tours', 'Group Tours', 'Cultural Sites', 'Nature Trips', 'City Tours', 'Beach Access', 'Eco Transport'].map(specialty => (
+                      <label key={specialty} className="flex items-center space-x-2 p-3 border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={partnerForm.specialties.includes(specialty)}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setPartnerForm({...partnerForm, specialties: [...partnerForm.specialties, specialty]})
+                            } else {
+                              setPartnerForm({...partnerForm, specialties: partnerForm.specialties.filter(s => s !== specialty)})
+                            }
+                          }}
+                          className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                        />
+                        <span className="text-sm">{specialty}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Vehicle Photos</label>
+                  <p className="text-sm text-gray-500 mb-3">Upload photos of your vehicles (max 5 images, 5MB each)</p>
+                  
+                  <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-blue-400 transition-colors">
+                    <input
+                      type="file"
+                      multiple
+                      accept="image/*"
+                      onChange={(e) => {
+                        const files = Array.from(e.target.files || [])
+                        if (files.length + uploadedImages.length > 5) {
+                          alert('Maximum 5 images allowed')
+                          return
+                        }
+                        
+                        const validFiles = files.filter(file => file.size <= 5 * 1024 * 1024)
+                        if (validFiles.length !== files.length) {
+                          alert('Some files exceed 5MB limit')
+                        }
+                        
+                        setUploadedImages(prev => [...prev, ...validFiles])
+                        
+                        validFiles.forEach(file => {
+                          const reader = new FileReader()
+                          reader.onload = (e) => {
+                            setImagePreviews(prev => [...prev, e.target?.result as string])
+                          }
+                          reader.readAsDataURL(file)
+                        })
+                      }}
+                      className="hidden"
+                      id="image-upload"
+                    />
+                    <label htmlFor="image-upload" className="cursor-pointer">
+                      <Upload className="w-8 h-8 text-gray-400 mx-auto mb-2" />
+                      <p className="text-gray-600">Click to upload images or drag and drop</p>
+                      <p className="text-sm text-gray-400">PNG, JPG up to 5MB each</p>
+                    </label>
+                  </div>
+                  
+                  {imagePreviews.length > 0 && (
+                    <div className="mt-4 grid grid-cols-2 md:grid-cols-3 gap-4">
+                      {imagePreviews.map((preview, index) => (
+                        <div key={index} className="relative group">
+                          <img
+                            src={preview}
+                            alt={`Vehicle ${index + 1}`}
+                            className="w-full h-24 object-cover rounded-lg border border-gray-200"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setUploadedImages(prev => prev.filter((_, i) => i !== index))
+                              setImagePreviews(prev => prev.filter((_, i) => i !== index))
+                            }}
+                            className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                          >
+                            <Trash2 className="w-3 h-3" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                
+                <div className="flex space-x-4 pt-4">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setShowPartnerModal(false)}
+                    className="flex-1"
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    type="submit"
+                    className="flex-1 bg-blue-600 hover:bg-blue-700"
+                    onClick={async (e) => {
+                      e.preventDefault()
+                      
+                      try {
+                        const formData = new FormData()
+                        
+                        // Add form fields
+                        Object.entries(partnerForm).forEach(([key, value]) => {
+                          if (Array.isArray(value)) {
+                            formData.append(key, JSON.stringify(value))
+                          } else {
+                            formData.append(key, value)
+                          }
+                        })
+                        
+                        // Add images
+                        uploadedImages.forEach((file, index) => {
+                          formData.append(`images`, file)
+                        })
+                        
+                        const response = await fetch('/api/partners/register', {
+                          method: 'POST',
+                          body: formData
+                        })
+                        
+                        if (!response.ok) {
+                          const errorData = await response.json().catch(() => ({ message: 'Unknown error' }))
+                          throw new Error(errorData.message || `HTTP ${response.status}`)
+                        }
+                        
+                        const result = await response.json()
+                        if (!result.success) {
+                          throw new Error(result.message || 'Submission failed')
+                        }
+                        
+                        alert(`Application submitted successfully! Application ID: ${result.applicationId || 'N/A'}. You will receive an email confirmation shortly.`)
+                      } catch (error) {
+                        console.error('Partner registration error:', error)
+                        alert(`Failed to submit application: ${error instanceof Error ? error.message : 'Unknown error'}. Please try again.`)
+                        return
+                      }
+                      
+                      setShowPartnerModal(false)
+                      setPartnerForm({
+                        businessName: '',
+                        contactName: '',
+                        email: '',
+                        phone: '',
+                        location: '',
+                        serviceTypes: [],
+                        fleetSize: '',
+                        yearsInBusiness: '',
+                        description: '',
+                        languages: [],
+                        operatingHours: '',
+                        specialties: [],
+                        priceRange: '',
+                        responseTime: ''
+                      })
+                      setUploadedImages([])
+                      setImagePreviews([])
+                    }}
+                  >
+                    Submit Application
+                  </Button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Provider Detail Modal */}
       {selectedProvider && (

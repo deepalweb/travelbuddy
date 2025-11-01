@@ -8,7 +8,8 @@ import {
   Buildings,
   ChartBar,
   Gear,
-  SignOut
+  SignOut,
+  Car
 } from '@phosphor-icons/react'
 
 interface AdminSidebarProps {
@@ -19,6 +20,7 @@ interface AdminSidebarProps {
 const navigationItems = [
   { id: 'dashboard', label: 'Dashboard', icon: Layout },
   { id: 'users', label: 'User Management', icon: Users },
+  { id: 'partners', label: 'Partner Management', icon: Car },
   { id: 'content', label: 'Content Moderation', icon: Flag },
   { id: 'business', label: 'Business & Deals', icon: Buildings },
   { id: 'analytics', label: 'Analytics', icon: ChartBar },

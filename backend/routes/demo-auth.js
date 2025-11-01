@@ -6,15 +6,26 @@ const router = express.Router();
 // Demo login endpoint for testing admin panel
 router.post('/demo-login', async (req, res) => {
   try {
-    const { email, password } = req.body;
+    const { email, password, username, role } = req.body;
     
-    // For demo purposes, accept admin@travelbuddy.com with any password
-    if (email === 'admin@travelbuddy.com') {
+    // Accept multiple demo login formats
+    if (email === 'admin@travelbuddy.com' || username === 'demo-user' || role === 'regular') {
       const User = global.User || mongoose.model('User');
-      const adminUser = await User.findOne({ email: 'admin@travelbuddy.com' });
+      let adminUser = await User.findOne({ email: 'admin@travelbuddy.com' });
+      
+      // Create admin user if doesn't exist
+      if (!adminUser && email === 'admin@travelbuddy.com') {
+        adminUser = new User({
+          email: 'admin@travelbuddy.com',
+          username: 'admin',
+          isAdmin: true,
+          role: 'admin',
+          tier: 'pro'
+        });
+        await adminUser.save();
+      }
       
       if (adminUser) {
-        // Generate a simple demo token
         const token = Buffer.from(`${adminUser._id}:admin:${Date.now()}`).toString('base64');
         
         return res.json({
@@ -33,9 +44,31 @@ router.post('/demo-login', async (req, res) => {
       }
     }
     
-    res.status(401).json({ 
-      error: 'Invalid credentials',
-      hint: 'Use admin@travelbuddy.com for demo admin access'
+    // Create demo user if none exists
+    const User = global.User || mongoose.model('User');
+    const demoUser = {
+      _id: new mongoose.Types.ObjectId(),
+      username: username || 'demo-user',
+      email: email || 'demo@travelbuddy.com',
+      isAdmin: role === 'admin' || email === 'admin@travelbuddy.com',
+      role: role || 'regular',
+      tier: 'free'
+    };
+    
+    const token = Buffer.from(`${demoUser._id}:${demoUser.role}:${Date.now()}`).toString('base64');
+    
+    res.json({
+      success: true,
+      user: {
+        id: demoUser._id,
+        username: demoUser.username,
+        email: demoUser.email,
+        isAdmin: demoUser.isAdmin,
+        role: demoUser.role,
+        tier: demoUser.tier
+      },
+      token,
+      message: 'Demo login successful'
     });
   } catch (error) {
     res.status(500).json({ error: 'Login failed', details: error.message });

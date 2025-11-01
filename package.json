@@ -2,23 +2,55 @@
   "name": "travelbuddy-webapp",
   "version": "1.0.0",
   "private": true,
+  "description": "TravelBuddy - AI-powered travel planning platform",
+  "main": "backend/server.js",
+  "engines": {
+    "node": ">=20.0.0",
+    "npm": ">=10.0.0"
+  },
+  "scripts": {
+    "start": "cd backend && npm start",
+    "dev": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\" \"npm run dev:admin\"",
+    "dev:backend": "cd backend && npm run dev",
+    "dev:frontend": "cd frontend && npm run dev",
+    "dev:admin": "cd admin && npm run dev",
+    "build": "npm run build:frontend && npm run build:admin && npm run build:backend",
+    "build:frontend": "cd frontend && npm ci && npm run build",
+    "build:admin": "cd admin && npm ci && npm run build",
+    "build:backend": "cd backend && npm ci --omit=dev",
+    "deploy:prepare": "npm run build && npm run deploy:copy",
+    "deploy:copy": "mkdir -p backend/public backend/admin && cp -r frontend/dist/* backend/public/ && cp -r admin/dist/* backend/admin/",
+    "test": "npm run test:frontend && npm run test:backend",
+    "test:frontend": "cd frontend && npm test -- --watchAll=false",
+    "test:backend": "cd backend && npm test",
+    "lint": "npm run lint:frontend && npm run lint:backend",
+    "lint:frontend": "cd frontend && npm run lint",
+    "lint:backend": "cd backend && npm run lint",
+    "clean": "rm -rf frontend/dist admin/dist backend/public backend/admin node_modules/*/node_modules",
+    "postinstall": "npm run install:all",
+    "install:all": "cd frontend && npm ci && cd ../backend && npm ci && cd ../admin && npm ci"
+  },
   "dependencies": {
     "axios": "^1.12.2",
     "react": "^18.2.0",
-    "react-dom": "^18.2.0",
-    "react-scripts": "5.0.1"
+    "react-dom": "^18.2.0"
   },
-  "scripts": {
-    "start": "react-scripts start",
-    "build": "react-scripts build",
-    "test": "react-scripts test",
-    "eject": "react-scripts eject"
+  "devDependencies": {
+    "concurrently": "^8.2.2"
   },
-  "eslintConfig": {
-    "extends": [
-      "react-app",
-      "react-app/jest"
-    ]
+  "keywords": [
+    "travel",
+    "ai",
+    "planning",
+    "react",
+    "nodejs",
+    "azure"
+  ],
+  "author": "TravelBuddy Team",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/your-username/travelbuddy-2.git"
   },
   "browserslist": {
     "production": [

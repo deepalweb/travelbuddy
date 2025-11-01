@@ -86,8 +86,12 @@ class Place extends HiveObject {
     if (photoUrl.isEmpty && json['photos'] != null && (json['photos'] as List).isNotEmpty) {
       final photo = (json['photos'] as List).first;
       if (photo['photo_reference'] != null) {
-        photoUrl = 'https://travelbuddy-b2c6hgbbgeh4esdh.eastus2-01.azurewebsites.net/api/places/photo?ref=${photo['photo_reference']}&w=400';
+        photoUrl = 'https://travelbuddy-b2c6hgbbgeh4esdh.eastus2-01.azurewebsites.net/api/places/photo?ref=${photo['photo_reference']}&w=800';
       }
+    }
+    // Fallback to Wikipedia/Unsplash if no Google photo
+    if (photoUrl.isEmpty && placeName.isNotEmpty) {
+      photoUrl = 'https://source.unsplash.com/800x600/?${Uri.encodeComponent(placeName)},landmark';
     }
     
     return Place(

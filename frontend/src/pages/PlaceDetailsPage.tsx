@@ -214,12 +214,48 @@ const PlaceDetailsPage: React.FC = () => {
       </div>
 
       {/* Hero Image */}
-      <div className="relative h-96 overflow-hidden">
+      <div className="relative h-96 overflow-hidden bg-gray-200">
         <img 
           src={place.images.hero} 
           alt={place.name}
-          className="w-full h-full object-cover"
+          className="w-full h-full object-cover transition-all duration-500"
+          loading="eager"
+          onLoad={(e) => {
+            const target = e.target as HTMLImageElement
+            target.style.opacity = '1'
+            const loader = target.parentElement?.querySelector('.hero-loader')
+            if (loader) loader.classList.add('hidden')
+          }}
+          onError={(e) => {
+            const target = e.target as HTMLImageElement
+            const loader = target.parentElement?.querySelector('.hero-loader')
+            if (loader) loader.classList.add('hidden')
+            
+            if (!target.src.includes('source.unsplash.com')) {
+              target.src = `https://source.unsplash.com/1200x800/?${encodeURIComponent(place.name)},${encodeURIComponent(place.location.city)},landmark`
+            } else if (!target.src.includes('picsum.photos')) {
+              target.src = `https://picsum.photos/seed/${encodeURIComponent(place.id)}/1200/800`
+            } else {
+              target.style.display = 'none'
+              const placeholder = target.parentElement?.querySelector('.hero-placeholder')
+              if (placeholder) placeholder.classList.remove('hidden')
+            }
+          }}
+          style={{ opacity: 0 }}
         />
+        <div className="hero-loader absolute inset-0 flex items-center justify-center bg-gray-100">
+          <div className="text-center">
+            <div className="animate-pulse w-16 h-16 bg-gray-300 rounded-full mx-auto mb-4"></div>
+            <p className="text-gray-500">Loading image...</p>
+          </div>
+        </div>
+        <div className="hero-placeholder hidden absolute inset-0 flex items-center justify-center bg-gradient-to-br from-blue-200 to-purple-200">
+          <div className="text-center">
+            <MapPin className="h-24 w-24 text-gray-400 mx-auto mb-4" />
+            <h2 className="text-2xl font-bold text-gray-600">{place.name}</h2>
+            <p className="text-gray-500">{place.location.city}</p>
+          </div>
+        </div>
         <div className="absolute inset-0 bg-black bg-opacity-30"></div>
         <div className="absolute bottom-4 right-4">
           <Button 
@@ -282,7 +318,7 @@ const PlaceDetailsPage: React.FC = () => {
                 {place.images.gallery.slice(0, 6).map((image, index) => (
                   <div 
                     key={index}
-                    className="relative aspect-video rounded-lg overflow-hidden cursor-pointer hover:opacity-90 transition-opacity"
+                    className="relative aspect-video rounded-lg overflow-hidden cursor-pointer hover:scale-105 transition-all duration-300 bg-gray-200"
                     onClick={() => {
                       setCurrentImageIndex(index)
                       setShowGallery(true)
@@ -291,8 +327,30 @@ const PlaceDetailsPage: React.FC = () => {
                     <img 
                       src={image} 
                       alt={`${place.name} photo ${index + 1}`}
-                      className="w-full h-full object-cover"
+                      className="w-full h-full object-cover transition-opacity duration-300"
+                      loading="lazy"
+                      onLoad={(e) => {
+                        const target = e.target as HTMLImageElement
+                        target.style.opacity = '1'
+                        const loader = target.parentElement?.querySelector('.gallery-loader')
+                        if (loader) loader.classList.add('hidden')
+                      }}
+                      onError={(e) => {
+                        const target = e.target as HTMLImageElement
+                        const loader = target.parentElement?.querySelector('.gallery-loader')
+                        if (loader) loader.classList.add('hidden')
+                        
+                        if (!target.src.includes('source.unsplash.com')) {
+                          target.src = `https://source.unsplash.com/600x400/?${encodeURIComponent(place.name)},travel,photo${index}`
+                        } else {
+                          target.src = `https://picsum.photos/seed/${encodeURIComponent(place.id + index)}/600/400`
+                        }
+                      }}
+                      style={{ opacity: 0 }}
                     />
+                    <div className="gallery-loader absolute inset-0 flex items-center justify-center bg-gray-100">
+                      <div className="animate-pulse w-8 h-8 bg-gray-300 rounded-full"></div>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -444,12 +502,31 @@ const PlaceDetailsPage: React.FC = () => {
           <h3 className="text-2xl font-bold text-gray-900 mb-6">You might also like</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             {place.similarPlaces.map((similarPlace) => (
-              <Card key={similarPlace.id} className="overflow-hidden hover:shadow-lg transition-shadow cursor-pointer">
-                <img 
-                  src={similarPlace.image} 
-                  alt={similarPlace.name}
-                  className="w-full h-48 object-cover"
-                />
+              <Card key={similarPlace.id} className="overflow-hidden hover:shadow-lg transition-all duration-300 hover:scale-105 cursor-pointer">
+                <div className="relative h-48 bg-gray-200">
+                  <img 
+                    src={similarPlace.image} 
+                    alt={similarPlace.name}
+                    className="w-full h-48 object-cover transition-opacity duration-300"
+                    loading="lazy"
+                    onLoad={(e) => {
+                      const target = e.target as HTMLImageElement
+                      target.style.opacity = '1'
+                      const loader = target.parentElement?.querySelector('.similar-loader')
+                      if (loader) loader.classList.add('hidden')
+                    }}
+                    onError={(e) => {
+                      const target = e.target as HTMLImageElement
+                      const loader = target.parentElement?.querySelector('.similar-loader')
+                      if (loader) loader.classList.add('hidden')
+                      target.src = `https://source.unsplash.com/400x300/?${encodeURIComponent(similarPlace.name)},${encodeURIComponent(similarPlace.category)}`
+                    }}
+                    style={{ opacity: 0 }}
+                  />
+                  <div className="similar-loader absolute inset-0 flex items-center justify-center bg-gray-100">
+                    <div className="animate-pulse w-6 h-6 bg-gray-300 rounded-full"></div>
+                  </div>
+                </div>
                 <CardContent className="p-4">
                   <h4 className="font-semibold text-gray-900 mb-2">{similarPlace.name}</h4>
                   <div className="flex items-center justify-between">
@@ -484,11 +561,37 @@ const PlaceDetailsPage: React.FC = () => {
               <ChevronLeft className="h-8 w-8" />
             </button>
             
-            <img 
-              src={place.images.gallery[currentImageIndex]} 
-              alt={`${place.name} photo ${currentImageIndex + 1}`}
-              className="max-w-full max-h-full object-contain"
-            />
+            <div className="relative max-w-full max-h-full flex items-center justify-center">
+              <img 
+                src={place.images.gallery[currentImageIndex]} 
+                alt={`${place.name} photo ${currentImageIndex + 1}`}
+                className="max-w-full max-h-full object-contain transition-opacity duration-300"
+                onLoad={(e) => {
+                  const target = e.target as HTMLImageElement
+                  target.style.opacity = '1'
+                  const loader = target.parentElement?.querySelector('.modal-loader')
+                  if (loader) loader.classList.add('hidden')
+                }}
+                onError={(e) => {
+                  const target = e.target as HTMLImageElement
+                  const loader = target.parentElement?.querySelector('.modal-loader')
+                  if (loader) loader.classList.add('hidden')
+                  
+                  if (!target.src.includes('source.unsplash.com')) {
+                    target.src = `https://source.unsplash.com/1200x800/?${encodeURIComponent(place.name)},travel,photo${currentImageIndex}`
+                  } else {
+                    target.src = `https://picsum.photos/seed/${encodeURIComponent(place.id + currentImageIndex)}/1200/800`
+                  }
+                }}
+                style={{ opacity: 0 }}
+              />
+              <div className="modal-loader absolute inset-0 flex items-center justify-center">
+                <div className="text-center">
+                  <div className="animate-spin w-12 h-12 border-4 border-white border-t-transparent rounded-full mx-auto mb-4"></div>
+                  <p className="text-white">Loading image...</p>
+                </div>
+              </div>
+            </div>
             
             <button
               onClick={nextImage}

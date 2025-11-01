@@ -36,12 +36,12 @@ export const AdminAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     const token = localStorage.getItem('admin_token')
     if (token) {
       try {
-        const response = await fetch('http://localhost:3001/api/auth/profile', {
+        const response = await fetch('http://localhost:3001/api/demo-auth/verify-token', {
           headers: { 'Authorization': `Bearer ${token}` }
         })
         if (response.ok) {
           const data = await response.json()
-          if (data.user && (data.user.email === 'admin@travelbuddy.com' || data.user.isAdmin)) {
+          if (data.user && data.user.isAdmin) {
             setUser(data.user)
           } else {
             localStorage.removeItem('admin_token')
@@ -59,7 +59,7 @@ export const AdminAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   const login = async (email: string, password: string) => {
     setIsLoading(true)
     try {
-      const response = await fetch('http://localhost:3001/api/auth/login', {
+      const response = await fetch('http://localhost:3001/api/demo-auth/demo-login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password })
@@ -72,7 +72,7 @@ export const AdminAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       const data = await response.json()
       
       // Check if user is admin
-      if (data.user.email !== 'admin@travelbuddy.com' && !data.user.isAdmin) {
+      if (!data.user.isAdmin) {
         throw new Error('Access denied: Admin privileges required')
       }
 

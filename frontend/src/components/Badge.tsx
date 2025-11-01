@@ -1,38 +1,27 @@
 import React from 'react'
-import { cn } from '../lib/utils'
 
-interface BadgeProps extends React.HTMLAttributes<HTMLSpanElement> {
-  variant?: 'primary' | 'secondary' | 'success' | 'warning' | 'danger'
-  size?: 'sm' | 'md'
+interface BadgeProps {
+  children: React.ReactNode
+  className?: string
+  variant?: 'default' | 'destructive' | 'outline' | 'secondary'
 }
 
-export const Badge: React.FC<BadgeProps> = ({
-  variant = 'primary',
-  size = 'sm',
-  className,
-  children,
-  ...props
+export const Badge: React.FC<BadgeProps> = ({ 
+  children, 
+  className = '', 
+  variant = 'default' 
 }) => {
-  const baseClasses = 'inline-flex items-center font-medium rounded-full'
+  const baseClasses = 'inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium'
   
-  const variants = {
-    primary: 'bg-primary-100 text-primary-700',
-    secondary: 'bg-secondary-100 text-secondary-700',
-    success: 'bg-green-100 text-green-700',
-    warning: 'bg-yellow-100 text-yellow-700',
-    danger: 'bg-red-100 text-red-700'
+  const variantClasses = {
+    default: 'bg-blue-100 text-blue-800',
+    destructive: 'bg-red-100 text-red-800',
+    outline: 'border border-gray-300 text-gray-700',
+    secondary: 'bg-gray-100 text-gray-800'
   }
-  
-  const sizes = {
-    sm: 'px-2 py-1 text-xs',
-    md: 'px-3 py-1.5 text-sm'
-  }
-  
+
   return (
-    <span
-      className={cn(baseClasses, variants[variant], sizes[size], className)}
-      {...props}
-    >
+    <span className={`${baseClasses} ${variantClasses[variant]} ${className}`}>
       {children}
     </span>
   )
