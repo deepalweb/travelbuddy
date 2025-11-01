@@ -683,27 +683,40 @@ app.use((req, res, next) => {
   next();
 });
 
-app.use(cors({
+// CORS configuration - more permissive for production same-origin requests
+const corsOptions = {
   origin: function (origin, callback) {
     // Allow requests with no origin (like mobile apps or curl requests)
     if (!origin) return callback(null, true);
     
-    const allowedOrigins = process.env.NODE_ENV === 'production' 
-      ? [process.env.CLIENT_URL, process.env.WEBSITE_HOSTNAME, 'https://travelbuddy-b2c6hgbbgeh4esdh.eastus2-01.azurewebsites.net'].filter(Boolean)
-      : ['http://localhost:3000', 'http://localhost:5173', 'http://localhost:3001', 'http://127.0.0.1:3000'];
-    
-    if (allowedOrigins.includes(origin)) {
-      return callback(null, true);
-    }
-    
-    // Allow any localhost origin in development
-    if (process.env.NODE_ENV !== 'production' && origin && (origin.includes('localhost') || origin.includes('127.0.0.1'))) {
-      return callback(null, true);
-    }
-    
-    // In production, also check for Azure Static Web Apps domains
-    if (process.env.NODE_ENV === 'production' && origin && origin.includes('.azurestaticapps.net')) {
-      return callback(null, true);
+    // In production, allow same-origin requests from Azure App Service
+    if (process.env.NODE_ENV === 'production') {
+      // Allow the exact domain that's causing CORS issues
+      if (origin === 'https://travelbuddy-b2c6hgbbgeh4esdh.eastus2-01.azurewebsites.net') {
+        return callback(null, true);
+      }
+      
+      // Allow configured domains
+      const allowedOrigins = [
+        process.env.CLIENT_URL, 
+        process.env.WEBSITE_HOSTNAME, 
+        `https://${process.env.WEBSITE_HOSTNAME}`
+      ].filter(Boolean);
+      
+      if (allowedOrigins.includes(origin)) {
+        return callback(null, true);
+      }
+      
+      // Allow Azure domains
+      if (origin.includes('.azurewebsites.net') || origin.includes('.azurestaticapps.net')) {
+        return callback(null, true);
+      }
+    } else {
+      // Development - allow localhost
+      const devOrigins = ['http://localhost:3000', 'http://localhost:5173', 'http://localhost:3001', 'http://127.0.0.1:3000'];
+      if (devOrigins.includes(origin) || origin.includes('localhost') || origin.includes('127.0.0.1')) {
+        return callback(null, true);
+      }
     }
     
     console.log('CORS blocked origin:', origin);
@@ -712,17 +725,14 @@ app.use(cors({
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'x-user-id', 'x-firebase-uid', 'x-user-tier', 'x-admin-secret']
-}));
+};
+
+app.use(cors(corsOptions));
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ limit: '10mb', extended: true }));
 
 // Handle preflight OPTIONS requests
-app.options('*', cors({
-  origin: true, // Allow all origins for OPTIONS requests
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'x-user-id', 'x-firebase-uid', 'x-user-tier', 'x-admin-secret']
-}));
+app.options('*', cors(corsOptions));
 
 
 
