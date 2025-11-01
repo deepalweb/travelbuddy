@@ -16,7 +16,7 @@ on:
 
 env:
   NODE_VERSION: '20'
-  AZURE_WEBAPP_NAME: 'travelbuddy-b2c6hgbbgeh4esdh'
+  AZURE_WEBAPP_NAME: 'travelbuddy'
   DEPLOYMENT_BRANCH: ${{ github.ref_name }}
 
 jobs:
@@ -258,7 +258,7 @@ jobs:
         ls -lh ../deployment.zip
     
     - name: 🚀 Deploy to Azure Web App
-      uses: azure/webapps-deploy@v3
+      uses: azure/webapps-deploy@v2
       with:
         app-name: ${{ secrets.AZURE_WEBAPP_NAME || env.AZURE_WEBAPP_NAME }}
         publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
@@ -284,7 +284,7 @@ jobs:
     
     - name: 🏥 Comprehensive Health Check
       run: |
-        APP_URL="https://${{ secrets.AZURE_WEBAPP_NAME || env.AZURE_WEBAPP_NAME }}.azurewebsites.net"
+        APP_URL="https://travelbuddy-b2c6hgbbgeh4esdh.eastus2-01.azurewebsites.net"
         
         echo "🔍 Testing deployment health for: $APP_URL"
         
@@ -339,7 +339,7 @@ jobs:
     steps:
     - name: 📊 Deployment Status Summary
       run: |
-        APP_URL="https://${{ secrets.AZURE_WEBAPP_NAME || env.AZURE_WEBAPP_NAME }}.azurewebsites.net"
+        APP_URL="https://travelbuddy-b2c6hgbbgeh4esdh.eastus2-01.azurewebsites.net"
         
         echo "=== TravelBuddy Deployment Summary ==="
         echo "🌍 Environment: ${{ github.event.inputs.environment || 'production' }}"
