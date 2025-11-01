@@ -20,4 +20,13 @@ router.get('/config', (req, res) => {
   });
 });
 
+// Runtime config endpoint
+router.get('/runtime', (req, res) => {
+  res.json({
+    apiKey: process.env.VITE_FIREBASE_API_KEY || 'AIzaSyCuJr5N0ytr1h_Aq_5qQazNL0wQUnsZlAw',
+    authDomain: process.env.VITE_FIREBASE_AUTH_DOMAIN || 'travelbuddy-2d1c5.firebaseapp.com',
+    projectId: process.env.VITE_FIREBASE_PROJECT_ID || 'travelbuddy-2d1c5'
+  });
+});
+
 export default router;
