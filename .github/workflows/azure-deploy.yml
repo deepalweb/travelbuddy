@@ -125,7 +125,7 @@ jobs:
               <rules>
                 <!-- Static Assets -->
                 <rule name="StaticAssets" stopProcessing="true">
-                  <match url="^(assets/.*|static/.*|js/.*|css/.*|images/.*|fonts/.*|.*\.(css|js|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot|json|webp|avif))$" />
+                  <match url="^(assets/.*|.*\.(css|js|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot|json|webp|avif))$" />
                   <action type="Rewrite" url="public/{R:0}" />
                 </rule>
                 
