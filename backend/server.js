@@ -675,19 +675,7 @@ app.use(securityHeaders);
 app.use(apiRateLimit);
 app.use(sanitizeInput);
 
-// Simple CORS headers for development
-app.use((req, res, next) => {
-  res.header('Access-Control-Allow-Origin', 'http://localhost:3000');
-  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization, x-user-id, x-firebase-uid, x-user-tier, x-admin-secret');
-  res.header('Access-Control-Allow-Credentials', 'true');
-  
-  if (req.method === 'OPTIONS') {
-    res.sendStatus(200);
-  } else {
-    next();
-  }
-});
+
 
 // Middleware
 app.use((req, res, next) => {
@@ -701,7 +689,7 @@ app.use(cors({
     if (!origin) return callback(null, true);
     
     const allowedOrigins = process.env.NODE_ENV === 'production' 
-      ? [process.env.CLIENT_URL, process.env.WEBSITE_HOSTNAME].filter(Boolean)
+      ? [process.env.CLIENT_URL, process.env.WEBSITE_HOSTNAME, 'https://travelbuddy-b2c6hgbbgeh4esdh.eastus2-01.azurewebsites.net'].filter(Boolean)
       : ['http://localhost:3000', 'http://localhost:5173', 'http://localhost:3001', 'http://127.0.0.1:3000'];
     
     if (allowedOrigins.includes(origin)) {
@@ -709,7 +697,12 @@ app.use(cors({
     }
     
     // Allow any localhost origin in development
-    if (process.env.NODE_ENV !== 'production' && origin && origin.includes('localhost')) {
+    if (process.env.NODE_ENV !== 'production' && origin && (origin.includes('localhost') || origin.includes('127.0.0.1'))) {
+      return callback(null, true);
+    }
+    
+    // In production, also check for Azure Static Web Apps domains
+    if (process.env.NODE_ENV === 'production' && origin && origin.includes('.azurestaticapps.net')) {
       return callback(null, true);
     }
     
