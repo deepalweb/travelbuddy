@@ -3430,12 +3430,12 @@ app.get('/api/config/maps-key', (req, res) => {
 // Get Firebase config for frontend
 app.get('/api/config/firebase', (req, res) => {
   const firebaseConfig = {
-    apiKey: process.env.VITE_FIREBASE_API_KEY,
-    authDomain: process.env.VITE_FIREBASE_AUTH_DOMAIN,
-    projectId: process.env.VITE_FIREBASE_PROJECT_ID,
-    storageBucket: process.env.VITE_FIREBASE_STORAGE_BUCKET,
-    messagingSenderId: process.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
-    appId: process.env.VITE_FIREBASE_APP_ID
+    apiKey: process.env.VITE_FIREBASE_API_KEY || 'AIzaSyCuJr5N0ytr1h_Aq_5qQazNL0wQUnsZlAw',
+    authDomain: process.env.VITE_FIREBASE_AUTH_DOMAIN || 'travelbuddy-2d1c5.firebaseapp.com',
+    projectId: process.env.VITE_FIREBASE_PROJECT_ID || 'travelbuddy-2d1c5',
+    storageBucket: process.env.VITE_FIREBASE_STORAGE_BUCKET || 'travelbuddy-2d1c5.firebasestorage.app',
+    messagingSenderId: process.env.VITE_FIREBASE_MESSAGING_SENDER_ID || '45425409967',
+    appId: process.env.VITE_FIREBASE_APP_ID || '1:45425409967:web:782638c65a40dcb156b95a'
   };
   res.json(firebaseConfig);
 });
