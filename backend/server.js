@@ -664,9 +664,9 @@ function enforcePolicy(api) {
 app.use((req, res, next) => {
   res.setHeader('Content-Security-Policy', 
     "default-src 'self'; " +
-    "connect-src 'self' https://api.unsplash.com https://maps.googleapis.com https://places.googleapis.com https://api.openweathermap.org; " +
+    "connect-src 'self' https://api.unsplash.com https://maps.googleapis.com https://places.googleapis.com https://api.openweathermap.org https://apis.google.com; " +
     "img-src 'self' data: https: blob:; " +
-    "script-src 'self' 'unsafe-inline' 'unsafe-eval'; " +
+    "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://apis.google.com; " +
     "style-src 'self' 'unsafe-inline';"
   );
   next();
