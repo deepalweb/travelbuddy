@@ -13,41 +13,9 @@ export const apiRateLimit = rateLimit({
   legacyHeaders: false,
 });
 
-// Security headers - CSP configured for Firebase and Google APIs
+// Security headers - CSP disabled for Firebase compatibility
 export const securityHeaders = helmet({
-  contentSecurityPolicy: {
-    directives: {
-      defaultSrc: ["'self'"],
-      scriptSrc: [
-        "'self'",
-        "'unsafe-eval'",
-        "blob:",
-        "https://apis.google.com",
-        "https://www.gstatic.com",
-        "https://www.google.com",
-        "https://accounts.google.com"
-      ],
-      connectSrc: [
-        "'self'",
-        "https://identitytoolkit.googleapis.com",
-        "https://securetoken.googleapis.com",
-        "https://accounts.google.com"   // Google Auth API
-      ],
-      frameSrc: [
-        "'self'",
-        "https://www.google.com",
-        "https://accounts.google.com",
-        "https://*.firebaseapp.com",
-        "https://*.googleapis.com"
-      ],
-      imgSrc: ["'self'", "https:", "data:"],
-      childSrc: [
-        "https://accounts.google.com",
-        "https://*.firebaseapp.com"
-      ],
-      styleSrc: ["'self'", "'unsafe-inline'"]
-    },
-  },
+  contentSecurityPolicy: false,
 });
 
 // CSRF protection
