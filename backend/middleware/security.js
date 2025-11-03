@@ -20,10 +20,12 @@ export const securityHeaders = helmet({
       defaultSrc: ["'self'"],
       scriptSrc: [
         "'self'",
+        "'unsafe-eval'",
+        "blob:",
         "https://apis.google.com",
         "https://www.gstatic.com",
         "https://www.google.com",
-        "https://accounts.google.com"   // Google Auth popup
+        "https://accounts.google.com"
       ],
       connectSrc: [
         "'self'",
