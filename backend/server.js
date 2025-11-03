@@ -681,8 +681,9 @@ const corsOptions = {
     
     // In production, allow same-origin requests from Azure App Service
     if (process.env.NODE_ENV === 'production') {
-      // Allow the exact domain that's causing CORS issues
-      if (origin === 'https://travelbuddy-b2c6hgbbgeh4esdh.eastus2-01.azurewebsites.net') {
+      // Allow the exact domains that are causing CORS issues
+      if (origin === 'https://travelbuddy-b2c6hgbbgeh4esdh.eastus2-01.azurewebsites.net' || 
+          origin === 'https://travelbuddylk.com') {
         return callback(null, true);
       }
       
