@@ -231,62 +231,57 @@ export const OptimizedHomePage: React.FC = () => {
       <SEOHead />
       <style>{customStyles}</style>
       {/* 1. SEO + App-Focused Hero Section */}
-      <section className="relative min-h-[85vh] bg-gradient-to-b from-blue-600 via-indigo-700 to-purple-800">
+      <section className="relative h-screen bg-gradient-to-b from-blue-600 via-indigo-700 to-purple-800 overflow-hidden">
         <div className="absolute inset-0">
           <ImageWithFallback
-            src="https://images.unsplash.com/photo-1488646953014-85cb44e25828?w=1920&h=1080&fit=crop&auto=format&q=80"
+            src="https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=1920&h=1080&fit=crop&auto=format&q=80"
             fallbackSrc="https://picsum.photos/1920/1080?random=1"
-            alt="Global travel destinations and landmarks worldwide"
+            alt="Travel essentials - map, camera, passport and planning items"
             className="w-full h-full object-cover"
             loading="eager"
           />
         </div>
         <div className="absolute inset-0 bg-gradient-to-b from-black/60 to-transparent"></div>
         
-        <div className="relative z-10 flex min-h-[85vh] items-center justify-center px-4 py-12">
-          <div className="text-center text-white max-w-5xl">
-            {/* SEO-Optimized H1 */}
-            <h1 className="text-4xl md:text-6xl lg:text-7xl font-bold mb-6 leading-tight">
-              Discover the World with TravelBuddy –
-              <span className="block text-yellow-400">Your AI Travel Planner</span>
-            </h1>
+        <div className="relative z-10 h-screen flex items-center px-4 py-8">
+          <div className="w-full max-w-7xl mx-auto">
+            {/* Compact Header */}
+            <div className="text-center text-white mb-8">
+              <h1 className="text-3xl md:text-5xl lg:text-6xl font-bold mb-4 leading-tight">
+                Discover the World with Travel Buddy
+                <span className="block text-yellow-400">Your AI Travel Planner</span>
+              </h1>
+              <h2 className="text-lg md:text-xl mb-6 text-white/90 max-w-2xl mx-auto">
+                Explore millions of destinations, plan your perfect trip in minutes.
+              </h2>
+            </div>
             
-            {/* SEO-Optimized H2 Subheading */}
-            <h2 className="text-xl md:text-2xl mb-12 text-white/90 max-w-3xl mx-auto font-medium">
-              Explore millions of destinations, plan your perfect trip in minutes, and manage everything in one place — from inspiration to itinerary.
-            </h2>
-            
-            {/* Mobile App Promotion - Full-Width Dynamic Layout */}
-            <div className="relative w-full py-20 overflow-hidden">
-              {/* Animated Background */}
-              <div className="absolute inset-0 bg-gradient-to-r from-blue-600/20 to-purple-600/20 animate-pulse-slow"></div>
-              
-              <div className="max-w-7xl mx-auto px-4">
-                <div className="grid lg:grid-cols-2 gap-16 items-center">
+            {/* Mobile App Promotion - Compact Layout */}
+            <div className="grid lg:grid-cols-2 gap-8 items-center">
                   
-                  {/* Left: Enhanced Phone Mockup with 3D Tilt */}
+                  {/* Left: Compact Phone Mockup */}
                   <div className="relative flex justify-center lg:justify-end animate-slide-in-left">
                     {/* Gradient Glow Behind Phone */}
-                    <div className="absolute inset-0 bg-gradient-to-r from-blue-500/30 to-purple-500/30 rounded-full blur-3xl scale-150 animate-pulse-glow"></div>
+                    <div className="absolute inset-0 bg-gradient-to-r from-blue-500/20 to-purple-500/20 rounded-full blur-2xl animate-pulse-glow"></div>
                     
-                    {/* Phone Mockup with Tilt Effect */}
+                    {/* Phone Mockup */}
                     <div className="relative phone-tilt-container">
-                      <div className="relative w-80 h-[650px] bg-gradient-to-b from-gray-900 to-black rounded-[3.5rem] p-3 shadow-2xl transform hover:scale-105 transition-all duration-500">
+                      <div className="relative w-64 h-[520px] bg-gradient-to-b from-gray-900 to-black rounded-[3rem] p-2 shadow-xl transform hover:scale-105 transition-all duration-500">
                         {/* Phone Frame */}
-                        <div className="w-full h-full bg-white rounded-[3rem] overflow-hidden relative">
+                        <div className="w-full h-full bg-white rounded-[2.5rem] overflow-hidden relative">
                           {/* Status Bar */}
-                          <div className="bg-gray-900 h-10 flex items-center justify-between px-8 text-white text-sm">
+                          <div className="bg-gray-900 h-8 flex items-center justify-between px-6 text-white text-xs">
                             <span className="font-medium">9:41</span>
                             <div className="flex gap-1">
-                              <div className="w-5 h-3 bg-white rounded-sm"></div>
-                              <div className="w-2 h-3 bg-white rounded-sm"></div>
+                              <div className="w-4 h-2 bg-white rounded-sm"></div>
+                              <div className="w-1 h-2 bg-white rounded-sm"></div>
                             </div>
                           </div>
                           
                           {/* Places Screen Interface */}
                           <div className="bg-gray-50 h-full relative overflow-hidden">
                             {/* Header */}
-                            <div className="bg-white p-4 border-b border-gray-200">
+                            <div className="bg-white p-3 border-b border-gray-200">
                               <div className="flex items-center justify-between mb-3">
                                 <h4 className="text-lg font-bold text-gray-900">Explore Places</h4>
                                 <div className="w-6 h-6 bg-gray-200 rounded-full flex items-center justify-center">
@@ -327,110 +322,87 @@ export const OptimizedHomePage: React.FC = () => {
                               </div>
                             </div>
                             
-                            {/* Places Grid */}
-                            <div className="p-4 space-y-4 overflow-y-auto">
-                              {/* Place Card 1 */}
-                              <div className="bg-white rounded-xl shadow-sm border border-gray-200 animate-message-in" style={{animationDelay: '1s'}}>
-                                <div className="relative">
-                                  <div className="h-32 rounded-t-xl relative overflow-hidden">
-                                    <img 
-                                      src="https://images.unsplash.com/photo-1511739001486-6bfe10ce785f?w=300&h=200&fit=crop&auto=format&q=80" 
-                                      alt="Eiffel Tower" 
-                                      className="w-full h-full object-cover"
-                                    />
-                                    <div className="absolute inset-0 bg-black/10"></div>
-                                    <div className="absolute top-2 right-2 flex flex-col gap-1">
-                                      <div className="w-6 h-6 bg-white/90 rounded-full flex items-center justify-center">
-                                        <svg className="w-3 h-3 text-red-500" fill="currentColor" viewBox="0 0 24 24">
-                                          <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
-                                        </svg>
-                                      </div>
-                                      <div className="w-6 h-6 bg-blue-500 rounded-full flex items-center justify-center">
-                                        <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                                        </svg>
+                            {/* Places Grid - Compact */}
+                            <div className="flex-1 p-3 pb-14 overflow-y-auto">
+                              <div className="space-y-3">
+                                {/* Place Card 1 */}
+                                <div className="bg-white rounded-lg shadow-sm border border-gray-200 animate-message-in" style={{animationDelay: '1s'}}>
+                                  <div className="relative">
+                                    <div className="h-20 rounded-t-lg relative overflow-hidden">
+                                      <img 
+                                        src="https://images.unsplash.com/photo-1511739001486-6bfe10ce785f?w=300&h=200&fit=crop&auto=format&q=80" 
+                                        alt="Eiffel Tower" 
+                                        className="w-full h-full object-cover"
+                                      />
+                                      <div className="absolute inset-0 bg-black/10"></div>
+                                      <div className="absolute top-2 right-2 flex flex-col gap-1">
+                                        <div className="w-5 h-5 bg-white/90 rounded-full flex items-center justify-center">
+                                          <svg className="w-3 h-3 text-red-500" fill="currentColor" viewBox="0 0 24 24">
+                                            <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
+                                          </svg>
+                                        </div>
+                                        <div className="w-5 h-5 bg-blue-500 rounded-full flex items-center justify-center">
+                                          <svg className="w-2 h-2 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M12 4v16m8-8H4" />
+                                          </svg>
+                                        </div>
                                       </div>
                                     </div>
-                                  </div>
-                                  <div className="p-3">
-                                    <h5 className="font-bold text-sm text-gray-900 mb-1">Eiffel Tower</h5>
-                                    <div className="flex items-center gap-2 mb-2">
-                                      <div className="flex items-center gap-1">
-                                        <svg className="w-3 h-3 text-yellow-500" fill="currentColor" viewBox="0 0 24 24">
-                                          <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
-                                        </svg>
-                                        <span className="text-xs font-medium">4.8</span>
+                                    <div className="p-2">
+                                      <h5 className="font-bold text-xs text-gray-900 mb-1">Eiffel Tower</h5>
+                                      <div className="flex items-center gap-2">
+                                        <div className="flex items-center gap-1">
+                                          <svg className="w-2 h-2 text-yellow-500" fill="currentColor" viewBox="0 0 24 24">
+                                            <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+                                          </svg>
+                                          <span className="text-xs font-medium">4.8</span>
+                                        </div>
+                                        <span className="text-xs text-gray-500">Landmark</span>
                                       </div>
-                                      <span className="text-xs text-gray-500">2.1 km away</span>
                                     </div>
-                                    <p className="text-xs text-gray-600">Landmark</p>
                                   </div>
                                 </div>
-                              </div>
-                              
-                              {/* Place Card 2 */}
-                              <div className="bg-white rounded-xl shadow-sm border border-gray-200 animate-message-in" style={{animationDelay: '1.2s'}}>
-                                <div className="relative">
-                                  <div className="h-32 rounded-t-xl relative overflow-hidden">
-                                    <img 
-                                      src="https://images.unsplash.com/photo-1566139884669-4b9356b4c040?w=300&h=200&fit=crop&auto=format&q=80" 
-                                      alt="Louvre Museum" 
-                                      className="w-full h-full object-cover"
-                                    />
-                                    <div className="absolute inset-0 bg-black/10"></div>
-                                    <div className="absolute top-2 right-2 flex flex-col gap-1">
-                                      <div className="w-6 h-6 bg-white/90 rounded-full flex items-center justify-center">
-                                        <svg className="w-3 h-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
-                                        </svg>
-                                      </div>
-                                      <div className="w-6 h-6 bg-blue-500 rounded-full flex items-center justify-center">
-                                        <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                                        </svg>
-                                      </div>
+                                
+                                {/* Discover More Section */}
+                                <div className="bg-gradient-to-r from-blue-500 to-purple-600 rounded-lg p-3 text-white animate-message-in" style={{animationDelay: '1.2s'}}>
+                                  <div className="flex items-center justify-between">
+                                    <div className="flex-1">
+                                      <h5 className="font-bold text-xs mb-1">Discover 50+ Places</h5>
+                                      <p className="text-xs text-white/90">AI-powered recommendations</p>
                                     </div>
-                                  </div>
-                                  <div className="p-3">
-                                    <h5 className="font-bold text-sm text-gray-900 mb-1">Louvre Museum</h5>
-                                    <div className="flex items-center gap-2 mb-2">
-                                      <div className="flex items-center gap-1">
-                                        <svg className="w-3 h-3 text-yellow-500" fill="currentColor" viewBox="0 0 24 24">
-                                          <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
-                                        </svg>
-                                        <span className="text-xs font-medium">4.9</span>
-                                      </div>
-                                      <span className="text-xs text-gray-500">1.8 km away</span>
+                                    <div className="w-6 h-6 bg-white/20 rounded-full flex items-center justify-center">
+                                      <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                                      </svg>
                                     </div>
-                                    <p className="text-xs text-gray-600">Museum</p>
                                   </div>
                                 </div>
                               </div>
                             </div>
                             
                             {/* Bottom Navigation */}
-                            <div className="absolute bottom-0 left-0 right-0 bg-white border-t border-gray-200 p-3 animate-nav-in" style={{animationDelay: '2s'}}>
+                            <div className="absolute bottom-0 left-0 right-0 bg-white border-t border-gray-200 p-2 animate-nav-in" style={{animationDelay: '2s'}}>
                               <div className="flex justify-around">
                                 <div className="text-blue-500 text-xs text-center">
-                                  <div className="w-6 h-6 mx-auto mb-1 bg-blue-100 rounded-full flex items-center justify-center">
-                                    <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                                  <div className="w-5 h-5 mx-auto mb-1 bg-blue-100 rounded-full flex items-center justify-center">
+                                    <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
                                       <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/>
                                     </svg>
                                   </div>
                                   <span className="font-medium">Places</span>
                                 </div>
                                 <div className="text-gray-400 text-xs text-center">
-                                  <div className="w-6 h-6 mx-auto mb-1 bg-gray-100 rounded-full flex items-center justify-center">
-                                    <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                                  <div className="w-5 h-5 mx-auto mb-1 bg-gray-100 rounded-full flex items-center justify-center">
+                                    <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
                                       <path d="M20 6L9 17l-5-5"/>
                                     </svg>
                                   </div>
                                   <span>Trips</span>
                                 </div>
                                 <div className="text-gray-400 text-xs text-center">
-                                  <div className="w-6 h-6 mx-auto mb-1 bg-gray-100 rounded-full flex items-center justify-center">
-                                    <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-                                      <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+                                  <div className="w-5 h-5 mx-auto mb-1 bg-gray-100 rounded-full flex items-center justify-center">
+                                    <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
+                                      <path d="M12 2C6.48 2 2 6.48 2 12s4.48 2 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
                                     </svg>
                                   </div>
                                   <span>Profile</span>
@@ -446,98 +418,95 @@ export const OptimizedHomePage: React.FC = () => {
                     </div>
                   </div>
                   
-                  {/* Right: Expanded Content with More Space */}
-                  <div className="space-y-8 animate-slide-in-right">
+                  {/* Right: Compact Content */}
+                  <div className="space-y-4 animate-slide-in-right">
                     {/* Main Headline */}
-                    <div className="space-y-4 animate-fade-in-up" style={{animationDelay: '0.5s'}}>
-                      <h3 className="text-5xl lg:text-6xl font-bold text-white leading-tight">
+                    <div className="animate-fade-in-up" style={{animationDelay: '0.5s'}}>
+                      <h3 className="text-3xl lg:text-4xl font-bold text-white leading-tight mb-2">
                         Get the
                         <span className="block text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 to-orange-500">
                           TravelBuddy App
                         </span>
                       </h3>
-                      <p className="text-2xl text-white/90 font-light">
+                      <p className="text-lg text-white/90">
                         Your AI travel assistant in your pocket
                       </p>
                     </div>
                     
-                    {/* Enhanced Features with Custom Icons */}
-                    <div className="space-y-6">
-                      <div className="flex items-center gap-4 text-white/90 hover:text-white transition-all duration-300 group/feature animate-feature-in" style={{animationDelay: '1s'}}>
-                        <div className="w-12 h-12 bg-gradient-to-r from-blue-500 to-blue-600 rounded-2xl flex items-center justify-center flex-shrink-0 group-hover/feature:scale-110 group-hover/feature:rotate-3 transition-all duration-300 shadow-lg">
-                          <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    {/* Compact Features */}
+                    <div className="space-y-3">
+                      <div className="flex items-center gap-3 text-white/90 hover:text-white transition-all duration-300 group/feature animate-feature-in" style={{animationDelay: '1s'}}>
+                        <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-blue-600 rounded-xl flex items-center justify-center flex-shrink-0 group-hover/feature:scale-110 transition-all duration-300">
+                          <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
                           </svg>
                         </div>
                         <div>
-                          <div className="text-xl font-semibold">Smart AI Trip Planning</div>
-                          <div className="text-white/70">Personalized itineraries in seconds</div>
+                          <div className="font-semibold">Smart AI Trip Planning</div>
+                          <div className="text-sm text-white/70">Personalized itineraries in seconds</div>
                         </div>
                       </div>
                       
-                      <div className="flex items-center gap-4 text-white/90 hover:text-white transition-all duration-300 group/feature animate-feature-in" style={{animationDelay: '1.2s'}}>
-                        <div className="w-12 h-12 bg-gradient-to-r from-green-500 to-green-600 rounded-2xl flex items-center justify-center flex-shrink-0 group-hover/feature:scale-110 group-hover/feature:rotate-3 transition-all duration-300 shadow-lg">
-                          <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <div className="flex items-center gap-3 text-white/90 hover:text-white transition-all duration-300 group/feature animate-feature-in" style={{animationDelay: '1.2s'}}>
+                        <div className="w-8 h-8 bg-gradient-to-r from-green-500 to-green-600 rounded-xl flex items-center justify-center flex-shrink-0 group-hover/feature:scale-110 transition-all duration-300">
+                          <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
                           </svg>
                         </div>
                         <div>
-                          <div className="text-xl font-semibold">Offline Maps & Navigation</div>
-                          <div className="text-white/70">Never get lost, even without internet</div>
+                          <div className="font-semibold">Offline Maps & Navigation</div>
+                          <div className="text-sm text-white/70">Never get lost, even without internet</div>
                         </div>
                       </div>
                       
-                      <div className="flex items-center gap-4 text-white/90 hover:text-white transition-all duration-300 group/feature animate-feature-in" style={{animationDelay: '1.4s'}}>
-                        <div className="w-12 h-12 bg-gradient-to-r from-purple-500 to-purple-600 rounded-2xl flex items-center justify-center flex-shrink-0 group-hover/feature:scale-110 group-hover/feature:rotate-3 transition-all duration-300 shadow-lg">
-                          <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <div className="flex items-center gap-3 text-white/90 hover:text-white transition-all duration-300 group/feature animate-feature-in" style={{animationDelay: '1.4s'}}>
+                        <div className="w-8 h-8 bg-gradient-to-r from-purple-500 to-purple-600 rounded-xl flex items-center justify-center flex-shrink-0 group-hover/feature:scale-110 transition-all duration-300">
+                          <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
                           </svg>
                         </div>
                         <div>
-                          <div className="text-xl font-semibold">24/7 AI Travel Assistant</div>
-                          <div className="text-white/70">Instant answers to all travel questions</div>
+                          <div className="font-semibold">24/7 AI Travel Assistant</div>
+                          <div className="text-sm text-white/70">Instant answers to all travel questions</div>
                         </div>
                       </div>
                     </div>
                     
-                    {/* Enhanced App Store Badges */}
-                    <div className="flex flex-col sm:flex-row gap-6 animate-buttons-in" style={{animationDelay: '1.8s'}}>
+                    {/* Compact App Store Badges */}
+                    <div className="flex flex-col sm:flex-row gap-3 animate-buttons-in" style={{animationDelay: '1.8s'}}>
                       <a 
                         href="#" 
-                        className="flex items-center gap-4 bg-black/90 hover:bg-black text-white px-8 py-4 rounded-2xl transition-all duration-300 hover:scale-105 hover:shadow-2xl backdrop-blur-sm border border-white/30 group/button min-w-[200px]"
+                        className="flex items-center gap-3 bg-black/90 hover:bg-black text-white px-4 py-3 rounded-xl transition-all duration-300 hover:scale-105 backdrop-blur-sm border border-white/30 group/button"
                         aria-label="Download on App Store"
                       >
-                        <svg className="w-8 h-8 group-hover/button:scale-110 transition-transform duration-300" fill="currentColor" viewBox="0 0 24 24">
+                        <svg className="w-6 h-6 group-hover/button:scale-110 transition-transform duration-300" fill="currentColor" viewBox="0 0 24 24">
                           <path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.81-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/>
                         </svg>
                         <div className="text-left">
-                          <div className="text-sm opacity-90">Download on</div>
-                          <div className="text-lg font-bold">App Store</div>
+                          <div className="text-xs opacity-90">Download on</div>
+                          <div className="text-sm font-bold">App Store</div>
                         </div>
                       </a>
                       
                       <a 
                         href="#" 
-                        className="flex items-center gap-4 bg-black/90 hover:bg-black text-white px-8 py-4 rounded-2xl transition-all duration-300 hover:scale-105 hover:shadow-2xl backdrop-blur-sm border border-white/30 group/button min-w-[200px]"
+                        className="flex items-center gap-3 bg-black/90 hover:bg-black text-white px-4 py-3 rounded-xl transition-all duration-300 hover:scale-105 backdrop-blur-sm border border-white/30 group/button"
                         aria-label="Get on Google Play"
                       >
-                        <svg className="w-8 h-8 group-hover/button:scale-110 transition-transform duration-300" fill="currentColor" viewBox="0 0 24 24">
+                        <svg className="w-6 h-6 group-hover/button:scale-110 transition-transform duration-300" fill="currentColor" viewBox="0 0 24 24">
                           <path d="M3,20.5V3.5C3,2.91 3.34,2.39 3.84,2.15L13.69,12L3.84,21.85C3.34,21.6 3,21.09 3,20.5M16.81,15.12L6.05,21.34L14.54,12.85L16.81,15.12M20.16,10.81C20.5,11.08 20.75,11.5 20.75,12C20.75,12.5 20.53,12.9 20.18,13.18L17.89,14.5L15.39,12L17.89,9.5L20.16,10.81M6.05,2.66L16.81,8.88L14.54,11.15L6.05,2.66Z"/>
                         </svg>
                         <div className="text-left">
-                          <div className="text-sm opacity-90">GET IT ON</div>
-                          <div className="text-lg font-bold">Google Play</div>
+                          <div className="text-xs opacity-90">GET IT ON</div>
+                          <div className="text-sm font-bold">Google Play</div>
                         </div>
                       </a>
                     </div>
                   </div>
                 </div>
-              </div>
-            </div>
-
+            
             {/* Secondary CTAs */}
-            <div className="flex flex-col sm:flex-row gap-4 justify-center">
+            <div className="flex flex-col sm:flex-row gap-4 justify-center mt-6">
               <Link to="/trips">
                 <Button className="bg-white/20 backdrop-blur-sm border border-white/30 text-white hover:bg-white hover:text-gray-900 px-6 py-3 rounded-xl transition-all duration-300">
                   Start Trip Planning
