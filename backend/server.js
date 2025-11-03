@@ -660,8 +660,11 @@ function enforcePolicy(api) {
   };
 }
 
-// Security middleware - CSP handled by frontend HTML meta tag
-// Server CSP removed to prevent conflicts with frontend CSP
+// Security middleware with CSP for Google APIs
+app.use((req, res, next) => {
+  res.setHeader('Content-Security-Policy', "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://apis.google.com https://www.gstatic.com https://accounts.google.com; object-src 'self'; base-uri 'self'; frame-src https://accounts.google.com;");
+  next();
+});
 app.use(securityHeaders);
 app.use(apiRateLimit);
 app.use(sanitizeInput);
