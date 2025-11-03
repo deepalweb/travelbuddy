@@ -227,6 +227,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const result = await signInWithPopup(firebase.auth, provider)
       // User state will be updated by onAuthStateChanged
     } catch (error: any) {
+      if (error.code === 'auth/popup-closed-by-user') {
+        // User closed popup - don't throw error, just return silently
+        return
+      }
       throw new Error(error.message || 'Google sign-in failed')
     }
   }
