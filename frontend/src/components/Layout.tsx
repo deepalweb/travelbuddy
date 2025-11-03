@@ -2,7 +2,7 @@ import React from 'react'
 import { Navigate, useLocation } from 'react-router-dom'
 import { MainHeader } from './MainHeader'
 import { Footer } from './Footer'
-import { NewHomePage } from './NewHomePage'
+import { OptimizedHomePage } from './OptimizedHomePage'
 import { ProfilePage } from '../pages/ProfilePage'
 import DiscoveryPage from '../pages/DiscoveryPage'
 import PlaceDetailsPage from '../pages/PlaceDetailsPage'
@@ -60,7 +60,7 @@ export const Layout: React.FC = () => {
     switch (location.pathname) {
       case '/':
       case '/home':
-        return <NewHomePage />
+        return <OptimizedHomePage />
       case '/discovery':
         return <DiscoveryPage />
       case '/trips':

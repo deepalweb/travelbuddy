@@ -1,0 +1,787 @@
+import React, { useState, useEffect, lazy, Suspense } from 'react'
+
+// Enhanced custom CSS for animations
+const customStyles = `
+  @keyframes fade-in-up {
+    from {
+      opacity: 0;
+      transform: translateY(30px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+  
+  @keyframes slide-in-left {
+    from {
+      opacity: 0;
+      transform: translateX(-80px);
+    }
+    to {
+      opacity: 1;
+      transform: translateX(0);
+    }
+  }
+  
+  @keyframes slide-in-right {
+    from {
+      opacity: 0;
+      transform: translateX(80px);
+    }
+    to {
+      opacity: 1;
+      transform: translateX(0);
+    }
+  }
+  
+  @keyframes message-in {
+    from {
+      opacity: 0;
+      transform: translateY(20px) scale(0.9);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
+  }
+  
+  @keyframes nav-in {
+    from {
+      opacity: 0;
+      transform: translateY(30px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+  
+  @keyframes feature-in {
+    from {
+      opacity: 0;
+      transform: translateX(-30px);
+    }
+    to {
+      opacity: 1;
+      transform: translateX(0);
+    }
+  }
+  
+  @keyframes buttons-in {
+    from {
+      opacity: 0;
+      transform: translateY(40px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+  
+  @keyframes pulse-glow {
+    0%, 100% {
+      opacity: 0.3;
+      transform: scale(1);
+    }
+    50% {
+      opacity: 0.6;
+      transform: scale(1.1);
+    }
+  }
+  
+  @keyframes pulse-slow {
+    0%, 100% {
+      opacity: 0.3;
+    }
+    50% {
+      opacity: 0.5;
+    }
+  }
+  
+  .animate-fade-in-up {
+    animation: fade-in-up 0.8s ease-out both;
+  }
+  
+  .animate-slide-in-left {
+    animation: slide-in-left 1s ease-out both;
+  }
+  
+  .animate-slide-in-right {
+    animation: slide-in-right 1s ease-out both;
+  }
+  
+  .animate-message-in {
+    animation: message-in 0.6s ease-out both;
+  }
+  
+  .animate-nav-in {
+    animation: nav-in 0.8s ease-out both;
+  }
+  
+  .animate-feature-in {
+    animation: feature-in 0.6s ease-out both;
+  }
+  
+  .animate-buttons-in {
+    animation: buttons-in 0.8s ease-out both;
+  }
+  
+  .animate-pulse-glow {
+    animation: pulse-glow 4s ease-in-out infinite;
+  }
+  
+  .animate-pulse-slow {
+    animation: pulse-slow 6s ease-in-out infinite;
+  }
+  
+  .phone-tilt-container {
+    perspective: 1000px;
+  }
+  
+  .phone-tilt-container:hover > div {
+    transform: rotateY(-5deg) rotateX(2deg) scale(1.02);
+  }
+`
+import { Link } from 'react-router-dom'
+import { Search, ArrowRight, MapPin, Star, Calendar, Plane, Hotel, DollarSign } from 'lucide-react'
+import { Button } from './Button'
+import { Card, CardContent } from './Card'
+import { ImageWithFallback } from './ImageWithFallback'
+import { useUserLocation } from '../hooks/useUserLocation'
+import { SEOHead } from './SEOHead'
+
+// Lazy load heavy components
+const LazyDestinationGrid = lazy(() => import('./LazyDestinationGrid'))
+const LazyDealsSection = lazy(() => import('./LazyDealsSection'))
+
+// Loading component
+const SectionLoader = () => (
+  <div className="flex justify-center py-12">
+    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+  </div>
+)
+
+// Simplified destination data
+const featuredDestinations = [
+  {
+    id: 1,
+    name: 'Paris',
+    country: 'France',
+    image: 'https://images.unsplash.com/photo-1431274172761-fca41d930114?w=400&h=300&fit=crop&auto=format&q=60',
+    rating: 4.9,
+    price: '€80-150',
+    popular: true
+  },
+  {
+    id: 2,
+    name: 'Tokyo',
+    country: 'Japan', 
+    image: 'https://images.unsplash.com/photo-1513407030348-c983a97b98d8?w=400&h=300&fit=crop&auto=format&q=60',
+    rating: 4.8,
+    price: '¥8000-15000',
+    popular: true
+  },
+  {
+    id: 3,
+    name: 'Bali',
+    country: 'Indonesia',
+    image: 'https://images.unsplash.com/photo-1518548419970-58e3b4079ab2?w=400&h=300&fit=crop&auto=format&q=60',
+    rating: 4.7,
+    price: '$30-80',
+    trending: true
+  }
+]
+
+const quickDeals = [
+  {
+    id: 1,
+    title: 'Flash Sale',
+    discount: '50% OFF',
+    description: 'Limited time flights & hotels',
+    urgent: true
+  },
+  {
+    id: 2,
+    title: 'Last Minute',
+    discount: '35% OFF', 
+    description: 'Book within 7 days',
+    urgent: false
+  }
+]
+
+export const OptimizedHomePage: React.FC = () => {
+  const { location } = useUserLocation()
+  const [searchQuery, setSearchQuery] = useState('')
+  const [isSearching, setIsSearching] = useState(false)
+
+  const handleSearch = async () => {
+    if (!searchQuery.trim()) return
+    setIsSearching(true)
+    // Simulate search
+    setTimeout(() => {
+      setIsSearching(false)
+      // Navigate to search results
+      window.location.href = `/discovery?q=${encodeURIComponent(searchQuery)}`
+    }, 1000)
+  }
+
+  return (
+    <div className="min-h-screen">
+      <SEOHead />
+      <style>{customStyles}</style>
+      {/* 1. SEO + App-Focused Hero Section */}
+      <section className="relative min-h-[85vh] bg-gradient-to-b from-blue-600 via-indigo-700 to-purple-800">
+        <div className="absolute inset-0">
+          <ImageWithFallback
+            src="https://images.unsplash.com/photo-1488646953014-85cb44e25828?w=1920&h=1080&fit=crop&auto=format&q=80"
+            fallbackSrc="https://picsum.photos/1920/1080?random=1"
+            alt="Global travel destinations and landmarks worldwide"
+            className="w-full h-full object-cover"
+            loading="eager"
+          />
+        </div>
+        <div className="absolute inset-0 bg-gradient-to-b from-black/60 to-transparent"></div>
+        
+        <div className="relative z-10 flex min-h-[85vh] items-center justify-center px-4 py-12">
+          <div className="text-center text-white max-w-5xl">
+            {/* SEO-Optimized H1 */}
+            <h1 className="text-4xl md:text-6xl lg:text-7xl font-bold mb-6 leading-tight">
+              Discover the World with TravelBuddy –
+              <span className="block text-yellow-400">Your AI Travel Planner</span>
+            </h1>
+            
+            {/* SEO-Optimized H2 Subheading */}
+            <h2 className="text-xl md:text-2xl mb-12 text-white/90 max-w-3xl mx-auto font-medium">
+              Explore millions of destinations, plan your perfect trip in minutes, and manage everything in one place — from inspiration to itinerary.
+            </h2>
+            
+            {/* Mobile App Promotion - Full-Width Dynamic Layout */}
+            <div className="relative w-full py-20 overflow-hidden">
+              {/* Animated Background */}
+              <div className="absolute inset-0 bg-gradient-to-r from-blue-600/20 to-purple-600/20 animate-pulse-slow"></div>
+              
+              <div className="max-w-7xl mx-auto px-4">
+                <div className="grid lg:grid-cols-2 gap-16 items-center">
+                  
+                  {/* Left: Enhanced Phone Mockup with 3D Tilt */}
+                  <div className="relative flex justify-center lg:justify-end animate-slide-in-left">
+                    {/* Gradient Glow Behind Phone */}
+                    <div className="absolute inset-0 bg-gradient-to-r from-blue-500/30 to-purple-500/30 rounded-full blur-3xl scale-150 animate-pulse-glow"></div>
+                    
+                    {/* Phone Mockup with Tilt Effect */}
+                    <div className="relative phone-tilt-container">
+                      <div className="relative w-80 h-[650px] bg-gradient-to-b from-gray-900 to-black rounded-[3.5rem] p-3 shadow-2xl transform hover:scale-105 transition-all duration-500">
+                        {/* Phone Frame */}
+                        <div className="w-full h-full bg-white rounded-[3rem] overflow-hidden relative">
+                          {/* Status Bar */}
+                          <div className="bg-gray-900 h-10 flex items-center justify-between px-8 text-white text-sm">
+                            <span className="font-medium">9:41</span>
+                            <div className="flex gap-1">
+                              <div className="w-5 h-3 bg-white rounded-sm"></div>
+                              <div className="w-2 h-3 bg-white rounded-sm"></div>
+                            </div>
+                          </div>
+                          
+                          {/* Places Screen Interface */}
+                          <div className="bg-gray-50 h-full relative overflow-hidden">
+                            {/* Header */}
+                            <div className="bg-white p-4 border-b border-gray-200">
+                              <div className="flex items-center justify-between mb-3">
+                                <h4 className="text-lg font-bold text-gray-900">Explore Places</h4>
+                                <div className="w-6 h-6 bg-gray-200 rounded-full flex items-center justify-center">
+                                  <svg className="w-4 h-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+                                  </svg>
+                                </div>
+                              </div>
+                              
+                              {/* Personalized Greeting */}
+                              <div className="mb-3">
+                                <p className="text-sm font-medium text-gray-800">Good morning, Explorer 👋 Ready to explore?</p>
+                                <div className="mt-2 bg-blue-50 px-3 py-2 rounded-full border border-blue-200 inline-block">
+                                  <p className="text-xs text-blue-700 font-medium">Perfect morning for cafes & culture ☕</p>
+                                </div>
+                              </div>
+                              
+                              {/* Search Bar */}
+                              <div className="relative mb-3">
+                                <div className="absolute left-3 top-1/2 transform -translate-y-1/2">
+                                  <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                                  </svg>
+                                </div>
+                                <input 
+                                  className="w-full pl-10 pr-4 py-2 bg-gray-100 rounded-lg text-sm" 
+                                  placeholder="Search places..."
+                                  readOnly
+                                />
+                              </div>
+                              
+                              {/* Category Filters */}
+                              <div className="flex gap-2 overflow-x-auto">
+                                <div className="bg-blue-500 text-white px-3 py-1 rounded-full text-xs font-medium whitespace-nowrap">All</div>
+                                <div className="bg-gray-200 text-gray-700 px-3 py-1 rounded-full text-xs font-medium whitespace-nowrap">Food</div>
+                                <div className="bg-gray-200 text-gray-700 px-3 py-1 rounded-full text-xs font-medium whitespace-nowrap">Culture</div>
+                                <div className="bg-gray-200 text-gray-700 px-3 py-1 rounded-full text-xs font-medium whitespace-nowrap">Nature</div>
+                              </div>
+                            </div>
+                            
+                            {/* Places Grid */}
+                            <div className="p-4 space-y-4 overflow-y-auto">
+                              {/* Place Card 1 */}
+                              <div className="bg-white rounded-xl shadow-sm border border-gray-200 animate-message-in" style={{animationDelay: '1s'}}>
+                                <div className="relative">
+                                  <div className="h-32 rounded-t-xl relative overflow-hidden">
+                                    <img 
+                                      src="https://images.unsplash.com/photo-1511739001486-6bfe10ce785f?w=300&h=200&fit=crop&auto=format&q=80" 
+                                      alt="Eiffel Tower" 
+                                      className="w-full h-full object-cover"
+                                    />
+                                    <div className="absolute inset-0 bg-black/10"></div>
+                                    <div className="absolute top-2 right-2 flex flex-col gap-1">
+                                      <div className="w-6 h-6 bg-white/90 rounded-full flex items-center justify-center">
+                                        <svg className="w-3 h-3 text-red-500" fill="currentColor" viewBox="0 0 24 24">
+                                          <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
+                                        </svg>
+                                      </div>
+                                      <div className="w-6 h-6 bg-blue-500 rounded-full flex items-center justify-center">
+                                        <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                                        </svg>
+                                      </div>
+                                    </div>
+                                  </div>
+                                  <div className="p-3">
+                                    <h5 className="font-bold text-sm text-gray-900 mb-1">Eiffel Tower</h5>
+                                    <div className="flex items-center gap-2 mb-2">
+                                      <div className="flex items-center gap-1">
+                                        <svg className="w-3 h-3 text-yellow-500" fill="currentColor" viewBox="0 0 24 24">
+                                          <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+                                        </svg>
+                                        <span className="text-xs font-medium">4.8</span>
+                                      </div>
+                                      <span className="text-xs text-gray-500">2.1 km away</span>
+                                    </div>
+                                    <p className="text-xs text-gray-600">Landmark</p>
+                                  </div>
+                                </div>
+                              </div>
+                              
+                              {/* Place Card 2 */}
+                              <div className="bg-white rounded-xl shadow-sm border border-gray-200 animate-message-in" style={{animationDelay: '1.2s'}}>
+                                <div className="relative">
+                                  <div className="h-32 rounded-t-xl relative overflow-hidden">
+                                    <img 
+                                      src="https://images.unsplash.com/photo-1566139884669-4b9356b4c040?w=300&h=200&fit=crop&auto=format&q=80" 
+                                      alt="Louvre Museum" 
+                                      className="w-full h-full object-cover"
+                                    />
+                                    <div className="absolute inset-0 bg-black/10"></div>
+                                    <div className="absolute top-2 right-2 flex flex-col gap-1">
+                                      <div className="w-6 h-6 bg-white/90 rounded-full flex items-center justify-center">
+                                        <svg className="w-3 h-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+                                        </svg>
+                                      </div>
+                                      <div className="w-6 h-6 bg-blue-500 rounded-full flex items-center justify-center">
+                                        <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                                        </svg>
+                                      </div>
+                                    </div>
+                                  </div>
+                                  <div className="p-3">
+                                    <h5 className="font-bold text-sm text-gray-900 mb-1">Louvre Museum</h5>
+                                    <div className="flex items-center gap-2 mb-2">
+                                      <div className="flex items-center gap-1">
+                                        <svg className="w-3 h-3 text-yellow-500" fill="currentColor" viewBox="0 0 24 24">
+                                          <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+                                        </svg>
+                                        <span className="text-xs font-medium">4.9</span>
+                                      </div>
+                                      <span className="text-xs text-gray-500">1.8 km away</span>
+                                    </div>
+                                    <p className="text-xs text-gray-600">Museum</p>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                            
+                            {/* Bottom Navigation */}
+                            <div className="absolute bottom-0 left-0 right-0 bg-white border-t border-gray-200 p-3 animate-nav-in" style={{animationDelay: '2s'}}>
+                              <div className="flex justify-around">
+                                <div className="text-blue-500 text-xs text-center">
+                                  <div className="w-6 h-6 mx-auto mb-1 bg-blue-100 rounded-full flex items-center justify-center">
+                                    <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                                      <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/>
+                                    </svg>
+                                  </div>
+                                  <span className="font-medium">Places</span>
+                                </div>
+                                <div className="text-gray-400 text-xs text-center">
+                                  <div className="w-6 h-6 mx-auto mb-1 bg-gray-100 rounded-full flex items-center justify-center">
+                                    <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                                      <path d="M20 6L9 17l-5-5"/>
+                                    </svg>
+                                  </div>
+                                  <span>Trips</span>
+                                </div>
+                                <div className="text-gray-400 text-xs text-center">
+                                  <div className="w-6 h-6 mx-auto mb-1 bg-gray-100 rounded-full flex items-center justify-center">
+                                    <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                                      <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+                                    </svg>
+                                  </div>
+                                  <span>Profile</span>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                        
+                        {/* Enhanced Phone Reflection */}
+                        <div className="absolute -bottom-4 left-3 right-3 h-12 bg-gradient-to-b from-black/30 to-transparent rounded-[3rem] blur-2xl"></div>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  {/* Right: Expanded Content with More Space */}
+                  <div className="space-y-8 animate-slide-in-right">
+                    {/* Main Headline */}
+                    <div className="space-y-4 animate-fade-in-up" style={{animationDelay: '0.5s'}}>
+                      <h3 className="text-5xl lg:text-6xl font-bold text-white leading-tight">
+                        Get the
+                        <span className="block text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 to-orange-500">
+                          TravelBuddy App
+                        </span>
+                      </h3>
+                      <p className="text-2xl text-white/90 font-light">
+                        Your AI travel assistant in your pocket
+                      </p>
+                    </div>
+                    
+                    {/* Enhanced Features with Custom Icons */}
+                    <div className="space-y-6">
+                      <div className="flex items-center gap-4 text-white/90 hover:text-white transition-all duration-300 group/feature animate-feature-in" style={{animationDelay: '1s'}}>
+                        <div className="w-12 h-12 bg-gradient-to-r from-blue-500 to-blue-600 rounded-2xl flex items-center justify-center flex-shrink-0 group-hover/feature:scale-110 group-hover/feature:rotate-3 transition-all duration-300 shadow-lg">
+                          <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
+                          </svg>
+                        </div>
+                        <div>
+                          <div className="text-xl font-semibold">Smart AI Trip Planning</div>
+                          <div className="text-white/70">Personalized itineraries in seconds</div>
+                        </div>
+                      </div>
+                      
+                      <div className="flex items-center gap-4 text-white/90 hover:text-white transition-all duration-300 group/feature animate-feature-in" style={{animationDelay: '1.2s'}}>
+                        <div className="w-12 h-12 bg-gradient-to-r from-green-500 to-green-600 rounded-2xl flex items-center justify-center flex-shrink-0 group-hover/feature:scale-110 group-hover/feature:rotate-3 transition-all duration-300 shadow-lg">
+                          <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                          </svg>
+                        </div>
+                        <div>
+                          <div className="text-xl font-semibold">Offline Maps & Navigation</div>
+                          <div className="text-white/70">Never get lost, even without internet</div>
+                        </div>
+                      </div>
+                      
+                      <div className="flex items-center gap-4 text-white/90 hover:text-white transition-all duration-300 group/feature animate-feature-in" style={{animationDelay: '1.4s'}}>
+                        <div className="w-12 h-12 bg-gradient-to-r from-purple-500 to-purple-600 rounded-2xl flex items-center justify-center flex-shrink-0 group-hover/feature:scale-110 group-hover/feature:rotate-3 transition-all duration-300 shadow-lg">
+                          <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                          </svg>
+                        </div>
+                        <div>
+                          <div className="text-xl font-semibold">24/7 AI Travel Assistant</div>
+                          <div className="text-white/70">Instant answers to all travel questions</div>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    {/* Enhanced App Store Badges */}
+                    <div className="flex flex-col sm:flex-row gap-6 animate-buttons-in" style={{animationDelay: '1.8s'}}>
+                      <a 
+                        href="#" 
+                        className="flex items-center gap-4 bg-black/90 hover:bg-black text-white px-8 py-4 rounded-2xl transition-all duration-300 hover:scale-105 hover:shadow-2xl backdrop-blur-sm border border-white/30 group/button min-w-[200px]"
+                        aria-label="Download on App Store"
+                      >
+                        <svg className="w-8 h-8 group-hover/button:scale-110 transition-transform duration-300" fill="currentColor" viewBox="0 0 24 24">
+                          <path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.81-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/>
+                        </svg>
+                        <div className="text-left">
+                          <div className="text-sm opacity-90">Download on</div>
+                          <div className="text-lg font-bold">App Store</div>
+                        </div>
+                      </a>
+                      
+                      <a 
+                        href="#" 
+                        className="flex items-center gap-4 bg-black/90 hover:bg-black text-white px-8 py-4 rounded-2xl transition-all duration-300 hover:scale-105 hover:shadow-2xl backdrop-blur-sm border border-white/30 group/button min-w-[200px]"
+                        aria-label="Get on Google Play"
+                      >
+                        <svg className="w-8 h-8 group-hover/button:scale-110 transition-transform duration-300" fill="currentColor" viewBox="0 0 24 24">
+                          <path d="M3,20.5V3.5C3,2.91 3.34,2.39 3.84,2.15L13.69,12L3.84,21.85C3.34,21.6 3,21.09 3,20.5M16.81,15.12L6.05,21.34L14.54,12.85L16.81,15.12M20.16,10.81C20.5,11.08 20.75,11.5 20.75,12C20.75,12.5 20.53,12.9 20.18,13.18L17.89,14.5L15.39,12L17.89,9.5L20.16,10.81M6.05,2.66L16.81,8.88L14.54,11.15L6.05,2.66Z"/>
+                        </svg>
+                        <div className="text-left">
+                          <div className="text-sm opacity-90">GET IT ON</div>
+                          <div className="text-lg font-bold">Google Play</div>
+                        </div>
+                      </a>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Secondary CTAs */}
+            <div className="flex flex-col sm:flex-row gap-4 justify-center">
+              <Link to="/trips">
+                <Button className="bg-white/20 backdrop-blur-sm border border-white/30 text-white hover:bg-white hover:text-gray-900 px-6 py-3 rounded-xl transition-all duration-300">
+                  Start Trip Planning
+                </Button>
+              </Link>
+              <Link to="/discovery">
+                <Button className="bg-yellow-500 hover:bg-yellow-600 text-black px-6 py-3 rounded-xl font-semibold transition-all duration-300">
+                  Explore Destinations
+                  <ArrowRight className="w-4 h-4 ml-2" />
+                </Button>
+              </Link>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* 2. Featured Destinations */}
+      <section className="py-20 bg-gray-50">
+        <div className="max-w-7xl mx-auto px-4">
+          <div className="text-center mb-12">
+            <h2 className="text-4xl font-bold text-gray-900 mb-4">
+              Popular Destinations
+            </h2>
+            <p className="text-xl text-gray-600">
+              Handpicked by millions of travelers
+            </p>
+          </div>
+          
+          <div className="grid md:grid-cols-3 gap-8 mb-8">
+            {featuredDestinations.map((destination) => (
+              <Card key={destination.id} className="group overflow-hidden hover:shadow-xl transition-all duration-300 hover:-translate-y-2">
+                <div className="relative">
+                  <ImageWithFallback
+                    src={destination.image}
+                    fallbackSrc={`https://picsum.photos/400/300?random=${destination.id}`}
+                    alt={destination.name}
+                    className="w-full h-48 object-cover group-hover:scale-105 transition-transform duration-300"
+                    loading="lazy"
+                  />
+                  {destination.popular && (
+                    <div className="absolute top-4 left-4 bg-yellow-500 text-black px-3 py-1 rounded-full text-sm font-medium">
+                      Most Popular
+                    </div>
+                  )}
+                  {destination.trending && (
+                    <div className="absolute top-4 left-4 bg-red-500 text-white px-3 py-1 rounded-full text-sm font-medium">
+                      Trending
+                    </div>
+                  )}
+                </div>
+                <CardContent className="p-6">
+                  <div className="flex justify-between items-start mb-4">
+                    <div>
+                      <h3 className="text-xl font-bold text-gray-900">{destination.name}</h3>
+                      <p className="text-gray-600">{destination.country}</p>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <Star className="w-4 h-4 text-yellow-500 fill-current" />
+                      <span className="text-sm font-medium">{destination.rating}</span>
+                    </div>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-lg font-bold text-blue-600">{destination.price}/day</span>
+                    <Link to={`/places/${destination.id}`}>
+                      <Button className="bg-blue-600 text-white hover:bg-blue-700 px-4 py-2">
+                        Explore
+                      </Button>
+                    </Link>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+          
+          {/* Single CTA */}
+          <div className="text-center">
+            <Link to="/discovery">
+              <Button className="bg-blue-600 text-white hover:bg-blue-700 px-8 py-4 text-lg rounded-xl">
+                View All Destinations
+                <ArrowRight className="w-5 h-5 ml-2" />
+              </Button>
+            </Link>
+          </div>
+        </div>
+      </section>
+
+      {/* 3. How It Works */}
+      <section className="py-20 bg-white">
+        <div className="max-w-7xl mx-auto px-4">
+          <div className="text-center mb-16">
+            <h2 className="text-4xl font-bold text-gray-900 mb-4">
+              Plan Your Trip in 3 Steps
+            </h2>
+            <p className="text-xl text-gray-600">
+              From search to booking, we make travel planning effortless
+            </p>
+          </div>
+          
+          <div className="grid md:grid-cols-3 gap-12">
+            {[
+              {
+                step: 1,
+                icon: <Search className="w-8 h-8" />,
+                title: 'Search & Discover',
+                description: 'Find destinations that match your interests and budget'
+              },
+              {
+                step: 2,
+                icon: <Calendar className="w-8 h-8" />,
+                title: 'Plan Your Itinerary',
+                description: 'AI creates personalized day-by-day plans instantly'
+              },
+              {
+                step: 3,
+                icon: <Plane className="w-8 h-8" />,
+                title: 'Book Everything',
+                description: 'Flights, hotels, activities - all in one place'
+              }
+            ].map((step) => (
+              <div key={step.step} className="text-center">
+                <div className="w-16 h-16 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center mx-auto mb-6">
+                  {step.icon}
+                </div>
+                <div className="w-8 h-8 bg-blue-600 text-white rounded-full flex items-center justify-center mx-auto mb-4 text-sm font-bold">
+                  {step.step}
+                </div>
+                <h3 className="text-xl font-bold text-gray-900 mb-3">{step.title}</h3>
+                <p className="text-gray-600">{step.description}</p>
+              </div>
+            ))}
+          </div>
+          
+          {/* Single CTA */}
+          <div className="text-center mt-12">
+            <Link to="/trips">
+              <Button className="bg-green-600 text-white hover:bg-green-700 px-8 py-4 text-lg rounded-xl">
+                Start Planning Now
+                <ArrowRight className="w-5 h-5 ml-2" />
+              </Button>
+            </Link>
+          </div>
+        </div>
+      </section>
+
+      {/* 4. Quick Deals (Streamlined) */}
+      <section className="py-20 bg-gradient-to-r from-red-50 to-orange-50">
+        <div className="max-w-7xl mx-auto px-4">
+          <div className="text-center mb-12">
+            <h2 className="text-4xl font-bold text-gray-900 mb-4">
+              Limited Time Offers
+            </h2>
+            <p className="text-xl text-gray-600">
+              Save up to 50% on popular destinations
+            </p>
+          </div>
+          
+          <div className="grid md:grid-cols-2 gap-8 mb-8">
+            {quickDeals.map((deal) => (
+              <Card key={deal.id} className={`p-8 text-center ${deal.urgent ? 'bg-gradient-to-r from-red-500 to-orange-500 text-white' : 'bg-white'} hover:shadow-xl transition-all duration-300`}>
+                <div className="text-4xl font-bold mb-2">{deal.discount}</div>
+                <h3 className="text-2xl font-bold mb-2">{deal.title}</h3>
+                <p className={`mb-6 ${deal.urgent ? 'text-white/90' : 'text-gray-600'}`}>
+                  {deal.description}
+                </p>
+                <Button className={`${deal.urgent ? 'bg-white text-red-600 hover:bg-gray-100' : 'bg-red-600 text-white hover:bg-red-700'} px-6 py-3 rounded-xl`}>
+                  {deal.urgent ? 'Grab Now!' : 'View Deals'}
+                </Button>
+              </Card>
+            ))}
+          </div>
+          
+          {/* Single CTA */}
+          <div className="text-center">
+            <Link to="/deals">
+              <Button className="bg-red-600 text-white hover:bg-red-700 px-8 py-4 text-lg rounded-xl">
+                View All Deals
+                <DollarSign className="w-5 h-5 ml-2" />
+              </Button>
+            </Link>
+          </div>
+        </div>
+      </section>
+
+      {/* 5. Services Overview */}
+      <section className="py-20 bg-white">
+        <div className="max-w-7xl mx-auto px-4">
+          <div className="text-center mb-16">
+            <h2 className="text-4xl font-bold text-gray-900 mb-4">
+              Everything You Need
+            </h2>
+            <p className="text-xl text-gray-600">
+              Complete travel services in one platform
+            </p>
+          </div>
+          
+          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
+            {[
+              {
+                icon: <Plane className="w-8 h-8" />,
+                title: 'Flights',
+                description: 'Best prices worldwide',
+                link: '/flights'
+              },
+              {
+                icon: <Hotel className="w-8 h-8" />,
+                title: 'Hotels',
+                description: 'From luxury to budget',
+                link: '/hotels'
+              },
+              {
+                icon: <MapPin className="w-8 h-8" />,
+                title: 'Activities',
+                description: 'Local experiences',
+                link: '/activities'
+              },
+              {
+                icon: <Calendar className="w-8 h-8" />,
+                title: 'Trip Planning',
+                description: 'AI-powered itineraries',
+                link: '/trips'
+              }
+            ].map((service, index) => (
+              <Link key={index} to={service.link}>
+                <Card className="p-6 text-center hover:shadow-xl transition-all duration-300 hover:-translate-y-2 cursor-pointer">
+                  <div className="w-16 h-16 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center mx-auto mb-4">
+                    {service.icon}
+                  </div>
+                  <h3 className="text-lg font-bold text-gray-900 mb-2">{service.title}</h3>
+                  <p className="text-gray-600">{service.description}</p>
+                </Card>
+              </Link>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Lazy loaded sections */}
+      <Suspense fallback={<SectionLoader />}>
+        <LazyDestinationGrid />
+      </Suspense>
+      
+      <Suspense fallback={<SectionLoader />}>
+        <LazyDealsSection />
+      </Suspense>
+    </div>
+  )
+}
