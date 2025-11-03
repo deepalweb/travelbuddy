@@ -13,16 +13,9 @@ export const apiRateLimit = rateLimit({
   legacyHeaders: false,
 });
 
-// Security headers
+// Security headers - CSP disabled for Google APIs compatibility
 export const securityHeaders = helmet({
-  contentSecurityPolicy: {
-    directives: {
-      defaultSrc: ["'self'"],
-      styleSrc: ["'self'", "'unsafe-inline'"],
-      scriptSrc: ["'self'"],
-      imgSrc: ["'self'", "data:", "https:"],
-    },
-  },
+  contentSecurityPolicy: false,
 });
 
 // CSRF protection
