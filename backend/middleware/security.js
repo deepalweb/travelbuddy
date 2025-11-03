@@ -20,20 +20,24 @@ export const securityHeaders = helmet({
       defaultSrc: ["'self'"],
       scriptSrc: [
         "'self'",
-        "https://apis.google.com",      // Firebase Auth
-        "https://www.gstatic.com",      // Firebase static files
-        "https://www.google.com"        // Google services
+        "https://apis.google.com",
+        "https://www.gstatic.com",
+        "https://www.google.com",
+        "https://accounts.google.com"   // Google Auth popup
       ],
       connectSrc: [
         "'self'",
-        "https://identitytoolkit.googleapis.com", // Firebase Auth API
-        "https://securetoken.googleapis.com"      // Firebase Token API
+        "https://identitytoolkit.googleapis.com",
+        "https://securetoken.googleapis.com",
+        "https://accounts.google.com"   // Google Auth API
       ],
       frameSrc: [
         "'self'",
-        "https://www.google.com"        // Google login frames
+        "https://www.google.com",
+        "https://accounts.google.com"   // Google Auth frames
       ],
       imgSrc: ["'self'", "https:", "data:"],
+      childSrc: ["https://accounts.google.com"], // Google Auth popup
       styleSrc: ["'self'", "'unsafe-inline'"]
     },
   },
