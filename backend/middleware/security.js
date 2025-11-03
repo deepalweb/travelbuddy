@@ -35,10 +35,14 @@ export const securityHeaders = helmet({
         "'self'",
         "https://www.google.com",
         "https://accounts.google.com",
-        "https://travelbuddy-2d1c5.firebaseapp.com" // Firebase Auth frames
+        "https://*.firebaseapp.com",
+        "https://*.googleapis.com"
       ],
       imgSrc: ["'self'", "https:", "data:"],
-      childSrc: ["https://accounts.google.com"], // Google Auth popup
+      childSrc: [
+        "https://accounts.google.com",
+        "https://*.firebaseapp.com"
+      ]
       styleSrc: ["'self'", "'unsafe-inline'"]
     },
   },
