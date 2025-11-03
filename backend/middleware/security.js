@@ -44,7 +44,7 @@ export const securityHeaders = helmet({
       childSrc: [
         "https://accounts.google.com",
         "https://*.firebaseapp.com"
-      ]
+      ],
       styleSrc: ["'self'", "'unsafe-inline'"]
     },
   },
