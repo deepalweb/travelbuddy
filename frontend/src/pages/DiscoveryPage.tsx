@@ -346,7 +346,7 @@ const DiscoveryPage: React.FC = () => {
             </div>
             <p className="text-gray-600">{searchContext}</p>
             <p className="text-sm text-gray-500 mt-1">
-              Found {places.length} places • Powered by Azure OpenAI
+              Found {places.length} places • Semantic AI Search
               {searchCache.has(searchQuery.toLowerCase().trim()) && ' • Cached'}
               {selectedPlaces.length > 0 && ` • ${selectedPlaces.length} selected for trip`}
             </p>

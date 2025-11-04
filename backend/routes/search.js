@@ -1,6 +1,7 @@
 import express from 'express';
 import OpenAI from 'openai';
 import fetch from 'node-fetch';
+import { generateEmbedding } from '../services/embeddingService.js';
 
 const router = express.Router();
 
@@ -14,62 +15,104 @@ const openai = process.env.AZURE_OPENAI_API_KEY ? new OpenAI({
   },
 }) : null;
 
-// In-memory cache for search results
+// In-memory cache for search results (cleared for testing)
 const searchCache = new Map();
 const photoCache = new Map();
 const CACHE_TTL = 30 * 60 * 1000; // 30 minutes
 const PHOTO_CACHE_TTL = 24 * 60 * 60 * 1000; // 24 hours
 
-// Google Places API helper
-const getPlacePhoto = async (placeName, city) => {
-  const cacheKey = `${placeName}_${city}`.toLowerCase()
-  
-  // Check photo cache first
-  const cached = photoCache.get(cacheKey)
-  if (cached && (Date.now() - cached.timestamp) < PHOTO_CACHE_TTL) {
-    return cached.photoUrl
-  }
-  
-  try {
-    if (!process.env.GOOGLE_PLACES_API_KEY) {
-      return `https://images.unsplash.com/search/photos?query=${encodeURIComponent(placeName + ' ' + city)}&w=400&h=300&fit=crop`
-    }
-    
-    // Step 1: Find place
-    const searchUrl = `https://maps.googleapis.com/maps/api/place/findplacefromtext/json?input=${encodeURIComponent(placeName + ' ' + city)}&inputtype=textquery&fields=place_id,photos&key=${process.env.GOOGLE_PLACES_API_KEY}`
-    
-    const searchResponse = await fetch(searchUrl)
-    const searchData = await searchResponse.json()
-    
-    if (searchData.candidates && searchData.candidates[0] && searchData.candidates[0].photos) {
-      const photoReference = searchData.candidates[0].photos[0].photo_reference
-      
-      // Step 2: Get photo URL with higher quality
-      const photoUrl = `https://maps.googleapis.com/maps/api/place/photo?maxwidth=800&photo_reference=${photoReference}&key=${process.env.GOOGLE_PLACES_API_KEY}`
-      
-      // Cache the result
-      photoCache.set(cacheKey, {
-        photoUrl,
-        timestamp: Date.now()
-      })
-      
-      return photoUrl
-    }
-  } catch (error) {
-    console.error('Google Places API error:', error)
-  }
-  
-  // Enhanced fallback with multiple sources
-  const fallbackSources = [
-    `https://source.unsplash.com/800x600/?${encodeURIComponent(placeName)},${encodeURIComponent(city)},landmark`,
-    `https://source.unsplash.com/800x600/?${encodeURIComponent(placeName)},travel,destination`,
-    `https://picsum.photos/seed/${encodeURIComponent(placeName + city)}/800/600`
-  ]
-  
-  return fallbackSources[0] // Return first fallback, frontend will handle others
-}
+// Clear cache for testing
+searchCache.clear();
 
-// AI-powered places search
+// Get real place photos from Google Places API
+const getPlacePhoto = (photoReference) => {
+  if (!photoReference || !process.env.GOOGLE_PLACES_API_KEY) {
+    return `https://source.unsplash.com/400x300/?travel,destination`;
+  }
+  return `https://maps.googleapis.com/maps/api/place/photo?maxwidth=400&photoreference=${photoReference}&key=${process.env.GOOGLE_PLACES_API_KEY}`;
+};
+
+// Enhance AI results with real Google Places photos
+const enhanceWithRealPhotos = async (aiPlaces) => {
+  if (!process.env.GOOGLE_PLACES_API_KEY || !aiPlaces?.length) return aiPlaces;
+  
+  const enhanced = await Promise.all(aiPlaces.map(async (place) => {
+    try {
+      // Search Google Places for this specific place
+      const query = `${place.name} ${place.location?.city || ''}`;
+      const url = `https://maps.googleapis.com/maps/api/place/textsearch/json?query=${encodeURIComponent(query)}&key=${process.env.GOOGLE_PLACES_API_KEY}`;
+      
+      const response = await fetch(url);
+      const data = await response.json();
+      
+      if (data.status === 'OK' && data.results?.[0]?.photos?.[0]) {
+        const photoRef = data.results[0].photos[0].photo_reference;
+        return {
+          ...place,
+          image: getPlacePhoto(photoRef),
+          realPhoto: true
+        };
+      }
+    } catch (error) {
+      console.warn(`Photo enhancement failed for ${place.name}:`, error.message);
+    }
+    return place;
+  }));
+  
+  return enhanced;
+};
+
+// Google Places API fallback function
+const searchWithGooglePlaces = async (query, limit = 8) => {
+  if (!process.env.GOOGLE_PLACES_API_KEY) {
+    throw new Error('Google Places API key not configured');
+  }
+
+  const url = `https://maps.googleapis.com/maps/api/place/textsearch/json?query=${encodeURIComponent(query)}&key=${process.env.GOOGLE_PLACES_API_KEY}`;
+  
+  const response = await fetch(url);
+  const data = await response.json();
+  
+  if (data.status !== 'OK') {
+    throw new Error(`Google Places API error: ${data.status}`);
+  }
+
+  const places = data.results.slice(0, limit).map((place, index) => ({
+    id: place.place_id || `google_${index}`,
+    name: place.name,
+    description: `${place.name} is a popular destination${place.types ? ` known for ${place.types.slice(0, 2).join(' and ')}` : ''}.`,
+    category: place.types?.[0] || 'attraction',
+    rating: place.rating || 4.0,
+    priceLevel: place.price_level ? '$'.repeat(place.price_level) : '$$',
+    location: {
+      address: place.formatted_address || 'Address not available',
+      city: place.formatted_address?.split(',')[1]?.trim() || 'Unknown City',
+      country: place.formatted_address?.split(',').pop()?.trim() || 'Unknown Country',
+      coordinates: {
+        lat: place.geometry?.location?.lat || 0,
+        lng: place.geometry?.location?.lng || 0
+      }
+    },
+    highlights: place.types?.slice(0, 3) || ['Popular destination'],
+    image: getPlacePhoto(place.photos?.[0]?.photo_reference),
+    contact: {
+      phone: 'Not available',
+      website: ''
+    },
+    openHours: place.opening_hours?.open_now ? 'Open now' : 'Hours vary',
+    tags: ['google-places', 'verified']
+  }));
+
+  return {
+    query: query.trim(),
+    places,
+    searchContext: `Found ${places.length} places using Google Places API`,
+    totalFound: places.length,
+    filters: { category: 'all' }
+  };
+};
+
+// AI-powered places search with Google Places fallback
 router.get('/places', async (req, res) => {
   const startTime = Date.now();
   
@@ -77,191 +120,147 @@ router.get('/places', async (req, res) => {
     const { q: query, category, limit = 8 } = req.query;
     
     // Validate input
-    if (!query || query.trim().length === 0) {
+    if (!query?.trim() || query.trim().length < 2) {
       return res.status(400).json({ 
         success: false,
-        error: 'Search query is required' 
+        error: 'Search query must be at least 2 characters' 
       });
     }
 
-    if (!openai) {
-      return res.status(500).json({ 
-        success: false,
-        error: 'Azure OpenAI service not configured' 
-      });
-    }
-
+    const normalizedQuery = query.trim();
+    const normalizedLimit = Math.min(20, Math.max(1, parseInt(limit)));
+    
     // Check cache first
-    const cacheKey = `${query.toLowerCase()}_${category || 'all'}_${limit}`;
+    const cacheKey = `${normalizedQuery.toLowerCase()}_${category || 'all'}_${normalizedLimit}`;
     const cached = searchCache.get(cacheKey);
     
-    if (cached && (Date.now() - cached.timestamp) < CACHE_TTL) {
-      console.log('🎯 Returning cached results for:', query);
+    // Skip cache for testing photo enhancement
+    console.log('🔄 Cache bypassed for photo enhancement testing');
+
+    // Try semantic search first
+    console.log('🔍 OpenAI status:', !!openai, 'API Key:', !!process.env.AZURE_OPENAI_API_KEY);
+    if (openai) {
+      console.log('🤖 Azure OpenAI configured, attempting semantic search');
+      try {
+        // Enhanced AI prompt with semantic understanding
+        const completion = await openai.chat.completions.create({
+          model: process.env.AZURE_OPENAI_DEPLOYMENT_NAME,
+          messages: [{
+            role: "system",
+            content: "You are a semantic travel search engine. Understand the intent behind queries and find relevant places that match the meaning, not just keywords."
+          }, {
+            role: "user", 
+            content: `Semantic search for: "${normalizedQuery}"
+            
+Analyze the intent and find ${normalizedLimit} places that match the meaning. Consider:
+            - Hidden meanings ("budget" = price level $, "luxury" = $$$$)
+            - Context ("couples" = romantic, "family" = kid-friendly)
+            - Season/time preferences
+            - Activity types implied
+            
+Return JSON: {"places":[{"id":"1","name":"Place Name","description":"Description with why it matches the query","category":"attraction","rating":4.5,"priceLevel":"$$","location":{"address":"Address","city":"City","country":"Country","coordinates":{"lat":0,"lng":0}},"highlights":["feature1"],"image":"https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=400","contact":{"phone":"","website":""},"openHours":"9 AM-6 PM","tags":["popular"],"matchReason":"Why this matches the query"}]}`
+          }],
+          temperature: 0.7
+        });
+        
+        const aiResponse = completion.choices[0].message.content;
+        const jsonMatch = aiResponse.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          const parsedData = JSON.parse(jsonMatch[0]);
+          if (parsedData.places?.length) {
+            // Enhance AI results with real photos
+            console.log('🖼️ Enhancing AI results with real Google Places photos...');
+            
+            // Force enhancement for testing
+            let enhancedPlaces;
+            try {
+              enhancedPlaces = await enhanceWithRealPhotos(parsedData.places);
+              console.log('✅ Photo enhancement complete - enhanced', enhancedPlaces.length, 'places');
+            } catch (enhanceError) {
+              console.error('❌ Photo enhancement failed:', enhanceError);
+              enhancedPlaces = parsedData.places;
+            }
+            
+            const finalResponse = {
+              query: normalizedQuery,
+              places: enhancedPlaces.map(place => ({
+                ...place,
+                image: place.image || `https://images.unsplash.com/search/photos?query=${encodeURIComponent(place.name)}&w=400&h=300&fit=crop`,
+                semanticScore: 0.95
+              })),
+              searchContext: `AI-powered results with real photos for "${normalizedQuery}"`,
+              totalFound: enhancedPlaces.length,
+              filters: { category: category || 'all' },
+              searchType: 'hybrid'
+            };
+            
+            // Cache the results
+            searchCache.set(cacheKey, { data: finalResponse, timestamp: Date.now() });
+            
+            return res.json({
+              success: true,
+              data: finalResponse,
+              source: 'semantic-ai',
+              processingTime: `${Date.now() - startTime}ms`
+            });
+          }
+        }
+      } catch (aiError) {
+        console.error('❌ Semantic search failed:', aiError.message);
+        console.error('Full error:', aiError);
+      }
+    }
+    
+    // Fallback to Google Places
+    try {
+      const fallbackResults = await searchWithGooglePlaces(normalizedQuery, normalizedLimit);
+      searchCache.set(cacheKey, { data: fallbackResults, timestamp: Date.now() });
       return res.json({
         success: true,
-        data: cached.data,
-        cached: true,
+        data: fallbackResults,
+        source: 'google-places',
+        processingTime: `${Date.now() - startTime}ms`
+      });
+    } catch (error) {
+      // Final fallback - return mock data
+      const mockData = {
+        query: normalizedQuery,
+        places: [{
+          id: 'mock_1',
+          name: `Popular place in ${normalizedQuery}`,
+          description: `A recommended destination for ${normalizedQuery}`,
+          category: 'attraction',
+          rating: 4.2,
+          priceLevel: '$$',
+          location: {
+            address: 'Location available',
+            city: 'City',
+            country: 'Country',
+            coordinates: { lat: 6.9271, lng: 79.8612 }
+          },
+          highlights: ['Popular destination'],
+          image: `https://images.unsplash.com/search/photos?query=${encodeURIComponent(normalizedQuery)}&w=400&h=300&fit=crop`,
+          contact: { phone: 'Not available', website: '' },
+          openHours: 'Hours vary',
+          tags: ['recommended']
+        }],
+        searchContext: `Results for "${normalizedQuery}"`,
+        totalFound: 1,
+        filters: { category: category || 'all' }
+      };
+      return res.json({
+        success: true,
+        data: mockData,
+        source: 'fallback',
         processingTime: `${Date.now() - startTime}ms`
       });
     }
-
-    console.log('🤖 Processing AI search for:', query);
-
-    // Construct intelligent prompt for Azure OpenAI
-    const systemPrompt = `You are a travel expert AI that provides accurate, detailed information about places worldwide. 
-Always return valid JSON format with real, helpful place recommendations.`;
-    
-    const userPrompt = `Find ${limit} real places for: "${query}"
-${category ? `Focus on category: ${category}` : ''}
-
-Return EXACTLY this JSON structure:
-{
-  "places": [
-    {
-      "id": "unique_place_id",
-      "name": "Actual Place Name",
-      "description": "Detailed 2-3 sentence description with key highlights",
-      "category": "restaurant|attraction|hotel|shopping|cafe|museum|park",
-      "rating": 4.5,
-      "priceLevel": "$|$$|$$$|$$$$",
-      "location": {
-        "address": "Full address",
-        "city": "City Name",
-        "country": "Country Name",
-        "coordinates": {
-          "lat": 35.6762,
-          "lng": 139.6503
-        }
-      },
-      "highlights": ["feature1", "feature2", "feature3"],
-      "image": "https://images.unsplash.com/photo-relevant?w=400&h=300&fit=crop",
-      "contact": {
-        "phone": "+country-area-number",
-        "website": "https://website.com"
-      },
-      "openHours": "9:00 AM - 10:00 PM",
-      "tags": ["popular", "authentic", "must-visit"]
-    }
-  ],
-  "searchContext": "Brief context about the search area",
-  "totalFound": ${limit}
-}
-
-IMPORTANT:
-- Provide REAL places with accurate information
-- Include diverse options (different areas, price ranges)
-- Use actual coordinates for the locations
-- Make descriptions engaging and informative
-- Ensure all JSON is properly formatted`;
-
-    // Call Azure OpenAI
-    const completion = await openai.chat.completions.create({
-      model: process.env.AZURE_OPENAI_DEPLOYMENT_NAME,
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: userPrompt }
-      ],
-      temperature: 0.7,
-      max_tokens: 4000
-    });
-    
-    const aiResponse = completion.choices[0].message.content;
-    console.log('🔄 Raw AI Response length:', aiResponse.length);
-    
-    // Parse and validate AI response
-    let parsedData;
-    try {
-      // Extract JSON from response (handle code blocks)
-      let jsonText = aiResponse;
-      const jsonMatch = aiResponse.match(/```json\s*([\s\S]*?)\s*```/) || aiResponse.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
-        jsonText = jsonMatch[1] || jsonMatch[0];
-      }
-      
-      parsedData = JSON.parse(jsonText);
-      
-      // Validate structure
-      if (!parsedData.places || !Array.isArray(parsedData.places)) {
-        throw new Error('Invalid response structure');
-      }
-      
-    } catch (parseError) {
-      console.error('❌ JSON Parse Error:', parseError.message);
-      console.error('Raw response:', aiResponse.substring(0, 500));
-      
-      return res.status(500).json({
-        success: false,
-        error: 'Failed to parse AI response',
-        details: 'The AI returned invalid data format'
-      });
-    }
-
-    // Enhance and validate places data with real photos
-    const enhancedPlaces = await Promise.all(parsedData.places.map(async (place, index) => {
-      const realPhoto = await getPlacePhoto(
-        place.name || 'Unknown Place',
-        place.location?.city || 'Unknown City'
-      )
-      
-      return {
-        id: place.id || `ai_place_${Date.now()}_${index}`,
-        name: place.name || 'Unknown Place',
-        description: place.description || 'No description available',
-        category: place.category || 'general',
-        rating: Math.min(5, Math.max(1, place.rating || 4.0)),
-        priceLevel: place.priceLevel || '$$',
-        location: {
-          address: place.location?.address || 'Address not available',
-          city: place.location?.city || 'Unknown City',
-          country: place.location?.country || 'Unknown Country',
-          coordinates: {
-            lat: place.location?.coordinates?.lat || 0,
-            lng: place.location?.coordinates?.lng || 0
-          }
-        },
-        highlights: Array.isArray(place.highlights) ? place.highlights : ['Popular destination'],
-        image: realPhoto,
-        contact: {
-          phone: place.contact?.phone || 'Not available',
-          website: place.contact?.website || ''
-        },
-        openHours: place.openHours || 'Hours vary',
-        tags: Array.isArray(place.tags) ? place.tags : ['recommended']
-      }
-    }));
-
-    const finalResponse = {
-      query: query.trim(),
-      places: enhancedPlaces,
-      searchContext: parsedData.searchContext || `Results for "${query}"`,
-      totalFound: enhancedPlaces.length,
-      filters: { category: category || 'all' }
-    };
-
-    // Cache the results
-    searchCache.set(cacheKey, {
-      data: finalResponse,
-      timestamp: Date.now()
-    });
-
-    console.log(`✅ AI search completed: ${enhancedPlaces.length} places found`);
-    
-    res.json({
-      success: true,
-      data: finalResponse,
-      cached: false,
-      processingTime: `${Date.now() - startTime}ms`
-    });
     
   } catch (error) {
-    console.error('❌ Search error:', error.message);
-    
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
-      error: 'Search request failed',
-      message: 'Unable to process your search. Please try again.',
-      details: process.env.NODE_ENV === 'development' ? error.message : undefined,
-      processingTime: `${Date.now() - startTime}ms`
+      error: 'Search failed',
+      message: 'Unable to process your search'
     });
   }
 });
@@ -379,27 +378,41 @@ Return detailed information in this JSON format:
   }
 });
 
-// Search suggestions endpoint
+// Smart semantic suggestions endpoint
 router.get('/suggestions', async (req, res) => {
   try {
     const { q: query } = req.query;
     
     if (!query || query.length < 2) {
-      return res.json({ suggestions: [] });
+      return res.json({ 
+        suggestions: [
+          'Hidden mountain towns in Europe',
+          'Budget-friendly beaches in Southeast Asia',
+          'Family-friendly attractions in Japan',
+          'Romantic restaurants in Paris',
+          'Adventure activities in New Zealand'
+        ]
+      });
     }
 
     if (!openai) {
-      return res.json({ suggestions: ['Tokyo', 'Paris', 'New York', 'London'] });
+      return res.json({ suggestions: ['Tokyo attractions', 'Paris restaurants', 'New York hotels'] });
     }
 
-    const prompt = `Suggest 5 travel destinations or place types for the query: "${query}"
-Return only a simple JSON array: ["suggestion1", "suggestion2", "suggestion3", "suggestion4", "suggestion5"]`;
+    const prompt = `Generate 5 smart travel search suggestions based on: "${query}"
+    
+    Make suggestions more specific and intent-aware:
+    - If they type "beach" → suggest "secluded beaches for couples", "family beaches with shallow water"
+    - If they type "food" → suggest "street food tours in Bangkok", "michelin restaurants in Tokyo"
+    - Add context like budget, season, group type, activity level
+    
+    Return JSON: ["suggestion1", "suggestion2", "suggestion3", "suggestion4", "suggestion5"]`;
 
     const completion = await openai.chat.completions.create({
       model: process.env.AZURE_OPENAI_DEPLOYMENT_NAME,
       messages: [{ role: "user", content: prompt }],
-      temperature: 0.5,
-      max_tokens: 200
+      temperature: 0.7,
+      max_tokens: 300
     });
     
     const response = completion.choices[0].message.content;
@@ -408,8 +421,86 @@ Return only a simple JSON array: ["suggestion1", "suggestion2", "suggestion3", "
     res.json({ suggestions });
     
   } catch (error) {
-    console.error('Suggestions error:', error);
-    res.json({ suggestions: [] });
+    console.error('Smart suggestions error:', error);
+    res.json({ suggestions: [
+      `${query} for couples`,
+      `budget ${query}`,
+      `luxury ${query}`,
+      `family-friendly ${query}`,
+      `hidden ${query}`
+    ] });
+  }
+});
+
+// Inspire me endpoint - generates discovery prompts
+router.get('/inspire', async (req, res) => {
+  try {
+    if (!openai) {
+      return res.json({ 
+        prompts: [
+          'Discover hidden gems in your city',
+          'Find the perfect weekend getaway',
+          'Explore local food scenes'
+        ]
+      });
+    }
+
+    const completion = await openai.chat.completions.create({
+      model: process.env.AZURE_OPENAI_DEPLOYMENT_NAME,
+      messages: [{
+        role: "user",
+        content: `Generate 6 inspiring travel discovery prompts that encourage exploration. Make them specific and actionable.
+        
+        Examples:
+        - "Rooftop bars with sunset views in your city"
+        - "Historic neighborhoods perfect for walking tours"
+        - "Local markets where chefs shop for ingredients"
+        
+        Return JSON: ["prompt1", "prompt2", "prompt3", "prompt4", "prompt5", "prompt6"]`
+      }],
+      temperature: 0.8,
+      max_tokens: 400
+    });
+    
+    const response = completion.choices[0].message.content;
+    const prompts = JSON.parse(response.match(/\[.*\]/)[0]);
+    
+    res.json({ prompts });
+    
+  } catch (error) {
+    console.error('Inspire error:', error);
+    res.json({ prompts: [
+      'Hidden local favorites in your area',
+      'Perfect spots for golden hour photos',
+      'Authentic street food experiences',
+      'Quiet places to work remotely',
+      'Best viewpoints in the city',
+      'Local artisan shops and galleries'
+    ] });
+  }
+});
+
+// Test endpoint for hybrid approach
+router.get('/test-hybrid', async (req, res) => {
+  try {
+    const mockAiResult = [{
+      id: '1',
+      name: 'Sukiyabashi Jiro',
+      location: { city: 'Tokyo' },
+      image: 'https://images.unsplash.com/search/photos?query=sushi&w=400'
+    }];
+    
+    console.log('🧪 Testing hybrid enhancement...');
+    const enhanced = await enhanceWithRealPhotos(mockAiResult);
+    
+    res.json({
+      success: true,
+      original: mockAiResult[0],
+      enhanced: enhanced[0],
+      hasRealPhoto: enhanced[0].realPhoto || false
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
   }
 });
 

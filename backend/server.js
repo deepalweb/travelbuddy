@@ -276,15 +276,15 @@ function buildCostSnapshot(windowMinutes = 60) {
   };
 }
 
-// Initialize Azure OpenAI
-const openai = new OpenAI({
+// Initialize Azure OpenAI only if API key is available
+const openai = process.env.AZURE_OPENAI_API_KEY ? new OpenAI({
   apiKey: process.env.AZURE_OPENAI_API_KEY,
   baseURL: `${process.env.AZURE_OPENAI_ENDPOINT}/openai/deployments/${process.env.AZURE_OPENAI_DEPLOYMENT_NAME}`,
   defaultQuery: { 'api-version': '2024-02-15-preview' },
   defaultHeaders: {
     'api-key': process.env.AZURE_OPENAI_API_KEY,
   },
-});
+}) : null;
 
 // Enhanced dishes endpoint with full specification
 app.post('/api/dishes/generate', async (req, res) => {
@@ -807,6 +807,15 @@ try {
   console.log('✅ Search routes loaded');
 } catch (error) {
   console.error('❌ Failed to load search routes:', error);
+}
+
+// Load hybrid search routes
+try {
+  const hybridRouter = (await import('./hybrid-search.js')).default;
+  app.use('/api/hybrid', hybridRouter);
+  console.log('✅ Hybrid search routes loaded');
+} catch (error) {
+  console.error('❌ Failed to load hybrid search routes:', error);
 }
 
 // Load emergency services routes
