@@ -38,17 +38,13 @@ jobs:
         cache-dependency-path: |
           frontend/package-lock.json
           backend/package-lock.json
-          admin/package-lock.json
     
     - name: 🔧 Install Frontend Dependencies
       run: |
         cd frontend
         npm ci --prefer-offline --no-audit
     
-    - name: 🔧 Install Admin Dependencies
-      run: |
-        cd admin
-        npm ci --prefer-offline --no-audit
+
     
     - name: 🔐 Azure Login
       uses: azure/login@v1
@@ -117,14 +113,7 @@ jobs:
         VITE_UNSPLASH_ACCESS_KEY=$VITE_UNSPLASH_ACCESS_KEY
         EOF
         
-        # Admin environment
-        cd ../admin
-        cat > .env.production << EOF
-        VITE_API_BASE_URL=https://travelbuddy-b2c6hgbbgeh4esdh.eastus2-01.azurewebsites.net
-        VITE_FIREBASE_API_KEY=$VITE_FIREBASE_API_KEY
-        VITE_FIREBASE_AUTH_DOMAIN=$VITE_FIREBASE_AUTH_DOMAIN
-        VITE_FIREBASE_PROJECT_ID=$VITE_FIREBASE_PROJECT_ID
-        EOF
+
         
         echo "✅ Production environment files created"
     
@@ -135,12 +124,7 @@ jobs:
         echo "✅ Frontend build completed"
         ls -la dist/
     
-    - name: 🏗️ Build Admin Dashboard
-      run: |
-        cd admin
-        npm run build
-        echo "✅ Admin build completed"
-        ls -la dist/
+
     
     - name: 🔧 Install Backend Dependencies
       run: |
@@ -151,19 +135,13 @@ jobs:
       run: |
         # Create deployment directory structure
         mkdir -p backend/public
-        mkdir -p backend/admin
         
         # Copy frontend build
         cp -r frontend/dist/* backend/public/
         
-        # Copy admin build
-        cp -r admin/dist/* backend/admin/
-        
         echo "✅ Deployment structure prepared"
         echo "Frontend files:"
         ls -la backend/public/
-        echo "Admin files:"
-        ls -la backend/admin/
     
     - name: ⚙️ Create Optimized web.config
       run: |
@@ -182,19 +160,7 @@ jobs:
                   <action type="Rewrite" url="public/{R:0}" />
                 </rule>
                 
-                <!-- Admin Routes -->
-                <rule name="AdminStatic" stopProcessing="true">
-                  <match url="^admin/(assets/.*|static/.*|.*\.(css|js|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot|json))$" />
-                  <action type="Rewrite" url="admin/{R:1}" />
-                </rule>
-                
-                <rule name="AdminSPA" stopProcessing="true">
-                  <match url="^admin/(.*)" />
-                  <conditions logicalGrouping="MatchAll">
-                    <add input="{REQUEST_FILENAME}" matchType="IsFile" negate="true" />
-                  </conditions>
-                  <action type="Rewrite" url="admin/index.html" />
-                </rule>
+
                 
                 <!-- API Routes -->
                 <rule name="API" stopProcessing="true">
@@ -208,7 +174,6 @@ jobs:
                   <conditions logicalGrouping="MatchAll">
                     <add input="{REQUEST_FILENAME}" matchType="IsFile" negate="true" />
                     <add input="{REQUEST_URI}" pattern="^/api/" negate="true" />
-                    <add input="{REQUEST_URI}" pattern="^/admin/" negate="true" />
                   </conditions>
                   <action type="Rewrite" url="public/index.html" />
                 </rule>
@@ -367,14 +332,7 @@ jobs:
           echo "❌ Frontend health check failed with status code: $frontend_response"
         fi
         
-        # Admin Dashboard Check
-        echo "Testing admin dashboard..."
-        admin_response=$(curl -s -o /dev/null -w "%{http_code}" "$APP_URL/admin/" || echo "000")
-        if [ "$admin_response" = "200" ]; then
-          echo "✅ Admin dashboard health check passed (200)"
-        else
-          echo "❌ Admin dashboard health check failed with status code: $admin_response"
-        fi
+
         
         # Test API endpoints
         echo "Testing key API endpoints..."
@@ -418,7 +376,6 @@ jobs:
           echo ""
           echo "🔗 Application URLs:"
           echo "  🌐 Main App: $APP_URL"
-          echo "  ⚙️ Admin Panel: $APP_URL/admin"
           echo "  🏥 Health Check: $APP_URL/api/health"
           echo "  📊 API Status: $APP_URL/api/test-deployment"
           echo ""
