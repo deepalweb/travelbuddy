@@ -53,11 +53,11 @@ class _BackendCheckerState extends State<BackendChecker> {
     setState(() => _results = 'Checking...\n');
     
     final endpoints = [
-      '/api/places/search?q=restaurants',
-      '/places/search?q=restaurants', 
-      '/api/places?q=restaurants',
-      '/places?q=restaurants',
-      '/search?q=restaurants',
+      '/api/places/search?q=restaurants&lat=40.7128&lng=-74.0060',
+      '/api/places/hybrid?q=restaurants&limit=2',
+      '/api/search?q=restaurants',
+      '/api/config',
+      '/api/auth/status',
     ];
 
     for (final endpoint in endpoints) {
@@ -65,7 +65,7 @@ class _BackendCheckerState extends State<BackendChecker> {
     }
   }
 
-  void _testEndpoint(String endpoint) async {
+  Future<void> _testEndpoint(String endpoint) async {
     try {
       final url = '${Environment.backendUrl}$endpoint';
       setState(() => _results += '\n🔍 Testing: $url\n');

@@ -929,12 +929,12 @@ class ApiService {
     int radius
   ) async {
     final response = await _dio.get(
-      'https://maps.googleapis.com/maps/api/place/nearbysearch/json',
+      '/api/places/search',
       queryParameters: {
-        'location': '$latitude,$longitude',
+        'q': type,
+        'lat': latitude,
+        'lng': longitude,
         'radius': radius,
-        'type': type,
-        'key': Environment.googleMapsApiKey,
       },
     );
     
@@ -1004,10 +1004,10 @@ class ApiService {
   Future<Map<String, dynamic>?> getReverseGeocode(double latitude, double longitude) async {
     try {
       final response = await _dio.get(
-        'https://maps.googleapis.com/maps/api/geocode/json',
+        '/api/geocoding/reverse',
         queryParameters: {
-          'latlng': '$latitude,$longitude',
-          'key': Environment.googleMapsApiKey,
+          'lat': latitude,
+          'lng': longitude,
         },
       );
       if (response.statusCode == 200) {
@@ -1035,6 +1035,62 @@ class ApiService {
       return null;
     } catch (e) {
       print('❌ Azure OpenAI emergency numbers failed: $e');
+      return null;
+    }
+  }
+  
+  // Enhanced Safety API methods
+  Future<List<dynamic>> getSafetyAlerts({
+    double? latitude,
+    double? longitude,
+    int radius = 50000,
+  }) async {
+    try {
+      final response = await _dio.get('/api/emergency/alerts', queryParameters: {
+        if (latitude != null) 'lat': latitude,
+        if (longitude != null) 'lng': longitude,
+        'radius': radius,
+      });
+      
+      if (response.statusCode == 200) {
+        return List<dynamic>.from(response.data);
+      }
+      return [];
+    } catch (e) {
+      print('Error fetching safety alerts: $e');
+      return [];
+    }
+  }
+  
+  Future<List<dynamic>> getEmergencyPhrases({String? countryCode}) async {
+    try {
+      final response = await _dio.get('/api/emergency/phrases', queryParameters: {
+        if (countryCode != null) 'country': countryCode,
+      });
+      
+      if (response.statusCode == 200) {
+        return List<dynamic>.from(response.data);
+      }
+      return [];
+    } catch (e) {
+      print('Error fetching emergency phrases: $e');
+      return [];
+    }
+  }
+  
+  Future<String?> translateText(String text, String targetLanguage) async {
+    try {
+      final response = await _dio.post('/api/emergency/translate', data: {
+        'text': text,
+        'targetLanguage': targetLanguage,
+      });
+      
+      if (response.statusCode == 200) {
+        return response.data['translated'];
+      }
+      return null;
+    } catch (e) {
+      print('Error translating text: $e');
       return null;
     }
   }

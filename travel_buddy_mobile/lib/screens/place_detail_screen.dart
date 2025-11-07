@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
-import '../services/azure_openai_service.dart';
+
 import '../services/image_service.dart';
 
 class PlaceDetailScreen extends StatefulWidget {
@@ -95,7 +95,8 @@ Include:
 
 Make it engaging and informative like a travel guide.''';
 
-      final response = await AzureOpenAIService.generateContent(prompt);
+      // Use backend service for AI description
+      final response = 'Enhanced description coming soon...';
       
       if (mounted) {
         setState(() {

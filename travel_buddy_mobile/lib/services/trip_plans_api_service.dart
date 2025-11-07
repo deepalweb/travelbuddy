@@ -211,4 +211,29 @@ class TripPlansApiService {
       return null;
     }
   }
+
+  // Clear all user trip plans from backend
+  static Future<bool> clearAllUserTripPlans() async {
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) {
+        print('❌ No authenticated user to clear trip plans');
+        return false;
+      }
+      
+      print('🗑️ Clearing all trip plans for user: ${user.uid}');
+      
+      final response = await _dio.delete('/api/users/${user.uid}/trip-plans/all');
+      
+      if (response.statusCode == 200 || response.statusCode == 204) {
+        print('✅ All trip plans cleared from backend');
+        return true;
+      }
+      
+      return false;
+    } catch (e) {
+      print('❌ Error clearing trip plans: $e');
+      return false;
+    }
+  }
 }

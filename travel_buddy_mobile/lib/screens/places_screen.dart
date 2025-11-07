@@ -200,6 +200,7 @@ class _PlacesScreenState extends State<PlacesScreen> {
                           ),
                           selected: isSelected,
                           onSelected: (selected) {
+                            // Always set the category when chip is tapped
                             appProvider.setSelectedCategory(category['value']!);
                           },
                           selectedColor: Color(AppConstants.colors['primary']!).withOpacity(0.2),
@@ -1097,14 +1098,31 @@ class _PlacesScreenState extends State<PlacesScreen> {
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
           child: Row(
             children: [
+              Icon(
+                _getCategoryIcon(appProvider.selectedCategory),
+                size: 20,
+                color: Color(AppConstants.colors['primary']!),
+              ),
+              const SizedBox(width: 8),
               Text(
                 _getCategoryDisplayName(appProvider.selectedCategory),
                 style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
               ),
               const Spacer(),
-              Text(
-                '${appProvider.places.length} found',
-                style: TextStyle(color: Colors.grey[600]),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: Color(AppConstants.colors['primary']!).withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  '${appProvider.places.length} found',
+                  style: TextStyle(
+                    color: Color(AppConstants.colors['primary']!),
+                    fontWeight: FontWeight.w600,
+                    fontSize: 12,
+                  ),
+                ),
               ),
             ],
           ),
@@ -1119,15 +1137,34 @@ class _PlacesScreenState extends State<PlacesScreen> {
   
   String _getCategoryDisplayName(String category) {
     final categoryMap = {
-      'food': 'Restaurants & Food',
+      'food': 'Food & Drink',
       'landmarks': 'Landmarks & Attractions', 
       'culture': 'Culture & Museums',
-      'nature': 'Nature & Parks',
-      'shopping': 'Shopping',
-      'spa': 'Spa & Wellness',
+      'nature': 'Outdoor & Nature',
+      'shopping': 'Shopping & Markets',
+      'spa': 'SPA & Wellness',
       'all': 'All Places'
     };
     return categoryMap[category] ?? category.toUpperCase();
+  }
+  
+  IconData _getCategoryIcon(String category) {
+    switch (category) {
+      case 'food':
+        return Icons.restaurant;
+      case 'landmarks':
+        return Icons.location_city;
+      case 'culture':
+        return Icons.museum;
+      case 'nature':
+        return Icons.nature;
+      case 'shopping':
+        return Icons.shopping_bag;
+      case 'spa':
+        return Icons.spa;
+      default:
+        return Icons.place;
+    }
   }
 
   void _openRoutePlan(AppProvider appProvider) {

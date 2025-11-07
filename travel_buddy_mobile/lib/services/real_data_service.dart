@@ -1,10 +1,11 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../models/trip.dart';
+import '../config/environment.dart';
 import 'real_data_service_helpers.dart';
 
 class RealDataService {
-  static const String _placesApiKey = 'YOUR_GOOGLE_PLACES_API_KEY';
+  // Using backend API instead of direct Google Places calls
   static const String _openTripMapKey = 'YOUR_OPENTRIPMAP_API_KEY';
   
   // Get real places for a destination
@@ -25,7 +26,7 @@ class RealDataService {
       for (final query in queries) {
         try {
           final response = await http.get(
-            Uri.parse('https://maps.googleapis.com/maps/api/place/textsearch/json?query=${Uri.encodeComponent(query)}&key=$_placesApiKey'),
+            Uri.parse('${Environment.backendUrl}/api/places/search?q=${Uri.encodeComponent(query)}'),
           );
           
           if (response.statusCode == 200) {

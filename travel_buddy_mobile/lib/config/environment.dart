@@ -1,6 +1,6 @@
 class Environment {
   // Backend configuration
-  static const String backendUrl = String.fromEnvironment('BACKEND_URL', defaultValue: 'http://localhost:3001');
+  static const String backendUrl = String.fromEnvironment('BACKEND_URL', defaultValue: 'https://travelbuddy-b2c6hgbbgeh4esdh.eastus2-01.azurewebsites.net');
   static const String baseUrl = backendUrl;
   static const bool isProduction = bool.fromEnvironment('IS_PRODUCTION', defaultValue: false);
   static const bool enableDebugLogging = !isProduction;

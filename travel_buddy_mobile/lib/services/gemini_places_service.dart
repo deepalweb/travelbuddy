@@ -106,18 +106,28 @@ class AzureAIPlacesService {
     }
   }
 
-  // Call existing places endpoint instead of non-existent AI endpoint
+  // Call backend places endpoint with actual user location and query
   Future<String> _callAzureOpenAI(String prompt, {int retries = 3}) async {
+    // Extract location and category from prompt for proper API call
+    final latMatch = RegExp(r'coordinates \(([^,]+),').firstMatch(prompt);
+    final lngMatch = RegExp(r'coordinates \([^,]+, ([^)]+)\)').firstMatch(prompt);
+    final categoryMatch = RegExp(r'category "([^"]+)"').firstMatch(prompt);
+    
+    final lat = latMatch != null ? double.tryParse(latMatch.group(1)!) ?? 40.7128 : 40.7128;
+    final lng = lngMatch != null ? double.tryParse(lngMatch.group(1)!) ?? -74.0060 : -74.0060;
+    final category = categoryMatch?.group(1) ?? 'restaurants';
+    
     for (int attempt = 0; attempt <= retries; attempt++) {
       try {
-        // Use existing places search endpoint that works
+        // Use actual user location and category
         final response = await http.get(
-          Uri.parse('${Environment.backendUrl}/api/places/search?query=restaurants&lat=40.7128&lng=-74.0060'),
+          Uri.parse('${Environment.backendUrl}/api/places/search?query=${Uri.encodeComponent(category)}&lat=$lat&lng=$lng'),
           headers: {'Content-Type': 'application/json'},
         ).timeout(const Duration(seconds: 30));
 
         if (response.statusCode == 200) {
           final data = json.decode(response.body);
+          print('✅ Backend places API returned ${data is List ? data.length : 'data'} results for $category at ($lat, $lng)');
           // Convert places data to JSON string for parsing
           return json.encode(data);
         }

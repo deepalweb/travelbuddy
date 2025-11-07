@@ -3,6 +3,11 @@ class AppConstants {
   static const String baseUrl = 'https://travelbuddy-b2c6hgbbgeh4esdh.eastus2-01.azurewebsites.net';
   static const String geminiModelText = 'gemini-2.5-flash';
   
+  // Azure OpenAI Configuration (if calling directly)
+  static const String azureOpenAIEndpoint = 'https://your-resource.openai.azure.com';
+  static const String azureOpenAIDeployment = 'your-deployment-name';
+  static const String azureOpenAIVersion = '2024-02-15-preview';
+  
   // Default Values
   static const int defaultPlacesRadiusM = 20000; // 20 km
   static const String defaultLanguage = 'en';

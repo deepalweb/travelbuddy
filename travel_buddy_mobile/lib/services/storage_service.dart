@@ -9,6 +9,7 @@ import '../models/trip.dart';
 import '../models/travel_style.dart';
 import '../models/safety_info.dart';
 import '../models/safety_enums.dart';
+import '../models/enhanced_safety_models.dart';
 import '../constants/app_constants.dart';
 
 class StorageService {
@@ -847,6 +848,99 @@ class StorageService {
       }
     }
     return null;
+  }
+
+  // Enhanced Safety Storage Methods
+  Future<List<TrustedContact>> getTrustedContacts() async {
+    final contactsJson = _prefs.getStringList('trusted_contacts') ?? [];
+    return contactsJson.map((json) {
+      try {
+        return TrustedContact.fromJson(Map<String, dynamic>.from(
+          const JsonDecoder().convert(json) as Map
+        ));
+      } catch (e) {
+        return null;
+      }
+    }).where((contact) => contact != null).cast<TrustedContact>().toList();
+  }
+
+  Future<void> addTrustedContact(TrustedContact contact) async {
+    final contacts = await getTrustedContacts();
+    contacts.add(contact);
+    await _saveTrustedContacts(contacts);
+  }
+
+  Future<void> _saveTrustedContacts(List<TrustedContact> contacts) async {
+    final contactsJson = contacts.map((contact) => 
+      const JsonEncoder().convert(contact.toJson())
+    ).toList();
+    await _prefs.setStringList('trusted_contacts', contactsJson);
+  }
+  
+  Future<void> saveOfflineSafetyData(OfflineSafetyData data) async {
+    await _prefs.setString('offline_safety_data', const JsonEncoder().convert(data.toJson()));
+  }
+  
+  Future<OfflineSafetyData?> getOfflineSafetyData() async {
+    final data = _prefs.getString('offline_safety_data');
+    if (data != null) {
+      try {
+        final json = Map<String, dynamic>.from(const JsonDecoder().convert(data) as Map);
+        return OfflineSafetyData.fromJson(json);
+      } catch (e) {
+        return null;
+      }
+    }
+    return null;
+  }
+  
+  Future<void> saveLiveLocationSession(LiveLocationSession session) async {
+    await _prefs.setString('live_location_session', const JsonEncoder().convert({
+      'id': session.id,
+      'tripName': session.tripName,
+      'startTime': session.startTime.toIso8601String(),
+      'endTime': session.endTime?.toIso8601String(),
+      'sharedWithContacts': session.sharedWithContacts,
+      'isActive': session.isActive,
+    }));
+  }
+  
+  Future<void> clearLiveLocationSession() async {
+    await _prefs.remove('live_location_session');
+  }
+  
+  Future<void> queueOfflineSMS(List<TrustedContact> contacts, String message) async {
+    final queuedSMS = _prefs.getStringList('queued_sms') ?? [];
+    final smsData = {
+      'contacts': contacts.map((c) => c.toJson()).toList(),
+      'message': message,
+      'timestamp': DateTime.now().toIso8601String(),
+    };
+    queuedSMS.add(const JsonEncoder().convert(smsData));
+    await _prefs.setStringList('queued_sms', queuedSMS);
+  }
+  
+  Future<List<Map<String, dynamic>>> getQueuedSMS() async {
+    final queuedSMS = _prefs.getStringList('queued_sms') ?? [];
+    return queuedSMS.map((json) {
+      try {
+        return Map<String, dynamic>.from(const JsonDecoder().convert(json) as Map);
+      } catch (e) {
+        return <String, dynamic>{};
+      }
+    }).where((sms) => sms.isNotEmpty).toList();
+  }
+  
+  Future<void> clearQueuedSMS() async {
+    await _prefs.remove('queued_sms');
+  }
+
+  // Clear all trip data specifically
+  Future<void> clearAllTripData() async {
+    print('🗑️ StorageService: Clearing all trip data...');
+    await _tripPlansBox.clear();
+    await _itinerariesBox.clear();
+    print('✅ StorageService: All trip data cleared');
   }
 
   // Clear all data

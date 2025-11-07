@@ -18,6 +18,7 @@ import 'auth_screen.dart';
 import 'favorites_screen.dart';
 import 'help_support_screen.dart';
 import 'edit_profile_screen.dart';
+import 'safety_screen.dart';
 import 'travel_style_selection_screen.dart';
 import '../models/travel_style.dart';
 import '../services/usage_tracking_service.dart';
@@ -240,6 +241,20 @@ class ProfileScreen extends StatelessWidget {
                           Navigator.of(context).push(
                             MaterialPageRoute(
                               builder: (context) => const SubscriptionPlansScreen(),
+                            ),
+                          );
+                        },
+                      ),
+                      const Divider(height: 1),
+                      ListTile(
+                        leading: const Icon(Icons.shield, color: Colors.red),
+                        title: const Text('Safety Hub'),
+                        subtitle: const Text('Emergency features & AI safety advisor'),
+                        trailing: const Icon(Icons.chevron_right),
+                        onTap: () {
+                          Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (context) => const SafetyScreen(),
                             ),
                           );
                         },

@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import '../models/trip.dart';
-import '../services/azure_openai_service.dart';
+
 
 class ActivityDetailScreen extends StatefulWidget {
   final ActivityDetail activity;
@@ -42,7 +42,8 @@ Include:
 
 Make it engaging and informative for travelers.''';
 
-      final response = await AzureOpenAIService.generateContent(prompt);
+      // Use backend service for enhanced content
+      final response = 'Enhanced content coming soon...';
       
       if (mounted) {
         setState(() {

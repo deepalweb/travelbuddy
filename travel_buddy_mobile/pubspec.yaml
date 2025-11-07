@@ -55,6 +55,10 @@ dependencies:
     sdk: flutter
   intl: ^0.20.2
   
+  # Enhanced Safety Features
+  sensors_plus: ^4.0.2
+  connectivity_plus: ^5.0.2
+  
   # Payment (PayPal integration to be added later)
   # flutter_paypal_checkout: ^0.1.2
 

@@ -14,98 +14,119 @@ class SubscriptionStatusWidget extends StatelessWidget {
         final user = appProvider.currentUser;
         if (user == null) return const SizedBox.shrink();
 
-        // Show trial expiry warning
-        if (user.subscriptionStatus == SubscriptionStatus.trial) {
-          final trialEnd = DateTime.tryParse(user.trialEndDate ?? '');
-          if (trialEnd != null) {
-            final daysLeft = trialEnd.difference(DateTime.now()).inDays;
-            
-            if (daysLeft <= 2) {
-              return Container(
-                margin: const EdgeInsets.all(16),
-                padding: const EdgeInsets.all(12),
+        final tier = user.tier;
+        final status = user.subscriptionStatus;
+        final maxFavorites = appProvider.maxFavorites;
+        final currentFavorites = appProvider.favoriteIds.length;
+        
+        // Get tier colors and info
+        final tierInfo = _getTierInfo(tier);
+        
+        return Container(
+          margin: const EdgeInsets.only(bottom: 16),
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: tierInfo['gradient'] as List<Color>,
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.1),
+                blurRadius: 8,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: Colors.orange[50],
-                  border: Border.all(color: Colors.orange),
+                  color: Colors.white.withOpacity(0.2),
                   borderRadius: BorderRadius.circular(8),
                 ),
-                child: Row(
+                child: Icon(
+                  tierInfo['icon'] as IconData,
+                  color: Colors.white,
+                  size: 24,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Icon(Icons.warning, color: Colors.orange[700]),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Trial expires in $daysLeft days',
-                            style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              color: Colors.orange[700],
-                            ),
-                          ),
-                          const Text('Upgrade to continue premium features'),
-                        ],
+                    Text(
+                      '${tierInfo['name']} Plan',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
                       ),
                     ),
-                    TextButton(
-                      onPressed: () => Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => const SubscriptionPlansScreen(),
-                        ),
+                    Text(
+                      maxFavorites == -1 
+                          ? 'Unlimited favorites'
+                          : '$currentFavorites/$maxFavorites favorites used',
+                      style: TextStyle(
+                        color: Colors.white.withOpacity(0.9),
+                        fontSize: 12,
                       ),
-                      child: const Text('Upgrade'),
                     ),
                   ],
                 ),
-              );
-            }
-          }
-        }
-
-        // Show expired trial
-        if (appProvider.isTrialExpired) {
-          return Container(
-            margin: const EdgeInsets.all(16),
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: Colors.red[50],
-              border: Border.all(color: Colors.red),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Row(
-              children: [
-                Icon(Icons.error, color: Colors.red[700]),
-                const SizedBox(width: 12),
-                const Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Trial Expired',
-                        style: TextStyle(fontWeight: FontWeight.bold),
-                      ),
-                      Text('Upgrade to continue using premium features'),
-                    ],
-                  ),
-                ),
-                TextButton(
+              ),
+              if (tier == SubscriptionTier.free)
+                ElevatedButton(
                   onPressed: () => Navigator.push(
                     context,
                     MaterialPageRoute(
                       builder: (context) => const SubscriptionPlansScreen(),
                     ),
                   ),
-                  child: const Text('Upgrade Now'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.white,
+                    foregroundColor: tierInfo['gradient'][0],
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  ),
+                  child: const Text('Upgrade'),
                 ),
-              ],
-            ),
-          );
-        }
-
-        return const SizedBox.shrink();
+            ],
+          ),
+        );
       },
     );
+  }
+  
+  Map<String, dynamic> _getTierInfo(SubscriptionTier tier) {
+    switch (tier) {
+      case SubscriptionTier.free:
+        return {
+          'name': 'Free',
+          'icon': Icons.person,
+          'gradient': [Colors.grey[400]!, Colors.grey[600]!],
+        };
+      case SubscriptionTier.basic:
+        return {
+          'name': 'Basic',
+          'icon': Icons.star,
+          'gradient': [Colors.blue[400]!, Colors.blue[600]!],
+        };
+      case SubscriptionTier.premium:
+        return {
+          'name': 'Premium',
+          'icon': Icons.diamond,
+          'gradient': [Colors.purple[400]!, Colors.purple[600]!],
+        };
+      case SubscriptionTier.pro:
+        return {
+          'name': 'Pro',
+          'icon': Icons.workspace_premium,
+          'gradient': [Colors.amber[400]!, Colors.amber[600]!],
+        };
+    }
   }
 }

@@ -1,4 +1,5 @@
 import '../models/trip.dart';
+import '../config/environment.dart';
 
 class RealDataServiceHelpers {
   // Select real places for a specific day
@@ -229,7 +230,7 @@ class RealDataServiceHelpers {
     final photos = place['photos'] as List?;
     if (photos?.isNotEmpty == true) {
       final photoRef = photos!.first['photo_reference'];
-      return 'https://maps.googleapis.com/maps/api/place/photo?maxwidth=400&photoreference=$photoRef&key=YOUR_API_KEY';
+      return '${Environment.backendUrl}/api/places/photo?ref=$photoRef&w=400';
     }
     return 'https://images.unsplash.com/photo-1449824913935-59a10b8d2000';
   }

@@ -3,8 +3,7 @@ import 'package:http/http.dart' as http;
 import '../models/enhanced_activity.dart';
 
 class DirectGeminiService {
-  static const String _geminiApiKey = 'AIzaSyBTAYqrMpZYcVjzFTW9V9RH-IWDacEzXRo';
-  static const String _placesApiKey = 'AIzaSyA89E6gkU7-nUMYk9JPt6xxYHVV4Yevtio';
+  // API keys removed - using backend endpoints instead
   
   static Future<List<EnhancedActivity>> generatePremiumDayPlan({
     required String destination,
@@ -44,9 +43,7 @@ class DirectGeminiService {
   static Future<List<Map<String, dynamic>>> _getPlacesFromGoogle(String destination) async {
     try {
       // Search for places in the destination
-      final url = 'https://maps.googleapis.com/maps/api/place/textsearch/json'
-          '?query=tourist attractions restaurants museums $destination'
-          '&key=$_placesApiKey';
+      final url = '${Environment.backendUrl}/api/places/search?q=tourist attractions restaurants museums $destination';
       
       final response = await http.get(Uri.parse(url));
       
@@ -188,7 +185,7 @@ Return ONLY valid JSON:
 
     try {
       final response = await http.post(
-        Uri.parse('https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=$_geminiApiKey'),
+        Uri.parse('${Environment.backendUrl}/api/ai/generate'),
         headers: {'Content-Type': 'application/json'},
         body: json.encode({
           'contents': [{'parts': [{'text': prompt}]}]

@@ -272,6 +272,117 @@ function _getFallbackResponse() {
 }`;
 }
 
+// Generate enhanced trip overview endpoint
+router.post('/enhance-trip-overview', async (req, res) => {
+  try {
+    const { destination, duration, introduction, tripTitle } = req.body;
+    
+    if (!destination || !introduction) {
+      return res.status(400).json({ error: 'Destination and introduction are required' });
+    }
+
+    const prompt = `Enhance this trip overview for ${destination} (${duration}):
+
+Original: "${introduction}"
+
+Create an enhanced, engaging overview with:
+- Rich cultural insights
+- Local tips and customs
+- Best time to visit highlights
+- What makes this destination special
+- Practical travel advice
+
+Format with markdown-style formatting:
+🌟 **${tripTitle}** 🌟
+
+💡 **Cultural Highlights:**
+• Key cultural points
+
+💡 **Local Insights:**
+• Insider tips
+
+💡 **Travel Tips:**
+• Practical advice
+
+Keep it engaging and informative, around 200-300 words.`;
+
+    console.log('✨ Enhancing trip overview for:', destination);
+
+    const response = await fetch(
+      `${AZURE_OPENAI_ENDPOINT}/openai/deployments/${AZURE_OPENAI_DEPLOYMENT_NAME}/chat/completions?api-version=${AZURE_API_VERSION}`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'api-key': AZURE_OPENAI_API_KEY,
+        },
+        body: JSON.stringify({
+          messages: [
+            {
+              role: 'system',
+              content: 'You are a travel expert who creates engaging, informative trip overviews with cultural insights and practical tips.'
+            },
+            {
+              role: 'user',
+              content: prompt
+            }
+          ],
+          max_tokens: 800,
+          temperature: 0.7
+        })
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error(`Azure AI API failed: ${response.status}`);
+    }
+
+    const data = await response.json();
+    const enhancedText = data.choices[0].message.content;
+    
+    console.log('✅ Enhanced trip overview generated');
+    
+    res.json({
+      enhancedOverview: enhancedText,
+      destination,
+      duration,
+      processingTime: Date.now() - Date.now()
+    });
+
+  } catch (error) {
+    console.error('❌ Enhanced overview error:', error);
+    
+    res.json({
+      enhancedOverview: _getFallbackEnhancedOverview(req.body.destination, req.body.duration, req.body.tripTitle),
+      destination: req.body.destination,
+      duration: req.body.duration
+    });
+  }
+});
+
+function _getFallbackEnhancedOverview(destination, duration, tripTitle) {
+  return `🌟 **${tripTitle || `Amazing ${duration} in ${destination}`}** 🌟
+
+${destination} offers an incredible blend of experiences that will create lasting memories. This carefully crafted ${duration} itinerary takes you through the heart of what makes this destination truly special.
+
+💡 **Cultural Highlights:**
+• Immerse yourself in the local culture and traditions
+• Discover historical landmarks and architectural wonders
+• Experience authentic local cuisine and flavors
+
+💡 **Local Insights:**
+• Best times to visit popular attractions to avoid crowds
+• Hidden gems known only to locals
+• Cultural etiquette and customs to enhance your experience
+
+💡 **Travel Tips:**
+• Comfortable walking shoes recommended for exploration
+• Local currency and payment methods
+• Weather considerations for your travel dates
+
+Get ready for an unforgettable journey through ${destination}!`;
+}
+
 // Generate place content endpoint
 router.post('/generate-place-content', async (req, res) => {
   try {

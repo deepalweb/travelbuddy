@@ -47,6 +47,11 @@ class _PlannerScreenState extends State<PlannerScreen> {
             title: const Text('My Trip Plans'),
             actions: [
               IconButton(
+                icon: const Icon(Icons.delete_sweep),
+                onPressed: () => _showClearDataDialog(),
+                tooltip: 'Clear All Data',
+              ),
+              IconButton(
                 icon: const Icon(Icons.bug_report),
                 onPressed: () => Navigator.pushNamed(context, '/test-route'),
                 tooltip: 'Test Enhanced Route',
@@ -664,6 +669,65 @@ class _PlannerScreenState extends State<PlannerScreen> {
         ),
       ),
     );
+  }
+
+  void _showClearDataDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Clear All Trip Data'),
+        content: const Text('This will permanently delete all your trip plans and itineraries. This action cannot be undone.\n\nAre you sure you want to start fresh?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              Navigator.pop(context);
+              await _clearAllData();
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Clear All Data'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _clearAllData() async {
+    final appProvider = context.read<AppProvider>();
+    
+    try {
+      // Show loading
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('🗑️ Clearing all trip data...'),
+          duration: Duration(seconds: 2),
+        ),
+      );
+      
+      // Clear all trip data
+      await appProvider.clearAllTripData();
+      
+      // Show success
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('✅ All trip data cleared successfully!'),
+          backgroundColor: Colors.green,
+        ),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('❌ Failed to clear data: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
   }
 
   void _showHowToCreatePlans() {

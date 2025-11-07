@@ -334,14 +334,19 @@ class _AIPlanScreenState extends State<AIPlanScreen> {
     setState(() => _isLoading = true);
 
     try {
+      final duration = _durationController.text.isEmpty ? '2 days' : _durationController.text;
+      print('🤖 AI Plan Screen: Generating plan for $duration');
+      
       final tripPlan = await AITripService.generateTripPlan(
         destination: _destinationController.text,
-        duration: _durationController.text.isEmpty ? '2 days' : _durationController.text,
+        duration: duration,
         interests: _interestsController.text,
         pace: _pace,
         budget: _budget,
       );
 
+      print('🤖 AI Plan Screen: Received plan with ${(tripPlan['dailyPlans'] as List?)?.length ?? 0} days');
+      
       setState(() {
         _tripPlan = tripPlan;
         _isLoading = false;
