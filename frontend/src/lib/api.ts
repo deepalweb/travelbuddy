@@ -139,7 +139,7 @@ class ApiService {
     })
   }
 
-  // AI-powered Search API
+  // Hybrid AI + Google Places Search API
   async searchPlaces(query: string, filters?: any) {
     if (!query?.trim()) {
       throw new Error('Search query is required')
@@ -150,15 +150,24 @@ class ApiService {
     if (filters?.limit && filters.limit > 0) params.append('limit', filters.limit.toString())
     
     try {
-      const response = await this.request<any>(`/search/places?${params}`)
+      // Try hybrid search first (Google Places + Azure OpenAI)
+      const response = await this.request<any>(`/hybrid/search?${params}`)
       
-      // Handle new AI response format
-      if (response?.success && response.data) {
-        return Array.isArray(response.data.places) ? response.data.places : []
+      // Handle hybrid response format
+      if (response?.success && response.results) {
+        return Array.isArray(response.results) ? response.results : []
       }
       
-      // Fallback for direct array response
-      return Array.isArray(response) ? response : []
+      // Fallback to regular search if hybrid fails
+      const fallbackResponse = await this.request<any>(`/search/places?${params}`)
+      
+      // Handle fallback response format
+      if (fallbackResponse?.success && fallbackResponse.data) {
+        return Array.isArray(fallbackResponse.data.places) ? fallbackResponse.data.places : []
+      }
+      
+      // Final fallback for direct array response
+      return Array.isArray(fallbackResponse) ? fallbackResponse : []
     } catch (error) {
       console.error('Search places failed:', error)
       return []
@@ -179,10 +188,16 @@ class ApiService {
   }
 
   // Get detailed place information
-  async getPlaceDetails(placeId: string) {
+  async getPlaceDetails(placeId: string, name?: string, location?: string, category?: string) {
     try {
-      const response = await this.request<any>(`/search/place/${placeId}`)
-      return response.success ? response.data : null
+      const params = new URLSearchParams()
+      if (name) params.append('name', name)
+      if (location) params.append('location', location)
+      if (category) params.append('category', category)
+      
+      const queryString = params.toString() ? `?${params}` : ''
+      const response = await this.request<any>(`/place-details/${placeId}${queryString}`)
+      return response.success ? response.place : null
     } catch (error) {
       console.error('Place details failed:', error)
       throw error

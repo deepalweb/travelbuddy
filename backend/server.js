@@ -811,11 +811,20 @@ try {
 
 // Load hybrid search routes
 try {
-  const hybridRouter = (await import('./hybrid-search.js')).default;
+  const hybridRouter = (await import('./routes/hybrid-search.js')).default;
   app.use('/api/hybrid', hybridRouter);
   console.log('✅ Hybrid search routes loaded');
 } catch (error) {
   console.error('❌ Failed to load hybrid search routes:', error);
+}
+
+// Load place details routes
+try {
+  const placeDetailsRouter = (await import('./routes/place-details.js')).default;
+  app.use('/api/place-details', placeDetailsRouter);
+  console.log('✅ Place details routes loaded');
+} catch (error) {
+  console.error('❌ Failed to load place details routes:', error);
 }
 
 // Load emergency services routes

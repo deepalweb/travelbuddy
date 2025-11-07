@@ -9,7 +9,7 @@ import { ErrorState } from '../components/ErrorState'
 import { EmptyState } from '../components/EmptyState'
 import { SearchFilters } from '../components/SearchFilters'
 
-import PlaceDetailsModal from '../components/PlaceDetailsModal'
+
 import { apiService } from '../lib/api'
 import { 
   MapPin, 
@@ -54,6 +54,11 @@ interface Place {
   }
   highlights: string[]
   image: string
+  photos?: Array<{
+    photo_reference: string
+    height: number
+    width: number
+  }>
   contact: {
     phone: string
     website: string
@@ -65,8 +70,7 @@ interface Place {
 const DiscoveryPage: React.FC = () => {
   const navigate = useNavigate()
   const [places, setPlaces] = useState<Place[]>(globalSearchState.places)
-  const [selectedPlace, setSelectedPlace] = useState<Place | null>(null)
-  const [showModal, setShowModal] = useState(false)
+
   const [loading, setLoading] = useState(false)
   const [loadingMore, setLoadingMore] = useState(false)
   const [searchQuery, setSearchQuery] = useState(globalSearchState.query)
@@ -363,7 +367,7 @@ const DiscoveryPage: React.FC = () => {
                   <div className="relative">
                     <div className="relative w-full h-48 bg-gray-200 overflow-hidden">
                       <img 
-                        src={place.image} 
+                        src={place.image || `https://source.unsplash.com/800x600/?${encodeURIComponent(place.name)},${encodeURIComponent(place.category)},${encodeURIComponent(place.location.city)}`} 
                         alt={place.name}
                         className="w-full h-48 object-cover transition-all duration-300 hover:scale-105"
                         loading="lazy"
@@ -379,9 +383,9 @@ const DiscoveryPage: React.FC = () => {
                           if (loader) loader.classList.add('hidden')
                           
                           if (!target.src.includes('source.unsplash.com')) {
-                            target.src = `https://source.unsplash.com/800x600/?${encodeURIComponent(place.name)},${encodeURIComponent(place.location.city)},landmark`
+                            target.src = `https://source.unsplash.com/800x600/?${encodeURIComponent(place.category)},${encodeURIComponent(place.location.country)},travel`
                           } else if (!target.src.includes('picsum.photos')) {
-                            target.src = `https://picsum.photos/seed/${encodeURIComponent(place.id)}/800/600`
+                            target.src = `https://picsum.photos/seed/${Math.abs(place.name.split('').reduce((a, b) => { a = ((a << 5) - a) + b.charCodeAt(0); return a & a; }, 0))}/800/600`
                           } else {
                             target.style.display = 'none'
                             const placeholder = target.parentElement?.querySelector('.image-placeholder')
@@ -451,13 +455,13 @@ const DiscoveryPage: React.FC = () => {
                           <span>{place.openHours}</span>
                         </div>
                       )}
-                      {place.contact.phone && place.contact.phone !== 'Not available' && (
+                      {place.contact?.phone && place.contact.phone !== 'Not available' && (
                         <div className="flex items-center">
                           <Phone className="h-3 w-3 mr-1" />
                           <span>{place.contact.phone}</span>
                         </div>
                       )}
-                      {place.contact.website && (
+                      {place.contact?.website && (
                         <div className="flex items-center">
                           <Globe className="h-3 w-3 mr-1" />
                           <a 
@@ -497,10 +501,7 @@ const DiscoveryPage: React.FC = () => {
                       <Button 
                         size="sm" 
                         className="w-full bg-gradient-to-r from-green-600 to-teal-600 hover:from-green-700 hover:to-teal-700 text-white border-none"
-                        onClick={() => {
-                          setSelectedPlace(place)
-                          setShowModal(true)
-                        }}
+                        onClick={() => navigate(`/place/${place.id}`, { state: { placeData: place } })}
                       >
                         <Sparkles className="h-3 w-3 mr-1" />
                         More Details
@@ -606,15 +607,7 @@ const DiscoveryPage: React.FC = () => {
         onFiltersChange={setActiveFilters}
       />
 
-      {/* Place Details Modal */}
-      <PlaceDetailsModal 
-        place={selectedPlace}
-        isOpen={showModal}
-        onClose={() => {
-          setShowModal(false)
-          setSelectedPlace(null)
-        }}
-      />
+
     </div>
   )
 }

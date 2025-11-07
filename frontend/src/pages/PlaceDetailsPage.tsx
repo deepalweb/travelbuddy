@@ -136,7 +136,12 @@ const PlaceDetailsPage: React.FC = () => {
   const loadPlaceDetails = async (id: string) => {
     setLoading(true)
     try {
-      const placeDetails = await apiService.getPlaceDetails(id)
+      // Use existing place data if available for enhanced AI generation
+      const name = existingPlace?.name
+      const location = existingPlace?.location?.address || `${existingPlace?.location?.city}, ${existingPlace?.location?.country}`
+      const category = existingPlace?.category
+      
+      const placeDetails = await apiService.getPlaceDetails(id, name, location, category)
       if (placeDetails) {
         setPlace(placeDetails)
       }
