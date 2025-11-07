@@ -1,13 +1,15 @@
 import React, { useState, useEffect } from 'react'
 import { useAuth } from '../contexts/AuthContext'
+import { useNavigate } from 'react-router-dom'
 import { Card, CardContent, CardHeader, CardTitle } from '../components/Card'
 import { Button } from '../components/Button'
 import { Avatar } from '../components/Avatar'
 import { Badge } from '../components/Badge'
-import { User, Mail, Edit3, Save, X, MapPin, Calendar, Star, Shield } from 'lucide-react'
+import { User, Mail, Edit3, Save, X, MapPin, Calendar, Star, Shield, UserCheck } from 'lucide-react'
 
 export const ProfilePage: React.FC = () => {
   const { user, updateProfile } = useAuth()
+  const navigate = useNavigate()
   const [isEditing, setIsEditing] = useState(false)
   const [formData, setFormData] = useState({
     username: user?.username || '',
@@ -29,9 +31,16 @@ export const ProfilePage: React.FC = () => {
   const fetchUserStats = async () => {
     try {
       const token = localStorage.getItem('demo_token')
-      const response = await fetch(`/api/users/${user?.id}/stats`, {
-        headers: token ? { 'Authorization': `Bearer ${token}` } : {}
-      })
+      const headers: Record<string, string> = {}
+      
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`
+      }
+      if (user?.id) {
+        headers['x-user-id'] = user.id
+      }
+      
+      const response = await fetch(`/api/users/${user?.id}/stats`, { headers })
       if (response.ok) {
         const data = await response.json()
         setStats({
@@ -129,9 +138,25 @@ export const ProfilePage: React.FC = () => {
                 <div>
                   <h3 className="text-lg font-semibold">{user.username}</h3>
                   <p className="text-gray-600">{user.email}</p>
-                  <Badge variant="primary" className="mt-1">
-                    {user.tier || 'Free'} Member
-                  </Badge>
+                  <div className="flex items-center space-x-2 mt-1">
+                    <Badge variant="primary">
+                      {user.tier || 'Free'} Member
+                    </Badge>
+                    <div className="flex flex-wrap gap-1">
+                      {(user.roles || [user.role || 'user']).map(role => (
+                        <Badge 
+                          key={role}
+                          variant={role === user.activeRole ? 'default' : 'outline'}
+                          className="text-xs"
+                        >
+                          {role === 'merchant' ? 'Business' :
+                           role === 'transport_provider' ? 'Transport' :
+                           role === 'travel_agent' ? 'Agent' : 'Traveler'}
+                          {role === user.activeRole && ' (Active)'}
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
                 </div>
               </div>
 
@@ -222,8 +247,17 @@ export const ProfilePage: React.FC = () => {
                 </p>
               </div>
 
-              {user.isAdmin && (
-                <div className="pt-4 border-t">
+              <div className="pt-4 border-t space-y-3">
+                <Button
+                  variant="outline"
+                  className="w-full"
+                  onClick={() => navigate('/role-selection')}
+                >
+                  <UserCheck className="w-4 h-4 mr-2" />
+                  Change Role
+                </Button>
+                
+                {user.isAdmin && (
                   <Button
                     variant="outline"
                     className="w-full"
@@ -232,8 +266,8 @@ export const ProfilePage: React.FC = () => {
                     <Shield className="w-4 h-4 mr-2" />
                     Admin Panel
                   </Button>
-                </div>
-              )}
+                )}
+              </div>
             </CardContent>
           </Card>
         </div>

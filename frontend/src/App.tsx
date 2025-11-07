@@ -14,6 +14,9 @@ import { AgentRegistration } from './pages/AgentRegistration'
 import { TravelAgents } from './pages/TravelAgents'
 import { StoryDetailPage } from './pages/StoryDetailPage'
 import { LoadingScreen } from './components/LoadingScreen'
+import { RoleSelectionPage } from './pages/RoleSelectionPage'
+import { TransportRegistration } from './pages/TransportRegistration'
+import { TransportationPage } from './pages/TransportationPage'
 
 const AppContent: React.FC = () => {
   const { config, loading, error } = useConfig()
@@ -46,8 +49,11 @@ const AppContent: React.FC = () => {
           <Routes>
             <Route path="/login" element={<LoginPage />} />
             <Route path="/register" element={<RegisterPage />} />
+            <Route path="/role-selection" element={<RoleSelectionPage />} />
             <Route path="/travel-agents" element={<TravelAgents />} />
             <Route path="/agent-registration" element={<AgentRegistration />} />
+            <Route path="/transport-registration" element={<TransportRegistration />} />
+            <Route path="/transportation" element={<TransportationPage />} />
             <Route path="/trips/:id" element={<TripDetailPage />} />
             <Route path="/places/:id" element={<PlaceDetailsPage />} />
             <Route path="/community/story/:id" element={<StoryDetailPage />} />

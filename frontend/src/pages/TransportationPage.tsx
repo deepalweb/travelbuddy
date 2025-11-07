@@ -1,263 +1,296 @@
-import React, { useState } from 'react'
-import { 
-  Search, MapPin, Star, Phone, MessageCircle, Car, Plane, 
-  Bus, Bike, Filter, Grid, List, Map, Heart, Clock, 
-  Shield, Users, DollarSign, ChevronDown, X, Eye, Upload, Trash2
-} from 'lucide-react'
+import React, { useState, useEffect } from 'react'
+import { Link } from 'react-router-dom'
+import { Card, CardContent } from '../components/Card'
 import { Button } from '../components/Button'
+import { 
+  Search, MapPin, Filter, Star, Clock, 
+  Car, Bus, Plane, Ship, Calendar, Users,
+  Wifi, Zap, Coffee, Shield, Phone, Mail,
+  ChevronDown, Grid, List, X
+} from 'lucide-react'
 
-interface TransportProvider {
+interface TransportService {
   id: string
-  name: string
-  image: string
-  location: string
-  serviceTypes: string[]
-  languages: string[]
+  providerId: string
+  companyName: string
+  vehicleType: string
+  route: string
+  fromLocation: string
+  toLocation: string
+  price: number
+  duration: string
+  departure: string
+  arrival: string
+  availableSeats: number
+  totalSeats: number
+  amenities: string[]
   rating: number
   reviewCount: number
-  priceRange: string
-  verified: boolean
-  availability: string
+  image: string
   description: string
-  yearsInService: number
-  fleetSize: number
-  operatingHours: string
-  specialties: string[]
-  contactPhone: string
-  contactEmail: string
-  responseTime: string
+  phone: string
+  email: string
 }
 
-const mockProviders: TransportProvider[] = [
+const mockServices: TransportService[] = [
   {
     id: '1',
-    name: 'GoBali Transfers',
-    image: 'https://images.unsplash.com/photo-1544620347-c4fd4a3d5957?w=400',
-    location: 'Kuta, Bali',
-    serviceTypes: ['Airport Transfer', 'Private Van', 'Car Rental'],
-    languages: ['English', 'Bahasa Indonesia'],
-    rating: 4.8,
-    reviewCount: 324,
-    priceRange: 'From $15 per ride',
-    verified: true,
-    availability: '24/7 Service',
-    description: 'Professional airport transfers and private transportation across Bali with modern fleet.',
-    yearsInService: 8,
-    fleetSize: 25,
-    operatingHours: '24/7',
-    specialties: ['Airport Pickup', 'Hotel Transfers', 'Day Tours'],
-    contactPhone: '+62 361 123456',
-    contactEmail: 'info@gobalitransfers.com',
-    responseTime: '< 30 minutes'
+    providerId: 'tp1',
+    companyName: 'Lanka Express Transport',
+    vehicleType: 'Bus',
+    route: 'Colombo - Kandy',
+    fromLocation: 'Colombo',
+    toLocation: 'Kandy',
+    price: 500,
+    duration: '3 hours',
+    departure: '08:00 AM',
+    arrival: '11:00 AM',
+    availableSeats: 25,
+    totalSeats: 45,
+    amenities: ['AC', 'WiFi', 'Charging Ports', 'Refreshments'],
+    rating: 4.5,
+    reviewCount: 89,
+    image: 'https://images.unsplash.com/photo-1544620347-c4fd4a3d5957?w=400&h=250&fit=crop',
+    description: 'Comfortable air-conditioned bus service with modern amenities',
+    phone: '+94 11 234 5678',
+    email: 'info@lankaexpress.lk'
   },
   {
     id: '2',
-    name: 'BlueSky Vans',
-    image: 'https://images.unsplash.com/photo-1570125909232-eb263c188f7e?w=400',
-    location: 'Ubud, Bali',
-    serviceTypes: ['Group Transport', 'Tour Bus', 'Private Van'],
-    languages: ['English', 'Bahasa Indonesia', 'Japanese'],
-    rating: 4.6,
-    reviewCount: 189,
-    priceRange: '$50-80 per day',
-    verified: true,
-    availability: 'Book in advance',
-    description: 'Comfortable group transportation and tour services with experienced local drivers.',
-    yearsInService: 5,
-    fleetSize: 12,
-    operatingHours: '6AM - 10PM',
-    specialties: ['Group Tours', 'Cultural Sites', 'Nature Trips'],
-    contactPhone: '+62 361 789012',
-    contactEmail: 'bookings@blueskyvans.com',
-    responseTime: '< 1 hour'
+    providerId: 'tp2',
+    companyName: 'Island Taxi Service',
+    vehicleType: 'Car',
+    route: 'Airport - Colombo City',
+    fromLocation: 'Bandaranaike Airport',
+    toLocation: 'Colombo City',
+    price: 2500,
+    duration: '45 minutes',
+    departure: 'On Demand',
+    arrival: 'On Demand',
+    availableSeats: 3,
+    totalSeats: 4,
+    amenities: ['AC', 'English Speaking Driver', 'Child Seats Available'],
+    rating: 4.8,
+    reviewCount: 156,
+    image: 'https://images.unsplash.com/photo-1449824913935-59a10b8d2000?w=400&h=250&fit=crop',
+    description: 'Professional airport transfer service with experienced drivers',
+    phone: '+94 77 987 6543',
+    email: 'bookings@islandtaxi.lk'
   },
   {
     id: '3',
-    name: 'EcoRide Bali',
-    image: 'https://images.unsplash.com/photo-1593941707882-a5bac6861d75?w=400',
-    location: 'Seminyak, Bali',
-    serviceTypes: ['Electric Car', 'Bike Rental', 'Scooter'],
-    languages: ['English', 'Bahasa Indonesia'],
-    rating: 4.7,
-    reviewCount: 156,
-    priceRange: '$25-45 per day',
-    verified: false,
-    availability: 'Available today',
-    description: 'Eco-friendly transportation options including electric vehicles and bike rentals.',
-    yearsInService: 3,
-    fleetSize: 18,
-    operatingHours: '7AM - 9PM',
-    specialties: ['Eco Transport', 'City Tours', 'Beach Access'],
-    contactPhone: '+62 361 345678',
-    contactEmail: 'hello@ecoridebali.com',
-    responseTime: '< 45 minutes'
+    providerId: 'tp3',
+    companyName: 'Coastal Ferry Services',
+    vehicleType: 'Ferry',
+    route: 'Colombo - Galle',
+    fromLocation: 'Colombo Port',
+    toLocation: 'Galle Harbor',
+    price: 1200,
+    duration: '2.5 hours',
+    departure: '09:30 AM',
+    arrival: '12:00 PM',
+    availableSeats: 80,
+    totalSeats: 120,
+    amenities: ['Sea Views', 'Onboard Cafe', 'Deck Access', 'Life Jackets'],
+    rating: 4.3,
+    reviewCount: 67,
+    image: 'https://images.unsplash.com/photo-1578662996442-48f60103fc96?w=400&h=250&fit=crop',
+    description: 'Scenic coastal ferry with beautiful ocean views',
+    phone: '+94 91 456 7890',
+    email: 'ferry@coastal.lk'
   }
 ]
 
-const serviceTypes = [
-  { id: 'taxi', label: 'Taxi', icon: Car },
-  { id: 'airport', label: 'Airport Transfer', icon: Plane },
-  { id: 'rental', label: 'Car Rental', icon: Car },
-  { id: 'van', label: 'Private Van', icon: Bus },
-  { id: 'bus', label: 'Tour Bus', icon: Bus },
-  { id: 'bike', label: 'Bike Rental', icon: Bike }
-]
+const vehicleTypes = ['All', 'Car', 'Bus', 'Ferry', 'Train', 'Plane']
+const amenityIcons: { [key: string]: React.ReactNode } = {
+  'AC': <Zap className="w-4 h-4" />,
+  'WiFi': <Wifi className="w-4 h-4" />,
+  'Charging Ports': <Zap className="w-4 h-4" />,
+  'Refreshments': <Coffee className="w-4 h-4" />,
+  'English Speaking Driver': <Users className="w-4 h-4" />,
+  'Child Seats Available': <Shield className="w-4 h-4" />,
+  'Sea Views': <MapPin className="w-4 h-4" />,
+  'Onboard Cafe': <Coffee className="w-4 h-4" />,
+  'Deck Access': <MapPin className="w-4 h-4" />,
+  'Life Jackets': <Shield className="w-4 h-4" />
+}
 
 export const TransportationPage: React.FC = () => {
-  const [searchQuery, setSearchQuery] = useState('')
-  const [selectedLocation, setSelectedLocation] = useState('')
-  const [selectedServices, setSelectedServices] = useState<string[]>([])
-  const [priceRange, setPriceRange] = useState([0, 200])
+  const [services, setServices] = useState<TransportService[]>(mockServices)
+  const [filteredServices, setFilteredServices] = useState<TransportService[]>(mockServices)
+  const [searchTerm, setSearchTerm] = useState('')
+  const [selectedVehicleType, setSelectedVehicleType] = useState('All')
+  const [fromLocation, setFromLocation] = useState('')
+  const [toLocation, setToLocation] = useState('')
+  const [selectedDate, setSelectedDate] = useState('')
+  const [maxPrice, setMaxPrice] = useState(5000)
   const [minRating, setMinRating] = useState(0)
-  const [verifiedOnly, setVerifiedOnly] = useState(false)
-  const [sortBy, setSortBy] = useState('popularity')
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
   const [showFilters, setShowFilters] = useState(false)
-  const [selectedProvider, setSelectedProvider] = useState<TransportProvider | null>(null)
-  const [showPartnerModal, setShowPartnerModal] = useState(false)
-  const [partnerForm, setPartnerForm] = useState({
-    businessName: '',
-    contactName: '',
-    email: '',
-    phone: '',
-    location: '',
-    serviceTypes: [] as string[],
-    fleetSize: '',
-    yearsInBusiness: '',
-    description: '',
-    languages: [] as string[],
-    operatingHours: '',
-    specialties: [] as string[],
-    priceRange: '',
-    responseTime: ''
-  })
-  const [uploadedImages, setUploadedImages] = useState<File[]>([])
-  const [imagePreviews, setImagePreviews] = useState<string[]>([])
+  const [selectedService, setSelectedService] = useState<TransportService | null>(null)
 
-  const filteredProviders = mockProviders.filter(provider => {
-    const matchesSearch = provider.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         provider.serviceTypes.some(service => service.toLowerCase().includes(searchQuery.toLowerCase()))
-    const matchesLocation = !selectedLocation || provider.location.includes(selectedLocation)
-    const matchesServices = selectedServices.length === 0 || 
-                           selectedServices.some(service => provider.serviceTypes.some(pService => 
-                             pService.toLowerCase().includes(service.toLowerCase())))
-    const matchesRating = provider.rating >= minRating
-    const matchesVerified = !verifiedOnly || provider.verified
+  useEffect(() => {
+    filterServices()
+  }, [searchTerm, selectedVehicleType, fromLocation, toLocation, maxPrice, minRating])
 
-    return matchesSearch && matchesLocation && matchesServices && matchesRating && matchesVerified
-  })
+  const filterServices = () => {
+    let filtered = services.filter(service => {
+      const matchesSearch = service.companyName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                           service.route.toLowerCase().includes(searchTerm.toLowerCase())
+      const matchesVehicleType = selectedVehicleType === 'All' || service.vehicleType === selectedVehicleType
+      const matchesFrom = !fromLocation || service.fromLocation.toLowerCase().includes(fromLocation.toLowerCase())
+      const matchesTo = !toLocation || service.toLocation.toLowerCase().includes(toLocation.toLowerCase())
+      const matchesPrice = service.price <= maxPrice
+      const matchesRating = service.rating >= minRating
 
-  const handleServiceToggle = (serviceId: string) => {
-    setSelectedServices(prev => 
-      prev.includes(serviceId) 
-        ? prev.filter(s => s !== serviceId)
-        : [...prev, serviceId]
-    )
+      return matchesSearch && matchesVehicleType && matchesFrom && matchesTo && matchesPrice && matchesRating
+    })
+    setFilteredServices(filtered)
+  }
+
+  const getVehicleIcon = (type: string) => {
+    switch (type.toLowerCase()) {
+      case 'car': return <Car className="w-5 h-5" />
+      case 'bus': return <Bus className="w-5 h-5" />
+      case 'ferry': return <Ship className="w-5 h-5" />
+      case 'plane': return <Plane className="w-5 h-5" />
+      default: return <Car className="w-5 h-5" />
+    }
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Hero Section with Filters */}
-      <div className="bg-gradient-to-br from-teal-600 via-cyan-600 to-blue-600 text-white">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-green-50 pt-20">
+      {/* Hero Section */}
+      <div className="bg-gradient-to-r from-blue-600 to-green-600 text-white py-16">
+        <div className="max-w-7xl mx-auto px-4">
           <div className="text-center mb-8">
-            <h1 className="text-4xl font-bold mb-4">Find Reliable Transportation Services</h1>
-            <p className="text-xl text-blue-100">Connect with trusted local transport providers for your journey</p>
+            <h1 className="text-4xl lg:text-5xl font-bold mb-4">Transportation Services</h1>
+            <p className="text-xl text-blue-100 max-w-2xl mx-auto">
+              Find reliable transportation for your Sri Lankan adventure
+            </p>
           </div>
 
-          {/* Search and Filters */}
-          <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-6">
-            <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 mb-4">
-              {/* Search Bar */}
-              <div className="lg:col-span-2 relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
-                <input
-                  type="text"
-                  placeholder="Search by provider name or vehicle type"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-10 pr-4 py-3 rounded-lg border-0 text-gray-900 placeholder-gray-500 focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
-
-              {/* Location Filter */}
-              <div className="relative">
-                <MapPin className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
-                <select
-                  value={selectedLocation}
-                  onChange={(e) => setSelectedLocation(e.target.value)}
-                  className="w-full pl-10 pr-8 py-3 rounded-lg border-0 text-gray-900 focus:ring-2 focus:ring-blue-500 appearance-none"
-                >
-                  <option value="">All Locations</option>
-                  <option value="Kuta">Kuta, Bali</option>
-                  <option value="Ubud">Ubud, Bali</option>
-                  <option value="Seminyak">Seminyak, Bali</option>
-                </select>
-                <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
-              </div>
-
-              {/* Mobile Filter Toggle */}
-              <Button
-                onClick={() => setShowFilters(!showFilters)}
-                className="lg:hidden bg-white/20 hover:bg-white/30 text-white border-white/30"
-              >
-                <Filter className="w-5 h-5 mr-2" />
-                Filters
-              </Button>
-
-              {/* View Mode Toggle - Desktop */}
-              <div className="hidden lg:flex items-center justify-end space-x-2">
-                <Button
-                  variant={viewMode === 'grid' ? 'default' : 'ghost'}
-                  size="sm"
-                  onClick={() => setViewMode('grid')}
-                  className="text-white border-white/30"
-                >
-                  <Grid className="w-4 h-4" />
+          {/* Search Form */}
+          <div className="max-w-6xl mx-auto">
+            <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-6">
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
+                <div className="relative">
+                  <MapPin className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-white/70" />
+                  <input
+                    type="text"
+                    placeholder="From location..."
+                    value={fromLocation}
+                    onChange={(e) => setFromLocation(e.target.value)}
+                    className="w-full pl-10 pr-4 py-3 bg-white/20 border border-white/30 rounded-xl text-white placeholder-white/70 focus:outline-none focus:ring-2 focus:ring-white/50"
+                  />
+                </div>
+                <div className="relative">
+                  <MapPin className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-white/70" />
+                  <input
+                    type="text"
+                    placeholder="To location..."
+                    value={toLocation}
+                    onChange={(e) => setToLocation(e.target.value)}
+                    className="w-full pl-10 pr-4 py-3 bg-white/20 border border-white/30 rounded-xl text-white placeholder-white/70 focus:outline-none focus:ring-2 focus:ring-white/50"
+                  />
+                </div>
+                <div className="relative">
+                  <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-white/70" />
+                  <input
+                    type="date"
+                    value={selectedDate}
+                    onChange={(e) => setSelectedDate(e.target.value)}
+                    className="w-full pl-10 pr-4 py-3 bg-white/20 border border-white/30 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-white/50"
+                  />
+                </div>
+                <Button className="bg-white text-blue-600 hover:bg-blue-50 py-3 rounded-xl font-semibold">
+                  <Search className="w-5 h-5 mr-2" />
+                  Search
                 </Button>
-                <Button
-                  variant={viewMode === 'list' ? 'default' : 'ghost'}
-                  size="sm"
-                  onClick={() => setViewMode('list')}
-                  className="text-white border-white/30"
-                >
-                  <List className="w-4 h-4" />
-                </Button>
+              </div>
+              
+              <div className="flex flex-wrap gap-2">
+                {vehicleTypes.map(type => (
+                  <button
+                    key={type}
+                    onClick={() => setSelectedVehicleType(type)}
+                    className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                      selectedVehicleType === type
+                        ? 'bg-white text-blue-600'
+                        : 'bg-white/20 text-white hover:bg-white/30'
+                    }`}
+                  >
+                    {type}
+                  </button>
+                ))}
               </div>
             </div>
+          </div>
+        </div>
+      </div>
 
-            {/* Advanced Filters */}
-            <div className={`${showFilters ? 'block' : 'hidden'} lg:block`}>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 pt-4 border-t border-white/20">
-                {/* Service Types */}
+      <div className="max-w-7xl mx-auto px-4 py-8">
+        {/* Filters & Results Header */}
+        <div className="flex justify-between items-center mb-6">
+          <div>
+            <h2 className="text-2xl font-bold text-gray-900">
+              {filteredServices.length} Services Found
+            </h2>
+            <p className="text-gray-600">Choose from available transportation options</p>
+          </div>
+          
+          <div className="flex items-center space-x-4">
+            <Button
+              variant="outline"
+              onClick={() => setShowFilters(!showFilters)}
+              className="flex items-center"
+            >
+              <Filter className="w-4 h-4 mr-2" />
+              Filters
+            </Button>
+            
+            <div className="flex rounded-lg border border-gray-300 overflow-hidden">
+              <button
+                onClick={() => setViewMode('grid')}
+                className={`px-3 py-2 ${viewMode === 'grid' ? 'bg-blue-600 text-white' : 'bg-white text-gray-700'}`}
+              >
+                <Grid className="w-4 h-4" />
+              </button>
+              <button
+                onClick={() => setViewMode('list')}
+                className={`px-3 py-2 ${viewMode === 'list' ? 'bg-blue-600 text-white' : 'bg-white text-gray-700'}`}
+              >
+                <List className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Advanced Filters */}
+        {showFilters && (
+          <Card className="mb-8 border-0 shadow-lg">
+            <CardContent className="p-6">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div>
-                  <label className="block text-sm font-medium mb-2">Service Type</label>
-                  <div className="space-y-2">
-                    {serviceTypes.slice(0, 3).map(service => {
-                      const Icon = service.icon
-                      return (
-                        <label key={service.id} className="flex items-center space-x-2 text-sm">
-                          <input
-                            type="checkbox"
-                            checked={selectedServices.includes(service.id)}
-                            onChange={() => handleServiceToggle(service.id)}
-                            className="rounded border-white/30 text-blue-600 focus:ring-blue-500"
-                          />
-                          <Icon className="w-4 h-4" />
-                          <span>{service.label}</span>
-                        </label>
-                      )
-                    })}
-                  </div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Max Price (LKR)</label>
+                  <input
+                    type="range"
+                    min="0"
+                    max="10000"
+                    step="100"
+                    value={maxPrice}
+                    onChange={(e) => setMaxPrice(Number(e.target.value))}
+                    className="w-full"
+                  />
+                  <div className="text-sm text-gray-600 mt-1">Up to LKR {maxPrice}</div>
                 </div>
-
-                {/* Rating Filter */}
+                
                 <div>
-                  <label className="block text-sm font-medium mb-2">Minimum Rating</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Minimum Rating</label>
                   <select
                     value={minRating}
                     onChange={(e) => setMinRating(Number(e.target.value))}
-                    className="w-full py-2 px-3 rounded-lg border-0 text-gray-900 focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                   >
                     <option value={0}>Any Rating</option>
                     <option value={3}>3+ Stars</option>
@@ -265,710 +298,230 @@ export const TransportationPage: React.FC = () => {
                     <option value={4.5}>4.5+ Stars</option>
                   </select>
                 </div>
-
-                {/* Verified Only */}
+                
                 <div>
-                  <label className="block text-sm font-medium mb-2">Provider Type</label>
-                  <label className="flex items-center space-x-2 text-sm">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Search Services</label>
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
                     <input
-                      type="checkbox"
-                      checked={verifiedOnly}
-                      onChange={(e) => setVerifiedOnly(e.target.checked)}
-                      className="rounded border-white/30 text-blue-600 focus:ring-blue-500"
+                      type="text"
+                      placeholder="Search by company or route..."
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                     />
-                    <Shield className="w-4 h-4" />
-                    <span>Verified Only</span>
-                  </label>
-                </div>
-
-                {/* Sort By */}
-                <div>
-                  <label className="block text-sm font-medium mb-2">Sort By</label>
-                  <select
-                    value={sortBy}
-                    onChange={(e) => setSortBy(e.target.value)}
-                    className="w-full py-2 px-3 rounded-lg border-0 text-gray-900 focus:ring-2 focus:ring-blue-500"
-                  >
-                    <option value="popularity">Popularity</option>
-                    <option value="rating">Highest Rating</option>
-                    <option value="price-low">Price: Low to High</option>
-                    <option value="price-high">Price: High to Low</option>
-                  </select>
+                  </div>
                 </div>
               </div>
-            </div>
-          </div>
-        </div>
-      </div>
+            </CardContent>
+          </Card>
+        )}
 
-      {/* Results Section */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Results Header */}
-        <div className="flex items-center justify-between mb-6">
-          <div>
-            <h2 className="text-2xl font-bold text-gray-900">Transportation Providers</h2>
-            <p className="text-gray-600">{filteredProviders.length} providers found</p>
-          </div>
-          
-          {/* Desktop View Toggle */}
-          <div className="hidden lg:flex items-center space-x-2">
-            <Button
-              variant={viewMode === 'grid' ? 'default' : 'ghost'}
-              size="sm"
-              onClick={() => setViewMode('grid')}
-            >
-              <Grid className="w-4 h-4 mr-2" />
-              Grid
-            </Button>
-            <Button
-              variant={viewMode === 'list' ? 'default' : 'ghost'}
-              size="sm"
-              onClick={() => setViewMode('list')}
-            >
-              <List className="w-4 h-4 mr-2" />
-              List
-            </Button>
-          </div>
-        </div>
-
-        {/* Provider Cards */}
-        <div className={`grid gap-6 ${
-          viewMode === 'grid' 
-            ? 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3' 
-            : 'grid-cols-1'
-        }`}>
-          {filteredProviders.map((provider) => (
-            <div
-              key={provider.id}
-              className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden hover:shadow-lg transition-all duration-300 group"
-            >
-              {/* Provider Image */}
-              <div className="relative h-48 overflow-hidden">
-                <img
-                  src={provider.image}
-                  alt={provider.name}
-                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                />
-                {provider.verified && (
-                  <div className="absolute top-3 right-3 bg-green-500 text-white px-2 py-1 rounded-full text-xs font-medium flex items-center space-x-1">
-                    <Shield className="w-3 h-3" />
-                    <span>Verified</span>
+        {/* Services Grid/List */}
+        <div className={viewMode === 'grid' 
+          ? 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6'
+          : 'space-y-4'
+        }>
+          {filteredServices.map(service => (
+            <Card key={service.id} className="group hover:shadow-xl transition-all duration-300 cursor-pointer border-0 shadow-lg">
+              <CardContent className="p-0">
+                <div className="relative">
+                  <img
+                    src={service.image}
+                    alt={service.companyName}
+                    className="w-full h-48 object-cover rounded-t-lg"
+                  />
+                  <div className="absolute top-4 left-4 bg-white/90 backdrop-blur-sm rounded-lg px-3 py-1 flex items-center">
+                    {getVehicleIcon(service.vehicleType)}
+                    <span className="ml-2 text-sm font-medium">{service.vehicleType}</span>
                   </div>
-                )}
-                <button className="absolute top-3 left-3 p-2 bg-white/90 rounded-full hover:bg-white transition-colors">
-                  <Heart className="w-4 h-4 text-gray-600" />
-                </button>
-              </div>
-
-              {/* Provider Info */}
-              <div className="p-6">
-                <div className="flex items-start justify-between mb-3">
-                  <div>
-                    <h3 className="text-lg font-semibold text-gray-900 mb-1">{provider.name}</h3>
-                    <div className="flex items-center text-sm text-gray-600 mb-2">
-                      <MapPin className="w-4 h-4 mr-1" />
-                      {provider.location}
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <div className="flex items-center space-x-1 mb-1">
-                      <Star className="w-4 h-4 text-yellow-400 fill-current" />
-                      <span className="font-medium text-gray-900">{provider.rating}</span>
-                      <span className="text-sm text-gray-500">({provider.reviewCount})</span>
-                    </div>
+                  <div className="absolute top-4 right-4 bg-green-500 text-white rounded-lg px-3 py-1">
+                    <span className="text-sm font-bold">LKR {service.price}</span>
                   </div>
                 </div>
+                
+                <div className="p-6">
+                  <div className="flex items-start justify-between mb-3">
+                    <div>
+                      <h3 className="font-bold text-gray-900 group-hover:text-blue-600 transition-colors">
+                        {service.companyName}
+                      </h3>
+                      <p className="text-sm text-gray-600">{service.route}</p>
+                    </div>
+                    <div className="flex items-center">
+                      <Star className="w-4 h-4 text-yellow-500 fill-current mr-1" />
+                      <span className="text-sm font-medium">{service.rating}</span>
+                      <span className="text-xs text-gray-500 ml-1">({service.reviewCount})</span>
+                    </div>
+                  </div>
 
-                {/* Service Types */}
-                <div className="flex flex-wrap gap-2 mb-4">
-                  {provider.serviceTypes.slice(0, 3).map((service, index) => (
-                    <span
-                      key={index}
-                      className="px-2 py-1 bg-blue-100 text-blue-700 text-xs rounded-full"
+                  <div className="grid grid-cols-2 gap-4 mb-4 text-sm">
+                    <div className="flex items-center text-gray-600">
+                      <Clock className="w-4 h-4 mr-2" />
+                      {service.duration}
+                    </div>
+                    <div className="flex items-center text-gray-600">
+                      <Users className="w-4 h-4 mr-2" />
+                      {service.availableSeats} seats
+                    </div>
+                    <div className="text-gray-600">
+                      Depart: {service.departure}
+                    </div>
+                    <div className="text-gray-600">
+                      Arrive: {service.arrival}
+                    </div>
+                  </div>
+
+                  <div className="flex flex-wrap gap-1 mb-4">
+                    {service.amenities.slice(0, 3).map(amenity => (
+                      <span key={amenity} className="inline-flex items-center px-2 py-1 bg-blue-100 text-blue-700 text-xs rounded-full">
+                        {amenityIcons[amenity]}
+                        <span className="ml-1">{amenity}</span>
+                      </span>
+                    ))}
+                    {service.amenities.length > 3 && (
+                      <span className="px-2 py-1 bg-gray-100 text-gray-600 text-xs rounded-full">
+                        +{service.amenities.length - 3} more
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="flex space-x-2">
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      className="flex-1"
+                      onClick={() => setSelectedService(service)}
                     >
-                      {service}
-                    </span>
-                  ))}
-                  {provider.serviceTypes.length > 3 && (
-                    <span className="px-2 py-1 bg-gray-100 text-gray-600 text-xs rounded-full">
-                      +{provider.serviceTypes.length - 3} more
-                    </span>
-                  )}
-                </div>
-
-                {/* Languages */}
-                <div className="flex items-center text-sm text-gray-600 mb-3">
-                  <Users className="w-4 h-4 mr-2" />
-                  <span>Languages: {provider.languages.join(', ')}</span>
-                </div>
-
-                {/* Price and Availability */}
-                <div className="flex items-center justify-between mb-4">
-                  <div className="flex items-center text-sm">
-                    <DollarSign className="w-4 h-4 text-green-600 mr-1" />
-                    <span className="font-medium text-gray-900">{provider.priceRange}</span>
-                  </div>
-                  <div className="flex items-center text-sm text-gray-600">
-                    <Clock className="w-4 h-4 mr-1" />
-                    <span>{provider.availability}</span>
+                      View Details
+                    </Button>
+                    <Button size="sm" className="flex-1 bg-blue-600 hover:bg-blue-700">
+                      Book Now
+                    </Button>
                   </div>
                 </div>
-
-                {/* Action Buttons */}
-                <div className="flex space-x-2">
-                  <Button
-                    onClick={() => setSelectedProvider(provider)}
-                    variant="outline"
-                    size="sm"
-                    className="flex-1"
-                  >
-                    <Eye className="w-4 h-4 mr-2" />
-                    View Details
-                  </Button>
-                  <Button size="sm" className="flex-1">
-                    <MessageCircle className="w-4 h-4 mr-2" />
-                    Contact
-                  </Button>
-                </div>
-              </div>
-            </div>
+              </CardContent>
+            </Card>
           ))}
         </div>
 
-        {/* Footer CTA */}
-        <div className="mt-16 bg-gradient-to-r from-blue-600 to-purple-600 rounded-2xl p-8 text-center text-white">
-          <Car className="w-12 h-12 mx-auto mb-4 text-blue-200" />
-          <h3 className="text-2xl font-bold mb-2">Are you a transportation provider?</h3>
-          <p className="text-blue-100 mb-6">Join our network to reach thousands of travelers</p>
-          <Button 
-            onClick={() => setShowPartnerModal(true)}
-            className="bg-white text-blue-600 hover:bg-blue-50"
-          >
-            Register as Partner →
-          </Button>
+        {/* CTA Section */}
+        <div className="mt-16 text-center bg-gradient-to-r from-blue-50 to-green-50 rounded-2xl p-8">
+          <h3 className="text-2xl font-bold text-gray-900 mb-4">Are you a Transport Provider?</h3>
+          <p className="text-gray-600 mb-6 max-w-2xl mx-auto">
+            Join our network of transport providers and connect with thousands of travelers looking for reliable transportation services.
+          </p>
+          <Link to="/transport-registration">
+            <Button className="bg-gradient-to-r from-blue-600 to-green-600 hover:from-blue-700 hover:to-green-700 text-white px-8 py-3 rounded-xl">
+              Register as Transport Provider
+            </Button>
+          </Link>
         </div>
-      </div>
 
-      {/* Partner Registration Modal */}
-      {showPartnerModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="p-8">
-              <div className="flex items-center justify-between mb-6">
-                <h2 className="text-2xl font-bold text-gray-900">Register as Transport Partner</h2>
+        {/* Service Detail Modal */}
+        {selectedService && (
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+              <div className="relative">
+                <img
+                  src={selectedService.image}
+                  alt={selectedService.companyName}
+                  className="w-full h-64 object-cover rounded-t-2xl"
+                />
                 <button
-                  onClick={() => setShowPartnerModal(false)}
-                  className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+                  onClick={() => setSelectedService(null)}
+                  className="absolute top-4 right-4 w-8 h-8 bg-white/20 hover:bg-white/30 rounded-full flex items-center justify-center transition-colors"
                 >
-                  <X className="w-5 h-5" />
+                  <X className="w-5 h-5 text-white" />
                 </button>
               </div>
               
-              <form className="space-y-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Business Name *</label>
-                    <input
-                      type="text"
-                      value={partnerForm.businessName}
-                      onChange={(e) => setPartnerForm({...partnerForm, businessName: e.target.value})}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      placeholder="Your transport business name"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Contact Name *</label>
-                    <input
-                      type="text"
-                      value={partnerForm.contactName}
-                      onChange={(e) => setPartnerForm({...partnerForm, contactName: e.target.value})}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      placeholder="Your full name"
-                    />
-                  </div>
-                </div>
-                
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Email *</label>
-                    <input
-                      type="email"
-                      value={partnerForm.email}
-                      onChange={(e) => setPartnerForm({...partnerForm, email: e.target.value})}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      placeholder="your@email.com"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Phone *</label>
-                    <input
-                      type="tel"
-                      value={partnerForm.phone}
-                      onChange={(e) => setPartnerForm({...partnerForm, phone: e.target.value})}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      placeholder="+1 (555) 123-4567"
-                    />
-                  </div>
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Location *</label>
-                  <input
-                    type="text"
-                    value={partnerForm.location}
-                    onChange={(e) => setPartnerForm({...partnerForm, location: e.target.value})}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    placeholder="City, Country"
-                  />
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Service Types *</label>
-                  <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                    {serviceTypes.map(service => {
-                      const Icon = service.icon
-                      return (
-                        <label key={service.id} className="flex items-center space-x-2 p-3 border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer">
-                          <input
-                            type="checkbox"
-                            checked={partnerForm.serviceTypes.includes(service.id)}
-                            onChange={(e) => {
-                              if (e.target.checked) {
-                                setPartnerForm({...partnerForm, serviceTypes: [...partnerForm.serviceTypes, service.id]})
-                              } else {
-                                setPartnerForm({...partnerForm, serviceTypes: partnerForm.serviceTypes.filter(s => s !== service.id)})
-                              }
-                            }}
-                            className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                          />
-                          <Icon className="w-4 h-4 text-gray-600" />
-                          <span className="text-sm">{service.label}</span>
-                        </label>
-                      )
-                    })}
-                  </div>
-                </div>
-                
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Fleet Size</label>
-                    <input
-                      type="number"
-                      value={partnerForm.fleetSize}
-                      onChange={(e) => setPartnerForm({...partnerForm, fleetSize: e.target.value})}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      placeholder="Number of vehicles"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Years in Business</label>
-                    <input
-                      type="number"
-                      value={partnerForm.yearsInBusiness}
-                      onChange={(e) => setPartnerForm({...partnerForm, yearsInBusiness: e.target.value})}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      placeholder="Years of experience"
-                    />
-                  </div>
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Business Description</label>
-                  <textarea
-                    value={partnerForm.description}
-                    onChange={(e) => setPartnerForm({...partnerForm, description: e.target.value})}
-                    rows={4}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    placeholder="Tell us about your transport services, specialties, and what makes you unique..."
-                  />
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Languages Spoken *</label>
-                  <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                    {['English', 'Bahasa Indonesia', 'Japanese', 'Chinese', 'Korean', 'German'].map(language => (
-                      <label key={language} className="flex items-center space-x-2 p-3 border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={partnerForm.languages.includes(language)}
-                          onChange={(e) => {
-                            if (e.target.checked) {
-                              setPartnerForm({...partnerForm, languages: [...partnerForm.languages, language]})
-                            } else {
-                              setPartnerForm({...partnerForm, languages: partnerForm.languages.filter(l => l !== language)})
-                            }
-                          }}
-                          className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                        />
-                        <span className="text-sm">{language}</span>
-                      </label>
-                    ))}
-                  </div>
-                </div>
-                
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Operating Hours *</label>
-                    <input
-                      type="text"
-                      value={partnerForm.operatingHours}
-                      onChange={(e) => setPartnerForm({...partnerForm, operatingHours: e.target.value})}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      placeholder="e.g., 6AM - 10PM or 24/7"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Response Time *</label>
-                    <select
-                      value={partnerForm.responseTime}
-                      onChange={(e) => setPartnerForm({...partnerForm, responseTime: e.target.value})}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    >
-                      <option value="">Select response time</option>
-                      <option value="Under 15 minutes">Under 15 minutes</option>
-                      <option value="Under 30 minutes">Under 30 minutes</option>
-                      <option value="Under 1 hour">Under 1 hour</option>
-                      <option value="Under 2 hours">Under 2 hours</option>
-                      <option value="Same day">Same day</option>
-                    </select>
-                  </div>
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Price Range *</label>
-                  <input
-                    type="text"
-                    value={partnerForm.priceRange}
-                    onChange={(e) => setPartnerForm({...partnerForm, priceRange: e.target.value})}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    placeholder="e.g., $50-80 per day or From $15 per ride"
-                  />
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Specialties</label>
-                  <p className="text-sm text-gray-500 mb-3">What are you specialized in? (Select all that apply)</p>
-                  <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                    {['Airport Pickup', 'Hotel Transfers', 'Day Tours', 'Group Tours', 'Cultural Sites', 'Nature Trips', 'City Tours', 'Beach Access', 'Eco Transport'].map(specialty => (
-                      <label key={specialty} className="flex items-center space-x-2 p-3 border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={partnerForm.specialties.includes(specialty)}
-                          onChange={(e) => {
-                            if (e.target.checked) {
-                              setPartnerForm({...partnerForm, specialties: [...partnerForm.specialties, specialty]})
-                            } else {
-                              setPartnerForm({...partnerForm, specialties: partnerForm.specialties.filter(s => s !== specialty)})
-                            }
-                          }}
-                          className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                        />
-                        <span className="text-sm">{specialty}</span>
-                      </label>
-                    ))}
-                  </div>
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Vehicle Photos</label>
-                  <p className="text-sm text-gray-500 mb-3">Upload photos of your vehicles (max 5 images, 5MB each)</p>
-                  
-                  <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-blue-400 transition-colors">
-                    <input
-                      type="file"
-                      multiple
-                      accept="image/*"
-                      onChange={(e) => {
-                        const files = Array.from(e.target.files || [])
-                        if (files.length + uploadedImages.length > 5) {
-                          alert('Maximum 5 images allowed')
-                          return
-                        }
-                        
-                        const validFiles = files.filter(file => file.size <= 5 * 1024 * 1024)
-                        if (validFiles.length !== files.length) {
-                          alert('Some files exceed 5MB limit')
-                        }
-                        
-                        setUploadedImages(prev => [...prev, ...validFiles])
-                        
-                        validFiles.forEach(file => {
-                          const reader = new FileReader()
-                          reader.onload = (e) => {
-                            setImagePreviews(prev => [...prev, e.target?.result as string])
-                          }
-                          reader.readAsDataURL(file)
-                        })
-                      }}
-                      className="hidden"
-                      id="image-upload"
-                    />
-                    <label htmlFor="image-upload" className="cursor-pointer">
-                      <Upload className="w-8 h-8 text-gray-400 mx-auto mb-2" />
-                      <p className="text-gray-600">Click to upload images or drag and drop</p>
-                      <p className="text-sm text-gray-400">PNG, JPG up to 5MB each</p>
-                    </label>
-                  </div>
-                  
-                  {imagePreviews.length > 0 && (
-                    <div className="mt-4 grid grid-cols-2 md:grid-cols-3 gap-4">
-                      {imagePreviews.map((preview, index) => (
-                        <div key={index} className="relative group">
-                          <img
-                            src={preview}
-                            alt={`Vehicle ${index + 1}`}
-                            className="w-full h-24 object-cover rounded-lg border border-gray-200"
-                          />
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setUploadedImages(prev => prev.filter((_, i) => i !== index))
-                              setImagePreviews(prev => prev.filter((_, i) => i !== index))
-                            }}
-                            className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
-                          >
-                            <Trash2 className="w-3 h-3" />
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-                
-                <div className="flex space-x-4 pt-4">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => setShowPartnerModal(false)}
-                    className="flex-1"
-                  >
-                    Cancel
-                  </Button>
-                  <Button
-                    type="submit"
-                    className="flex-1 bg-blue-600 hover:bg-blue-700"
-                    onClick={async (e) => {
-                      e.preventDefault()
-                      
-                      try {
-                        const formData = new FormData()
-                        
-                        // Add form fields
-                        Object.entries(partnerForm).forEach(([key, value]) => {
-                          if (Array.isArray(value)) {
-                            formData.append(key, JSON.stringify(value))
-                          } else {
-                            formData.append(key, value)
-                          }
-                        })
-                        
-                        // Add images
-                        uploadedImages.forEach((file, index) => {
-                          formData.append(`images`, file)
-                        })
-                        
-                        const response = await fetch('/api/partners/register', {
-                          method: 'POST',
-                          body: formData
-                        })
-                        
-                        if (!response.ok) {
-                          const errorData = await response.json().catch(() => ({ message: 'Unknown error' }))
-                          throw new Error(errorData.message || `HTTP ${response.status}`)
-                        }
-                        
-                        const result = await response.json()
-                        if (!result.success) {
-                          throw new Error(result.message || 'Submission failed')
-                        }
-                        
-                        alert(`Application submitted successfully! Application ID: ${result.applicationId || 'N/A'}. You will receive an email confirmation shortly.`)
-                      } catch (error) {
-                        console.error('Partner registration error:', error)
-                        alert(`Failed to submit application: ${error instanceof Error ? error.message : 'Unknown error'}. Please try again.`)
-                        return
-                      }
-                      
-                      setShowPartnerModal(false)
-                      setPartnerForm({
-                        businessName: '',
-                        contactName: '',
-                        email: '',
-                        phone: '',
-                        location: '',
-                        serviceTypes: [],
-                        fleetSize: '',
-                        yearsInBusiness: '',
-                        description: '',
-                        languages: [],
-                        operatingHours: '',
-                        specialties: [],
-                        priceRange: '',
-                        responseTime: ''
-                      })
-                      setUploadedImages([])
-                      setImagePreviews([])
-                    }}
-                  >
-                    Submit Application
-                  </Button>
-                </div>
-              </form>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Provider Detail Modal */}
-      {selectedProvider && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
-            {/* Modal Header */}
-            <div className="relative">
-              <img
-                src={selectedProvider.image}
-                alt={selectedProvider.name}
-                className="w-full h-64 object-cover"
-              />
-              <button
-                onClick={() => setSelectedProvider(null)}
-                className="absolute top-4 right-4 p-2 bg-white/90 rounded-full hover:bg-white transition-colors"
-              >
-                <X className="w-5 h-5" />
-              </button>
-              {selectedProvider.verified && (
-                <div className="absolute top-4 left-4 bg-green-500 text-white px-3 py-1 rounded-full text-sm font-medium flex items-center space-x-1">
-                  <Shield className="w-4 h-4" />
-                  <span>Verified Partner</span>
-                </div>
-              )}
-            </div>
-
-            {/* Modal Content */}
-            <div className="p-8">
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                {/* Main Info */}
-                <div className="lg:col-span-2">
-                  <div className="flex items-start justify-between mb-6">
-                    <div>
-                      <h2 className="text-3xl font-bold text-gray-900 mb-2">{selectedProvider.name}</h2>
-                      <div className="flex items-center text-gray-600 mb-4">
-                        <MapPin className="w-5 h-5 mr-2" />
-                        {selectedProvider.location}
+              <div className="p-6">
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                  <div className="lg:col-span-2">
+                    <h2 className="text-3xl font-bold text-gray-900 mb-2">{selectedService.companyName}</h2>
+                    <p className="text-xl text-gray-600 mb-4">{selectedService.route}</p>
+                    <p className="text-gray-700 mb-6">{selectedService.description}</p>
+                    
+                    <div className="grid grid-cols-2 gap-4 mb-6">
+                      <div className="bg-gray-50 rounded-lg p-4">
+                        <h4 className="font-semibold text-gray-900 mb-2">Schedule</h4>
+                        <p className="text-sm text-gray-600">Departure: {selectedService.departure}</p>
+                        <p className="text-sm text-gray-600">Arrival: {selectedService.arrival}</p>
+                        <p className="text-sm text-gray-600">Duration: {selectedService.duration}</p>
                       </div>
-                      <div className="flex items-center space-x-4">
-                        <div className="flex items-center">
-                          <Star className="w-5 h-5 text-yellow-400 fill-current mr-1" />
-                          <span className="font-semibold">{selectedProvider.rating}</span>
-                          <span className="text-gray-500 ml-1">({selectedProvider.reviewCount} reviews)</span>
-                        </div>
-                        <div className="flex items-center text-gray-600">
-                          <Clock className="w-5 h-5 mr-1" />
-                          <span>Response time: {selectedProvider.responseTime}</span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="space-y-6">
-                    {/* About */}
-                    <div>
-                      <h3 className="text-xl font-semibold mb-3">About the Provider</h3>
-                      <p className="text-gray-600 leading-relaxed">{selectedProvider.description}</p>
-                    </div>
-
-                    {/* Services */}
-                    <div>
-                      <h3 className="text-xl font-semibold mb-3">Services Offered</h3>
-                      <div className="flex flex-wrap gap-2">
-                        {selectedProvider.serviceTypes.map((service, index) => (
-                          <span
-                            key={index}
-                            className="px-3 py-2 bg-blue-100 text-blue-700 rounded-lg font-medium"
-                          >
-                            {service}
-                          </span>
-                        ))}
+                      <div className="bg-gray-50 rounded-lg p-4">
+                        <h4 className="font-semibold text-gray-900 mb-2">Capacity</h4>
+                        <p className="text-sm text-gray-600">Available: {selectedService.availableSeats} seats</p>
+                        <p className="text-sm text-gray-600">Total: {selectedService.totalSeats} seats</p>
                       </div>
                     </div>
 
-                    {/* Specialties */}
                     <div>
-                      <h3 className="text-xl font-semibold mb-3">Specialties</h3>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                        {selectedProvider.specialties.map((specialty, index) => (
-                          <div key={index} className="flex items-center space-x-2">
-                            <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-                            <span className="text-gray-700">{specialty}</span>
+                      <h4 className="font-semibold text-gray-900 mb-3">Amenities</h4>
+                      <div className="grid grid-cols-2 gap-2">
+                        {selectedService.amenities.map(amenity => (
+                          <div key={amenity} className="flex items-center text-sm text-gray-600">
+                            {amenityIcons[amenity]}
+                            <span className="ml-2">{amenity}</span>
                           </div>
                         ))}
                       </div>
                     </div>
                   </div>
-                </div>
 
-                {/* Sidebar */}
-                <div className="space-y-6">
-                  {/* Pricing */}
-                  <div className="bg-gray-50 rounded-xl p-6">
-                    <h3 className="text-lg font-semibold mb-4">Pricing</h3>
-                    <div className="text-2xl font-bold text-green-600 mb-2">{selectedProvider.priceRange}</div>
-                    <p className="text-sm text-gray-600">Competitive rates with transparent pricing</p>
-                  </div>
+                  <div className="space-y-6">
+                    <Card className="border-0 shadow-lg">
+                      <CardContent className="p-6">
+                        <div className="text-center mb-4">
+                          <div className="text-3xl font-bold text-green-600 mb-2">
+                            LKR {selectedService.price}
+                          </div>
+                          <div className="flex items-center justify-center">
+                            <Star className="w-5 h-5 text-yellow-500 fill-current mr-1" />
+                            <span className="font-medium">{selectedService.rating}</span>
+                            <span className="text-gray-500 ml-1">({selectedService.reviewCount} reviews)</span>
+                          </div>
+                        </div>
+                        
+                        <div className="space-y-3">
+                          <Button className="w-full bg-blue-600 hover:bg-blue-700 py-3">
+                            Book This Service
+                          </Button>
+                          <Button variant="outline" className="w-full py-3">
+                            <Phone className="w-4 h-4 mr-2" />
+                            Call Provider
+                          </Button>
+                          <Button variant="outline" className="w-full py-3">
+                            <Mail className="w-4 h-4 mr-2" />
+                            Send Message
+                          </Button>
+                        </div>
+                      </CardContent>
+                    </Card>
 
-                  {/* Quick Stats */}
-                  <div className="bg-gray-50 rounded-xl p-6">
-                    <h3 className="text-lg font-semibold mb-4">Quick Stats</h3>
-                    <div className="space-y-3">
-                      <div className="flex justify-between">
-                        <span className="text-gray-600">Years in Service</span>
-                        <span className="font-medium">{selectedProvider.yearsInService} years</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-gray-600">Fleet Size</span>
-                        <span className="font-medium">{selectedProvider.fleetSize} vehicles</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-gray-600">Operating Hours</span>
-                        <span className="font-medium">{selectedProvider.operatingHours}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-gray-600">Languages</span>
-                        <span className="font-medium">{selectedProvider.languages.length}</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Contact */}
-                  <div className="bg-blue-50 rounded-xl p-6">
-                    <h3 className="text-lg font-semibold mb-4">Contact Information</h3>
-                    <div className="space-y-3">
-                      <div className="flex items-center space-x-3">
-                        <Phone className="w-5 h-5 text-blue-600" />
-                        <span className="text-gray-700">{selectedProvider.contactPhone}</span>
-                      </div>
-                      <div className="flex items-center space-x-3">
-                        <MessageCircle className="w-5 h-5 text-blue-600" />
-                        <span className="text-gray-700">{selectedProvider.contactEmail}</span>
-                      </div>
-                    </div>
-                    <div className="mt-4 space-y-2">
-                      <Button className="w-full">
-                        <MessageCircle className="w-4 h-4 mr-2" />
-                        Send Message
-                      </Button>
-                      <Button variant="outline" className="w-full">
-                        <Phone className="w-4 h-4 mr-2" />
-                        Call Now
-                      </Button>
-                    </div>
+                    <Card className="border-0 shadow-lg">
+                      <CardContent className="p-6">
+                        <h4 className="font-semibold text-gray-900 mb-3">Contact Information</h4>
+                        <div className="space-y-2 text-sm">
+                          <div className="flex items-center text-gray-600">
+                            <Phone className="w-4 h-4 mr-2" />
+                            {selectedService.phone}
+                          </div>
+                          <div className="flex items-center text-gray-600">
+                            <Mail className="w-4 h-4 mr-2" />
+                            {selectedService.email}
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
                   </div>
                 </div>
               </div>
             </div>
           </div>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   )
 }

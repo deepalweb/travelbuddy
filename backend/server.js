@@ -9,6 +9,7 @@ import dotenv from 'dotenv';
 import { securityHeaders, apiRateLimit, sanitizeInput } from './middleware/security.js';
 import { authenticateJWT, requireAdmin } from './middleware/auth.js';
 import { errorHandler, asyncHandler, notFoundHandler } from './middleware/errorHandler.js';
+import { requireRole, requireFeature } from './middleware/roleAccess.js';
 // Load env from root .env first (won't override already-set vars)
 dotenv.config();
 import fetch from 'node-fetch';
@@ -845,10 +846,10 @@ try {
   console.error('❌ Failed to load translation routes:', error);
 }
 
-// Load places routes
+// Load places routes (All roles)
 try {
   const placesRouter = (await import('./routes/places.js')).default;
-  app.use('/api/places', placesRouter);
+  app.use('/api/places', requireFeature('places'), placesRouter);
   console.log('✅ Places routes loaded');
 } catch (error) {
   console.error('❌ Failed to load places routes:', error);
@@ -1063,8 +1064,9 @@ const userSchema = new mongoose.Schema({
   enabledModules: { type: [String], default: ['places'] },
   profileSetupComplete: { type: Boolean, default: false },
   
-  // Legacy Role System (for backward compatibility)
-  role: { type: String, default: 'regular', enum: ['regular', 'merchant', 'agent', 'admin'] },
+  // Multi-Role System
+  roles: { type: [String], default: ['user'], enum: ['user', 'merchant', 'transport_provider', 'travel_agent', 'admin'] },
+  activeRole: { type: String, default: 'user', enum: ['user', 'merchant', 'transport_provider', 'travel_agent', 'admin'] },
   permissions: [String],
   isVerified: { type: Boolean, default: false },
   
@@ -1082,23 +1084,41 @@ const userSchema = new mongoose.Schema({
     approvedAt: Date
   },
   
-  // Service Profile (for agents)
-  serviceProfile: {
-    serviceName: String,
-    serviceType: { type: String, enum: ['guide', 'driver', 'tour_operator', 'transport'] },
-    serviceDescription: String,
-    serviceArea: String,
+  // Travel Agent Profile
+  agentProfile: {
+    agencyName: String,
+    ownerName: String,
+    email: String,
+    phone: String,
+    address: String,
+    licenseNumber: String,
+    experience: String,
+    specialties: [String],
     languages: [String],
-    pricing: {
-      hourlyRate: Number,
-      dailyRate: Number,
-      currency: { type: String, default: 'USD' }
-    },
-    availability: {
-      days: [String],
-      hours: String
-    },
-    verificationStatus: { type: String, enum: ['pending', 'verified', 'rejected'], default: 'pending' },
+    certifications: [String],
+    documents: [String],
+    verificationStatus: { type: String, enum: ['pending', 'approved', 'rejected'], default: 'pending' },
+    isActive: { type: Boolean, default: false },
+    rating: { type: Number, default: 0 },
+    reviewCount: { type: Number, default: 0 },
+    approvedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    approvedAt: Date
+  },
+  
+  // Transport Provider Profile
+  transportProfile: {
+    companyName: String,
+    ownerName: String,
+    email: String,
+    phone: String,
+    address: String,
+    licenseNumber: String,
+    vehicleTypes: [String],
+    serviceAreas: [String],
+    fleetSize: String,
+    documents: [String],
+    verificationStatus: { type: String, enum: ['pending', 'approved', 'rejected'], default: 'pending' },
+    isActive: { type: Boolean, default: false },
     approvedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
     approvedAt: Date
   },
@@ -1135,7 +1155,8 @@ const userSchema = new mongoose.Schema({
 // Add indexes for role queries
 userSchema.index({ role: 1 });
 userSchema.index({ 'businessProfile.verificationStatus': 1 });
-userSchema.index({ 'serviceProfile.verificationStatus': 1 });
+userSchema.index({ 'agentProfile.verificationStatus': 1 });
+userSchema.index({ 'transportProfile.verificationStatus': 1 });
 
 const User = mongoose.model('User', userSchema);
 
@@ -2457,7 +2478,7 @@ app.get('/api/users', async (req, res) => {
 });
 
 // Get single user (authoritative read for subscription/tier)
-app.get('/api/users/:id', async (req, res) => {
+app.get('/api/users/:id', flexAuth, async (req, res) => {
   try {
     // Try to find user by Firebase UID first, then by MongoDB _id
     let user = await User.findOne({ firebaseUid: req.params.id }).select('-__v');
@@ -2472,7 +2493,7 @@ app.get('/api/users/:id', async (req, res) => {
 });
 
 // Get user stats
-app.get('/api/users/:id/stats', async (req, res) => {
+app.get('/api/users/:id/stats', flexAuth, async (req, res) => {
   try {
     let user = await User.findOne({ firebaseUid: req.params.id });
     if (!user) {
@@ -2524,7 +2545,7 @@ function _calculateTravelScore(trips, posts, favorites, itineraries) {
 }
 
 // Return simple subscription status for a user
-app.get('/api/users/:id/subscription-status', async (req, res) => {
+app.get('/api/users/:id/subscription-status', flexAuth, async (req, res) => {
   try {
     // Try to find user by Firebase UID first, then by MongoDB _id
     let user = await User.findOne({ firebaseUid: req.params.id }).select('tier subscriptionStatus subscriptionEndDate trialEndDate');
@@ -5144,10 +5165,10 @@ app.put('/api/business/profile', async (req, res) => {
 
 
 
-// Merchant routes
+// Merchant routes (Merchant + Admin only)
 try {
   const merchantsRouter = (await import('./routes/merchants.js')).default;
-  app.use('/api/merchants', merchantsRouter);
+  app.use('/api/merchants', requireRole(['merchant', 'admin']), merchantsRouter);
   console.log('✅ Merchants routes loaded');
 } catch (error) {
   console.error('❌ Failed to load merchants routes:', error);
@@ -5206,6 +5227,51 @@ try {
   console.error('❌ Failed to load partners routes:', error);
 }
 
+// Load transport provider routes (Transport Provider + Admin only)
+try {
+  const transportRouter = (await import('./routes/transport-providers.js')).default;
+  app.use('/api/transport-providers', requireRole(['transport_provider', 'admin']), transportRouter);
+  console.log('✅ Transport provider routes loaded');
+} catch (error) {
+  console.error('❌ Failed to load transport provider routes:', error);
+}
+
+// Load travel agent routes (Travel Agent + Admin only)
+try {
+  const agentsRouter = (await import('./routes/travel-agents.js')).default;
+  app.use('/api/travel-agents', requireRole(['travel_agent', 'admin']), agentsRouter);
+  console.log('✅ Travel agent routes loaded');
+} catch (error) {
+  console.error('❌ Failed to load travel agent routes:', error);
+}
+
+// Load ecosystem management routes
+try {
+  const ecosystemRouter = (await import('./routes/ecosystem.js')).default;
+  app.use('/api/ecosystem', ecosystemRouter);
+  console.log('✅ Ecosystem management routes loaded');
+} catch (error) {
+  console.error('❌ Failed to load ecosystem routes:', error);
+}
+
+// Load features routes
+try {
+  const featuresRouter = (await import('./routes/features.js')).default;
+  app.use('/api/features', featuresRouter);
+  console.log('✅ Features routes loaded');
+} catch (error) {
+  console.error('❌ Failed to load features routes:', error);
+}
+
+// Load role test routes (development only)
+try {
+  const roleTestRouter = (await import('./routes/role-test.js')).default;
+  app.use('/api/role-test', roleTestRouter);
+  console.log('✅ Role test routes loaded');
+} catch (error) {
+  console.error('❌ Failed to load role test routes:', error);
+}
+
 // Admin routes - Enhanced with middleware
 try {
   const adminRouter = (await import('./routes/admin.js')).default;
@@ -5215,10 +5281,10 @@ try {
   console.error('❌ Failed to load admin routes:', error);
 }
 
-// Deals routes
+// Deals routes (Merchant + Admin only)
 try {
   const dealsRouter = (await import('./routes/deals.js')).default;
-  app.use('/api/deals', dealsRouter);
+  app.use('/api/deals', requireFeature('deals'), dealsRouter);
   console.log('✅ Deals routes loaded');
 } catch (error) {
   console.error('❌ Failed to load deals routes:', error);

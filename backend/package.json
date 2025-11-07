@@ -26,6 +26,7 @@
     "isomorphic-dompurify": "^2.9.0",
     "jsonwebtoken": "^9.0.2",
     "mongoose": "^8.2.1",
+    "multer": "^2.0.2",
     "node-fetch": "^3.3.2",
     "openai": "^4.28.4",
     "passport": "^0.7.0",

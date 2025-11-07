@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react'
-import { Filter, Search, Tag, TrendingUp, Clock, MapPin } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
+import { Filter, Search, Tag, TrendingUp, Clock, MapPin, Plus } from 'lucide-react'
+import { Button } from '../components/Button'
 import { DealCard } from '../components/DealCard'
 import { dealsService } from '../services/dealsService'
 
@@ -32,6 +34,7 @@ const businessTypes = [
 ]
 
 export const DealsPage: React.FC = () => {
+  const navigate = useNavigate()
   const [deals, setDeals] = useState<Deal[]>([])
   const [filteredDeals, setFilteredDeals] = useState<Deal[]>([])
   const [loading, setLoading] = useState(true)
@@ -103,8 +106,19 @@ export const DealsPage: React.FC = () => {
       <div className="bg-gradient-to-r from-blue-600 via-purple-600 to-indigo-600 text-white py-12">
         <div className="max-w-7xl mx-auto px-4">
           <div className="text-center">
-            <h1 className="text-4xl font-bold mb-4">Exclusive Travel Deals</h1>
-            <p className="text-xl text-blue-100 mb-6">Save big on restaurants, hotels, attractions and more!</p>
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h1 className="text-4xl font-bold mb-4">Exclusive Travel Deals</h1>
+                <p className="text-xl text-blue-100 mb-6">Save big on restaurants, hotels, attractions and more!</p>
+              </div>
+              <Button
+                onClick={() => navigate('/deals/create')}
+                className="bg-white text-blue-600 hover:bg-gray-100 font-semibold"
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                Create Deal
+              </Button>
+            </div>
             <div className="flex justify-center items-center space-x-8 text-sm">
               <div className="flex items-center space-x-2">
                 <TrendingUp className="w-5 h-5" />

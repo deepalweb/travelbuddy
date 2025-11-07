@@ -14,6 +14,7 @@ import { TravelPreferencesPage } from '../pages/TravelPreferencesPage'
 import { NotificationsPage } from '../pages/NotificationsPage'
 import { SettingsPage } from '../pages/SettingsPage'
 import { DealsPage } from '../pages/DealsPage'
+import CreateDealPage from '../pages/CreateDealPage'
 import { CommunityPage } from '../pages/CommunityPage'
 import { useApp } from '../contexts/AppContext'
 import { useAuth } from '../contexts/AuthContext'
@@ -72,6 +73,8 @@ export const Layout: React.FC = () => {
         return <TransportationPage />
       case '/deals':
         return <DealsPage />
+      case '/deals/create':
+        return <CreateDealPage />
       case '/community':
         return <CommunityPage />
       case '/profile':
