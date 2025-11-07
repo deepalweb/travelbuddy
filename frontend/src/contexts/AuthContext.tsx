@@ -5,6 +5,8 @@ import {
   signOut, 
   onAuthStateChanged,
   signInWithPopup,
+  signInWithRedirect,
+  getRedirectResult,
   GoogleAuthProvider,
   type User as FirebaseUser
 } from 'firebase/auth'
@@ -28,6 +30,7 @@ interface AuthContextType {
   login: (email: string, password: string) => Promise<void>
   register: (username: string, email: string, password: string) => Promise<void>
   loginWithGoogle: () => Promise<void>
+  loginWithGoogleRedirect: () => Promise<void>
   loginDemo: () => Promise<void>
   logout: () => void
   updateProfile: (data: Partial<User>) => Promise<void>
@@ -67,6 +70,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return
     }
 
+    // Check for redirect result first
+    const checkRedirectResult = async () => {
+      try {
+        const result = await getRedirectResult(firebase.auth)
+        if (result?.user) {
+          console.log('Google Sign-In redirect successful:', result.user.email)
+          await syncUserProfile(result.user)
+        }
+      } catch (error: any) {
+        console.error('Redirect result error:', error)
+      }
+    }
+    
+    checkRedirectResult()
+    
     const unsubscribe = onAuthStateChanged(firebase.auth, async (firebaseUser) => {
       if (firebaseUser) {
         await syncUserProfile(firebaseUser)
@@ -222,16 +240,63 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const loginWithGoogle = async () => {
     if (!firebase) throw new Error('Firebase not initialized')
+    
+    console.log('Starting Google Sign-In...')
+    
     try {
       const provider = new GoogleAuthProvider()
+      provider.addScope('email')
+      provider.addScope('profile')
+      
+      // Add custom parameters to ensure proper popup behavior
+      provider.setCustomParameters({
+        prompt: 'select_account'
+      })
+      
+      console.log('Attempting signInWithPopup...')
       const result = await signInWithPopup(firebase.auth, provider)
+      console.log('Google Sign-In successful:', result.user?.email)
+      
       // User state will be updated by onAuthStateChanged
     } catch (error: any) {
+      console.error('Google Sign-In Error:', {
+        code: error.code,
+        message: error.message,
+        details: error
+      })
+      
       if (error.code === 'auth/popup-closed-by-user') {
-        // User closed popup - don't throw error, just return silently
+        console.log('User closed the popup')
         return
       }
+      
+      if (error.code === 'auth/popup-blocked') {
+        throw new Error('Popup was blocked by browser. Please allow popups for this site.')
+      }
+      
+      if (error.code === 'auth/unauthorized-domain') {
+        throw new Error('This domain is not authorized for Google Sign-In. Please contact support.')
+      }
+      
       throw new Error(error.message || 'Google sign-in failed')
+    }
+  }
+  
+  const loginWithGoogleRedirect = async () => {
+    if (!firebase) throw new Error('Firebase not initialized')
+    
+    console.log('Starting Google Sign-In with redirect...')
+    
+    try {
+      const provider = new GoogleAuthProvider()
+      provider.addScope('email')
+      provider.addScope('profile')
+      
+      await signInWithRedirect(firebase.auth, provider)
+      // The page will redirect, so no need to handle result here
+    } catch (error: any) {
+      console.error('Google Sign-In Redirect Error:', error)
+      throw new Error(error.message || 'Google sign-in redirect failed')
     }
   }
 
@@ -276,7 +341,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }
 
   return (
-    <AuthContext.Provider value={{ user, login, register, loginWithGoogle, loginDemo, logout, updateProfile, isLoading }}>
+    <AuthContext.Provider value={{ user, login, register, loginWithGoogle, loginWithGoogleRedirect, loginDemo, logout, updateProfile, isLoading }}>
       {children}
     </AuthContext.Provider>
   )
