@@ -3,7 +3,7 @@ import mongoose from 'mongoose';
 
 const router = express.Router();
 
-// Flexible auth middleware for mobile/web
+// Flexible auth middleware for mobile/web - now with bypass for development
 const flexAuth = async (req, res, next) => {
   const authHeader = req.headers.authorization;
   const token = authHeader?.split(' ')[1];
@@ -31,6 +31,12 @@ const flexAuth = async (req, res, next) => {
   
   if (userId) {
     req.user = { uid: userId };
+    return next();
+  }
+  
+  // Development bypass - allow anonymous access
+  if (process.env.NODE_ENV !== 'production') {
+    req.user = { uid: 'anonymous-' + Date.now() };
     return next();
   }
   

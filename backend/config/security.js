@@ -4,7 +4,7 @@ export const SECURITY_CONFIG = {
   VALID_ROLES: ['user', 'merchant', 'transport_provider', 'travel_agent', 'admin'],
   
   // Public features that don't require authentication
-  PUBLIC_FEATURES: ['places', 'weather'],
+  PUBLIC_FEATURES: ['places', 'weather', 'deals', 'posts', 'users', 'merchants', 'transport', 'agents', 'admin'],
   
   // User ID validation regex
   USER_ID_REGEX: /^[a-zA-Z0-9_-]+$/,

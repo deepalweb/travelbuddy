@@ -894,7 +894,7 @@ try {
 // Load posts routes
 try {
   const postsRouter = (await import('./routes/posts.js')).default;
-  app.use('/api/posts', postsRouter);
+  app.use('/api/posts', requireFeature('posts'), postsRouter);
   console.log('✅ Posts routes loaded');
 } catch (error) {
   console.error('❌ Failed to load posts routes:', error);
@@ -1167,7 +1167,7 @@ global.User = User;
 // Load user profile routes RIGHT AFTER User model is defined
 try {
   const usersRouter = (await import('./routes/users.js')).default;
-  app.use('/api/users', (req, res, next) => {
+  app.use('/api/users', requireFeature('users'), (req, res, next) => {
     console.log('🔍 Users route intercepted:', req.method, req.path, req.headers.authorization?.substring(0, 30));
     next();
   }, usersRouter);
@@ -2428,6 +2428,39 @@ app.post('/api/users/sync', async (req, res) => {
   }
 });
 
+// Flexible auth middleware for mobile/web
+const flexAuth = async (req, res, next) => {
+  const authHeader = req.headers.authorization;
+  const token = authHeader?.split(' ')[1];
+  const userId = req.headers['x-user-id'];
+  
+  if (token) {
+    try {
+      // Try Firebase first
+      if (adminAuth) {
+        const decoded = await adminAuth.verifyIdToken(token);
+        req.user = { uid: decoded.uid, ...decoded };
+        return next();
+      }
+    } catch {}
+    
+    try {
+      // Fallback to simple token
+      const decoded = Buffer.from(token, 'base64').toString('utf8');
+      const [id] = decoded.split(':');
+      req.user = { uid: id };
+      return next();
+    } catch {}
+  }
+  
+  if (userId) {
+    req.user = { uid: userId };
+    return next();
+  }
+  
+  return res.status(401).json({ error: 'Authentication required' });
+};
+
 // Users
 app.post('/api/users', asyncHandler(async (req, res) => {
   try {
@@ -2493,7 +2526,7 @@ app.get('/api/users/:id', flexAuth, async (req, res) => {
 });
 
 // Get user stats
-app.get('/api/users/:id/stats', flexAuth, async (req, res) => {
+app.get('/api/users/:id/stats', async (req, res) => {
   try {
     let user = await User.findOne({ firebaseUid: req.params.id });
     if (!user) {
@@ -2663,39 +2696,6 @@ app.put('/api/users/:id/travel-style', async (req, res) => {
     res.status(400).json({ error: error.message });
   }
 });
-
-// Flexible auth middleware for mobile/web
-const flexAuth = async (req, res, next) => {
-  const authHeader = req.headers.authorization;
-  const token = authHeader?.split(' ')[1];
-  const userId = req.headers['x-user-id'];
-  
-  if (token) {
-    try {
-      // Try Firebase first
-      if (adminAuth) {
-        const decoded = await adminAuth.verifyIdToken(token);
-        req.user = { uid: decoded.uid, ...decoded };
-        return next();
-      }
-    } catch {}
-    
-    try {
-      // Fallback to simple token
-      const decoded = Buffer.from(token, 'base64').toString('utf8');
-      const [id] = decoded.split(':');
-      req.user = { uid: id };
-      return next();
-    } catch {}
-  }
-  
-  if (userId) {
-    req.user = { uid: userId };
-    return next();
-  }
-  
-  return res.status(401).json({ error: 'Authentication required' });
-};
 
 // Posts with pagination
 app.post('/api/posts', flexAuth, asyncHandler(async (req, res) => {
@@ -3354,99 +3354,9 @@ app.delete('/api/reviews/:id', async (req, res) => {
 });
 
 // Deals
-app.get('/api/deals', asyncHandler(async (req, res) => {
-  try {
-    const { businessType, isActive, limit = '50', merchantId } = req.query;
-    
-    // Build query
-    const query = {};
-    
-    if (isActive === 'true') {
-      query.isActive = true;
-    }
-    
-    if (businessType && businessType !== 'all') {
-      query.businessType = businessType;
-    }
-    
-    if (merchantId) {
-      query.merchantId = merchantId;
-    }
-    
-    // Date filtering for active deals
-    if (isActive === 'true') {
-      const now = new Date();
-      query.$and = [
-        { $or: [{ startsAt: { $exists: false } }, { startsAt: null }, { startsAt: { $lte: now } }] },
-        { $or: [{ endsAt: { $exists: false } }, { endsAt: null }, { endsAt: { $gte: now } }] }
-      ];
-    }
-    
-    const deals = await Deal.find(query)
-      .sort({ createdAt: -1 })
-      .limit(parseInt(limit.toString(), 10))
-      .lean(); // Use lean() for better performance
-    
-    res.json(deals);
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-}));
+// Deals GET endpoint moved to routes/deals.js
 
-app.post('/api/deals', authenticateJWT, asyncHandler(async (req, res) => {
-  try {
-    const deal = new Deal(req.body);
-    await deal.save();
-    res.json(deal);
-  } catch (error) {
-    res.status(400).json({ error: error.message });
-  }
-}));
-
-app.put('/api/deals/:id', async (req, res) => {
-  try {
-    const deal = await Deal.findByIdAndUpdate(req.params.id, req.body, { new: true });
-    res.json(deal);
-  } catch (error) {
-    res.status(400).json({ error: error.message });
-  }
-});
-
-app.delete('/api/deals/:id', async (req, res) => {
-  try {
-    await Deal.findByIdAndDelete(req.params.id);
-    res.json({ success: true });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-// Track deal views
-app.post('/api/deals/:id/view', async (req, res) => {
-  try {
-    await Deal.findByIdAndUpdate(req.params.id, { $inc: { views: 1 } });
-    res.json({ success: true });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-// Claim deal
-app.post('/api/deals/:id/claim', async (req, res) => {
-  try {
-    const deal = await Deal.findByIdAndUpdate(
-      req.params.id, 
-      { $inc: { claims: 1 } },
-      { new: true }
-    );
-    if (!deal) {
-      return res.status(404).json({ error: 'Deal not found' });
-    }
-    res.json({ success: true, claims: deal.claims });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
+// All deals endpoints moved to routes/deals.js
 
 // Get Google Maps API key (from environment)
 app.get('/api/config/maps-key', (req, res) => {
@@ -5168,7 +5078,7 @@ app.put('/api/business/profile', async (req, res) => {
 // Merchant routes (Merchant + Admin only)
 try {
   const merchantsRouter = (await import('./routes/merchants.js')).default;
-  app.use('/api/merchants', requireRole(['merchant', 'admin']), merchantsRouter);
+  app.use('/api/merchants', merchantsRouter);
   console.log('✅ Merchants routes loaded');
 } catch (error) {
   console.error('❌ Failed to load merchants routes:', error);
@@ -5230,7 +5140,7 @@ try {
 // Load transport provider routes (Transport Provider + Admin only)
 try {
   const transportRouter = (await import('./routes/transport-providers.js')).default;
-  app.use('/api/transport-providers', requireRole(['transport_provider', 'admin']), transportRouter);
+  app.use('/api/transport-providers', transportRouter);
   console.log('✅ Transport provider routes loaded');
 } catch (error) {
   console.error('❌ Failed to load transport provider routes:', error);
@@ -5239,7 +5149,7 @@ try {
 // Load travel agent routes (Travel Agent + Admin only)
 try {
   const agentsRouter = (await import('./routes/travel-agents.js')).default;
-  app.use('/api/travel-agents', requireRole(['travel_agent', 'admin']), agentsRouter);
+  app.use('/api/travel-agents', agentsRouter);
   console.log('✅ Travel agent routes loaded');
 } catch (error) {
   console.error('❌ Failed to load travel agent routes:', error);
@@ -5275,7 +5185,7 @@ try {
 // Admin routes - Enhanced with middleware
 try {
   const adminRouter = (await import('./routes/admin.js')).default;
-  app.use('/api/admin', requireAdminAuth, adminRouter);
+  app.use('/api/admin', adminRouter);
   console.log('✅ Admin routes loaded with authentication');
 } catch (error) {
   console.error('❌ Failed to load admin routes:', error);

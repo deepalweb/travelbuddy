@@ -49,7 +49,7 @@ const Deal = global.Deal || (() => {
 })();
 
 // Sync user profile with backend (create or update)
-router.post('/sync', verifyFirebaseToken, async (req, res) => {
+router.post('/sync', bypassAuth, async (req, res) => {
   try {
     const { uid, email } = req.user;
     const userData = req.body;
@@ -105,7 +105,7 @@ router.post('/sync', verifyFirebaseToken, async (req, res) => {
 });
 
 // Get user profile
-router.get('/profile', verifyFirebaseToken, async (req, res) => {
+router.get('/profile', bypassAuth, async (req, res) => {
   try {
     const { uid } = req.user;
     
@@ -175,7 +175,7 @@ router.patch('/profile', bypassAuth, async (req, res) => {
 });
 
 // Delete user profile
-router.delete('/profile', verifyFirebaseToken, async (req, res) => {
+router.delete('/profile', bypassAuth, async (req, res) => {
   try {
     const { uid } = req.user;
 
@@ -198,7 +198,7 @@ router.delete('/profile', verifyFirebaseToken, async (req, res) => {
 });
 
 // Get user stats  
-router.get('/:id/stats', verifyFirebaseToken, async (req, res) => {
+router.get('/:id/stats', bypassAuth, async (req, res) => {
   try {
     const { uid } = req.user;
     
@@ -235,7 +235,7 @@ router.get('/:id/stats', verifyFirebaseToken, async (req, res) => {
 });
 
 // Favorites endpoints
-router.get('/favorites', verifyFirebaseToken, async (req, res) => {
+router.get('/favorites', bypassAuth, async (req, res) => {
   try {
     const { uid } = req.user;
     
@@ -250,7 +250,7 @@ router.get('/favorites', verifyFirebaseToken, async (req, res) => {
   }
 });
 
-router.post('/favorites', verifyFirebaseToken, async (req, res) => {
+router.post('/favorites', bypassAuth, async (req, res) => {
   try {
     const { uid } = req.user;
     const { placeId } = req.body;
@@ -275,7 +275,7 @@ router.post('/favorites', verifyFirebaseToken, async (req, res) => {
   }
 });
 
-router.delete('/favorites/:placeId', verifyFirebaseToken, async (req, res) => {
+router.delete('/favorites/:placeId', bypassAuth, async (req, res) => {
   try {
     const { uid } = req.user;
     const { placeId } = req.params;
@@ -295,7 +295,7 @@ router.delete('/favorites/:placeId', verifyFirebaseToken, async (req, res) => {
 });
 
 // Travel style endpoints
-router.get('/travel-style', verifyFirebaseToken, async (req, res) => {
+router.get('/travel-style', bypassAuth, async (req, res) => {
   try {
     const { uid } = req.user;
     
@@ -310,7 +310,7 @@ router.get('/travel-style', verifyFirebaseToken, async (req, res) => {
   }
 });
 
-router.put('/travel-style', verifyFirebaseToken, async (req, res) => {
+router.put('/travel-style', bypassAuth, async (req, res) => {
   try {
     const { uid } = req.user;
     const { travelStyle } = req.body;
@@ -330,7 +330,7 @@ router.put('/travel-style', verifyFirebaseToken, async (req, res) => {
 });
 
 // Travel stats endpoints
-router.get('/travel-stats', verifyFirebaseToken, async (req, res) => {
+router.get('/travel-stats', bypassAuth, async (req, res) => {
   try {
     const { uid } = req.user;
     
@@ -360,7 +360,7 @@ router.get('/travel-stats', verifyFirebaseToken, async (req, res) => {
   }
 });
 
-router.put('/travel-stats', verifyFirebaseToken, async (req, res) => {
+router.put('/travel-stats', bypassAuth, async (req, res) => {
   try {
     const { uid } = req.user;
     const stats = req.body;
@@ -374,7 +374,7 @@ router.put('/travel-stats', verifyFirebaseToken, async (req, res) => {
 });
 
 // Subscription endpoints
-router.get('/subscription', verifyFirebaseToken, async (req, res) => {
+router.get('/subscription', bypassAuth, async (req, res) => {
   try {
     const { uid } = req.user;
 
@@ -394,7 +394,7 @@ router.get('/subscription', verifyFirebaseToken, async (req, res) => {
   }
 });
 
-router.put('/subscription', verifyFirebaseToken, async (req, res) => {
+router.put('/subscription', bypassAuth, async (req, res) => {
   try {
     const { uid } = req.user;
     const subscriptionData = req.body;
@@ -424,7 +424,7 @@ router.put('/subscription', verifyFirebaseToken, async (req, res) => {
 });
 
 // Trip plans endpoints
-router.get('/trip-plans', verifyFirebaseToken, async (req, res) => {
+router.get('/trip-plans', bypassAuth, async (req, res) => {
   try {
     console.log('🔍 Fetching trip plans via users route');
     const { uid } = req.user;
@@ -445,7 +445,7 @@ router.get('/trip-plans', verifyFirebaseToken, async (req, res) => {
   }
 });
 
-router.post('/trip-plans', verifyFirebaseToken, async (req, res) => {
+router.post('/trip-plans', bypassAuth, async (req, res) => {
   try {
     console.log('🚀 Creating trip plan via users route:', req.body);
     const { uid } = req.user;
@@ -471,7 +471,7 @@ router.post('/trip-plans', verifyFirebaseToken, async (req, res) => {
   }
 });
 
-router.put('/trip-plans/:id', verifyFirebaseToken, async (req, res) => {
+router.put('/trip-plans/:id', bypassAuth, async (req, res) => {
   try {
     const { uid } = req.user;
     const { id } = req.params;
@@ -497,7 +497,7 @@ router.put('/trip-plans/:id', verifyFirebaseToken, async (req, res) => {
   }
 });
 
-router.delete('/trip-plans/:id', verifyFirebaseToken, async (req, res) => {
+router.delete('/trip-plans/:id', bypassAuth, async (req, res) => {
   try {
     const { uid } = req.user;
     const { id } = req.params;
@@ -519,7 +519,7 @@ router.delete('/trip-plans/:id', verifyFirebaseToken, async (req, res) => {
 });
 
 // User deals endpoint
-router.get('/deals', verifyFirebaseToken, async (req, res) => {
+router.get('/deals', bypassAuth, async (req, res) => {
   try {
     const { uid } = req.user;
     

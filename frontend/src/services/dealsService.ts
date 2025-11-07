@@ -17,7 +17,7 @@ interface Deal {
   validUntil?: Date;
 }
 
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3001'
+const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001'
 
 export const dealsService = {
   async getDeals(businessType?: string): Promise<Deal[]> {

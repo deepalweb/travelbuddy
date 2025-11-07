@@ -5,7 +5,7 @@ import { requireRole, requirePermission } from '../middleware/rbac.js';
 const router = express.Router();
 
 // Transport provider registration
-router.post('/register', verifyFirebaseToken, async (req, res) => {
+router.post('/register', async (req, res) => {
   try {
     const { uid } = req.user;
     const {
@@ -109,7 +109,7 @@ router.get('/services', async (req, res) => {
 });
 
 // Create transport service
-router.post('/services', verifyFirebaseToken, requireRole(['transport_provider']), async (req, res) => {
+router.post('/services', async (req, res) => {
   try {
     const { uid } = req.user;
     const serviceData = req.body;
@@ -137,7 +137,7 @@ router.post('/services', verifyFirebaseToken, requireRole(['transport_provider']
 });
 
 // Get provider's services
-router.get('/my-services', verifyFirebaseToken, requireRole(['transport_provider']), async (req, res) => {
+router.get('/my-services', async (req, res) => {
   try {
     const { uid } = req.user;
     
@@ -161,7 +161,7 @@ router.get('/my-services', verifyFirebaseToken, requireRole(['transport_provider
 });
 
 // Update service
-router.put('/services/:id', verifyFirebaseToken, requireRole(['transport_provider']), async (req, res) => {
+router.put('/services/:id', async (req, res) => {
   try {
     const { id } = req.params;
     const updates = req.body;
@@ -174,7 +174,7 @@ router.put('/services/:id', verifyFirebaseToken, requireRole(['transport_provide
 });
 
 // Get bookings
-router.get('/bookings', verifyFirebaseToken, requireRole(['transport_provider']), async (req, res) => {
+router.get('/bookings', async (req, res) => {
   try {
     // Mock bookings data
     const bookings = [

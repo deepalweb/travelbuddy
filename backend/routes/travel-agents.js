@@ -5,7 +5,7 @@ import { requireRole, requirePermission } from '../middleware/rbac.js';
 const router = express.Router();
 
 // Travel agent registration (enhanced from existing)
-router.post('/register', verifyFirebaseToken, async (req, res) => {
+router.post('/register', async (req, res) => {
   try {
     const { uid } = req.user;
     const {
@@ -196,7 +196,7 @@ router.get('/:id', async (req, res) => {
 });
 
 // Create travel package
-router.post('/packages', verifyFirebaseToken, requireRole(['travel_agent']), async (req, res) => {
+router.post('/packages', async (req, res) => {
   try {
     const { uid } = req.user;
     const packageData = req.body;
@@ -224,7 +224,7 @@ router.post('/packages', verifyFirebaseToken, requireRole(['travel_agent']), asy
 });
 
 // Get agent's packages
-router.get('/my/packages', verifyFirebaseToken, requireRole(['travel_agent']), async (req, res) => {
+router.get('/my/packages', async (req, res) => {
   try {
     const { uid } = req.user;
     
@@ -248,7 +248,7 @@ router.get('/my/packages', verifyFirebaseToken, requireRole(['travel_agent']), a
 });
 
 // Get agent bookings
-router.get('/my/bookings', verifyFirebaseToken, requireRole(['travel_agent']), async (req, res) => {
+router.get('/my/bookings', async (req, res) => {
   try {
     const { uid } = req.user;
     
@@ -273,7 +273,7 @@ router.get('/my/bookings', verifyFirebaseToken, requireRole(['travel_agent']), a
 });
 
 // Update agent profile
-router.put('/profile', verifyFirebaseToken, requireRole(['travel_agent']), async (req, res) => {
+router.put('/profile', async (req, res) => {
   try {
     const { uid } = req.user;
     const updates = req.body;

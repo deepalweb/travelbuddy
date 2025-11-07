@@ -1,6 +1,6 @@
 import { configService } from '../services/configService'
 
-let API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api'
+let API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001'
 
 class ApiService {
   private async getBaseUrl(): Promise<string> {
@@ -8,7 +8,7 @@ class ApiService {
       const config = await configService.getConfig()
       return `${config.apiBaseUrl}/api`
     } catch {
-      return API_BASE_URL
+      return `${API_BASE_URL}/api`
     }
   }
 
