@@ -3394,6 +3394,32 @@ app.get('/api/runtime-config', (req, res) => {
   });
 });
 
+// Firebase debug endpoint
+app.get('/api/firebase-debug', (req, res) => {
+  const currentDomain = req.get('host') || req.hostname
+  const origin = req.get('origin') || `${req.protocol}://${currentDomain}`
+  
+  res.json({
+    currentDomain,
+    origin,
+    headers: {
+      host: req.get('host'),
+      origin: req.get('origin'),
+      referer: req.get('referer')
+    },
+    firebaseConfig: {
+      authDomain: 'travelbuddy-2d1c5.firebaseapp.com',
+      projectId: 'travelbuddy-2d1c5'
+    },
+    requiredAuthorizedDomains: [
+      currentDomain,
+      `www.${currentDomain}`,
+      'localhost:3000',
+      'localhost:5173'
+    ]
+  })
+});
+
 // Weather forecast endpoint with REAL Google Weather API
 app.get('/api/weather/forecast', async (req, res) => {
   try {
