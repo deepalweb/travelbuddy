@@ -50,14 +50,23 @@ export const AITripGenerator: React.FC<AITripGeneratorProps> = ({ onTripGenerate
       })
 
       if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`)
+        const errorData = await response.json().catch(() => ({ error: 'Unknown error' }))
+        throw new Error(errorData.error || `HTTP error! status: ${response.status}`)
       }
 
       const tripData = await response.json()
       onTripGenerated(tripData)
     } catch (error) {
       console.error('Failed to generate trip:', error)
-      alert('Failed to generate trip. Please try again.')
+      const errorMessage = error instanceof Error ? error.message : 'Failed to generate trip'
+      
+      if (errorMessage.includes('not configured')) {
+        alert('Service temporarily unavailable. Please try again later or contact support.')
+      } else if (errorMessage.includes('Network')) {
+        alert('Network error. Please check your connection and try again.')
+      } else {
+        alert(`Failed to generate trip: ${errorMessage}`)
+      }
     } finally {
       setGenerating(false)
     }

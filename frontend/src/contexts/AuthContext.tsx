@@ -259,23 +259,26 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       // User state will be updated by onAuthStateChanged
     } catch (error: any) {
-      console.error('Google Sign-In Error:', {
-        code: error.code,
-        message: error.message,
-        details: error
-      })
+      console.error('Google Sign-In Error:', error)
       
       if (error.code === 'auth/popup-closed-by-user') {
         console.log('User closed the popup')
+        // Don't throw error, just return silently
         return
       }
       
       if (error.code === 'auth/popup-blocked') {
-        throw new Error('Popup was blocked by browser. Please allow popups for this site.')
+        console.warn('Popup blocked, trying redirect method')
+        await loginWithGoogleRedirect()
+        return
       }
       
       if (error.code === 'auth/unauthorized-domain') {
         throw new Error('This domain is not authorized for Google Sign-In. Please contact support.')
+      }
+      
+      if (error.code === 'auth/network-request-failed') {
+        throw new Error('Network error. Please check your internet connection and try again.')
       }
       
       throw new Error(error.message || 'Google sign-in failed')
@@ -291,6 +294,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const provider = new GoogleAuthProvider()
       provider.addScope('email')
       provider.addScope('profile')
+      provider.setCustomParameters({
+        prompt: 'select_account'
+      })
       
       await signInWithRedirect(firebase.auth, provider)
       // The page will redirect, so no need to handle result here

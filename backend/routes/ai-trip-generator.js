@@ -88,7 +88,10 @@ function removeDuplicates(places) {
 
 // Step 4: AI enhances Google Places data into complete itinerary
 async function enhanceWithAI(googlePlaces, userPreferences) {
-  if (!openai) throw new Error('AI service not available');
+  if (!openai) {
+    console.warn('AI service not available, using basic enhancement');
+    return createBasicItinerary(googlePlaces, userPreferences);
+  }
 
   const { destination, duration, travelStyle, budget, interests } = userPreferences;
   const days = parseInt(duration.match(/(\d+)/)?.[1] || '3');
@@ -178,8 +181,56 @@ Return JSON:
     }
   } catch (error) {
     console.error('AI enhancement failed:', error);
-    throw error;
+    console.log('Falling back to basic itinerary creation');
+    return createBasicItinerary(googlePlaces, userPreferences);
   }
+}
+
+// Fallback: Create basic itinerary when AI is unavailable
+function createBasicItinerary(googlePlaces, userPreferences) {
+  const { destination, duration, budget } = userPreferences;
+  const days = parseInt(duration.match(/(\d+)/)?.[1] || '3');
+  
+  const dailyPlans = [];
+  const placesPerDay = Math.ceil(googlePlaces.length / days);
+  
+  for (let day = 1; day <= days; day++) {
+    const startIndex = (day - 1) * placesPerDay;
+    const dayPlaces = googlePlaces.slice(startIndex, startIndex + placesPerDay);
+    
+    const activities = dayPlaces.map((place, index) => ({
+      timeOfDay: `${9 + index * 2}:00-${11 + index * 2}:00`,
+      placeName: place.name,
+      placeId: place.place_id,
+      description: `Visit ${place.name} - ${place.types?.[0]?.replace(/_/g, ' ') || 'attraction'}`,
+      estimatedCost: budget === 'low' ? '$10-20' : budget === 'high' ? '$50-100' : '$20-50',
+      duration: '2 hours',
+      googleData: {
+        placeId: place.place_id,
+        rating: place.rating,
+        types: place.types
+      }
+    }));
+    
+    dailyPlans.push({
+      day,
+      title: `Day ${day} - ${destination}`,
+      activities,
+      dayBudget: budget === 'low' ? '$50-100' : budget === 'high' ? '$200-400' : '$100-200'
+    });
+  }
+  
+  return {
+    id: `basic_trip_${Date.now()}`,
+    tripTitle: `${destination} ${duration} Adventure`,
+    destination,
+    duration,
+    totalEstimatedCost: budget === 'low' ? '$300-600' : budget === 'high' ? '$1200+' : '$600-1200',
+    dailyPlans,
+    travelTips: ['Check local weather', 'Carry identification', 'Respect local customs'],
+    source: 'basic_google_places',
+    createdAt: new Date().toISOString()
+  };
 }
 
 // Step 5: Merge Google Places real data with AI itinerary
@@ -224,6 +275,15 @@ function mergeGoogleDataWithAI(googlePlaces, aiItinerary) {
 // Main endpoint: Generate AI trip using Google Places + AI
 router.post('/generate', async (req, res) => {
   try {
+    // Validate environment variables
+    if (!process.env.GOOGLE_PLACES_API_KEY) {
+      return res.status(500).json({ error: 'Google Places API key not configured' });
+    }
+    
+    if (!process.env.AZURE_OPENAI_API_KEY || !process.env.AZURE_OPENAI_ENDPOINT) {
+      return res.status(500).json({ error: 'Azure OpenAI not configured' });
+    }
+
     const { 
       destination, 
       duration, 
@@ -274,10 +334,30 @@ router.post('/generate', async (req, res) => {
 
   } catch (error) {
     console.error('❌ AI trip generation failed:', error);
-    res.status(500).json({
-      error: 'Failed to generate AI trip',
-      message: error.message
-    });
+    
+    // Provide fallback basic trip structure
+    const fallbackTrip = {
+      id: `fallback_trip_${Date.now()}`,
+      tripTitle: `${req.body.destination} ${req.body.duration} Trip`,
+      destination: req.body.destination,
+      duration: req.body.duration,
+      totalEstimatedCost: 'Contact local providers for pricing',
+      dailyPlans: [{
+        day: 1,
+        title: `Explore ${req.body.destination}`,
+        activities: [{
+          timeOfDay: '09:00-17:00',
+          placeName: `${req.body.destination} City Center`,
+          description: 'Explore the main attractions and local culture',
+          estimatedCost: 'Varies',
+          duration: '8 hours'
+        }]
+      }],
+      travelTips: ['Check local weather conditions', 'Carry local currency', 'Respect local customs'],
+      source: 'fallback_basic'
+    };
+    
+    res.status(200).json(fallbackTrip);
   }
 });
 
