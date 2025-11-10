@@ -241,53 +241,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const loginWithGoogle = async () => {
     if (!firebase) throw new Error('Firebase not initialized')
     
-    console.log('Starting Google Sign-In...')
+    console.log('Starting Google Sign-In with redirect method...')
     
-    // Check if running on Azure - use redirect method for Azure deployments
-    const isAzure = window.location.hostname.includes('azurewebsites.net')
-    
-    if (isAzure) {
-      console.log('Azure deployment detected, using redirect method')
-      await loginWithGoogleRedirect()
-      return
-    }
-    
-    try {
-      const provider = new GoogleAuthProvider()
-      provider.addScope('email')
-      provider.addScope('profile')
-      
-      // Add custom parameters to ensure proper popup behavior
-      provider.setCustomParameters({
-        prompt: 'select_account'
-      })
-      
-      console.log('Attempting signInWithPopup...')
-      const result = await signInWithPopup(firebase.auth, provider)
-      console.log('Google Sign-In successful:', result.user?.email)
-      
-      // User state will be updated by onAuthStateChanged
-    } catch (error: any) {
-      console.error('Google Sign-In Error:', error)
-      
-      if (error.code === 'auth/popup-closed-by-user') {
-        console.log('User closed the popup')
-        // Don't throw error, just return silently
-        return
-      }
-      
-      if (error.code === 'auth/popup-blocked' || error.code === 'auth/unauthorized-domain') {
-        console.warn('Popup method failed, trying redirect method')
-        await loginWithGoogleRedirect()
-        return
-      }
-      
-      if (error.code === 'auth/network-request-failed') {
-        throw new Error('Network error. Please check your internet connection and try again.')
-      }
-      
-      throw new Error(error.message || 'Google sign-in failed')
-    }
+    // Always use redirect method to avoid popup issues
+    await loginWithGoogleRedirect()
   }
   
   const loginWithGoogleRedirect = async () => {
