@@ -77,6 +77,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (result?.user) {
           console.log('Google Sign-In redirect successful:', result.user.email)
           await syncUserProfile(result.user)
+          // Redirect to home page after successful login
+          window.location.href = '/'
+          return
         }
       } catch (error: any) {
         console.error('Redirect result error:', error)
