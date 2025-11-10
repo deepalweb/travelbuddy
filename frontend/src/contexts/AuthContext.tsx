@@ -243,6 +243,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     
     console.log('Starting Google Sign-In...')
     
+    // Check if running on Azure - use redirect method for Azure deployments
+    const isAzure = window.location.hostname.includes('azurewebsites.net')
+    
+    if (isAzure) {
+      console.log('Azure deployment detected, using redirect method')
+      await loginWithGoogleRedirect()
+      return
+    }
+    
     try {
       const provider = new GoogleAuthProvider()
       provider.addScope('email')
@@ -267,14 +276,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return
       }
       
-      if (error.code === 'auth/popup-blocked') {
-        console.warn('Popup blocked, trying redirect method')
+      if (error.code === 'auth/popup-blocked' || error.code === 'auth/unauthorized-domain') {
+        console.warn('Popup method failed, trying redirect method')
         await loginWithGoogleRedirect()
         return
-      }
-      
-      if (error.code === 'auth/unauthorized-domain') {
-        throw new Error('This domain is not authorized for Google Sign-In. Please contact support.')
       }
       
       if (error.code === 'auth/network-request-failed') {
