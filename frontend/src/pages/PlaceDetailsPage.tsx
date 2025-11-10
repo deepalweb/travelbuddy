@@ -92,6 +92,15 @@ const PlaceDetailsPage: React.FC = () => {
   useEffect(() => {
     if (existingPlace) {
       // Convert existing place data to PlaceDetails format
+      const galleryImages = [
+        existingPlace.image,
+        `https://source.unsplash.com/1200x800/?${encodeURIComponent(existingPlace.name)},interior`,
+        `https://source.unsplash.com/1200x800/?${encodeURIComponent(existingPlace.name)},exterior`,
+        `https://source.unsplash.com/1200x800/?${encodeURIComponent(existingPlace.category)},${encodeURIComponent(existingPlace.location.city)}`,
+        `https://source.unsplash.com/1200x800/?${encodeURIComponent(existingPlace.name)},architecture`,
+        `https://source.unsplash.com/1200x800/?${encodeURIComponent(existingPlace.category)},travel`
+      ]
+      
       const convertedPlace: PlaceDetails = {
         id: existingPlace.id,
         name: existingPlace.name,
@@ -102,8 +111,8 @@ const PlaceDetailsPage: React.FC = () => {
         },
         images: {
           hero: existingPlace.image,
-          gallery: [existingPlace.image],
-          count: 1
+          gallery: galleryImages,
+          count: galleryImages.length
         },
         rating: {
           overall: existingPlace.rating,
@@ -221,7 +230,7 @@ const PlaceDetailsPage: React.FC = () => {
       {/* Hero Image */}
       <div className="relative h-96 overflow-hidden bg-gray-200">
         <img 
-          src={place.images.hero} 
+          src={place.images.hero || `https://source.unsplash.com/1200x800/?${encodeURIComponent(place.name)},${encodeURIComponent(place.location.city)}`} 
           alt={place.name}
           className="w-full h-full object-cover transition-all duration-500"
           loading="eager"
@@ -237,9 +246,9 @@ const PlaceDetailsPage: React.FC = () => {
             if (loader) loader.classList.add('hidden')
             
             if (!target.src.includes('source.unsplash.com')) {
-              target.src = `https://source.unsplash.com/1200x800/?${encodeURIComponent(place.name)},${encodeURIComponent(place.location.city)},landmark`
+              target.src = `https://source.unsplash.com/1200x800/?${encodeURIComponent(place.name)},travel,landmark`
             } else if (!target.src.includes('picsum.photos')) {
-              target.src = `https://picsum.photos/seed/${encodeURIComponent(place.id)}/1200/800`
+              target.src = `https://picsum.photos/seed/${Math.abs(place.name.split('').reduce((a, b) => { a = ((a << 5) - a) + b.charCodeAt(0); return a & a; }, 0))}/1200/800`
             } else {
               target.style.display = 'none'
               const placeholder = target.parentElement?.querySelector('.hero-placeholder')

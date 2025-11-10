@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { Card, CardContent, CardHeader, CardTitle } from '../components/Card'
 import { Button } from '../components/Button'
@@ -43,6 +43,8 @@ export const TripDetailPage: React.FC = () => {
   const [showNotes, setShowNotes] = useState(false)
   const [tripNotes, setTripNotes] = useState('')
   const [showAnalytics, setShowAnalytics] = useState(false)
+  const [mapLoaded, setMapLoaded] = useState(false)
+  const mapRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     if (id) {
@@ -52,6 +54,185 @@ export const TripDetailPage: React.FC = () => {
       if (savedNotes) setTripNotes(savedNotes)
     }
   }, [id])
+
+  useEffect(() => {
+    if (viewMode === 'map' && trip && !mapLoaded) {
+      loadGoogleMaps()
+    }
+  }, [viewMode, trip, mapLoaded])
+
+  const loadGoogleMaps = () => {
+    if ((window as any).google?.maps?.Map) {
+      initMap()
+      return
+    }
+
+    const script = document.createElement('script')
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${import.meta.env.VITE_GOOGLE_PLACES_API_KEY}&libraries=places&callback=initGoogleMap`
+    script.async = true
+    script.defer = true
+    
+    // Set global callback
+    ;(window as any).initGoogleMap = () => {
+      setMapLoaded(true)
+      setTimeout(initMap, 100)
+    }
+    
+    document.head.appendChild(script)
+  }
+
+  const initMap = () => {
+    if (!trip) return
+
+    const mapElement = document.getElementById('trip-map')
+    if (!mapElement || !(window as any).google?.maps?.Map) return
+
+    const map = new (window as any).google.maps.Map(mapElement, {
+      zoom: 12,
+      center: { lat: 27.7172, lng: 85.3240 },
+      mapTypeId: 'roadmap',
+    })
+
+    const bounds = new (window as any).google.maps.LatLngBounds()
+    const geocoder = new (window as any).google.maps.Geocoder()
+    const directionsService = new (window as any).google.maps.DirectionsService()
+    const directionsRenderer = new (window as any).google.maps.DirectionsRenderer({
+      suppressMarkers: true,
+      polylineOptions: {
+        strokeColor: '#3B82F6',
+        strokeWeight: 4,
+        strokeOpacity: 0.8
+      }
+    })
+    
+    directionsRenderer.setMap(map)
+    
+    const locations: any[] = []
+    let markerCount = 0
+
+    // Collect all locations first
+    const allActivities = trip.dailyPlans.flatMap(day => 
+      day.activities.map(activity => ({ ...activity, day: day.day }))
+    )
+
+    // Geocode all locations
+    const geocodePromises = allActivities.map((activity, index) => {
+      return new Promise((resolve) => {
+        const address = `${activity.activityTitle}, ${trip.destination}`
+        geocoder.geocode({ address }, (results: any, status: any) => {
+          if (status === 'OK' && results[0]) {
+            resolve({
+              position: results[0].geometry.location,
+              activity,
+              index
+            })
+          } else {
+            resolve(null)
+          }
+        })
+      })
+    })
+
+    Promise.all(geocodePromises).then((results: any[]) => {
+      const validLocations = results.filter(Boolean)
+      
+      validLocations.forEach((location, idx) => {
+        const { position, activity } = location
+        
+        // Create marker
+        const marker = new (window as any).google.maps.Marker({
+          position,
+          map,
+          title: activity.activityTitle,
+          icon: {
+            url: `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(`
+              <svg width="40" height="40" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg">
+                <circle cx="20" cy="20" r="18" fill="${activity.isVisited ? '#10B981' : '#3B82F6'}" stroke="white" stroke-width="2"/>
+                <text x="20" y="26" text-anchor="middle" fill="white" font-size="14" font-weight="bold">${idx + 1}</text>
+              </svg>
+            `)}`,
+            scaledSize: new (window as any).google.maps.Size(40, 40),
+            anchor: new (window as any).google.maps.Point(20, 20)
+          }
+        })
+
+        const infoWindow = new (window as any).google.maps.InfoWindow({
+          content: `
+            <div style="max-width: 300px; padding: 10px;">
+              <h3 style="margin: 0 0 8px 0; color: #1F2937;">${activity.activityTitle}</h3>
+              <p style="margin: 4px 0; color: #6B7280;"><strong>Day ${activity.day}:</strong> ${activity.timeOfDay}</p>
+              <p style="margin: 4px 0; color: #6B7280;"><strong>Duration:</strong> ${activity.duration}</p>
+              <p style="margin: 4px 0; color: #6B7280;"><strong>Cost:</strong> ${activity.estimatedCost}</p>
+              <p style="margin: 8px 0 0 0; color: #374151; font-size: 14px;">${activity.description.substring(0, 100)}...</p>
+              <div style="margin-top: 8px;">
+                <span style="background: ${activity.isVisited ? '#10B981' : '#6B7280'}; color: white; padding: 2px 8px; border-radius: 12px; font-size: 12px;">
+                  ${activity.isVisited ? '✓ Visited' : 'Pending'}
+                </span>
+              </div>
+            </div>
+          `
+        })
+
+        marker.addListener('click', () => {
+          infoWindow.open(map, marker)
+        })
+
+        bounds.extend(position)
+        locations.push(position)
+      })
+
+      // Create route if we have multiple locations
+      if (locations.length > 1) {
+        const waypoints = locations.slice(1, -1).map(location => ({
+          location,
+          stopover: true
+        }))
+
+        const request = {
+          origin: locations[0],
+          destination: locations[locations.length - 1],
+          waypoints,
+          travelMode: (window as any).google.maps.TravelMode.WALKING,
+          optimizeWaypoints: true
+        }
+
+        directionsService.route(request, (result: any, status: any) => {
+          if (status === 'OK') {
+            directionsRenderer.setDirections(result)
+          } else {
+            console.log('Directions failed, trying DRIVING mode:', status)
+            // Fallback to driving mode
+            const drivingRequest = {
+              ...request,
+              travelMode: (window as any).google.maps.TravelMode.DRIVING
+            }
+            
+            directionsService.route(drivingRequest, (drivingResult: any, drivingStatus: any) => {
+              if (drivingStatus === 'OK') {
+                directionsRenderer.setDirections(drivingResult)
+              } else {
+                console.log('Both walking and driving failed, drawing simple polyline')
+                // Final fallback: draw simple polyline
+                const polyline = new (window as any).google.maps.Polyline({
+                  path: locations,
+                  geodesic: true,
+                  strokeColor: '#3B82F6',
+                  strokeOpacity: 0.8,
+                  strokeWeight: 4
+                })
+                polyline.setMap(map)
+              }
+            })
+          }
+        })
+      }
+
+      // Fit bounds
+      if (locations.length > 0) {
+        map.fitBounds(bounds)
+      }
+    })
+  }
 
   const fetchTrip = async (tripId: string) => {
     try {
@@ -113,7 +294,6 @@ export const TripDetailPage: React.FC = () => {
     
     try {
       await tripService.updateTrip(id, trip)
-      // Save notes
       localStorage.setItem(`trip-notes-${id}`, tripNotes)
       alert('Trip saved successfully!')
     } catch (error) {
@@ -398,19 +578,21 @@ export const TripDetailPage: React.FC = () => {
         {viewMode === 'map' && (
           <Card className="mb-8 bg-gradient-to-r from-green-50 to-teal-50 border-green-200">
             <CardContent className="p-6">
-              <div className="flex items-center mb-4">
-                <Map className="w-5 h-5 text-green-600 mr-2" />
-                <h3 className="text-lg font-semibold text-gray-900">Interactive Route Map</h3>
-              </div>
-              <div className="bg-white rounded-lg p-8 text-center border-2 border-dashed border-gray-300">
-                <Map className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-                <h4 className="text-lg font-semibold text-gray-700 mb-2">Interactive Map Coming Soon</h4>
-                <p className="text-gray-500 mb-4">Color-coded markers by day, route optimization, and distance calculations</p>
-                <Button onClick={openInGoogleMaps} className="flex items-center mx-auto">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center">
+                  <Map className="w-5 h-5 text-green-600 mr-2" />
+                  <h3 className="text-lg font-semibold text-gray-900">Interactive Route Map</h3>
+                </div>
+                <Button onClick={openInGoogleMaps} className="flex items-center">
                   <Navigation className="w-4 h-4 mr-2" />
                   Open in Google Maps
                 </Button>
               </div>
+              <div 
+                id="trip-map" 
+                className="w-full h-96 rounded-lg border bg-gray-100"
+                style={{ minHeight: '400px' }}
+              />
             </CardContent>
           </Card>
         )}

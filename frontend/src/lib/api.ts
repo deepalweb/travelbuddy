@@ -139,7 +139,7 @@ class ApiService {
     })
   }
 
-  // Hybrid AI + Google Places Search API
+  // Enhanced Places Search API (Google Places First + AI Enhancement)
   async searchPlaces(query: string, filters?: any) {
     if (!query?.trim()) {
       throw new Error('Search query is required')
@@ -148,25 +148,33 @@ class ApiService {
     const params = new URLSearchParams({ q: query.trim() })
     if (filters?.category) params.append('category', filters.category)
     if (filters?.limit && filters.limit > 0) params.append('limit', filters.limit.toString())
+    if (filters?.lat) params.append('lat', filters.lat.toString())
+    if (filters?.lng) params.append('lng', filters.lng.toString())
+    if (filters?.radius) params.append('radius', filters.radius.toString())
     
     try {
-      // Try hybrid search first (Google Places + Azure OpenAI)
-      const response = await this.request<any>(`/hybrid/search?${params}`)
+      // Try enhanced search first (Google Places + AI Enhancement)
+      const response = await this.request<any>(`/enhanced-places/search?${params}`)
       
-      // Handle hybrid response format
+      // Handle enhanced response format
       if (response?.success && response.results) {
         return Array.isArray(response.results) ? response.results : []
       }
       
-      // Fallback to regular search if hybrid fails
+      // Fallback to hybrid search
+      const hybridResponse = await this.request<any>(`/hybrid/search?${params}`)
+      
+      if (hybridResponse?.success && hybridResponse.results) {
+        return Array.isArray(hybridResponse.results) ? hybridResponse.results : []
+      }
+      
+      // Final fallback to regular search
       const fallbackResponse = await this.request<any>(`/search/places?${params}`)
       
-      // Handle fallback response format
       if (fallbackResponse?.success && fallbackResponse.data) {
         return Array.isArray(fallbackResponse.data.places) ? fallbackResponse.data.places : []
       }
       
-      // Final fallback for direct array response
       return Array.isArray(fallbackResponse) ? fallbackResponse : []
     } catch (error) {
       console.error('Search places failed:', error)

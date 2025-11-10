@@ -9,7 +9,6 @@ import '../models/enhanced_safety_models.dart';
 import '../services/safety_service.dart';
 import '../services/enhanced_safety_service.dart';
 import '../providers/app_provider.dart';
-import '../widgets/panic_button.dart';
 import '../widgets/safety/enhanced_panic_button.dart';
 
 import '../widgets/safety/smart_emergency_directory_widget.dart';

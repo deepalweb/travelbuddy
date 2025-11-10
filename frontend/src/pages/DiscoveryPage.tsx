@@ -183,11 +183,15 @@ const DiscoveryPage: React.FC = () => {
   }
 
   const togglePlaceSelection = (place: Place) => {
+    console.log('🔄 Toggling place selection:', place.name)
     setSelectedPlaces(prev => {
       const isSelected = prev.some(p => p.id === place.id)
+      console.log('📍 Current selection state:', isSelected ? 'selected' : 'not selected')
       if (isSelected) {
+        console.log('➖ Removing from selection')
         return prev.filter(p => p.id !== place.id)
       } else {
+        console.log('➕ Adding to selection')
         return [...prev, place]
       }
     })
@@ -501,7 +505,7 @@ const DiscoveryPage: React.FC = () => {
                       <Button 
                         size="sm" 
                         className="w-full bg-gradient-to-r from-green-600 to-teal-600 hover:from-green-700 hover:to-teal-700 text-white border-none"
-                        onClick={() => navigate(`/place/${place.id}`, { state: { placeData: place } })}
+                        onClick={() => navigate(`/places/${place.id}`, { state: { placeData: place } })}
                       >
                         <Sparkles className="h-3 w-3 mr-1" />
                         More Details

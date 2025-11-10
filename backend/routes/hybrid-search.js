@@ -91,6 +91,11 @@ async function validateTopPlaces(aiPlaces) {
         place.googleRating = googlePlace.rating;
         place.googleId = googlePlace.place_id;
         place.realAddress = googlePlace.formatted_address;
+        
+        // Add real Google Photos
+        if (googlePlace.photos?.[0]) {
+          place.realPhoto = `/api/places/photo?ref=${googlePlace.photos[0].photo_reference}&w=800`;
+        }
       }
     } catch (error) {
       console.warn(`Google validation failed for ${place.name}`);
@@ -116,7 +121,7 @@ function formatAIPlaces(aiPlaces) {
       country: place.location.split(',')[1]?.trim() || '',
       coordinates: place.coordinates
     },
-    image: `https://images.unsplash.com/800x600/?${encodeURIComponent(place.name)}`,
+    image: place.realPhoto || `https://source.unsplash.com/800x600/?${encodeURIComponent(place.name)},${encodeURIComponent(place.category)}`,
     highlights: place.highlights,
     bestTime: place.bestTime,
     insiderTip: place.insiderTip,

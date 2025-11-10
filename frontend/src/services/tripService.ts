@@ -145,6 +145,25 @@ export const tripService = {
     }
   },
 
+  async updateTrip(tripId: string, updatedTrip: Partial<Trip>): Promise<Trip> {
+    try {
+      const trips = JSON.parse(localStorage.getItem('trips') || '[]')
+      const tripIndex = trips.findIndex((trip: Trip) => trip._id === tripId)
+      
+      if (tripIndex === -1) {
+        throw new Error('Trip not found')
+      }
+      
+      trips[tripIndex] = { ...trips[tripIndex], ...updatedTrip }
+      localStorage.setItem('trips', JSON.stringify(trips))
+      
+      return trips[tripIndex]
+    } catch (error) {
+      console.error('Error updating trip:', error)
+      throw new Error('Failed to update trip')
+    }
+  },
+
   async updateActivityStatus(tripId: string, dayIndex: number, activityIndex: number, isVisited: boolean): Promise<void> {
     try {
       const trips = JSON.parse(localStorage.getItem('trips') || '[]')

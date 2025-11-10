@@ -891,6 +891,24 @@ try {
   console.error('❌ Failed to load hybrid places routes:', error);
 }
 
+// Load enhanced places routes (Google First + AI Enhancement)
+try {
+  const enhancedPlacesRouter = (await import('./routes/enhanced-places.js')).default;
+  app.use('/api/enhanced-places', enhancedPlacesRouter);
+  console.log('✅ Enhanced places routes loaded');
+} catch (error) {
+  console.error('❌ Failed to load enhanced places routes:', error);
+}
+
+// Load AI trip generator routes (Google Places + AI Enhancement)
+try {
+  const aiTripGeneratorRouter = (await import('./routes/ai-trip-generator.js')).default;
+  app.use('/api/trips', aiTripGeneratorRouter);
+  console.log('✅ AI trip generator routes loaded');
+} catch (error) {
+  console.error('❌ Failed to load AI trip generator routes:', error);
+}
+
 // Load posts routes
 try {
   const postsRouter = (await import('./routes/posts.js')).default;
