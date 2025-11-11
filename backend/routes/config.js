@@ -1,7 +1,8 @@
 import express from 'express';
+import { optionalAuth } from '../middleware/auth.js';
 const router = express.Router();
 
-// Serve frontend configuration
+// Serve frontend configuration (public endpoint)
 router.get('/config', (req, res) => {
   res.json({
     apiBaseUrl: process.env.VITE_API_BASE_URL || 'https://travelbuddy-b2c6hgbbgeh4esdh.eastus2-01.azurewebsites.net',
@@ -20,17 +21,27 @@ router.get('/config', (req, res) => {
   });
 });
 
-// Runtime config endpoint
-router.get('/runtime', (req, res) => {
+// Runtime config endpoint (public)
+router.get('/runtime-config', (req, res) => {
   res.json({
-    apiKey: process.env.VITE_FIREBASE_API_KEY || '',
-    authDomain: process.env.VITE_FIREBASE_AUTH_DOMAIN || 'travelbuddy-2d1c5.firebaseapp.com',
-    projectId: process.env.VITE_FIREBASE_PROJECT_ID || 'travelbuddy-2d1c5'
+    firebase: {
+      apiKey: process.env.VITE_FIREBASE_API_KEY || '',
+      authDomain: process.env.VITE_FIREBASE_AUTH_DOMAIN || 'travelbuddy-2d1c5.firebaseapp.com',
+      projectId: process.env.VITE_FIREBASE_PROJECT_ID || 'travelbuddy-2d1c5',
+      storageBucket: process.env.VITE_FIREBASE_STORAGE_BUCKET || 'travelbuddy-2d1c5.firebasestorage.app',
+      messagingSenderId: process.env.VITE_FIREBASE_MESSAGING_SENDER_ID || '45425409967',
+      appId: process.env.VITE_FIREBASE_APP_ID || '1:45425409967:web:782638c65a40dcb156b95a'
+    }
   });
 });
 
-// Debug endpoint to check Azure environment variables
-router.get('/debug-env', (req, res) => {
+// Debug endpoint to check Azure environment variables (restricted)
+router.get('/debug-env', optionalAuth, (req, res) => {
+  // Only show debug info in development or to authenticated users
+  if (process.env.NODE_ENV === 'production' && !req.user) {
+    return res.status(403).json({ error: 'Access denied' });
+  }
+  
   res.json({
     hasFirebaseApiKey: !!process.env.VITE_FIREBASE_API_KEY,
     hasFirebaseAuthDomain: !!process.env.VITE_FIREBASE_AUTH_DOMAIN,

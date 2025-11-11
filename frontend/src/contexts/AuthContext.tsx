@@ -10,7 +10,7 @@ import {
   GoogleAuthProvider,
   type User as FirebaseUser
 } from 'firebase/auth'
-import { useFirebase } from '../hooks/useFirebase'
+// import { useFirebase } from '../hooks/useFirebase' // Firebase disabled
 import { useConfig } from './ConfigContext'
 import { apiService } from '../lib/api'
 
@@ -50,25 +50,48 @@ export const useAuth = () => {
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null)
   const [isLoading, setIsLoading] = useState(true)
-  const { firebase, loading: firebaseLoading } = useFirebase()
+  // const { firebase, loading: firebaseLoading } = useFirebase() // Firebase disabled
+  const firebase = null
+  const firebaseLoading = false
   const { config, loading: configLoading } = useConfig()
 
   useEffect(() => {
-    if (firebaseLoading || configLoading || !config) {
+    console.log('🔐 AUTH STEP 1: AuthProvider useEffect triggered', {
+      firebaseLoading,
+      configLoading,
+      hasConfig: !!config,
+      hasFirebase: !!firebase
+    })
+    
+    if (configLoading || !config) {
+      console.log('⏳ AUTH STEP 1: Waiting for dependencies')
       return
     }
 
     // Check for demo token first and restore demo user
     const demoToken = localStorage.getItem('demo_token')
     if (demoToken) {
+      console.log('🔐 AUTH STEP 2: Demo token found, restoring demo user')
       restoreDemoUser()
       return
     }
 
     if (!firebase) {
+      console.log('❌ AUTH STEP 2: Firebase not available, setting loading false')
       setIsLoading(false)
       return
     }
+    
+    console.log('🔐 AUTH STEP 3: Setting up Firebase auth listener')
+    
+    // Check for existing session
+    console.log('🔐 AUTH STEP 3.1: Checking existing session', {
+      currentUser: firebase.auth.currentUser,
+      localStorage: {
+        demoToken: !!localStorage.getItem('demo_token'),
+        firebaseUser: !!localStorage.getItem('firebase:authUser:' + config.firebase.apiKey + ':[DEFAULT]')
+      }
+    })
 
     // Check for redirect result first
     const checkRedirectResult = async () => {
@@ -89,12 +112,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     checkRedirectResult()
     
     const unsubscribe = onAuthStateChanged(firebase.auth, async (firebaseUser) => {
+      console.log('🔐 AUTH STEP 4: Auth state changed', {
+        hasUser: !!firebaseUser,
+        uid: firebaseUser?.uid,
+        email: firebaseUser?.email
+      })
+      
       if (firebaseUser) {
+        console.log('🔐 AUTH STEP 5: User found, syncing profile')
         await syncUserProfile(firebaseUser)
       } else {
+        console.log('🔐 AUTH STEP 5: No user, setting null')
         setUser(null)
       }
       setIsLoading(false)
+      console.log('✅ AUTH: Loading complete')
     })
 
     return () => unsubscribe()
@@ -242,15 +274,40 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }
 
   const loginWithGoogle = async () => {
+    throw new Error('Firebase authentication disabled')
     if (!firebase) throw new Error('Firebase not initialized')
     
-    console.log('Starting Google Sign-In with redirect method...')
+    console.log('🔐 Starting Google Sign-In...')
     
-    // Always use redirect method to avoid popup issues
-    await loginWithGoogleRedirect()
+    try {
+      // Try popup first for better UX
+      const provider = new GoogleAuthProvider()
+      provider.addScope('email')
+      provider.addScope('profile')
+      provider.setCustomParameters({
+        prompt: 'select_account'
+      })
+      
+      console.log('🔐 Attempting popup sign-in...')
+      const result = await signInWithPopup(firebase.auth, provider)
+      console.log('✅ Google Sign-In popup successful:', result.user.email)
+      
+    } catch (popupError: any) {
+      console.warn('⚠️ Popup failed, trying redirect:', popupError.message)
+      
+      // Fallback to redirect if popup fails
+      if (popupError.code === 'auth/popup-blocked' || 
+          popupError.code === 'auth/popup-closed-by-user' ||
+          popupError.message.includes('popup')) {
+        await loginWithGoogleRedirect()
+      } else {
+        throw popupError
+      }
+    }
   }
   
   const loginWithGoogleRedirect = async () => {
+    throw new Error('Firebase authentication disabled')
     if (!firebase) throw new Error('Firebase not initialized')
     
     console.log('Starting Google Sign-In with redirect...')
@@ -266,8 +323,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       await signInWithRedirect(firebase.auth, provider)
       // The page will redirect, so no need to handle result here
     } catch (error: any) {
-      console.error('Google Sign-In Redirect Error:', error)
-      throw new Error(error.message || 'Google sign-in redirect failed')
+      console.error('❌ Google Sign-In Redirect Error:', error)
+      
+      // Provide helpful error messages
+      if (error.code === 'auth/unauthorized-domain') {
+        throw new Error('Domain not authorized. Add localhost:3000 to Firebase authorized domains.')
+      } else if (error.code === 'auth/operation-not-allowed') {
+        throw new Error('Google Sign-In not enabled in Firebase console.')
+      } else {
+        throw new Error(error.message || 'Google sign-in failed')
+      }
     }
   }
 

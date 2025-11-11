@@ -185,15 +185,26 @@ export const devFriendlyAuth = async (req, res, next) => {
       // Only Firebase JWT in development
       try {
         const parts = token.split('.');
-        if (parts.length === 3) {
-          const payload = JSON.parse(Buffer.from(parts[1], 'base64').toString('utf8'));
-          const uid = payload.user_id || payload.sub || payload.uid;
-          if (uid) {
-            req.user = { uid, email: payload.email };
-            return next();
+        if (parts.length === 3 && parts.every(part => part.length > 0)) {
+          const payload64 = parts[1];
+          if (!/^[A-Za-z0-9+/]*={0,2}$/.test(payload64)) {
+            throw new Error('Invalid Base64 format');
+          }
+          
+          const payloadStr = Buffer.from(payload64, 'base64').toString('utf8');
+          const payload = JSON.parse(payloadStr);
+          
+          if (payload && typeof payload === 'object') {
+            const uid = payload.user_id || payload.sub || payload.uid;
+            if (uid && typeof uid === 'string') {
+              req.user = { uid, email: payload.email };
+              return next();
+            }
           }
         }
+        throw new Error('Invalid token structure');
       } catch (error) {
+        console.warn('Token validation failed:', error.message);
         return res.status(401).json({ error: 'Invalid token format' });
       }
     }

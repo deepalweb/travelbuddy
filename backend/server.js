@@ -674,12 +674,14 @@ app.use('/api', (req, res, next) => {
   if (req.method === 'GET' || 
       req.path.includes('/auth/') || 
       req.path.includes('/config/') ||
-      req.path.includes('/health')) {
+      req.path.includes('/health') ||
+      req.path.includes('/demo-auth/') ||
+      req.path.includes('/users/sync')) {
     return next();
   }
   
   // Check CSRF token for POST/PUT/DELETE requests
-  const csrfToken = req.headers['x-csrf-token'] || req.body._csrf;
+  const csrfToken = req.headers['x-csrf-token'] || req.body?._csrf;
   if (!csrfToken) {
     return res.status(403).json({ error: 'CSRF token required' });
   }
@@ -697,7 +699,7 @@ app.use((req, res, next) => {
   next();
 });
 
-// CORS configuration - more permissive for production same-origin requests
+// CORS configuration - permissive for development
 const corsOptions = {
   origin: function (origin, callback) {
     // Allow requests with no origin (like mobile apps or curl requests)
@@ -727,9 +729,19 @@ const corsOptions = {
         return callback(null, true);
       }
     } else {
-      // Development - allow localhost
-      const devOrigins = ['http://localhost:3000', 'http://localhost:5173', 'http://localhost:3001', 'http://127.0.0.1:3000'];
-      if (devOrigins.includes(origin) || origin.includes('localhost') || origin.includes('127.0.0.1')) {
+      // Development - be very permissive
+      const devOrigins = [
+        'http://localhost:3000', 
+        'http://localhost:5173', 
+        'http://localhost:3001', 
+        'http://127.0.0.1:3000',
+        'http://localhost:4173'
+      ];
+      if (devOrigins.includes(origin) || 
+          origin?.includes('localhost') || 
+          origin?.includes('127.0.0.1') ||
+          origin?.startsWith('http://localhost:') ||
+          origin?.startsWith('http://127.0.0.1:')) {
         return callback(null, true);
       }
     }
@@ -739,15 +751,33 @@ const corsOptions = {
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'x-user-id', 'x-firebase-uid', 'x-user-tier', 'x-admin-secret']
+  allowedHeaders: ['Content-Type', 'Authorization', 'x-user-id', 'x-firebase-uid', 'x-user-tier', 'x-admin-secret', 'x-csrf-token']
 };
 
 app.use(cors(corsOptions));
+
+// Additional CORS headers for development
+if (process.env.NODE_ENV !== 'production') {
+  app.use((req, res, next) => {
+    res.header('Access-Control-Allow-Origin', 'http://localhost:3000');
+    res.header('Access-Control-Allow-Credentials', 'true');
+    next();
+  });
+}
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ limit: '10mb', extended: true }));
 
 // Handle preflight OPTIONS requests
 app.options('*', cors(corsOptions));
+
+// Explicit OPTIONS handler for problematic endpoints
+app.options('/api/users/sync', (req, res) => {
+  res.header('Access-Control-Allow-Origin', 'http://localhost:3000');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, x-user-id, x-firebase-uid');
+  res.header('Access-Control-Allow-Credentials', 'true');
+  res.sendStatus(200);
+});
 
 
 

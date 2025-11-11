@@ -11,7 +11,7 @@ class AuthService {
     scopes: ['email', 'profile'],
     // Only use serverClientId on Android to avoid iOS issues
     serverClientId: Platform.isAndroid 
-        ? '45425409967-19m9oj4o2frp2081kaeg2ji3gj1k54d4.apps.googleusercontent.com' 
+        ? '45425409967-ela9ibo2h0b713amblatn1pg956j7n3c.apps.googleusercontent.com' 
         : null,
   );
 

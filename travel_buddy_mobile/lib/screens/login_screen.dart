@@ -55,27 +55,7 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
-  Future<void> _loginWithGoogle() async {
-    setState(() {
-      _loading = true;
-      _error = null;
-    });
-    try {
-      print('🔍 Starting Google Sign-In...');
-      final user = await AuthService().signInWithGoogle();
-      print('🔍 Google Sign-In result: $user');
-      if (user != null && mounted) {
-        Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const HomeScreen()));
-      } else {
-        setState(() => _error = 'Google Sign-In was cancelled or failed');
-      }
-    } catch (e) {
-      print('🔍 Google Sign-In error: $e');
-      setState(() => _error = 'Google Sign-In error: ${e.toString()}');
-    } finally {
-      if (mounted) setState(() => _loading = false);
-    }
-  }
+
 
   @override
   Widget build(BuildContext context) {
@@ -166,48 +146,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           style: TextStyle(fontSize: 16),
                         ),
                 ),
-                const SizedBox(height: 24),
-                // Divider
-                const Row(
-                  children: [
-                    Expanded(child: Divider()),
-                    Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 16),
-                      child: Text(
-                        'or continue with',
-                        style: TextStyle(color: Colors.grey),
-                      ),
-                    ),
-                    Expanded(child: Divider()),
-                  ],
-                ),
-                const SizedBox(height: 24),
-                // Google Sign in button
-                OutlinedButton(
-                  onPressed: _loading ? null : _loginWithGoogle,
-                  style: OutlinedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Image.network(
-                        'https://developers.google.com/identity/images/g-logo.png',
-                        width: 18,
-                        height: 18,
-                        errorBuilder: (context, error, stackTrace) => const Icon(Icons.login, size: 18),
-                      ),
-                      const SizedBox(width: 12),
-                      const Text(
-                        'Sign in with Google',
-                        style: TextStyle(fontSize: 16),
-                      ),
-                    ],
-                  ),
-                ),
+
               ],
             ),
               ),

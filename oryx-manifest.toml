@@ -1,8 +1,0 @@
-NodeVersion="20.19.3"
-nodeBuildCommandsFile="/tmp/zipdeploy/extracted/oryx-build-commands.txt"
-Frameworks="Typescript,Express,React"
-compressedNodeModulesFile="node_modules.tar.gz"
-OperationId="840ab6e7153114fb"
-SourceDirectoryInBuildContainer="/tmp/8dde1a227228744"
-PlatformName="nodejs"
-CompressDestinationDir="false"

@@ -9,14 +9,8 @@ class GoogleSignInService {
   static final FirebaseAuth _auth = FirebaseAuth.instance;
 
   static Future<UserCredential?> signInWithGoogle() async {
-    try {
-      print('❌ Google Sign-In not available - PigeonUserDetails compatibility issue');
-      print('Google Sign in error: Google Sign-In is currently unavailable. Please use email sign-in instead');
-      return null;
-    } catch (e) {
-      print('Google Sign-In error: $e');
-      return null;
-    }
+    print('❌ Firebase authentication disabled');
+    throw 'Firebase authentication has been disabled. Please use email authentication.';
   }
 
   static Future<void> signOut() async {
