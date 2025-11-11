@@ -1,5 +1,5 @@
 import { body, query, param, validationResult } from 'express-validator';
-import DOMPurify from 'isomorphic-dompurify';
+// Removed DOMPurify import
 
 // Validation error handler
 export const handleValidationErrors = (req, res, next) => {
@@ -13,9 +13,20 @@ export const handleValidationErrors = (req, res, next) => {
   next();
 };
 
-// Input sanitization
+// Simple HTML sanitization without DOMPurify
 export const sanitizeHtml = (value) => {
-  return DOMPurify.sanitize(value, { ALLOWED_TAGS: [] });
+  if (typeof value !== 'string') return value;
+  return value
+    .replace(/[<>"'&]/g, (match) => {
+      const entities = { 
+        '<': '&lt;', 
+        '>': '&gt;', 
+        '"': '&quot;', 
+        "'": '&#x27;',
+        '&': '&amp;'
+      };
+      return entities[match] || match;
+    });
 };
 
 // Common validation rules
