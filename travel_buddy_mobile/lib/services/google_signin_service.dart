@@ -1,5 +1,5 @@
-import 'package:google_sign_in/google_sign_in.dart';
-import 'package:firebase_auth/firebase_auth.dart';
+// import 'package:google_sign_in/google_sign_in.dart'; // Google Sign-in disabled
+// import 'package:firebase_auth/firebase_auth.dart'; // Firebase disabled
 
 class GoogleSignInService {
   static final GoogleSignIn _googleSignIn = GoogleSignIn(

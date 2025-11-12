@@ -10,7 +10,7 @@ import 'screens/enhanced_route_plan_screen.dart';
 
 import 'models/place.dart';
 import 'services/storage_service.dart';
-import 'services/firebase_service.dart';
+// import 'services/firebase_service.dart'; // Firebase disabled
 import 'services/connectivity_test.dart';
 import 'constants/app_constants.dart';
 import 'config/environment.dart';
@@ -27,8 +27,8 @@ void main() async {
     // Initialize Storage Service first
     await StorageService().initialize();
     
-    // Initialize Firebase
-    await FirebaseService.initializeFirebase();
+    // Firebase initialization disabled
+    // await FirebaseService.initializeFirebase();
     
     // Test backend connectivity in production
     if (Environment.isProduction) {

@@ -20,13 +20,13 @@ dependencies:
   geolocator: ^10.1.0
   permission_handler: ^11.1.0
   
-  # Firebase
-  firebase_core: ^2.32.0
-  firebase_auth: ^4.20.0
-  firebase_messaging: ^14.9.0
+  # Firebase disabled
+  # firebase_core: ^2.32.0
+  # firebase_auth: ^4.20.0
+  # firebase_messaging: ^14.9.0
   
-  # Google Services
-  google_sign_in: ^6.2.0
+  # Google Services (Google Sign-in disabled)
+  # google_sign_in: ^6.2.0
   google_maps_flutter: ^2.5.0
   
   # Local Storage
