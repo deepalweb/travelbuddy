@@ -51,15 +51,44 @@ const Deal = global.Deal || (() => {
 // Sync user profile with backend (create or update)
 router.post('/sync', bypassAuth, async (req, res) => {
   try {
+    console.log('🔄 Users route sync request:', { user: req.user, body: req.body });
+    
+    // Extract user info from headers if not in req.user
     if (!req.user || !req.user.uid) {
+      const userId = req.headers['x-user-id'];
+      const authHeader = req.headers['authorization'];
+      
+      if (userId) {
+        req.user = { uid: userId };
+      } else if (authHeader) {
+        const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
+        if (token) {
+          try {
+            const decoded = Buffer.from(token, 'base64').toString('utf8');
+            const [uid] = decoded.split(':');
+            req.user = { uid };
+          } catch (e) {
+            console.log('⚠️ Token decode failed in users route');
+          }
+        }
+      }
+    }
+    
+    if (!req.user || !req.user.uid) {
+      console.log('❌ Auth failed - no user or uid');
       return res.status(401).json({ error: 'Authentication required' });
     }
     
     const { uid, email } = req.user;
     const userData = req.body;
 
-    // Find existing user by Firebase UID
-    let user = await User.findOne({ firebaseUid: uid });
+    // Find existing user by Firebase UID or email
+    let user = await User.findOne({ 
+      $or: [
+        { firebaseUid: uid },
+        { email: email || userData.email }
+      ]
+    });
     
     if (user) {
       // Update existing user
@@ -86,6 +115,11 @@ router.post('/sync', bypassAuth, async (req, res) => {
       if (changed) {
         await user.save();
       }
+      // Update firebaseUid if missing
+      if (!user.firebaseUid) {
+        user.firebaseUid = uid;
+        await user.save();
+      }
     } else {
       // Create new user with unique username
       let username = userData.username || email?.split('@')[0] || uid;
@@ -107,7 +141,7 @@ router.post('/sync', bypassAuth, async (req, res) => {
     res.json(user);
   } catch (error) {
     console.error('Error syncing user profile:', error);
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: error.message, stack: error.stack });
   }
 });
 
@@ -219,14 +253,25 @@ router.delete('/profile', bypassAuth, async (req, res) => {
 });
 
 // Get user stats with role-based data
-router.get('/:id/stats', bypassAuth, async (req, res) => {
+router.get('/:id/stats', async (req, res) => {
   try {
-    const { uid } = req.user;
+    console.log('📊 Stats request for user:', req.params.id);
     
-    let user = await User.findOne({ firebaseUid: uid });
+    // Use the ID from the URL parameter
+    const userId = req.params.id;
+    
+    // Find user by Firebase UID or MongoDB ID
+    let user = await User.findOne({ firebaseUid: userId });
     if (!user) {
+      user = await User.findById(userId);
+    }
+    
+    if (!user) {
+      console.log('❌ User not found for ID:', userId);
       return res.status(404).json({ error: 'User not found' });
     }
+    
+    console.log('👤 Found user for stats:', user._id);
 
     const [tripCount, postCount, favoriteCount, itineraryCount] = await Promise.all([
       TripPlan.countDocuments({ userId: user._id }),
@@ -577,7 +622,7 @@ router.get('/deals', bypassAuth, async (req, res) => {
 });
 
 // Security endpoints
-router.get('/security', bypassAuth, async (req, res) => {
+router.get('/security', async (req, res) => {
   try {
     const { uid } = req.user;
     
@@ -598,7 +643,7 @@ router.get('/security', bypassAuth, async (req, res) => {
   }
 });
 
-router.put('/security', bypassAuth, async (req, res) => {
+router.put('/security', async (req, res) => {
   try {
     const { uid } = req.user;
     const { twoFactorEnabled, emailVerified, phoneVerified } = req.body;

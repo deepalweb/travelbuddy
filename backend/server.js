@@ -113,7 +113,7 @@ const PORT = process.env.PORT || 3001;
 app.use((req, res, next) => {
   res.header('Access-Control-Allow-Origin', 'http://localhost:3000');
   res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, Accept, Origin, X-Requested-With');
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, Accept, Origin, X-Requested-With, x-user-id, x-firebase-uid, x-user-tier, x-admin-secret, x-csrf-token, X-CSRF-Token');
   res.header('Access-Control-Allow-Credentials', 'true');
   
   if (req.method === 'OPTIONS') {
@@ -1311,7 +1311,7 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 // Load user profile routes RIGHT AFTER User model is defined
 try {
   const usersRouter = (await import('./routes/users.js')).default;
-  app.use('/api/users', requireFeature('users'), usersRouter);
+  app.use('/api/users', usersRouter);
   console.log('✅ User profile routes loaded after User model');
 } catch (error) {
   console.error('❌ Failed to load user routes:', error);
@@ -2501,10 +2501,13 @@ app.get('/api/places/nearby', enforcePolicy('places'), async (req, res) => {
 // User sync endpoint for Firebase integration - with flexible auth
 app.post('/api/users/sync', async (req, res) => {
   try {
+    console.log('🔄 User sync request:', { headers: req.headers, body: req.body });
+    
     const authHeader = req.headers['authorization'] || '';
     const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
     
     if (!token) {
+      console.log('❌ No token provided');
       return res.status(401).json({ error: 'No token provided' });
     }
 
@@ -2542,8 +2545,17 @@ app.post('/api/users/sync', async (req, res) => {
     const finalEmail = email || extractedEmail;
     const finalFirebaseUid = firebaseUid || extractedUid;
     
+    console.log('🔍 Final user data:', { finalEmail, finalFirebaseUid, username });
+    
     if (!finalEmail && !finalFirebaseUid) {
+      console.log('❌ Missing required data');
       return res.status(400).json({ error: 'Email or Firebase UID is required' });
+    }
+
+    // Check database connection
+    if (mongoose.connection.readyState !== 1) {
+      console.log('❌ Database not connected');
+      return res.status(500).json({ error: 'Database not connected' });
     }
 
     // Find or create user
@@ -2554,7 +2566,10 @@ app.post('/api/users/sync', async (req, res) => {
       ]
     });
     
+    console.log('👤 Found existing user:', !!user);
+    
     if (!user) {
+      console.log('🆕 Creating new user');
       user = new User({
         email: finalEmail || `${finalFirebaseUid}@sync.local`,
         username: username || finalEmail?.split('@')[0] || finalFirebaseUid,
@@ -2565,6 +2580,7 @@ app.post('/api/users/sync', async (req, res) => {
       await user.save();
       console.log('✅ Created new user via sync:', user._id);
     } else {
+      console.log('🔄 Updating existing user');
       // Update user info if needed
       let updated = false;
       if (finalFirebaseUid && !user.firebaseUid) {
@@ -2585,44 +2601,60 @@ app.post('/api/users/sync', async (req, res) => {
       }
     }
     
+    console.log('✅ Sync successful, returning user:', user._id);
     res.json(user);
   } catch (error) {
     console.error('❌ User sync error:', error);
-    res.status(500).json({ error: 'User sync failed', details: error.message });
+    res.status(500).json({ error: 'User sync failed', details: error.message, stack: error.stack });
   }
 });
 
 // Flexible auth middleware for mobile/web
 const flexAuth = async (req, res, next) => {
-  const authHeader = req.headers.authorization;
-  const token = authHeader?.split(' ')[1];
-  const userId = req.headers['x-user-id'];
-  
-  if (token) {
-    try {
-      // Try Firebase first
-      if (adminAuth) {
-        const decoded = await adminAuth.verifyIdToken(token);
-        req.user = { uid: decoded.uid, ...decoded };
-        return next();
-      }
-    } catch {}
+  try {
+    const authHeader = req.headers.authorization;
+    const token = authHeader?.split(' ')[1];
+    const userId = req.headers['x-user-id'];
     
-    try {
-      // Fallback to simple token
-      const decoded = Buffer.from(token, 'base64').toString('utf8');
-      const [id] = decoded.split(':');
-      req.user = { uid: id };
+    console.log('🔐 FlexAuth check:', { hasToken: !!token, hasUserId: !!userId });
+    
+    if (token) {
+      try {
+        // Try Firebase first
+        if (adminAuth) {
+          const decoded = await adminAuth.verifyIdToken(token);
+          req.user = { uid: decoded.uid, ...decoded };
+          console.log('✅ Firebase auth successful');
+          return next();
+        }
+      } catch (e) {
+        console.log('⚠️ Firebase auth failed:', e.message);
+      }
+      
+      try {
+        // Fallback to simple token
+        const decoded = Buffer.from(token, 'base64').toString('utf8');
+        const [id] = decoded.split(':');
+        req.user = { uid: id };
+        console.log('✅ Simple token auth successful');
+        return next();
+      } catch (e) {
+        console.log('⚠️ Simple token auth failed:', e.message);
+      }
+    }
+    
+    if (userId) {
+      req.user = { uid: userId };
+      console.log('✅ User ID header auth successful');
       return next();
-    } catch {}
+    }
+    
+    console.log('❌ No valid authentication found');
+    return res.status(401).json({ error: 'Authentication required' });
+  } catch (error) {
+    console.error('❌ FlexAuth error:', error);
+    return res.status(500).json({ error: 'Authentication error' });
   }
-  
-  if (userId) {
-    req.user = { uid: userId };
-    return next();
-  }
-  
-  return res.status(401).json({ error: 'Authentication required' });
 };
 
 // Users - Enhanced security

@@ -235,18 +235,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         role: 'regular',
         isAdmin: false
       })
-    } catch (error) {
-      debug.error('Failed to sync user profile:', error)
-      // Fallback: create basic user object
-      setUser({
-        id: firebaseUser.uid,
-        email: firebaseUser.email || '',
-        username: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'User',
-        tier: 'free',
-        firebaseUid: firebaseUser.uid,
-        role: 'regular',
-        isAdmin: false
-      })
     }
   }
 

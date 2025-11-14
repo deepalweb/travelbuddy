@@ -55,7 +55,7 @@ export const ProfilePage: React.FC = () => {
         headers['x-user-id'] = user.id
       }
       
-      const response = await fetch(`/api/users/${user?.id}/stats`, { headers })
+      const response = await fetch(`http://localhost:3001/api/users/${user?.id}/stats`, { headers })
       if (response.ok) {
         const data = await response.json()
         setStats({
@@ -101,7 +101,7 @@ export const ProfilePage: React.FC = () => {
         headers['x-user-id'] = user.id
       }
       
-      const response = await fetch('/api/users/profile', {
+      const response = await fetch('http://localhost:3001/api/users/profile', {
         method: 'PUT',
         headers,
         body: JSON.stringify(formData)
