@@ -77,7 +77,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
 
     if (!firebase) {
-      console.log('❌ AUTH STEP 2: Firebase not available, setting loading false')
+      console.log('✅ AUTH STEP 2: Firebase disabled, no demo token - setting loading false')
       setIsLoading(false)
       return
     }
@@ -157,10 +157,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           isAdmin: data.user.isAdmin
         })
       } else {
+        console.log('❌ Demo token invalid, removing')
         localStorage.removeItem('demo_token')
       }
     } catch (error) {
       console.error('Failed to restore demo user:', error)
+      console.log('❌ Removing invalid demo token due to error')
       localStorage.removeItem('demo_token')
     } finally {
       setIsLoading(false)
@@ -338,27 +340,30 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const loginDemo = async () => {
     try {
-      const response = await fetch(`${config?.apiBaseUrl || 'http://localhost:3001'}/api/demo-auth/demo-login`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: 'admin@travelbuddy.com', password: 'demo' })
-      })
-      
-      if (response.ok) {
-        const data = await response.json()
-        console.log('Demo login response:', data) // Debug log
-        setUser({
-          id: data.user.id,
-          email: data.user.email,
-          username: data.user.username,
-          tier: data.user.tier,
-          role: data.user.role,
-          isAdmin: data.user.isAdmin
-        })
-        localStorage.setItem('demo_token', data.token)
-      } else {
-        throw new Error('Demo login failed')
+      // Mock demo login without backend
+      const demoUser = {
+        id: 'demo-user-' + Date.now(),
+        email: 'admin@travelbuddy.com',
+        username: 'Demo Admin',
+        tier: 'premium',
+        role: 'admin',
+        isAdmin: true
       }
+      
+      setUser(demoUser)
+      localStorage.setItem('demo_token', 'demo-token-' + Date.now())
+      
+      // Uncomment when backend is running:
+      // const response = await fetch(`${config?.apiBaseUrl || 'http://localhost:3001'}/api/demo-auth/demo-login`, {
+      //   method: 'POST',
+      //   headers: { 'Content-Type': 'application/json' },
+      //   body: JSON.stringify({ email: 'admin@travelbuddy.com', password: 'demo' })
+      // })
+      // if (response.ok) {
+      //   const data = await response.json()
+      //   setUser(data.user)
+      //   localStorage.setItem('demo_token', data.token)
+      // }
     } catch (error: any) {
       throw new Error(error.message || 'Demo login failed')
     }

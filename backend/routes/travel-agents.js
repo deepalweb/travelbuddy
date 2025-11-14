@@ -4,69 +4,79 @@ import { requireRole, requirePermission } from '../middleware/rbac.js';
 
 const router = express.Router();
 
-// Travel agent registration (enhanced from existing)
+// In-memory storage for travel agent applications
+let agentApplications = [];
+
+// Travel agent registration (no auth required)
 router.post('/register', async (req, res) => {
   try {
-    const { uid } = req.user;
     const {
       agencyName,
       ownerName,
       email,
       phone,
+      whatsapp,
+      website,
       address,
+      location,
       licenseNumber,
-      experience,
+      experienceYears,
+      about,
+      priceRange,
+      operatingRegions,
       specialties,
       languages,
-      certifications,
+      profilePhoto,
+      portfolioImages,
       documents
     } = req.body;
 
-    const User = req.app.get('User') || global.User;
+    // Basic validation
+    if (!agencyName || !ownerName || !email || !phone) {
+      return res.status(400).json({ error: 'Missing required fields: agencyName, ownerName, email, phone' });
+    }
+
+    console.log('Registration data received:', { agencyName, ownerName, email, phone, specialties, languages });
+
+    // Store in memory (in production, save to database)
+    const agentProfile = {
+      id: Date.now().toString(),
+      agencyName,
+      ownerName,
+      email,
+      phone,
+      whatsapp: whatsapp || '',
+      website: website || '',
+      address: address || '',
+      location,
+      licenseNumber: licenseNumber || '',
+      experienceYears: experienceYears || '',
+      about: about || '',
+      priceRange: priceRange || '',
+      operatingRegions: operatingRegions || [],
+      specialties: specialties || [],
+      languages: languages || [],
+      profilePhoto,
+      portfolioImages: portfolioImages || [],
+      documents,
+      status: 'pending',
+      submittedDate: new Date().toISOString().split('T')[0],
+      createdAt: new Date().toISOString()
+    };
+
+    // Add to applications array
+    agentApplications.push(agentProfile);
     
-    if (!User) {
-      return res.json({
-        message: 'Travel agent registration submitted (demo mode)',
-        status: 'pending'
-      });
-    }
-
-    const user = await User.findOne({ firebaseUid: uid });
-    if (!user) {
-      return res.status(404).json({ error: 'User not found' });
-    }
-
-    // Update user role and profile
-    const updatedUser = await User.findByIdAndUpdate(
-      user._id,
-      {
-        role: 'travel_agent',
-        agentProfile: {
-          agencyName,
-          ownerName,
-          email,
-          phone,
-          address,
-          licenseNumber,
-          experience,
-          specialties,
-          languages,
-          certifications,
-          documents,
-          verificationStatus: 'pending',
-          isActive: false,
-          rating: 0,
-          reviewCount: 0
-        }
-      },
-      { new: true }
-    );
+    console.log('Travel agent registration successful:', agentProfile.id);
+    console.log('Total applications:', agentApplications.length);
 
     res.json({
-      message: 'Travel agent registration submitted',
-      user: updatedUser
+      message: 'Travel agent registration submitted successfully',
+      status: 'pending',
+      agentId: agentProfile.id
     });
   } catch (error) {
+    console.error('Registration error:', error);
     res.status(500).json({ error: 'Failed to register travel agent' });
   }
 });
@@ -292,6 +302,56 @@ router.put('/profile', async (req, res) => {
     res.json({ success: true, profile: user.agentProfile });
   } catch (error) {
     res.status(500).json({ error: 'Failed to update profile' });
+  }
+});
+
+// Admin: Get all travel agent applications
+router.get('/admin/applications', async (req, res) => {
+  try {
+    const { status } = req.query;
+    
+    let applications = agentApplications;
+    if (status) {
+      applications = applications.filter(app => app.status === status);
+    }
+    
+    const summary = {
+      total: agentApplications.length,
+      pending: agentApplications.filter(app => app.status === 'pending').length,
+      approved: agentApplications.filter(app => app.status === 'approved').length,
+      rejected: agentApplications.filter(app => app.status === 'rejected').length
+    };
+    
+    res.json({ applications, summary });
+  } catch (error) {
+    console.error('Failed to fetch applications:', error);
+    res.status(500).json({ error: 'Failed to fetch applications' });
+  }
+});
+
+// Admin: Approve/reject agent
+router.put('/admin/approve/:agentId', async (req, res) => {
+  try {
+    const { agentId } = req.params;
+    const { action } = req.body; // 'approve' or 'reject'
+    
+    const agentIndex = agentApplications.findIndex(app => app.id === agentId);
+    if (agentIndex === -1) {
+      return res.status(404).json({ error: 'Agent not found' });
+    }
+    
+    agentApplications[agentIndex].status = action === 'approve' ? 'approved' : 'rejected';
+    agentApplications[agentIndex].processedAt = new Date().toISOString();
+    
+    res.json({
+      success: true,
+      message: `Agent ${action}d successfully`,
+      agentId,
+      status: agentApplications[agentIndex].status
+    });
+  } catch (error) {
+    console.error('Failed to process approval:', error);
+    res.status(500).json({ error: 'Failed to process approval' });
   }
 });
 

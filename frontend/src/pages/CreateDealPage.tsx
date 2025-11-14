@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { Save, Upload, Calendar, DollarSign, MapPin, Tag, Sparkles, Target, Eye, Clock, Image, Video, Wand2 } from 'lucide-react'
 import { Button } from '../components/Button'
 import { Card, CardContent } from '../components/Card'
+import { dealsService } from '../services/dealsService'
 
 const CreateDealPage: React.FC = () => {
   const navigate = useNavigate()
@@ -30,7 +31,15 @@ const CreateDealPage: React.FC = () => {
     destinationFocus: '',
     travelerType: '',
     visibilityScope: 'global',
-    tags: [] as string[]
+    tags: [] as string[],
+    contactInfo: {
+      website: '',
+      phone: '',
+      whatsapp: '',
+      facebook: '',
+      instagram: '',
+      email: ''
+    }
   })
 
   const businessTypes = [
@@ -61,9 +70,35 @@ const CreateDealPage: React.FC = () => {
     { id: 5, title: 'Preview & Submit', icon: Eye }
   ]
 
+  const validateContactInfo = (field: string, value: string): boolean => {
+    switch (field) {
+      case 'website':
+      case 'facebook':
+      case 'instagram':
+        return !value || /^https?:\/\/.+/.test(value)
+      case 'phone':
+      case 'whatsapp':
+        return !value || /^\+?[1-9]\d{1,14}$/.test(value.replace(/\s/g, ''))
+      case 'email':
+        return !value || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)
+      default:
+        return true
+    }
+  }
+
+  const checkDuplicateDeal = (): boolean => {
+    const localDeals = JSON.parse(localStorage.getItem('localDeals') || '[]')
+    return localDeals.some((deal: any) => 
+      deal.title.toLowerCase() === formData.title.toLowerCase() &&
+      deal.businessName.toLowerCase() === formData.businessName.toLowerCase()
+    )
+  }
+
   const handleInputChange = (field: string, value: any) => {
     if (field === 'address') {
       setFormData(prev => ({ ...prev, location: { ...prev.location, address: value } }))
+    } else if (field === 'contactInfo') {
+      setFormData(prev => ({ ...prev, [field]: value }))
     } else {
       setFormData(prev => ({ ...prev, [field]: value }))
     }
@@ -115,17 +150,63 @@ const CreateDealPage: React.FC = () => {
     }
   }
 
-  const handleMediaUpload = (type: 'image' | 'video', files: FileList) => {
-    const urls: string[] = []
-    Array.from(files).forEach(file => {
-      const url = URL.createObjectURL(file)
-      urls.push(url)
+  const compressImage = (file: File): Promise<string> => {
+    return new Promise((resolve) => {
+      const canvas = document.createElement('canvas')
+      const ctx = canvas.getContext('2d')!
+      const img = document.createElement('img')
+      
+      img.onload = () => {
+        const maxWidth = 800
+        const maxHeight = 600
+        let { width, height } = img
+        
+        if (width > height) {
+          if (width > maxWidth) {
+            height = (height * maxWidth) / width
+            width = maxWidth
+          }
+        } else {
+          if (height > maxHeight) {
+            width = (width * maxHeight) / height
+            height = maxHeight
+          }
+        }
+        
+        canvas.width = width
+        canvas.height = height
+        ctx.drawImage(img, 0, 0, width, height)
+        resolve(canvas.toDataURL('image/jpeg', 0.8))
+      }
+      
+      img.src = URL.createObjectURL(file)
     })
-    
-    if (type === 'image') {
-      setFormData(prev => ({ ...prev, images: [...prev.images, ...urls] }))
-    } else {
-      setFormData(prev => ({ ...prev, videos: [...prev.videos, ...urls] }))
+  }
+
+  const handleMediaUpload = async (type: 'image' | 'video', files: FileList) => {
+    for (const file of Array.from(files)) {
+      if (type === 'image') {
+        try {
+          const compressedBase64 = await compressImage(file)
+          setFormData(prev => ({ ...prev, images: [...prev.images, compressedBase64] }))
+        } catch (error) {
+          console.error('Image compression failed:', error)
+          // Fallback to original
+          const reader = new FileReader()
+          reader.onload = (e) => {
+            const base64 = e.target?.result as string
+            setFormData(prev => ({ ...prev, images: [...prev.images, base64] }))
+          }
+          reader.readAsDataURL(file)
+        }
+      } else {
+        const reader = new FileReader()
+        reader.onload = (e) => {
+          const base64 = e.target?.result as string
+          setFormData(prev => ({ ...prev, videos: [...prev.videos, base64] }))
+        }
+        reader.readAsDataURL(file)
+      }
     }
   }
 
@@ -145,34 +226,43 @@ const CreateDealPage: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    
+    // Validate contact info
+    const contactErrors = []
+    Object.entries(formData.contactInfo).forEach(([field, value]) => {
+      if (!validateContactInfo(field, value)) {
+        contactErrors.push(field)
+      }
+    })
+    
+    if (contactErrors.length > 0) {
+      alert(`Invalid ${contactErrors.join(', ')} format(s). Please check and try again.`)
+      return
+    }
+    
+    // Check for duplicate
+    if (checkDuplicateDeal()) {
+      if (!confirm('A similar deal already exists. Do you want to create it anyway?')) {
+        return
+      }
+    }
+    
     setLoading(true)
 
     try {
-      const token = localStorage.getItem('auth_token')
-      const response = await fetch('/api/deals', {
-        method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json',
-          ...(token && { 'Authorization': `Bearer ${token}` })
-        },
-        body: JSON.stringify({
-          ...formData,
-          isActive: true,
-          views: 0,
-          claims: 0,
-          validFrom: formData.validFrom ? new Date(formData.validFrom) : new Date(),
-          validUntil: formData.validUntil ? new Date(formData.validUntil) : undefined,
-          maxClaims: formData.maxClaims ? parseInt(formData.maxClaims) : undefined
-        })
-      })
-
-      if (response.ok) {
-        navigate('/deals')
-      } else {
-        const errorData = await response.text()
-        console.error('Server response:', response.status, errorData)
-        throw new Error(`Server error: ${response.status} - ${errorData}`)
+      const dealData = {
+        ...formData,
+        isActive: true,
+        views: 0,
+        claims: 0,
+        validFrom: formData.validFrom ? new Date(formData.validFrom) : new Date(),
+        validUntil: formData.validUntil ? new Date(formData.validUntil) : undefined,
+        maxClaims: formData.maxClaims ? parseInt(formData.maxClaims) : undefined
       }
+      
+      await dealsService.createDeal(dealData)
+      navigate('/deals', { replace: true })
+      window.location.reload()
     } catch (error) {
       console.error('Error creating deal:', error)
       alert('Failed to create deal. Please try again.')
@@ -482,6 +572,78 @@ const CreateDealPage: React.FC = () => {
               min={formData.validFrom || new Date().toISOString().split('T')[0]}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
             />
+          </div>
+        </div>
+        
+        {/* Contact Information Section */}
+        <div className="mt-8 pt-6 border-t border-gray-200">
+          <h3 className="text-lg font-semibold mb-4 text-gray-900">Contact Information</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Website URL</label>
+              <input
+                type="url"
+                value={formData.contactInfo.website}
+                onChange={(e) => handleInputChange('contactInfo', { ...formData.contactInfo, website: e.target.value })}
+                placeholder="https://yourstore.com"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Phone Number</label>
+              <input
+                type="tel"
+                value={formData.contactInfo.phone}
+                onChange={(e) => handleInputChange('contactInfo', { ...formData.contactInfo, phone: e.target.value })}
+                placeholder="+94 77 123 4567"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">WhatsApp Number</label>
+              <input
+                type="tel"
+                value={formData.contactInfo.whatsapp}
+                onChange={(e) => handleInputChange('contactInfo', { ...formData.contactInfo, whatsapp: e.target.value })}
+                placeholder="+94 77 123 4567"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Email Address</label>
+              <input
+                type="email"
+                value={formData.contactInfo.email}
+                onChange={(e) => handleInputChange('contactInfo', { ...formData.contactInfo, email: e.target.value })}
+                placeholder="contact@business.com"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Facebook Page</label>
+              <input
+                type="url"
+                value={formData.contactInfo.facebook}
+                onChange={(e) => handleInputChange('contactInfo', { ...formData.contactInfo, facebook: e.target.value })}
+                placeholder="https://facebook.com/yourpage"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Instagram Profile</label>
+              <input
+                type="url"
+                value={formData.contactInfo.instagram}
+                onChange={(e) => handleInputChange('contactInfo', { ...formData.contactInfo, instagram: e.target.value })}
+                placeholder="https://instagram.com/yourprofile"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              />
+            </div>
           </div>
         </div>
       </CardContent>

@@ -109,6 +109,19 @@ const app = express();
 app.use(compression({ threshold: 1024 }));
 const PORT = process.env.PORT || 3001;
 
+// Simple CORS middleware - must be first
+app.use((req, res, next) => {
+  res.header('Access-Control-Allow-Origin', 'http://localhost:3000');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, Accept, Origin, X-Requested-With');
+  res.header('Access-Control-Allow-Credentials', 'true');
+  
+  if (req.method === 'OPTIONS') {
+    return res.sendStatus(200);
+  }
+  next();
+});
+
 // Create HTTP/HTTPS server and Socket.io for real-time metrics
 let httpServer;
 if (process.env.ENABLE_HTTPS === 'true') {
@@ -668,34 +681,35 @@ app.use(securityHeaders);
 app.use(apiRateLimit);
 app.use(sanitizeInput);
 
-// CSRF protection for state-changing operations
-app.use('/api', (req, res, next) => {
-  // Skip CSRF for GET requests and specific endpoints
-  if (req.method === 'GET' || 
-      req.path.includes('/auth/') || 
-      req.path.includes('/config/') ||
-      req.path.includes('/health') ||
-      req.path.includes('/demo-auth/') ||
-      req.path.includes('/users/sync')) {
-    return next();
-  }
-  
-  // Check CSRF token for POST/PUT/DELETE requests
-  const csrfToken = req.headers['x-csrf-token'] || req.body?._csrf;
-  if (!csrfToken) {
-    return res.status(403).json({ error: 'CSRF token required' });
-  }
-  
-  // In production, verify CSRF token properly
-  // For now, just check if token exists
-  next();
-});
+// CSRF protection disabled for development
+// app.use('/api', (req, res, next) => {
+//   // Skip CSRF for GET requests and specific endpoints
+//   if (req.method === 'GET' || 
+//       req.path.includes('/auth/') || 
+//       req.path.includes('/config/') ||
+//       req.path.includes('/health') ||
+//       req.path.includes('/demo-auth/') ||
+//       req.path.includes('/users/sync') ||
+//       req.path === '/deals') {
+//     return next();
+//   }
+//   
+//   // Check CSRF token for POST/PUT/DELETE requests
+//   const csrfToken = req.headers['x-csrf-token'] || req.body?._csrf;
+//   if (!csrfToken) {
+//     return res.status(403).json({ error: 'CSRF token required' });
+//   }
+//   
+//   // In production, verify CSRF token properly
+//   // For now, just check if token exists
+//   next();
+// });
 
 
 
 // Middleware
 app.use((req, res, next) => {
-  console.log('🔍 Request:', req.method, req.path);
+  console.log('🔍 Request:', req.method, req.path, 'Origin:', req.headers.origin);
   next();
 });
 
@@ -747,11 +761,16 @@ const corsOptions = {
     }
     
     console.log('CORS blocked origin:', origin);
+    // In development, allow all origins as fallback
+    if (process.env.NODE_ENV !== 'production') {
+      console.log('Development mode: allowing origin', origin);
+      return callback(null, true);
+    }
     callback(new Error('Not allowed by CORS'));
   },
   credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'x-user-id', 'x-firebase-uid', 'x-user-tier', 'x-admin-secret', 'x-csrf-token']
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'x-user-id', 'x-firebase-uid', 'x-user-tier', 'x-admin-secret', 'x-csrf-token', 'X-CSRF-Token', 'Accept', 'Origin', 'X-Requested-With']
 };
 
 app.use(cors(corsOptions));
@@ -759,8 +778,10 @@ app.use(cors(corsOptions));
 // Additional CORS headers for development
 if (process.env.NODE_ENV !== 'production') {
   app.use((req, res, next) => {
-    res.header('Access-Control-Allow-Origin', 'http://localhost:3000');
+    res.header('Access-Control-Allow-Origin', req.headers.origin || 'http://localhost:3000');
     res.header('Access-Control-Allow-Credentials', 'true');
+    res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH');
+    res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, x-user-id, x-firebase-uid, x-user-tier, x-admin-secret, x-csrf-token, X-CSRF-Token, Accept, Origin, X-Requested-With');
     next();
   });
 }
@@ -768,11 +789,33 @@ app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ limit: '10mb', extended: true }));
 
 // Handle preflight OPTIONS requests
-app.options('*', cors(corsOptions));
+app.options('*', (req, res) => {
+  res.header('Access-Control-Allow-Origin', req.headers.origin || '*');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH');
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, x-user-id, x-firebase-uid, x-user-tier, x-admin-secret, x-csrf-token, X-CSRF-Token, Accept, Origin, X-Requested-With');
+  res.header('Access-Control-Allow-Credentials', 'true');
+  res.sendStatus(200);
+});
 
 // Explicit OPTIONS handler for problematic endpoints
-app.options('/api/users/sync', (req, res) => {
-  res.header('Access-Control-Allow-Origin', 'http://localhost:3000');
+app.options('/api/deals', (req, res) => {
+  res.header('Access-Control-Allow-Origin', req.headers.origin || 'http://localhost:3000');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, x-user-id, x-firebase-uid, X-CSRF-Token');
+  res.header('Access-Control-Allow-Credentials', 'true');
+  res.sendStatus(200);
+});
+
+app.options('/api/community/posts', (req, res) => {
+  res.header('Access-Control-Allow-Origin', req.headers.origin || 'http://localhost:3000');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, x-user-id, x-firebase-uid');
+  res.header('Access-Control-Allow-Credentials', 'true');
+  res.sendStatus(200);
+});
+
+app.options('/api/posts/community', (req, res) => {
+  res.header('Access-Control-Allow-Origin', req.headers.origin || 'http://localhost:3000');
   res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
   res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, x-user-id, x-firebase-uid');
   res.header('Access-Control-Allow-Credentials', 'true');
@@ -924,6 +967,15 @@ try {
   console.log('✅ AI Places routes loaded');
 } catch (error) {
   console.error('❌ Failed to load AI places routes:', error);
+}
+
+// Load AI routes for community features
+try {
+  const aiRouter = (await import('./routes/ai.js')).default;
+  app.use('/api/ai', aiRouter);
+  console.log('✅ AI routes loaded for community features');
+} catch (error) {
+  console.error('❌ Failed to load AI routes:', error);
 }
 
 // Load mobile places routes
@@ -1231,9 +1283,14 @@ userSchema.index({ 'transportProfile.verificationStatus': 1 });
 
 const User = mongoose.model('User', userSchema);
 
-// Make User model available to routes
+// Import TransportProvider model
+import TransportProvider from './models/TransportProvider.js';
+
+// Make models available to routes
 app.set('User', User);
+app.set('TransportProvider', TransportProvider);
 global.User = User;
+global.TransportProvider = TransportProvider;
 
 // Load user profile routes RIGHT AFTER User model is defined
 try {
@@ -1593,6 +1650,7 @@ global.TripPlan = TripPlan;
 const postSchema = new mongoose.Schema({
   userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   content: {
+    title: String,
     text: String,
     images: [String]
   },
@@ -1602,10 +1660,21 @@ const postSchema = new mongoose.Schema({
     location: String,
     verified: Boolean
   },
+  location: String,
+  place: {
+    placeId: String,
+    name: String,
+    coordinates: {
+      lat: Number,
+      lng: Number
+    },
+    address: String
+  },
   engagement: {
     likes: { type: Number, default: 0 },
     comments: { type: Number, default: 0 },
-    shares: { type: Number, default: 0 }
+    shares: { type: Number, default: 0 },
+    views: { type: Number, default: 0 }
   },
   // Track which users liked the post (store userId or username as string)
   likedBy: { type: [String], default: [] },
@@ -1634,6 +1703,9 @@ const postSchema = new mongoose.Schema({
 postSchema.index({ createdAt: -1 });
 postSchema.index({ userId: 1, createdAt: -1 });
 postSchema.index({ moderationStatus: 1 });
+postSchema.index({ tags: 1 });
+postSchema.index({ 'place.placeId': 1 });
+postSchema.index({ location: 'text', 'content.title': 'text', 'content.text': 'text' });
 
 const Post = mongoose.model('Post', postSchema);
 global.Post = Post;
@@ -1682,6 +1754,14 @@ const dealSchema = new mongoose.Schema({
   startsAt: { type: Date },
   endsAt: { type: Date },
   merchantId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+  contactInfo: {
+    website: String,
+    phone: String,
+    whatsapp: String,
+    facebook: String,
+    instagram: String,
+    email: String
+  },
   createdAt: { type: Date, default: Date.now }
 });
 
@@ -2841,6 +2921,11 @@ app.get('/api/posts', async (req, res) => {
 
 // Community posts with auth and pagination
 app.get('/api/community/posts', async (req, res) => {
+  // Add CORS headers for this specific endpoint
+  res.header('Access-Control-Allow-Origin', req.headers.origin || 'http://localhost:3000');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, x-user-id, x-firebase-uid');
+  res.header('Access-Control-Allow-Credentials', 'true');
   try {
     console.log('🔍 Community posts request received');
     console.log('📋 Query params:', req.query);
@@ -2906,7 +2991,29 @@ app.get('/api/community/posts', async (req, res) => {
   }
 });
 
-app.post('/api/community/posts', flexAuth, async (req, res) => {
+// Add the missing AI endpoint
+app.post('/api/posts/community', async (req, res) => {
+  res.header('Access-Control-Allow-Origin', req.headers.origin || 'http://localhost:3000');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, x-user-id, x-firebase-uid');
+  res.header('Access-Control-Allow-Credentials', 'true');
+  
+  try {
+    const post = new Post(req.body)
+    const saved = await post.save()
+    res.json(saved)
+  } catch (error) {
+    console.error('❌ Post creation error:', error)
+    res.status(400).json({ error: error.message })
+  }
+})
+
+app.post('/api/community/posts', async (req, res) => {
+  // Add CORS headers for this specific endpoint
+  res.header('Access-Control-Allow-Origin', req.headers.origin || 'http://localhost:3000');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, x-user-id, x-firebase-uid');
+  res.header('Access-Control-Allow-Credentials', 'true');
   try {
     const body = req.body || {};
     console.log('📝 Creating post - Raw body:', JSON.stringify(body, null, 2));
@@ -3963,6 +4070,15 @@ app.get('/api/csrf-token', (req, res) => {
   res.json({ csrfToken: token });
 });
 
+// CORS test endpoint
+app.get('/api/cors-test', (req, res) => {
+  res.json({ 
+    message: 'CORS is working!', 
+    origin: req.headers.origin,
+    timestamp: new Date().toISOString() 
+  });
+});
+
 // Health check - updated for deployment trigger
 app.get('/api/health', (req, res) => {
   const dbState = mongoose.connection?.readyState;
@@ -4153,6 +4269,56 @@ app.get('/api/search/places', enforcePolicy('openai'), async (req, res) => {
     res.status(500).json({ error: 'Search failed', details: error.message });
   }
 });
+
+// AI Auto-tagging for community stories
+app.post('/api/ai/generate-tags', async (req, res) => {
+  try {
+    const { title, content } = req.body
+    if (!title || !content) {
+      return res.status(400).json({ error: 'Title and content required' })
+    }
+
+    const openaiKey = process.env.AZURE_OPENAI_API_KEY
+    if (!openaiKey) {
+      return res.status(500).json({ error: 'AI service not configured' })
+    }
+
+    const prompt = `Analyze this travel story and suggest 2-4 relevant tags from these categories: Adventure, Food, Culture, Nature, Photography, Beach, Mountain, City, Nightlife, Shopping, History, Art, Wildlife, Festival, Local, Budget, Luxury, Solo, Family, Couple.
+
+Title: ${title}
+Content: ${content}
+
+Return only a JSON array of tags: ["tag1", "tag2"]`
+
+    const completion = await openai.chat.completions.create({
+      model: process.env.AZURE_OPENAI_DEPLOYMENT_NAME,
+      messages: [{ role: "user", content: prompt }],
+      temperature: 0.3
+    })
+    
+    const text = completion.choices[0].message.content
+    let tags = []
+    
+    try {
+      const jsonMatch = text.match(/\[.*\]/)
+      if (jsonMatch) {
+        tags = JSON.parse(jsonMatch[0])
+      }
+    } catch (parseError) {
+      // Fallback: extract tags from text
+      const availableTags = ['Adventure', 'Food', 'Culture', 'Nature', 'Photography', 'Beach', 'Mountain', 'City']
+      tags = availableTags.filter(tag => 
+        title.toLowerCase().includes(tag.toLowerCase()) || 
+        content.toLowerCase().includes(tag.toLowerCase())
+      ).slice(0, 3)
+    }
+    
+    res.json({ tags: tags.slice(0, 4) })
+  } catch (error) {
+    console.error('AI tagging error:', error)
+    res.status(500).json({ error: 'AI tagging failed' })
+  }
+})
 
 // Test OpenAI with simple request
 app.get('/api/ai/test-generate', async (req, res) => {

@@ -33,21 +33,7 @@ export const Layout: React.FC = () => {
   const { user, isLoading, logout } = useAuth()
   const location = useLocation()
   
-  console.log('🏠 LAYOUT: Component rendered', {
-    pathname: location.pathname,
-    hasUser: !!user,
-    isLoading
-  })
-  
-  console.log('🏠 LAYOUT: Render check', {
-    isLoading,
-    hasUser: !!user,
-    userEmail: user?.email,
-    currentPath: location.pathname
-  })
-  
   if (isLoading) {
-    console.log('⏳ LAYOUT: Still loading, showing spinner')
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary-600"></div>
@@ -57,18 +43,14 @@ export const Layout: React.FC = () => {
   
   // Redirect authenticated users away from login/register to home
   if (user && (location.pathname === '/login' || location.pathname === '/register')) {
-    console.log('➡️ LAYOUT: Authenticated user on auth page, redirecting to home')
     return <Navigate to="/" replace />
   }
   
   // Redirect unauthenticated users to login (except for public pages)
   const publicPaths = ['/login', '/register', '/role-selection']
   if (!user && !publicPaths.includes(location.pathname)) {
-    console.log('➡️ LAYOUT: Unauthenticated user on protected page, redirecting to login')
     return <Navigate to="/login" replace />
   }
-  
-  console.log('✅ LAYOUT: Rendering main content')
   
   const renderPage = () => {
     // Check if it's a place details route

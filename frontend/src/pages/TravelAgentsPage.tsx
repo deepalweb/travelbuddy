@@ -24,6 +24,10 @@ interface TravelAgent {
   phone: string
   email: string
   priceRange: string
+  responseTime?: string
+  totalTrips?: number
+  trustBadges?: string[]
+  profileCompletion?: number
 }
 
 const mockAgents: TravelAgent[] = [
@@ -33,7 +37,7 @@ const mockAgents: TravelAgent[] = [
     agency: 'Adventure Lanka Tours',
     photo: 'https://images.unsplash.com/photo-1494790108755-2616b612b47c?w=150&h=150&fit=crop&crop=face',
     location: 'Colombo, Sri Lanka',
-    specializations: ['Adventure', 'Cultural', 'Wildlife'],
+    specializations: ['Adventure & Hiking', 'Cultural Tours', 'Wildlife & Safari'],
     rating: 4.8,
     reviewCount: 127,
     languages: ['English', 'Sinhala'],
@@ -42,7 +46,11 @@ const mockAgents: TravelAgent[] = [
     description: 'Specialized in authentic Sri Lankan experiences with focus on adventure and cultural immersion.',
     phone: '+94 77 123 4567',
     email: 'sarah@adventurelanka.com',
-    priceRange: '$50-150/day'
+    priceRange: '$50-150/day',
+    responseTime: '< 1 hour',
+    totalTrips: 340,
+    trustBadges: ['Top 1% Agent', 'Highly rated by couples'],
+    profileCompletion: 95
   },
   {
     id: '2',
@@ -50,7 +58,7 @@ const mockAgents: TravelAgent[] = [
     agency: 'Island Paradise Travel',
     photo: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=150&fit=crop&crop=face',
     location: 'Kandy, Sri Lanka',
-    specializations: ['Honeymoon', 'Luxury', 'Beach'],
+    specializations: ['Honeymoon & Romance', 'Luxury & VIP', 'Beach & Coastal'],
     rating: 4.9,
     reviewCount: 89,
     languages: ['English', 'Hindi', 'Tamil'],
@@ -59,7 +67,11 @@ const mockAgents: TravelAgent[] = [
     description: 'Luxury travel specialist creating unforgettable honeymoon and beach experiences.',
     phone: '+94 81 234 5678',
     email: 'rajesh@islandparadise.lk',
-    priceRange: '$100-300/day'
+    priceRange: '$100-300/day',
+    responseTime: '< 2 hours',
+    totalTrips: 520,
+    trustBadges: ['Award Winner', 'Great for luxury trips'],
+    profileCompletion: 88
   },
   {
     id: '3',
@@ -67,7 +79,7 @@ const mockAgents: TravelAgent[] = [
     agency: 'Family Adventures LK',
     photo: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=150&h=150&fit=crop&crop=face',
     location: 'Galle, Sri Lanka',
-    specializations: ['Family', 'Educational', 'Wildlife'],
+    specializations: ['Family Travel', 'Educational Tours', 'Wildlife & Safari'],
     rating: 4.7,
     reviewCount: 156,
     languages: ['English', 'German'],
@@ -76,30 +88,45 @@ const mockAgents: TravelAgent[] = [
     description: 'Family travel expert specializing in educational and wildlife experiences for all ages.',
     phone: '+94 91 345 6789',
     email: 'emma@familyadventures.lk',
-    priceRange: '$75-200/day'
+    priceRange: '$75-200/day',
+    responseTime: '< 3 hours',
+    totalTrips: 280,
+    trustBadges: ['Great for family trips', 'Popular this month'],
+    profileCompletion: 92
   }
 ]
 
-const specializations = ['Adventure', 'Cultural', 'Family', 'Honeymoon', 'Luxury', 'Wildlife', 'Beach', 'Educational', 'Solo', 'Business']
-const locations = ['Colombo', 'Kandy', 'Galle', 'Negombo', 'Ella', 'Sigiriya', 'Anuradhapura']
-const languages = ['English', 'Sinhala', 'Tamil', 'Hindi', 'German', 'French']
+const specializations = [
+  'Adventure & Hiking', 'Cultural Tours', 'Family Travel', 'Honeymoon & Romance', 
+  'Luxury & VIP', 'Wildlife & Safari', 'Beach & Coastal', 'Photography Tours',
+  'Budget Backpacking', 'Pilgrimage Tours', 'Eco-Tourism', 'Road Trip Specialists',
+  'Digital Nomad Support', 'Educational Tours', 'Solo Travel', 'Business Travel'
+]
+const locations = ['Colombo', 'Kandy', 'Galle', 'Negombo', 'Ella', 'Sigiriya', 'Anuradhapura', 'Mirissa', 'Bentota', 'Nuwara Eliya']
+const regions = ['Western Province', 'Central Province', 'Southern Province', 'Hill Country', 'Cultural Triangle']
+const languages = ['English', 'Sinhala', 'Tamil', 'Hindi', 'German', 'French', 'Japanese', 'Chinese']
+const experienceLevels = ['1-3 years', '3-7 years', '7-10 years', '10+ years']
+const verificationTypes = ['TravelBuddy Verified', 'Government Licensed', 'Tour Guide License', 'Insurance Covered', 'Award Winner']
 
 export const TravelAgentsPage: React.FC = () => {
   const [agents, setAgents] = useState<TravelAgent[]>(mockAgents)
   const [filteredAgents, setFilteredAgents] = useState<TravelAgent[]>(mockAgents)
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedLocation, setSelectedLocation] = useState('')
+  const [selectedRegion, setSelectedRegion] = useState('')
   const [selectedSpecializations, setSelectedSpecializations] = useState<string[]>([])
   const [minRating, setMinRating] = useState(0)
   const [selectedLanguages, setSelectedLanguages] = useState<string[]>([])
+  const [selectedExperience, setSelectedExperience] = useState('')
+  const [selectedVerifications, setSelectedVerifications] = useState<string[]>([])
   const [verifiedOnly, setVerifiedOnly] = useState(false)
-  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
+  const [viewMode, setViewMode] = useState<'grid' | 'list' | 'map'>('grid')
   const [showFilters, setShowFilters] = useState(false)
   const [selectedAgent, setSelectedAgent] = useState<TravelAgent | null>(null)
 
   useEffect(() => {
     filterAgents()
-  }, [searchTerm, selectedLocation, selectedSpecializations, minRating, selectedLanguages, verifiedOnly])
+  }, [searchTerm, selectedLocation, selectedRegion, selectedSpecializations, minRating, selectedLanguages, selectedExperience, selectedVerifications, verifiedOnly])
 
   const filterAgents = () => {
     let filtered = agents.filter(agent => {
@@ -134,35 +161,86 @@ export const TravelAgentsPage: React.FC = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-teal-50 pt-20">
       {/* Hero Section */}
-      <div className="bg-gradient-to-r from-teal-600 to-blue-700 text-white py-16">
-        <div className="max-w-7xl mx-auto px-4">
+      <div className="bg-gradient-to-r from-blue-600 via-indigo-700 to-purple-800 text-white py-20 relative overflow-hidden">
+        {/* Background Pattern */}
+        <div className="absolute inset-0 opacity-10">
+          <div className="absolute top-10 left-10 w-32 h-32 border-2 border-white/20 rounded-full"></div>
+          <div className="absolute top-32 right-20 w-24 h-24 border-2 border-white/20 rounded-full"></div>
+          <div className="absolute bottom-20 left-1/4 w-16 h-16 border-2 border-white/20 rounded-full"></div>
+        </div>
+        
+        <div className="max-w-7xl mx-auto px-4 relative">
           <div className="text-center mb-8">
-            <h1 className="text-4xl lg:text-5xl font-bold mb-4">Find Travel Agents</h1>
-            <p className="text-xl text-blue-100 max-w-2xl mx-auto">
-              Connect with verified local travel experts for personalized experiences
+            <h1 className="text-5xl lg:text-6xl font-bold mb-6 bg-gradient-to-r from-white to-blue-100 bg-clip-text text-transparent">
+              Find Expert Travel Agents
+            </h1>
+            <p className="text-xl text-blue-100 max-w-3xl mx-auto mb-6">
+              Connect with 230+ verified local travel experts for personalized Sri Lankan experiences
             </p>
+            
+            {/* Stats */}
+            <div className="flex justify-center space-x-8 mb-8">
+              <div className="text-center">
+                <div className="text-2xl font-bold">230+</div>
+                <div className="text-sm text-blue-200">Verified Agents</div>
+              </div>
+              <div className="text-center">
+                <div className="text-2xl font-bold">5,000+</div>
+                <div className="text-sm text-blue-200">Successful Trips</div>
+              </div>
+              <div className="text-center">
+                <div className="text-2xl font-bold">4.8★</div>
+                <div className="text-sm text-blue-200">Average Rating</div>
+              </div>
+            </div>
           </div>
 
-          {/* Search Bar */}
+          {/* Enhanced Search Bar */}
           <div className="max-w-4xl mx-auto">
-            <div className="flex flex-col md:flex-row gap-4 bg-white/10 backdrop-blur-sm rounded-2xl p-6">
-              <div className="flex-1 relative">
-                <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-white/70" />
-                <input
-                  type="text"
-                  placeholder="Search by name or agency..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full pl-12 pr-4 py-3 bg-white/20 border border-white/30 rounded-xl text-white placeholder-white/70 focus:outline-none focus:ring-2 focus:ring-white/50"
-                />
+            <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-6">
+              <div className="flex flex-col md:flex-row gap-4">
+                <div className="flex-1 relative">
+                  <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-white/70" />
+                  <input
+                    type="text"
+                    placeholder="Try 'Honeymoon planners', 'Safari experts', or agent names..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="w-full pl-12 pr-4 py-4 bg-white/20 border border-white/30 rounded-xl text-white placeholder-white/70 focus:outline-none focus:ring-2 focus:ring-white/50 text-lg"
+                  />
+                  {/* Search Suggestions */}
+                  {searchTerm && (
+                    <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-xl shadow-xl z-10 max-h-60 overflow-y-auto">
+                      {['Honeymoon planners', 'Safari experts', 'Budget-friendly agents', 'Luxury travel specialists'].filter(s => 
+                        s.toLowerCase().includes(searchTerm.toLowerCase())
+                      ).map(suggestion => (
+                        <div key={suggestion} className="px-4 py-3 hover:bg-gray-50 cursor-pointer text-gray-700 border-b last:border-b-0"
+                             onClick={() => setSearchTerm(suggestion)}>
+                          {suggestion}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                <Button
+                  onClick={() => setShowFilters(!showFilters)}
+                  className="bg-white/20 hover:bg-white/30 border border-white/30 text-white px-8 py-4 rounded-xl text-lg font-medium"
+                >
+                  <Filter className="w-5 h-5 mr-2" />
+                  Smart Filters
+                </Button>
               </div>
-              <Button
-                onClick={() => setShowFilters(!showFilters)}
-                className="bg-white/20 hover:bg-white/30 border border-white/30 text-white px-6 py-3 rounded-xl"
-              >
-                <Filter className="w-5 h-5 mr-2" />
-                Filters
-              </Button>
+              
+              {/* Popular Searches */}
+              <div className="mt-4 flex flex-wrap gap-2">
+                <span className="text-white/70 text-sm mr-2">Popular:</span>
+                {['Adventure specialists', 'Cultural tours', 'Family-friendly', 'Luxury experiences'].map(tag => (
+                  <button key={tag} onClick={() => setSearchTerm(tag)}
+                          className="px-3 py-1 bg-white/20 hover:bg-white/30 rounded-full text-sm text-white/90 transition-colors">
+                    {tag}
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
         </div>
@@ -173,48 +251,65 @@ export const TravelAgentsPage: React.FC = () => {
         {showFilters && (
           <Card className="mb-8 border-0 shadow-lg">
             <CardContent className="p-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
                 {/* Location Filter */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Location</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">City</label>
                   <select
                     value={selectedLocation}
                     onChange={(e) => setSelectedLocation(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                   >
-                    <option value="">All Locations</option>
+                    <option value="">All Cities</option>
                     {locations.map(location => (
                       <option key={location} value={location}>{location}</option>
                     ))}
                   </select>
                 </div>
 
+                {/* Region Filter */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Region</label>
+                  <select
+                    value={selectedRegion}
+                    onChange={(e) => setSelectedRegion(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                  >
+                    <option value="">All Regions</option>
+                    {regions.map(region => (
+                      <option key={region} value={region}>{region}</option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Experience Filter */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Experience</label>
+                  <select
+                    value={selectedExperience}
+                    onChange={(e) => setSelectedExperience(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                  >
+                    <option value="">Any Experience</option>
+                    {experienceLevels.map(level => (
+                      <option key={level} value={level}>{level}</option>
+                    ))}
+                  </select>
+                </div>
+
                 {/* Rating Filter */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Minimum Rating</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Rating</label>
                   <select
                     value={minRating}
                     onChange={(e) => setMinRating(Number(e.target.value))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                   >
                     <option value={0}>Any Rating</option>
                     <option value={4}>4+ Stars</option>
                     <option value={4.5}>4.5+ Stars</option>
+                    <option value={4.8}>Top Rated (4.8+)</option>
                   </select>
-                </div>
-
-                {/* Verified Toggle */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Verification</label>
-                  <label className="flex items-center">
-                    <input
-                      type="checkbox"
-                      checked={verifiedOnly}
-                      onChange={(e) => setVerifiedOnly(e.target.checked)}
-                      className="rounded border-gray-300 text-teal-600 focus:ring-teal-500"
-                    />
-                    <span className="ml-2 text-sm text-gray-700">Verified Only</span>
-                  </label>
                 </div>
 
                 {/* View Mode Toggle */}
@@ -223,35 +318,72 @@ export const TravelAgentsPage: React.FC = () => {
                   <div className="flex rounded-lg border border-gray-300 overflow-hidden">
                     <button
                       onClick={() => setViewMode('grid')}
-                      className={`flex-1 px-3 py-2 text-sm ${viewMode === 'grid' ? 'bg-teal-600 text-white' : 'bg-white text-gray-700'}`}
+                      className={`flex-1 px-2 py-2 text-xs ${viewMode === 'grid' ? 'bg-indigo-600 text-white' : 'bg-white text-gray-700'}`}
                     >
                       <Grid className="w-4 h-4 mx-auto" />
                     </button>
                     <button
                       onClick={() => setViewMode('list')}
-                      className={`flex-1 px-3 py-2 text-sm ${viewMode === 'list' ? 'bg-teal-600 text-white' : 'bg-white text-gray-700'}`}
+                      className={`flex-1 px-2 py-2 text-xs ${viewMode === 'list' ? 'bg-indigo-600 text-white' : 'bg-white text-gray-700'}`}
                     >
                       <List className="w-4 h-4 mx-auto" />
+                    </button>
+                    <button
+                      onClick={() => setViewMode('map')}
+                      className={`flex-1 px-2 py-2 text-xs ${viewMode === 'map' ? 'bg-indigo-600 text-white' : 'bg-white text-gray-700'}`}
+                    >
+                      <Map className="w-4 h-4 mx-auto" />
                     </button>
                   </div>
                 </div>
               </div>
 
+              {/* AI Recommendation Button */}
+              <div className="mt-4 flex justify-center">
+                <Button className="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white px-6 py-2 rounded-lg">
+                  🤖 Show AI-Recommended Agents
+                </Button>
+              </div>
+
               {/* Specialization Tags */}
               <div className="mt-6">
                 <label className="block text-sm font-medium text-gray-700 mb-3">Specializations</label>
-                <div className="flex flex-wrap gap-2">
+                <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-2">
                   {specializations.map(spec => (
                     <button
                       key={spec}
                       onClick={() => toggleSpecialization(spec)}
-                      className={`px-3 py-1 rounded-full text-sm transition-colors ${
+                      className={`px-3 py-2 rounded-lg text-sm transition-colors text-center ${
                         selectedSpecializations.includes(spec)
-                          ? 'bg-teal-600 text-white'
+                          ? 'bg-indigo-600 text-white shadow-md'
                           : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                       }`}
                     >
                       {spec}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Verification Types */}
+              <div className="mt-6">
+                <label className="block text-sm font-medium text-gray-700 mb-3">Verification & Credentials</label>
+                <div className="flex flex-wrap gap-2">
+                  {verificationTypes.map(type => (
+                    <button
+                      key={type}
+                      onClick={() => {
+                        setSelectedVerifications(prev =>
+                          prev.includes(type) ? prev.filter(t => t !== type) : [...prev, type]
+                        )
+                      }}
+                      className={`px-3 py-2 rounded-lg text-sm transition-colors ${
+                        selectedVerifications.includes(type)
+                          ? 'bg-green-600 text-white shadow-md'
+                          : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                      }`}
+                    >
+                      {type}
                     </button>
                   ))}
                 </div>
@@ -267,90 +399,164 @@ export const TravelAgentsPage: React.FC = () => {
           </h2>
         </div>
 
-        {/* Agents Grid/List */}
-        <div className={viewMode === 'grid' 
-          ? 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6'
-          : 'space-y-4'
-        }>
-          {filteredAgents.map(agent => (
-            <Card key={agent.id} className="group hover:shadow-xl transition-all duration-300 cursor-pointer border-0 shadow-lg">
+        {/* Map View */}
+        {viewMode === 'map' && (
+          <div className="mb-8">
+            <Card className="border-0 shadow-lg">
               <CardContent className="p-6">
-                <div className="flex items-start space-x-4">
-                  <div className="relative">
-                    <img
-                      src={agent.photo}
-                      alt={agent.name}
-                      className="w-16 h-16 rounded-full object-cover"
-                    />
-                    {agent.verified && (
-                      <div className="absolute -bottom-1 -right-1 w-6 h-6 bg-green-500 rounded-full flex items-center justify-center">
-                        <Award className="w-3 h-3 text-white" />
-                      </div>
-                    )}
-                  </div>
-                  
-                  <div className="flex-1">
-                    <h3 className="font-bold text-gray-900 group-hover:text-teal-600 transition-colors">
-                      {agent.name}
-                    </h3>
-                    <p className="text-sm text-gray-600 mb-2">{agent.agency}</p>
-                    
-                    <div className="flex items-center space-x-4 text-sm text-gray-500 mb-3">
-                      <div className="flex items-center">
-                        <MapPin className="w-4 h-4 mr-1" />
-                        {agent.location}
-                      </div>
-                      <div className="flex items-center">
-                        <Star className="w-4 h-4 mr-1 text-yellow-500 fill-current" />
-                        {agent.rating} ({agent.reviewCount})
-                      </div>
-                    </div>
-
-                    <div className="flex flex-wrap gap-1 mb-3">
-                      {agent.specializations.slice(0, 3).map(spec => (
-                        <span key={spec} className="px-2 py-1 bg-teal-100 text-teal-700 text-xs rounded-full">
-                          {spec}
-                        </span>
-                      ))}
-                    </div>
-
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center space-x-2 text-sm text-gray-500">
-                        <Languages className="w-4 h-4" />
-                        <span>{agent.languages.join(', ')}</span>
-                      </div>
-                      <div className="flex space-x-2">
-                        <Button size="sm" variant="outline" className="text-xs">
-                          <MessageCircle className="w-3 h-3 mr-1" />
-                          Contact
-                        </Button>
-                        <Button 
-                          size="sm" 
-                          className="text-xs bg-teal-600 hover:bg-teal-700"
-                          onClick={() => setSelectedAgent(agent)}
-                        >
-                          View Profile
-                        </Button>
-                      </div>
-                    </div>
-                  </div>
+                <div className="bg-gradient-to-r from-blue-100 to-indigo-100 rounded-lg p-8 text-center">
+                  <Map className="w-16 h-16 mx-auto mb-4 text-indigo-600" />
+                  <h3 className="text-xl font-bold text-gray-900 mb-2">Interactive Map View</h3>
+                  <p className="text-gray-600 mb-4">See agents on an interactive map with location pins</p>
+                  <Button className="bg-indigo-600 hover:bg-indigo-700 text-white">
+                    Coming Soon - Map Integration
+                  </Button>
                 </div>
               </CardContent>
             </Card>
-          ))}
-        </div>
+          </div>
+        )}
+
+        {/* Agents Grid/List */}
+        {viewMode !== 'map' && (
+          <div className={viewMode === 'grid' 
+            ? 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6'
+            : 'space-y-4'
+          }>
+            {filteredAgents.map(agent => (
+              <Card key={agent.id} className="group hover:shadow-xl transition-all duration-300 cursor-pointer border-0 shadow-lg overflow-hidden">
+                <CardContent className="p-6">
+                <div className="space-y-4">
+                  {/* Header with photo and basic info */}
+                  <div className="flex items-start space-x-4">
+                    <div className="relative">
+                      <img
+                        src={agent.photo}
+                        alt={agent.name}
+                        className="w-16 h-16 rounded-full object-cover border-2 border-white shadow-md"
+                      />
+                      {agent.verified && (
+                        <div className="absolute -bottom-1 -right-1 w-6 h-6 bg-green-500 rounded-full flex items-center justify-center border-2 border-white">
+                          <Award className="w-3 h-3 text-white" />
+                        </div>
+                      )}
+                      {agent.profileCompletion && agent.profileCompletion > 90 && (
+                        <div className="absolute -top-1 -left-1 w-6 h-6 bg-blue-500 rounded-full flex items-center justify-center border-2 border-white">
+                          <span className="text-xs text-white font-bold">✓</span>
+                        </div>
+                      )}
+                    </div>
+                    
+                    <div className="flex-1">
+                      <div className="flex items-center justify-between mb-1">
+                        <h3 className="font-bold text-gray-900 group-hover:text-indigo-600 transition-colors">
+                          {agent.name}
+                        </h3>
+                        <span className="text-xs text-gray-500">{agent.experience} years exp</span>
+                      </div>
+                      <p className="text-sm text-gray-600 mb-2">{agent.agency}</p>
+                      
+                      <div className="grid grid-cols-2 gap-2 text-xs text-gray-500 mb-3">
+                        <div className="flex items-center">
+                          <MapPin className="w-3 h-3 mr-1" />
+                          {agent.location.split(',')[0]}
+                        </div>
+                        <div className="flex items-center">
+                          <Star className="w-3 h-3 mr-1 text-yellow-500 fill-current" />
+                          {agent.rating} ({agent.reviewCount})
+                        </div>
+                        <div className="flex items-center">
+                          <Clock className="w-3 h-3 mr-1" />
+                          {agent.responseTime}
+                        </div>
+                        <div className="flex items-center">
+                          <Users className="w-3 h-3 mr-1" />
+                          {agent.totalTrips}+ trips
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Trust badges */}
+                  {agent.trustBadges && agent.trustBadges.length > 0 && (
+                    <div className="flex flex-wrap gap-1">
+                      {agent.trustBadges.map(badge => (
+                        <span key={badge} className="px-2 py-1 bg-gradient-to-r from-purple-100 to-indigo-100 text-purple-700 text-xs rounded-full font-medium">
+                          ⭐ {badge}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Specializations */}
+                  <div className="flex flex-wrap gap-1">
+                    {agent.specializations.slice(0, 3).map(spec => (
+                      <span key={spec} className="px-2 py-1 bg-indigo-100 text-indigo-700 text-xs rounded-lg">
+                        {spec}
+                      </span>
+                    ))}
+                    {agent.specializations.length > 3 && (
+                      <span className="px-2 py-1 bg-gray-100 text-gray-600 text-xs rounded-lg">
+                        +{agent.specializations.length - 3} more
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Languages and actions */}
+                  <div className="flex items-center justify-between pt-2 border-t border-gray-100">
+                    <div className="flex items-center space-x-2 text-xs text-gray-500">
+                      <Languages className="w-3 h-3" />
+                      <span>{agent.languages.slice(0, 2).join(', ')}</span>
+                      {agent.languages.length > 2 && <span>+{agent.languages.length - 2}</span>}
+                    </div>
+                    <div className="flex space-x-2">
+                      <Button size="sm" variant="outline" className="text-xs px-3 py-1">
+                        <MessageCircle className="w-3 h-3 mr-1" />
+                        Chat
+                      </Button>
+                      <Button 
+                        size="sm" 
+                        className="text-xs px-3 py-1 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700"
+                        onClick={() => setSelectedAgent(agent)}
+                      >
+                        View Profile
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        )}
 
         {/* CTA Section */}
-        <div className="mt-16 text-center bg-gradient-to-r from-teal-50 to-blue-50 rounded-2xl p-8">
-          <h3 className="text-2xl font-bold text-gray-900 mb-4">Are you a Travel Agent?</h3>
-          <p className="text-gray-600 mb-6 max-w-2xl mx-auto">
-            Join our network of verified travel professionals and connect with travelers looking for authentic experiences.
-          </p>
-          <Link to="/agent-registration">
-            <Button className="bg-gradient-to-r from-teal-600 to-blue-600 hover:from-teal-700 hover:to-blue-700 text-white px-8 py-3 rounded-xl">
-              Register as Agent
-            </Button>
-          </Link>
+        <div className="mt-16 text-center bg-gradient-to-r from-indigo-50 via-purple-50 to-blue-50 rounded-2xl p-12 border border-indigo-100">
+          <div className="max-w-3xl mx-auto">
+            <h3 className="text-3xl font-bold text-gray-900 mb-4">Join Our Elite Agent Network</h3>
+            <p className="text-lg text-gray-600 mb-8">
+              Become part of Sri Lanka's premier travel agent community. Connect with 1000+ travelers monthly and grow your business with verified leads.
+            </p>
+            <div className="flex flex-col sm:flex-row gap-4 justify-center items-center mb-6">
+              <div className="flex items-center text-sm text-gray-600">
+                <Award className="w-5 h-5 mr-2 text-indigo-600" />
+                Verified Professional Status
+              </div>
+              <div className="flex items-center text-sm text-gray-600">
+                <Users className="w-5 h-5 mr-2 text-indigo-600" />
+                Direct Customer Connections
+              </div>
+              <div className="flex items-center text-sm text-gray-600">
+                <DollarSign className="w-5 h-5 mr-2 text-indigo-600" />
+                Increase Your Revenue
+              </div>
+            </div>
+            <Link to="/travel-agent-registration">
+              <Button className="bg-gradient-to-r from-indigo-600 via-purple-600 to-blue-600 hover:from-indigo-700 hover:via-purple-700 hover:to-blue-700 text-white px-10 py-4 rounded-xl text-lg font-semibold shadow-lg hover:shadow-xl transition-all">
+                🚀 Register as Travel Agent
+              </Button>
+            </Link>
+          </div>
         </div>
 
         {/* Agent Profile Modal */}

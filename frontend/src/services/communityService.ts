@@ -8,10 +8,17 @@ interface Story {
     profilePicture?: string;
   };
   location: string;
+  place?: {
+    placeId: string;
+    name: string;
+    coordinates: { lat: number; lng: number };
+    address: string;
+  };
   likes: number;
   comments: number;
   createdAt: string;
   isLiked?: boolean;
+  tags?: string[];
 }
 
 interface TopTraveler {
@@ -25,7 +32,14 @@ interface CreateStoryData {
   title: string;
   content: string;
   location: string;
+  place?: {
+    placeId: string;
+    name: string;
+    coordinates: { lat: number; lng: number };
+    address: string;
+  };
   images: string[];
+  tags?: string[];
 }
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3001/api'
@@ -42,10 +56,12 @@ const transformPost = (post: any): Story => {
       profilePicture: post.profilePicture || post.author?.profilePicture
     },
     location: post.location || post.content?.location || 'Unknown Location',
+    place: post.place,
     likes: post.engagement?.likes || post.likes || 0,
     comments: post.engagement?.comments || post.comments || 0,
     createdAt: post.createdAt || new Date().toISOString(),
-    isLiked: false // Will be determined by user's like status
+    isLiked: false, // Will be determined by user's like status
+    tags: post.tags || []
   }
 }
 
@@ -119,12 +135,15 @@ export const communityService = {
 
   async createStory(storyData: CreateStoryData): Promise<Story> {
     const postData = {
+      userId: '507f1f77bcf86cd799439011', // Valid ObjectId
       content: {
         title: storyData.title,
         text: storyData.content,
         images: storyData.images
       },
       location: storyData.location,
+      place: storyData.place,
+      tags: storyData.tags || [],
       username: 'You',
       moderationStatus: 'approved',
       engagement: {
@@ -136,8 +155,7 @@ export const communityService = {
     const response = await fetch(`${API_BASE}/posts/community`, {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json',
-        'x-user-id': '507f1f77bcf86cd799439011'
+        'Content-Type': 'application/json'
       },
       body: JSON.stringify(postData)
     })
@@ -156,9 +174,9 @@ export const communityService = {
     const response = await fetch(`${API_BASE}/posts/${storyId}/like`, {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json',
+        'Content-Type': 'application/json'
       },
-      body: JSON.stringify({ userId: 'current-user' }) // This should come from auth context
+      body: JSON.stringify({ userId: 'current-user' })
     })
     
     if (!response.ok) throw new Error('Failed to like story')
@@ -190,5 +208,24 @@ export const communityService = {
     })
     if (!response.ok) throw new Error('Failed to add comment')
     return response.json()
+  },
+
+  async generateAITags(title: string, content: string): Promise<string[]> {
+    try {
+      const response = await fetch(`${API_BASE}/ai/generate-tags`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ title, content })
+      })
+      
+      if (!response.ok) throw new Error('AI tagging failed')
+      const data = await response.json()
+      return data.tags || []
+    } catch (error) {
+      console.error('AI tagging error:', error)
+      return []
+    }
   }
 }

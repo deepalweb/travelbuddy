@@ -4,6 +4,7 @@ import { useAuth } from '../contexts/AuthContext'
 import AdminDashboard from './admin/AdminDashboard'
 import UserManagement from './admin/UserManagement'
 import ContentModeration from './admin/ContentModeration'
+import AgentApproval from './admin/AgentApproval'
 
 export const AdminLayout: React.FC = () => {
   const { user } = useAuth()
@@ -24,6 +25,8 @@ export const AdminLayout: React.FC = () => {
         return <UserManagement />
       case 'content':
         return <ContentModeration />
+      case 'agents':
+        return <AgentApproval />
       default:
         return <AdminDashboard />
     }
@@ -43,6 +46,7 @@ export const AdminLayout: React.FC = () => {
             { id: 'dashboard', label: 'Dashboard' },
             { id: 'users', label: 'User Management' },
             { id: 'content', label: 'Content Moderation' },
+            { id: 'agents', label: 'Agent Approvals' },
           ].map((item) => (
             <button
               key={item.id}

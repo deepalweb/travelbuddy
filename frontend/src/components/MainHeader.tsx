@@ -262,10 +262,8 @@ export const MainHeader: React.FC = () => {
             {/* User Profile / Login */}
             {user ? (
               <div className="relative">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setIsProfileOpen(!isProfileOpen)}
+                <Link
+                  to="/profile"
                   className={`flex items-center space-x-3 px-3 py-2 rounded-xl transition-all duration-200 ${
                     isScrolled ? 'text-gray-700 hover:bg-gray-100' : 'text-white hover:bg-white/10'
                   }`}
@@ -287,104 +285,9 @@ export const MainHeader: React.FC = () => {
                       {user.tier || 'Free'} Plan
                     </p>
                   </div>
-                  <ChevronDown className="w-4 h-4" />
-                </Button>
+                </Link>
 
-                {/* Enhanced Profile Dropdown */}
-                {isProfileOpen && (
-                  <div className="absolute right-0 mt-2 w-64 bg-white rounded-xl shadow-xl border border-gray-200 py-3 z-50">
-                    {/* User Info Header */}
-                    <div className="px-4 py-3 border-b border-gray-100">
-                      <div className="flex items-center space-x-3">
-                        <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-500 rounded-full flex items-center justify-center">
-                          {user.profilePicture ? (
-                            <img src={user.profilePicture} alt="Profile" className="w-full h-full rounded-full object-cover" />
-                          ) : (
-                            <User className="w-6 h-6 text-white" />
-                          )}
-                        </div>
-                        <div>
-                          <p className="font-semibold text-gray-900">{user.username || user.email?.split('@')[0] || 'User'}</p>
-                          <p className="text-sm text-gray-500">{user.email}</p>
-                          <span className="inline-block px-2 py-1 text-xs bg-blue-100 text-blue-700 rounded-full mt-1">
-                            {user.tier || 'Free'} Plan
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                    
-                    {/* Menu Items */}
-                    <div className="py-2">
-                      <Link
-                        to="/profile"
-                        className="flex items-center space-x-3 px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
-                        onClick={() => setIsProfileOpen(false)}
-                      >
-                        <User className="w-4 h-4" />
-                        <span>Edit Profile</span>
-                      </Link>
-                      <Link
-                        to="/trips"
-                        className="flex items-center space-x-3 px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
-                        onClick={() => setIsProfileOpen(false)}
-                      >
-                        <MapPin className="w-4 h-4" />
-                        <span>My Trips</span>
-                      </Link>
-                      <Link
-                        to="/favorites"
-                        className="flex items-center space-x-3 px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
-                        onClick={() => setIsProfileOpen(false)}
-                      >
-                        <Heart className="w-4 h-4" />
-                        <span>Favorites</span>
-                      </Link>
-                      <Link
-                        to="/preferences"
-                        className="flex items-center space-x-3 px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
-                        onClick={() => setIsProfileOpen(false)}
-                      >
-                        <Globe className="w-4 h-4" />
-                        <span>Travel Preferences</span>
-                      </Link>
-                      <Link
-                        to="/notifications"
-                        className="flex items-center space-x-3 px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
-                        onClick={() => setIsProfileOpen(false)}
-                      >
-                        <Bell className="w-4 h-4" />
-                        <span>Notifications</span>
-                      </Link>
-                      <Link
-                        to="/settings"
-                        className="flex items-center space-x-3 px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
-                        onClick={() => setIsProfileOpen(false)}
-                      >
-                        <Settings className="w-4 h-4" />
-                        <span>Settings & Privacy</span>
-                      </Link>
-                      {(user?.role === 'admin' || user?.isAdmin) && (
-                        <Link
-                          to="/admin"
-                          className="flex items-center space-x-3 px-4 py-3 text-sm text-purple-700 hover:bg-purple-50 transition-colors"
-                          onClick={() => setIsProfileOpen(false)}
-                        >
-                          <Settings className="w-4 h-4" />
-                          <span>Admin Panel</span>
-                        </Link>
-                      )}
-                    </div>
-                    
-                    <hr className="my-2" />
-                    <button
-                      onClick={handleLogout}
-                      className="flex items-center space-x-3 px-4 py-3 text-sm text-red-600 hover:bg-red-50 w-full text-left transition-colors"
-                    >
-                      <LogOut className="w-4 h-4" />
-                      <span>Logout</span>
-                    </button>
-                  </div>
-                )}
+
               </div>
             ) : (
               <div className="flex items-center space-x-3">

@@ -1,5 +1,6 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { Badge } from '../Badge'
+import TransportProviderDetails from './TransportProviderDetails'
 
 interface TransportApplication {
   id: string
@@ -16,62 +17,94 @@ interface TransportApplication {
 }
 
 export default function TransportApproval() {
-  const [applications, setApplications] = useState<TransportApplication[]>([
-    {
-      id: '1',
-      companyName: 'City Express Transport',
-      ownerName: 'John Smith',
-      email: 'john@cityexpress.com',
-      phone: '+1-555-0123',
-      vehicleType: 'Bus',
-      licenseNumber: 'DL123456789',
-      registrationNumber: 'ABC-1234',
-      submittedDate: '2024-01-15',
-      status: 'pending',
-      documents: ['license.pdf', 'registration.pdf', 'insurance.pdf']
-    },
-    {
-      id: '2',
-      companyName: 'Metro Taxi Service',
-      ownerName: 'Sarah Johnson',
-      email: 'sarah@metrotaxi.com',
-      phone: '+1-555-0456',
-      vehicleType: 'Taxi',
-      licenseNumber: 'DL987654321',
-      registrationNumber: 'XYZ-5678',
-      submittedDate: '2024-01-14',
-      status: 'pending',
-      documents: ['license.pdf', 'registration.pdf']
-    },
-    {
-      id: '3',
-      companyName: 'Green Shuttle Co',
-      ownerName: 'Mike Wilson',
-      email: 'mike@greenshuttle.com',
-      phone: '+1-555-0789',
-      vehicleType: 'Van',
-      licenseNumber: 'DL456789123',
-      registrationNumber: 'GRN-9012',
-      submittedDate: '2024-01-13',
-      status: 'approved',
-      documents: ['license.pdf', 'registration.pdf', 'insurance.pdf', 'inspection.pdf']
-    }
-  ])
+  const [applications, setApplications] = useState<TransportApplication[]>([])
+  const [loading, setLoading] = useState(true)
+  const [selectedProviderId, setSelectedProviderId] = useState<string | null>(null)
 
-  const handleApprove = (id: string) => {
-    setApplications(prev => 
-      prev.map(app => 
-        app.id === id ? { ...app, status: 'approved' as const } : app
-      )
-    )
+  useEffect(() => {
+    fetchApplications()
+  }, [])
+
+  const fetchApplications = async () => {
+    try {
+      const response = await fetch('http://localhost:3001/api/transport-providers/admin/applications')
+      const data = await response.json()
+      
+      console.log('API Response:', response.status, response.ok)
+      console.log('Raw API data:', data)
+      console.log('Applications array:', data.applications)
+      console.log('First application:', data.applications?.[0])
+      
+      if (response.ok && data.applications) {
+        // Transform API data to match component interface
+        const transformedData = data.applications.map((app: any) => ({
+          id: app._id || app.providerId || app.id,
+          companyName: app.companyName,
+          ownerName: app.ownerName,
+          email: app.email,
+          phone: app.phone,
+          vehicleType: Array.isArray(app.vehicleTypes) ? app.vehicleTypes.join(', ') : app.vehicleTypes,
+          licenseNumber: app.licenseNumber,
+          registrationNumber: app.licenseNumber,
+          submittedDate: app.registrationDate || app.submittedDate,
+          status: app.verificationStatus || app.status,
+          documents: app.documents || []
+        }))
+        
+        console.log('Transformed applications:', transformedData)
+        setApplications(transformedData)
+      } else {
+        throw new Error('Failed to fetch applications')
+      }
+    } catch (error) {
+      console.error('Failed to fetch applications:', error)
+      setApplications([])
+    } finally {
+      setLoading(false)
+    }
   }
 
-  const handleReject = (id: string) => {
-    setApplications(prev => 
-      prev.map(app => 
-        app.id === id ? { ...app, status: 'rejected' as const } : app
-      )
-    )
+  const handleApprove = async (id: string) => {
+    try {
+      const response = await fetch(`http://localhost:3001/api/transport-providers/admin/approve/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'approve', notes: 'Application approved by admin' })
+      })
+      
+      if (response.ok) {
+        setApplications(prev => 
+          prev.map(app => 
+            app.id === id ? { ...app, status: 'approved' as const } : app
+          )
+        )
+      }
+    } catch (error) {
+      console.error('Approval failed:', error)
+    }
+  }
+
+  const handleReject = async (id: string) => {
+    const reason = prompt('Reason for rejection:')
+    if (!reason) return
+    
+    try {
+      const response = await fetch(`http://localhost:3001/api/transport-providers/admin/approve/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'reject', notes: reason })
+      })
+      
+      if (response.ok) {
+        setApplications(prev => 
+          prev.map(app => 
+            app.id === id ? { ...app, status: 'rejected' as const } : app
+          )
+        )
+      }
+    } catch (error) {
+      console.error('Rejection failed:', error)
+    }
   }
 
   const getStatusBadge = (status: string) => {
@@ -88,6 +121,15 @@ export default function TransportApproval() {
   }
 
   const pendingCount = applications.filter(app => app.status === 'pending').length
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+        <span className="ml-2 text-gray-600">Loading transport applications...</span>
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-6">
@@ -144,9 +186,10 @@ export default function TransportApproval() {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="space-y-1">
-                      {app.documents.map((doc, index) => (
-                        <div key={index} className="text-sm text-blue-600 hover:text-blue-800 cursor-pointer">
-                          📄 {doc}
+                      {(app.documents || []).map((doc, index) => (
+                        <div key={index} className="text-sm text-blue-600 hover:text-blue-800 cursor-pointer"
+                             onClick={() => window.open(`/api/documents/${doc}`, '_blank')}>
+                          📄 {String(doc)}
                         </div>
                       ))}
                     </div>
@@ -160,14 +203,23 @@ export default function TransportApproval() {
                         <button
                           onClick={() => handleApprove(app.id)}
                           className="text-green-600 hover:text-green-900 bg-green-50 hover:bg-green-100 px-3 py-1 rounded-md transition-colors"
+                          title="Approve application and activate provider account"
                         >
                           ✅ Approve
                         </button>
                         <button
                           onClick={() => handleReject(app.id)}
                           className="text-red-600 hover:text-red-900 bg-red-50 hover:bg-red-100 px-3 py-1 rounded-md transition-colors"
+                          title="Reject application with reason"
                         >
                           ❌ Reject
+                        </button>
+                        <button
+                          onClick={() => setSelectedProviderId(app.id)}
+                          className="text-blue-600 hover:text-blue-900 bg-blue-50 hover:bg-blue-100 px-3 py-1 rounded-md transition-colors"
+                          title="View full application details"
+                        >
+                          👁️ Details
                         </button>
                       </div>
                     )}
@@ -208,6 +260,26 @@ export default function TransportApproval() {
           </div>
         </div>
       </div>
+
+      {/* Details Modal */}
+      {selectedProviderId && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="sticky top-0 bg-white border-b px-6 py-4 flex justify-between items-center">
+              <h2 className="text-xl font-semibold">Provider Details</h2>
+              <button
+                onClick={() => setSelectedProviderId(null)}
+                className="text-gray-500 hover:text-gray-700"
+              >
+                ✕
+              </button>
+            </div>
+            <div className="p-6">
+              <TransportProviderDetails providerId={selectedProviderId} onClose={() => setSelectedProviderId(null)} />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

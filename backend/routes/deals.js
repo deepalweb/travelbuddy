@@ -3,6 +3,19 @@ import mongoose from 'mongoose';
 
 const router = express.Router();
 
+// Add CORS middleware for deals routes
+router.use((req, res, next) => {
+  res.header('Access-Control-Allow-Origin', req.headers.origin || '*');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, x-user-id, x-firebase-uid');
+  res.header('Access-Control-Allow-Credentials', 'true');
+  
+  if (req.method === 'OPTIONS') {
+    return res.sendStatus(200);
+  }
+  next();
+});
+
 // Deal Schema (if not already defined in server.js)
 const dealSchema = new mongoose.Schema({
   title: String,
@@ -35,6 +48,14 @@ const dealSchema = new mongoose.Schema({
   startsAt: { type: Date },
   endsAt: { type: Date },
   merchantId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+  contactInfo: {
+    website: String,
+    phone: String,
+    whatsapp: String,
+    facebook: String,
+    instagram: String,
+    email: String
+  },
   createdAt: { type: Date, default: Date.now }
 });
 

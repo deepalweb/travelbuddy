@@ -1,6 +1,7 @@
 import express from 'express';
 import fetch from 'node-fetch';
 import OpenAI from 'openai';
+import { requireSubscription } from '../middleware/subscriptionCheck.js';
 
 const router = express.Router();
 
@@ -273,7 +274,7 @@ function mergeGoogleDataWithAI(googlePlaces, aiItinerary) {
 }
 
 // Main endpoint: Generate AI trip using Google Places + AI
-router.post('/generate', async (req, res) => {
+router.post('/generate', requireSubscription('aiTripGeneration'), async (req, res) => {
   try {
     // Validate environment variables
     if (!process.env.GOOGLE_PLACES_API_KEY) {

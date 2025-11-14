@@ -42,6 +42,9 @@ export default function BusinessManagement() {
 
   useEffect(() => {
     fetchDeals()
+    // Auto-refresh every 5 seconds to show new deals
+    const interval = setInterval(fetchDeals, 5000)
+    return () => clearInterval(interval)
   }, [])
 
   const fetchDeals = async () => {
@@ -143,10 +146,15 @@ export default function BusinessManagement() {
           <p className="text-gray-600">Manage business partnerships and promotional deals</p>
         </div>
         
-        <Button onClick={() => setShowCreateModal(true)}>
-          <Plus size={16} className="mr-2" />
-          Create Deal
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={fetchDeals}>
+            Refresh
+          </Button>
+          <Button onClick={() => setShowCreateModal(true)}>
+            <Plus size={16} className="mr-2" />
+            Create Deal
+          </Button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">

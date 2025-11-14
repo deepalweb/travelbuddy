@@ -878,4 +878,71 @@ function _getFallbackPhrases(language, category) {
   ];
 }
 
+// AI Auto-tagging for community stories
+router.post('/generate-tags', async (req, res) => {
+  try {
+    const { title, content } = req.body
+    if (!title || !content) {
+      return res.status(400).json({ error: 'Title and content required' })
+    }
+
+    if (!AZURE_OPENAI_API_KEY) {
+      return res.status(500).json({ error: 'AI service not configured' })
+    }
+
+    const prompt = `Analyze this travel story and suggest 2-4 relevant tags from these categories: Adventure, Food, Culture, Nature, Photography, Beach, Mountain, City, Nightlife, Shopping, History, Art, Wildlife, Festival, Local, Budget, Luxury, Solo, Family, Couple.
+
+Title: ${title}
+Content: ${content}
+
+Return only a JSON array of tags: ["tag1", "tag2"]`
+
+    const response = await fetch(
+      `${AZURE_OPENAI_ENDPOINT}/openai/deployments/${AZURE_OPENAI_DEPLOYMENT_NAME}/chat/completions?api-version=${AZURE_API_VERSION}`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'api-key': AZURE_OPENAI_API_KEY,
+        },
+        body: JSON.stringify({
+          messages: [
+            { role: 'system', content: 'You are a travel content expert. Always respond with valid JSON only.' },
+            { role: 'user', content: prompt }
+          ],
+          max_tokens: 200,
+          temperature: 0.3
+        })
+      }
+    )
+    
+    if (!response.ok) {
+      throw new Error(`Azure AI API failed: ${response.status}`)
+    }
+
+    const data = await response.json()
+    const text = data.choices[0].message.content
+    let tags = []
+    
+    try {
+      const jsonMatch = text.match(/\[.*\]/)
+      if (jsonMatch) {
+        tags = JSON.parse(jsonMatch[0])
+      }
+    } catch (parseError) {
+      // Fallback: extract tags from text
+      const availableTags = ['Adventure', 'Food', 'Culture', 'Nature', 'Photography', 'Beach', 'Mountain', 'City']
+      tags = availableTags.filter(tag => 
+        title.toLowerCase().includes(tag.toLowerCase()) || 
+        content.toLowerCase().includes(tag.toLowerCase())
+      ).slice(0, 3)
+    }
+    
+    res.json({ tags: tags.slice(0, 4) })
+  } catch (error) {
+    console.error('AI tagging error:', error)
+    res.status(500).json({ error: 'AI tagging failed' })
+  }
+})
+
 export default router;

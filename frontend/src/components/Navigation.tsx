@@ -1,10 +1,11 @@
-import React from 'react'
+import React, { useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
-import { Search, Bell, Home, Compass, Tag, Users, User, LogOut, Map } from 'lucide-react'
+import { Search, Bell, Home, Compass, Tag, Users, User, LogOut, Map, Crown } from 'lucide-react'
 import { useApp } from '../contexts/AppContext'
 import { useAuth } from '../contexts/AuthContext'
 import { Avatar } from './Avatar'
 import { Badge } from './Badge'
+import { SubscriptionModal } from './SubscriptionModal'
 import { cn } from '../lib/utils'
 
 const navItems = [
@@ -13,6 +14,7 @@ const navItems = [
   { id: 'trips', label: 'Trip Planning', icon: Map, path: '/trips' },
   { id: 'deals', label: 'Deals', icon: Tag, path: '/deals' },
   { id: 'community', label: 'Community', icon: Users, path: '/community' },
+  { id: 'subscription', label: 'Plans', icon: Crown, path: '/subscription' },
   { id: 'profile', label: 'Profile', icon: User, path: '/profile' }
 ]
 
@@ -73,6 +75,7 @@ export const TopNavigation: React.FC = () => {
 
 export const BottomNavigation: React.FC = () => {
   const location = useLocation()
+  const [showSubscriptionModal, setShowSubscriptionModal] = useState(false)
   
   return (
     <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 px-4 py-2 z-50">
@@ -80,6 +83,22 @@ export const BottomNavigation: React.FC = () => {
         {navItems.map((item) => {
           const Icon = item.icon
           const isActive = location.pathname === item.path
+          
+          if (item.id === 'subscription') {
+            return (
+              <button
+                key={item.id}
+                onClick={() => setShowSubscriptionModal(true)}
+                className={cn(
+                  'flex flex-col items-center space-y-1 py-2 px-3 rounded-lg transition-colors min-w-[60px]',
+                  'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+                )}
+              >
+                <Icon className="w-5 h-5" />
+                <span className="text-xs font-medium">{item.label}</span>
+              </button>
+            )
+          }
           
           return (
             <Link
@@ -98,12 +117,18 @@ export const BottomNavigation: React.FC = () => {
           )
         })}
       </div>
+      
+      <SubscriptionModal 
+        isOpen={showSubscriptionModal} 
+        onClose={() => setShowSubscriptionModal(false)} 
+      />
     </nav>
   )
 }
 
 export const SideNavigation: React.FC = () => {
   const location = useLocation()
+  const [showSubscriptionModal, setShowSubscriptionModal] = useState(false)
   
   return (
     <nav className="hidden md:flex fixed left-0 top-16 bottom-0 w-64 bg-white border-r border-gray-200 flex-col p-4 z-40">
@@ -111,6 +136,22 @@ export const SideNavigation: React.FC = () => {
         {navItems.map((item) => {
           const Icon = item.icon
           const isActive = location.pathname === item.path
+          
+          if (item.id === 'subscription') {
+            return (
+              <button
+                key={item.id}
+                onClick={() => setShowSubscriptionModal(true)}
+                className={cn(
+                  'flex items-center space-x-3 w-full px-4 py-3 rounded-xl transition-colors text-left',
+                  'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+                )}
+              >
+                <Icon className="w-5 h-5" />
+                <span>{item.label}</span>
+              </button>
+            )
+          }
           
           return (
             <Link
@@ -129,6 +170,11 @@ export const SideNavigation: React.FC = () => {
           )
         })}
       </div>
+      
+      <SubscriptionModal 
+        isOpen={showSubscriptionModal} 
+        onClose={() => setShowSubscriptionModal(false)} 
+      />
     </nav>
   )
 }

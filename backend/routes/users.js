@@ -65,7 +65,10 @@ router.post('/sync', bypassAuth, async (req, res) => {
         'interests', 'budgetPreferences', 'showBirthdayToOthers', 
         'showLocationToOthers', 'travelStyle', 'subscriptionStatus', 'tier',
         'trialEndDate', 'subscriptionEndDate', 'homeCurrency', 'language',
-        'selectedInterests', 'hasCompletedWizard'
+        'selectedInterests', 'hasCompletedWizard', 'fullName', 'phone',
+        'homeCity', 'emailVerified', 'phoneVerified', 'twoFactorEnabled',
+        'aiGenerationsUsed', 'profileViews', 'clientsServed', 'clientSatisfaction',
+        'agentRating', 'ridesCompleted', 'fleetUsage', 'driverRating', 'businessRating'
       ];
       
       let changed = false;
@@ -120,7 +123,7 @@ router.get('/profile', bypassAuth, async (req, res) => {
   }
 });
 
-// Update user profile
+// Update user profile with extended fields
 router.put('/profile', bypassAuth, async (req, res) => {
   try {
     console.log('🔄 Profile update request (PUT):', { user: req.user, body: req.body });
@@ -128,9 +131,23 @@ router.put('/profile', bypassAuth, async (req, res) => {
     const { uid } = req.user;
     const updates = req.body;
 
+    // Allowed fields for update
+    const allowedFields = [
+      'username', 'email', 'fullName', 'phone', 'bio', 'homeCity', 
+      'languages', 'profilePicture', 'travelStyle', 'interests',
+      'emailVerified', 'phoneVerified', 'twoFactorEnabled'
+    ];
+
+    const filteredUpdates = {};
+    Object.keys(updates).forEach(key => {
+      if (allowedFields.includes(key)) {
+        filteredUpdates[key] = updates[key];
+      }
+    });
+
     const user = await User.findOneAndUpdate(
       { firebaseUid: uid },
-      { $set: updates },
+      { $set: filteredUpdates },
       { new: true }
     );
 
@@ -197,7 +214,7 @@ router.delete('/profile', bypassAuth, async (req, res) => {
   }
 });
 
-// Get user stats  
+// Get user stats with role-based data
 router.get('/:id/stats', bypassAuth, async (req, res) => {
   try {
     const { uid } = req.user;
@@ -214,6 +231,7 @@ router.get('/:id/stats', bypassAuth, async (req, res) => {
       Itinerary.countDocuments({ userId: user._id })
     ]);
 
+    // Base stats
     const stats = {
       totalTrips: tripCount,
       totalPosts: postCount,
@@ -221,12 +239,30 @@ router.get('/:id/stats', bypassAuth, async (req, res) => {
       totalItineraries: itineraryCount,
       memberSince: user.createdAt,
       profileType: user.profileType || 'traveler',
-      tier: user.tier || 'free',
+      tier: user.tier || 'explorer',
       subscriptionStatus: user.subscriptionStatus || 'none',
       placesVisited: favoriteCount,
       badgesEarned: _calculateBadges(tripCount, postCount, favoriteCount),
-      travelScore: _calculateTravelScore(tripCount, postCount, favoriteCount, itineraryCount)
+      travelScore: _calculateTravelScore(tripCount, postCount, favoriteCount, itineraryCount),
+      aiGenerations: user.aiGenerationsUsed || 0,
+      profileViews: user.profileViews || 0
     };
+
+    // Role-based stats
+    const role = user.activeRole || user.role || 'user';
+    if (role === 'merchant') {
+      const dealCount = await Deal.countDocuments({ merchantId: user._id });
+      stats.dealsCreated = dealCount;
+      stats.businessRating = user.businessRating || 4.8;
+    } else if (role === 'travel_agent') {
+      stats.clientsServed = user.clientsServed || 0;
+      stats.clientSatisfaction = user.clientSatisfaction || 95;
+      stats.agentRating = user.agentRating || 4.9;
+    } else if (role === 'transport_provider') {
+      stats.ridesCompleted = user.ridesCompleted || 0;
+      stats.fleetUsage = user.fleetUsage || 85;
+      stats.driverRating = user.driverRating || 4.7;
+    }
 
     res.json(stats);
   } catch (error) {
@@ -531,6 +567,54 @@ router.get('/deals', bypassAuth, async (req, res) => {
     // Get deals for this user (if they're a merchant)
     const deals = await Deal.find({ merchantId: user._id }).sort({ createdAt: -1 });
     res.json(deals);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Security endpoints
+router.get('/security', bypassAuth, async (req, res) => {
+  try {
+    const { uid } = req.user;
+    
+    let user = await User.findOne({ firebaseUid: uid });
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    res.json({
+      emailVerified: user.emailVerified || false,
+      phoneVerified: user.phoneVerified || false,
+      twoFactorEnabled: user.twoFactorEnabled || false,
+      lastLogin: user.lastLogin || new Date(),
+      loginHistory: user.loginHistory || []
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+router.put('/security', bypassAuth, async (req, res) => {
+  try {
+    const { uid } = req.user;
+    const { twoFactorEnabled, emailVerified, phoneVerified } = req.body;
+    
+    let user = await User.findOne({ firebaseUid: uid });
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    if (twoFactorEnabled !== undefined) user.twoFactorEnabled = twoFactorEnabled;
+    if (emailVerified !== undefined) user.emailVerified = emailVerified;
+    if (phoneVerified !== undefined) user.phoneVerified = phoneVerified;
+
+    await user.save();
+
+    res.json({
+      emailVerified: user.emailVerified,
+      phoneVerified: user.phoneVerified,
+      twoFactorEnabled: user.twoFactorEnabled
+    });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }

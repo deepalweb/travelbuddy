@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Filter, Search, Tag, TrendingUp, Clock, MapPin, Plus } from 'lucide-react'
+import { Filter, Search, Tag, TrendingUp, Clock, MapPin, Plus, Star, Zap, Target, Award } from 'lucide-react'
 import { Button } from '../components/Button'
 import { DealCard } from '../components/DealCard'
 import { dealsService } from '../services/dealsService'
+import { useUserLocation } from '../hooks/useUserLocation'
 
 interface Deal {
   _id: string;
@@ -33,13 +34,24 @@ const businessTypes = [
   { value: 'transport', label: 'Transport', icon: Tag }
 ]
 
+const sortOptions = [
+  { value: 'trending', label: 'Trending' },
+  { value: 'discount', label: 'Best Discount' },
+  { value: 'newest', label: 'Newest' },
+  { value: 'expiring', label: 'Expiring Soon' }
+]
+
 export const DealsPage: React.FC = () => {
   const navigate = useNavigate()
+  const { location } = useUserLocation()
   const [deals, setDeals] = useState<Deal[]>([])
   const [filteredDeals, setFilteredDeals] = useState<Deal[]>([])
+  const [featuredDeal, setFeaturedDeal] = useState<Deal | null>(null)
   const [loading, setLoading] = useState(true)
   const [selectedType, setSelectedType] = useState('all')
   const [searchTerm, setSearchTerm] = useState('')
+  const [sortBy, setSortBy] = useState('trending')
+  const [showNearbyOnly, setShowNearbyOnly] = useState(false)
 
   useEffect(() => {
     loadDeals()
@@ -47,7 +59,7 @@ export const DealsPage: React.FC = () => {
 
   useEffect(() => {
     filterDeals()
-  }, [deals, searchTerm])
+  }, [deals, searchTerm, sortBy])
 
   const loadDeals = async () => {
     try {
@@ -55,21 +67,58 @@ export const DealsPage: React.FC = () => {
       const data = await dealsService.getDeals(selectedType)
       setDeals(data)
     } catch (error) {
-      console.error('Failed to load deals:', error)
+      setDeals([])
     } finally {
       setLoading(false)
     }
   }
 
+
+
   const filterDeals = () => {
     let filtered = deals
+    
+    // Search filter
     if (searchTerm) {
-      filtered = deals.filter(deal => 
+      filtered = filtered.filter(deal => 
         deal.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        deal.businessName.toLowerCase().includes(searchTerm.toLowerCase())
+        deal.businessName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        deal.description.toLowerCase().includes(searchTerm.toLowerCase())
       )
     }
+    
+    // Sort deals
+    filtered = filtered.sort((a, b) => {
+      switch (sortBy) {
+        case 'trending':
+          return (b.views + b.claims * 2) - (a.views + a.claims * 2)
+        case 'discount':
+          const aDiscount = parseFloat(a.discount.replace('%', ''))
+          const bDiscount = parseFloat(b.discount.replace('%', ''))
+          return bDiscount - aDiscount
+        case 'newest':
+          // Sort by creation date (most recent first)
+          const aCreated = new Date(a.createdAt || a._id).getTime()
+          const bCreated = new Date(b.createdAt || b._id).getTime()
+          return bCreated - aCreated
+        case 'expiring':
+          if (!a.validUntil && !b.validUntil) return 0
+          if (!a.validUntil) return 1
+          if (!b.validUntil) return -1
+          return new Date(a.validUntil).getTime() - new Date(b.validUntil).getTime()
+        default:
+          return 0
+      }
+    })
+    
+
+    
     setFilteredDeals(filtered)
+    
+    // Set featured deal (highest trending)
+    if (filtered.length > 0 && !featuredDeal) {
+      setFeaturedDeal(filtered[0])
+    }
   }
 
   const handleViewDeal = async (dealId: string) => {
@@ -102,35 +151,61 @@ export const DealsPage: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Hero Section */}
-      <div className="bg-gradient-to-r from-blue-600 via-purple-600 to-indigo-600 text-white py-12">
+      {/* Enhanced Hero Section */}
+      <div className="bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-600 text-white py-16">
         <div className="max-w-7xl mx-auto px-4">
-          <div className="text-center">
-            <div className="flex items-center justify-between mb-4">
+          <div className="text-center mb-8">
+            <div className="flex items-center justify-between mb-6">
               <div>
-                <h1 className="text-4xl font-bold mb-4">Exclusive Travel Deals</h1>
+                <h1 className="text-5xl font-bold mb-4">Exclusive Travel Deals</h1>
                 <p className="text-xl text-blue-100 mb-6">Save big on restaurants, hotels, attractions and more!</p>
               </div>
-              <Button
-                onClick={() => navigate('/deals/create')}
-                className="bg-white text-blue-600 hover:bg-gray-100 font-semibold"
-              >
-                <Plus className="h-4 w-4 mr-2" />
-                Create Deal
-              </Button>
+              <div className="flex gap-2">
+                <Button
+                  onClick={loadDeals}
+                  className="bg-white/20 text-white hover:bg-white/30 font-semibold px-4 py-3"
+                >
+                  Refresh
+                </Button>
+                <Button
+                  onClick={() => navigate('/deals/create')}
+                  className="bg-white text-blue-600 hover:bg-gray-100 font-semibold px-6 py-3"
+                >
+                  <Plus className="h-5 w-5 mr-2" />
+                  Create Deal
+                </Button>
+              </div>
             </div>
-            <div className="flex justify-center items-center space-x-8 text-sm">
-              <div className="flex items-center space-x-2">
-                <TrendingUp className="w-5 h-5" />
-                <span>{filteredDeals.length} Active Deals</span>
+            
+            {/* Enhanced Stats */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-6 mb-8">
+              <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4">
+                <div className="flex items-center justify-center mb-2">
+                  <TrendingUp className="w-6 h-6 mr-2" />
+                  <span className="text-2xl font-bold">{filteredDeals.length}</span>
+                </div>
+                <p className="text-blue-100 text-sm">Active Deals</p>
               </div>
-              <div className="flex items-center space-x-2">
-                <Tag className="w-5 h-5" />
-                <span>Up to 30% Off</span>
+              <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4">
+                <div className="flex items-center justify-center mb-2">
+                  <MapPin className="w-6 h-6 mr-2" />
+                  <span className="text-2xl font-bold">{location?.city || 'Global'}</span>
+                </div>
+                <p className="text-blue-100 text-sm">Your Location</p>
               </div>
-              <div className="flex items-center space-x-2">
-                <Clock className="w-5 h-5" />
-                <span>Limited Time</span>
+              <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4">
+                <div className="flex items-center justify-center mb-2">
+                  <Star className="w-6 h-6 mr-2" />
+                  <span className="text-2xl font-bold">Up to 50%</span>
+                </div>
+                <p className="text-blue-100 text-sm">Max Savings</p>
+              </div>
+              <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4">
+                <div className="flex items-center justify-center mb-2">
+                  <Clock className="w-6 h-6 mr-2" />
+                  <span className="text-2xl font-bold">{deals.filter(d => d.validUntil).length}</span>
+                </div>
+                <p className="text-blue-100 text-sm">Expiring Soon</p>
               </div>
             </div>
           </div>
@@ -138,50 +213,141 @@ export const DealsPage: React.FC = () => {
       </div>
 
       <div className="max-w-7xl mx-auto px-4 py-8">
-        {/* Search and Filter Bar */}
-        <div className="bg-white rounded-lg shadow-sm p-6 mb-8">
-          <div className="flex flex-col md:flex-row gap-4">
+        {/* Enhanced Search and Filter Bar */}
+        <div className="bg-white rounded-xl shadow-lg p-6 mb-8 border border-gray-100">
+          <div className="flex flex-col lg:flex-row gap-4">
             <div className="flex-1 relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
               <input
                 type="text"
-                placeholder="Search deals by name or business..."
+                placeholder="Search deals by name, business, or description..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
             </div>
-            <div className="flex items-center space-x-2">
-              <Filter className="w-5 h-5 text-gray-500" />
-              <select
-                value={selectedType}
-                onChange={(e) => setSelectedType(e.target.value)}
-                className="border border-gray-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 min-w-[150px]"
-              >
-                {businessTypes.map(type => (
-                  <option key={type.value} value={type.value}>
-                    {type.label}
-                  </option>
-                ))}
-              </select>
+            
+            <div className="flex flex-wrap gap-3">
+              <div className="flex items-center space-x-2">
+                <Filter className="w-5 h-5 text-gray-500" />
+                <select
+                  value={selectedType}
+                  onChange={(e) => setSelectedType(e.target.value)}
+                  className="border border-gray-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 min-w-[140px]"
+                >
+                  {businessTypes.map(type => (
+                    <option key={type.value} value={type.value}>
+                      {type.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              
+              <div className="flex items-center space-x-2">
+                <TrendingUp className="w-5 h-5 text-gray-500" />
+                <select
+                  value={sortBy}
+                  onChange={(e) => setSortBy(e.target.value)}
+                  className="border border-gray-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 min-w-[140px]"
+                >
+                  {sortOptions.map(option => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
           </div>
+          
+          {/* Filter Results Count */}
+          {searchTerm && (
+            <div className="mt-4 text-sm text-gray-600">
+              <span className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full">
+                {filteredDeals.length} deals found for "{searchTerm}"
+              </span>
+            </div>
+          )}
         </div>
 
-        {/* Stats Bar */}
+        {/* Enhanced Stats Bar */}
         {filteredDeals.length > 0 && (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-            <div className="bg-white rounded-lg p-6 text-center shadow-sm">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+            <div className="bg-white rounded-xl p-6 text-center shadow-sm border border-gray-100 hover:shadow-md transition-shadow">
+              <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                <Tag className="w-6 h-6 text-blue-600" />
+              </div>
               <div className="text-2xl font-bold text-blue-600">{filteredDeals.length}</div>
-              <div className="text-gray-600">Available Deals</div>
+              <div className="text-gray-600 text-sm">Available Deals</div>
             </div>
-            <div className="bg-white rounded-lg p-6 text-center shadow-sm">
+            <div className="bg-white rounded-xl p-6 text-center shadow-sm border border-gray-100 hover:shadow-md transition-shadow">
+              <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                <Award className="w-6 h-6 text-green-600" />
+              </div>
               <div className="text-2xl font-bold text-green-600">${totalSavings.toFixed(0)}</div>
-              <div className="text-gray-600">Total Savings</div>
+              <div className="text-gray-600 text-sm">Total Savings</div>
             </div>
-            <div className="bg-white rounded-lg p-6 text-center shadow-sm">
+            <div className="bg-white rounded-xl p-6 text-center shadow-sm border border-gray-100 hover:shadow-md transition-shadow">
+              <div className="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                <TrendingUp className="w-6 h-6 text-purple-600" />
+              </div>
               <div className="text-2xl font-bold text-purple-600">{filteredDeals.reduce((sum, deal) => sum + deal.claims, 0)}</div>
-              <div className="text-gray-600">Deals Claimed</div>
+              <div className="text-gray-600 text-sm">Deals Claimed</div>
+            </div>
+            <div className="bg-white rounded-xl p-6 text-center shadow-sm border border-gray-100 hover:shadow-md transition-shadow">
+              <div className="w-12 h-12 bg-orange-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                <Clock className="w-6 h-6 text-orange-600" />
+              </div>
+              <div className="text-2xl font-bold text-orange-600">{Math.round(filteredDeals.reduce((sum, deal) => sum + deal.views, 0) / filteredDeals.length)}</div>
+              <div className="text-gray-600 text-sm">Avg Views</div>
+            </div>
+          </div>
+        )}
+
+        {/* Featured Deal Spotlight */}
+        {featuredDeal && (
+          <div className="mb-8">
+            <div className="bg-gradient-to-r from-orange-500 to-red-500 text-white rounded-xl p-6 mb-4">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center space-x-3">
+                  <Zap className="w-6 h-6" />
+                  <h2 className="text-2xl font-bold">Deal of the Day</h2>
+                </div>
+                <div className="bg-white/20 backdrop-blur-sm px-4 py-2 rounded-full">
+                  <span className="text-sm font-medium">🔥 Trending #1</span>
+                </div>
+              </div>
+              <div className="grid md:grid-cols-2 gap-6 items-center">
+                <div>
+                  <h3 className="text-xl font-bold mb-2">{featuredDeal.title}</h3>
+                  <p className="text-orange-100 mb-4">{featuredDeal.description}</p>
+                  <div className="flex items-center space-x-4 mb-4">
+                    <span className="text-2xl font-bold">{featuredDeal.discount} OFF</span>
+                    <span className="text-orange-100">at {featuredDeal.businessName}</span>
+                  </div>
+                  <Button 
+                    onClick={() => handleClaimDeal(featuredDeal._id)}
+                    className="bg-white text-orange-600 hover:bg-orange-50 font-semibold"
+                  >
+                    <Target className="w-4 h-4 mr-2" />
+                    Claim Featured Deal
+                  </Button>
+                </div>
+                <div className="text-center">
+                  <div className="bg-white/10 backdrop-blur-sm rounded-xl p-6">
+                    <div className="text-3xl font-bold mb-2">
+                      ${featuredDeal.discountedPrice}
+                    </div>
+                    <div className="text-orange-100 line-through mb-2">
+                      ${featuredDeal.originalPrice}
+                    </div>
+                    <div className="flex items-center justify-center space-x-4 text-sm">
+                      <span>👀 {featuredDeal.views} views</span>
+                      <span>🎯 {featuredDeal.claims} claimed</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         )}
@@ -192,21 +358,65 @@ export const DealsPage: React.FC = () => {
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
           </div>
         ) : filteredDeals.length === 0 ? (
-          <div className="text-center py-16 bg-white rounded-lg shadow-sm">
-            <Tag className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-            <h3 className="text-xl font-semibold text-gray-900 mb-2">No deals found</h3>
-            <p className="text-gray-500">Try adjusting your search or filter criteria.</p>
+          <div className="text-center py-20 bg-white rounded-xl shadow-sm border border-gray-100">
+            <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-6">
+              <Search className="w-10 h-10 text-gray-400" />
+            </div>
+            <h3 className="text-2xl font-semibold text-gray-900 mb-3">No deals found</h3>
+            <p className="text-gray-500 mb-6">Try adjusting your search or filter criteria.</p>
+            <Button 
+              onClick={() => {
+                setSearchTerm('')
+                setSelectedType('all')
+                setSortBy('trending')
+              }}
+              className="bg-blue-600 text-white hover:bg-blue-700"
+            >
+              Clear Filters
+            </Button>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredDeals.map(deal => (
-              <DealCard
-                key={deal._id}
-                deal={deal}
-                onView={handleViewDeal}
-                onClaim={handleClaimDeal}
-              />
-            ))}
+          <div>
+            {/* Recommended Deals Section */}
+            {filteredDeals.length > 3 && (
+              <div className="mb-8">
+                <div className="flex items-center space-x-3 mb-6">
+                  <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full flex items-center justify-center">
+                    <Star className="w-4 h-4 text-white" />
+                  </div>
+                  <h2 className="text-2xl font-bold text-gray-900">Recommended for You</h2>
+                  <div className="bg-gradient-to-r from-blue-100 to-purple-100 text-blue-700 px-3 py-1 rounded-full text-sm font-medium">
+                    AI Curated
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+                  {filteredDeals.slice(0, 3).map(deal => (
+                    <DealCard
+                      key={`rec-${deal._id}`}
+                      deal={deal}
+                      onView={handleViewDeal}
+                      onClaim={handleClaimDeal}
+                      isRecommended={true}
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
+            
+            {/* All Deals Grid */}
+            <div className="mb-6">
+              <h2 className="text-2xl font-bold text-gray-900 mb-6">All Deals ({filteredDeals.length})</h2>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {filteredDeals.map(deal => (
+                  <DealCard
+                    key={deal._id}
+                    deal={deal}
+                    onView={handleViewDeal}
+                    onClaim={handleClaimDeal}
+                  />
+                ))}
+              </div>
+            </div>
           </div>
         )}
       </div>

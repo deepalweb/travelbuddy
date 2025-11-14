@@ -6,7 +6,9 @@ import {
   Search, MapPin, Filter, Star, Clock, 
   Car, Bus, Plane, Ship, Calendar, Users,
   Wifi, Zap, Coffee, Shield, Phone, Mail,
-  ChevronDown, Grid, List, X
+  ChevronDown, Grid, List, X, Map, Bot,
+  CheckCircle, TrendingUp, MessageSquare,
+  Navigation, Bookmark, GitCompare
 } from 'lucide-react'
 
 interface TransportService {
@@ -30,6 +32,19 @@ interface TransportService {
   description: string
   phone: string
   email: string
+  isVerified?: boolean
+  isLive?: boolean
+  aiRecommended?: boolean
+  popularRoute?: boolean
+  passengerCapacity?: number
+  luggageCapacity?: string
+  instantBooking?: boolean
+  refundable?: boolean
+  ecoFriendly?: boolean
+  driverLanguages?: string[]
+  insuranceIncluded?: boolean
+  lastUpdated?: string
+  coordinates?: { lat: number; lng: number }[]
 }
 
 const mockServices: TransportService[] = [
@@ -53,7 +68,20 @@ const mockServices: TransportService[] = [
     image: 'https://images.unsplash.com/photo-1544620347-c4fd4a3d5957?w=400&h=250&fit=crop',
     description: 'Comfortable air-conditioned bus service with modern amenities',
     phone: '+94 11 234 5678',
-    email: 'info@lankaexpress.lk'
+    email: 'info@lankaexpress.lk',
+    isVerified: true,
+    isLive: true,
+    aiRecommended: true,
+    popularRoute: true,
+    passengerCapacity: 45,
+    luggageCapacity: 'Large',
+    instantBooking: true,
+    refundable: true,
+    ecoFriendly: false,
+    driverLanguages: ['English', 'Sinhala'],
+    insuranceIncluded: true,
+    lastUpdated: '2 minutes ago',
+    coordinates: [{ lat: 6.9271, lng: 79.8612 }, { lat: 7.2906, lng: 80.6337 }]
   },
   {
     id: '2',
@@ -116,8 +144,8 @@ const amenityIcons: { [key: string]: React.ReactNode } = {
 }
 
 export const TransportationPage: React.FC = () => {
-  const [services, setServices] = useState<TransportService[]>(mockServices)
-  const [filteredServices, setFilteredServices] = useState<TransportService[]>(mockServices)
+  const [services, setServices] = useState<TransportService[]>([])
+  const [filteredServices, setFilteredServices] = useState<TransportService[]>([])
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedVehicleType, setSelectedVehicleType] = useState('All')
   const [fromLocation, setFromLocation] = useState('')
@@ -125,13 +153,42 @@ export const TransportationPage: React.FC = () => {
   const [selectedDate, setSelectedDate] = useState('')
   const [maxPrice, setMaxPrice] = useState(5000)
   const [minRating, setMinRating] = useState(0)
-  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
+  const [viewMode, setViewMode] = useState<'grid' | 'list' | 'map'>('grid')
   const [showFilters, setShowFilters] = useState(false)
   const [selectedService, setSelectedService] = useState<TransportService | null>(null)
+  const [aiSearch, setAiSearch] = useState('')
+  const [showAiSuggestions, setShowAiSuggestions] = useState(false)
+  const [compareList, setCompareList] = useState<string[]>([])
+  const [showComparison, setShowComparison] = useState(false)
+
+  useEffect(() => {
+    fetchServices()
+  }, [])
 
   useEffect(() => {
     filterServices()
-  }, [searchTerm, selectedVehicleType, fromLocation, toLocation, maxPrice, minRating])
+  }, [services, searchTerm, selectedVehicleType, fromLocation, toLocation, maxPrice, minRating])
+
+  const fetchServices = async () => {
+    try {
+      const response = await fetch('http://localhost:3001/api/transport-providers/services')
+      if (response.ok) {
+        const data = await response.json()
+        console.log('API Response:', data)
+        console.log('First service:', data[0])
+        console.log('First service keys:', Object.keys(data[0] || {}))
+        console.log('First service image:', data[0]?.image)
+        setServices(data)
+      } else {
+        console.log('API failed, using mock data')
+        setServices(mockServices)
+      }
+    } catch (error) {
+      console.error('Failed to fetch services:', error)
+      console.log('Using mock data due to error')
+      setServices(mockServices)
+    }
+  }
 
   const filterServices = () => {
     let filtered = services.filter(service => {
@@ -145,7 +202,38 @@ export const TransportationPage: React.FC = () => {
 
       return matchesSearch && matchesVehicleType && matchesFrom && matchesTo && matchesPrice && matchesRating
     })
+    
+    // Sort by AI recommendations first
+    filtered.sort((a, b) => {
+      if (a.aiRecommended && !b.aiRecommended) return -1
+      if (!a.aiRecommended && b.aiRecommended) return 1
+      if (a.popularRoute && !b.popularRoute) return -1
+      if (!a.popularRoute && b.popularRoute) return 1
+      return b.rating - a.rating
+    })
+    
     setFilteredServices(filtered)
+  }
+
+  const handleAiSearch = async () => {
+    if (!aiSearch.trim()) return
+    setShowAiSuggestions(true)
+    // Simulate AI processing
+    setTimeout(() => {
+      // Parse natural language and set filters
+      if (aiSearch.toLowerCase().includes('kandy')) setToLocation('Kandy')
+      if (aiSearch.toLowerCase().includes('comfortable')) setMinRating(4)
+      if (aiSearch.toLowerCase().includes('cheap')) setMaxPrice(1000)
+      setShowAiSuggestions(false)
+    }, 1500)
+  }
+
+  const toggleCompare = (serviceId: string) => {
+    setCompareList(prev => 
+      prev.includes(serviceId) 
+        ? prev.filter(id => id !== serviceId)
+        : prev.length < 3 ? [...prev, serviceId] : prev
+    )
   }
 
   const getVehicleIcon = (type: string) => {
@@ -168,6 +256,41 @@ export const TransportationPage: React.FC = () => {
             <p className="text-xl text-blue-100 max-w-2xl mx-auto">
               Find reliable transportation for your Sri Lankan adventure
             </p>
+          </div>
+
+          {/* AI Search */}
+          <div className="max-w-4xl mx-auto mb-6">
+            <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-4">
+              <div className="flex gap-3">
+                <div className="relative flex-1">
+                  <Bot className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-white/70" />
+                  <input
+                    type="text"
+                    placeholder="Try: 'Comfortable AC van for 7 people to Kandy tomorrow morning'"
+                    value={aiSearch}
+                    onChange={(e) => setAiSearch(e.target.value)}
+                    className="w-full pl-10 pr-4 py-3 bg-white/20 border border-white/30 rounded-xl text-white placeholder-white/70 focus:outline-none focus:ring-2 focus:ring-white/50"
+                  />
+                </div>
+                <Button 
+                  onClick={handleAiSearch}
+                  className="bg-gradient-to-r from-purple-500 to-blue-500 hover:from-purple-600 hover:to-blue-600 px-6 py-3 rounded-xl font-semibold"
+                  disabled={showAiSuggestions}
+                >
+                  {showAiSuggestions ? (
+                    <div className="flex items-center">
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                      AI Processing...
+                    </div>
+                  ) : (
+                    <>
+                      <Bot className="w-5 h-5 mr-2" />
+                      AI Search
+                    </>
+                  )}
+                </Button>
+              </div>
+            </div>
           </div>
 
           {/* Search Form */}
@@ -240,6 +363,16 @@ export const TransportationPage: React.FC = () => {
           </div>
           
           <div className="flex items-center space-x-4">
+            {compareList.length > 0 && (
+              <Button
+                onClick={() => setShowComparison(true)}
+                className="bg-purple-600 hover:bg-purple-700 text-white"
+              >
+                <GitCompare className="w-4 h-4 mr-2" />
+                Compare ({compareList.length})
+              </Button>
+            )}
+            
             <Button
               variant="outline"
               onClick={() => setShowFilters(!showFilters)}
@@ -262,6 +395,12 @@ export const TransportationPage: React.FC = () => {
               >
                 <List className="w-4 h-4" />
               </button>
+              <button
+                onClick={() => setViewMode('map')}
+                className={`px-3 py-2 ${viewMode === 'map' ? 'bg-blue-600 text-white' : 'bg-white text-gray-700'}`}
+              >
+                <Map className="w-4 h-4" />
+              </button>
             </div>
           </div>
         </div>
@@ -270,7 +409,7 @@ export const TransportationPage: React.FC = () => {
         {showFilters && (
           <Card className="mb-8 border-0 shadow-lg">
             <CardContent className="p-6">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Max Price (LKR)</label>
                   <input
@@ -312,6 +451,40 @@ export const TransportationPage: React.FC = () => {
                     />
                   </div>
                 </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Quick Filters</label>
+                  <div className="space-y-2">
+                    <label className="flex items-center">
+                      <input type="checkbox" className="mr-2" />
+                      <span className="text-sm">Verified Only</span>
+                    </label>
+                    <label className="flex items-center">
+                      <input type="checkbox" className="mr-2" />
+                      <span className="text-sm">Instant Booking</span>
+                    </label>
+                    <label className="flex items-center">
+                      <input type="checkbox" className="mr-2" />
+                      <span className="text-sm">Eco-Friendly</span>
+                    </label>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Map View */}
+        {viewMode === 'map' && (
+          <Card className="mb-8 border-0 shadow-lg">
+            <CardContent className="p-6">
+              <div className="bg-gray-100 rounded-lg h-96 flex items-center justify-center">
+                <div className="text-center">
+                  <Map className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+                  <h3 className="text-lg font-semibold text-gray-700 mb-2">Interactive Map View</h3>
+                  <p className="text-gray-500">Map integration with Google Maps API coming soon</p>
+                  <p className="text-sm text-gray-400 mt-2">Will show routes, pickup points, and real-time locations</p>
+                </div>
               </div>
             </CardContent>
           </Card>
@@ -320,33 +493,84 @@ export const TransportationPage: React.FC = () => {
         {/* Services Grid/List */}
         <div className={viewMode === 'grid' 
           ? 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6'
-          : 'space-y-4'
+          : viewMode === 'list' ? 'space-y-4' : 'hidden'
         }>
           {filteredServices.map(service => (
             <Card key={service.id} className="group hover:shadow-xl transition-all duration-300 cursor-pointer border-0 shadow-lg">
               <CardContent className="p-0">
                 <div className="relative">
                   <img
-                    src={service.image}
+                    src={service.image?.replace(/&amp;/g, '&')}
                     alt={service.companyName}
                     className="w-full h-48 object-cover rounded-t-lg"
+                    onError={(e) => {
+                      console.log('Image failed to load:', service.image)
+                      e.currentTarget.src = 'https://via.placeholder.com/400x250/3B82F6/FFFFFF?text=Transport+Service'
+                    }}
                   />
-                  <div className="absolute top-4 left-4 bg-white/90 backdrop-blur-sm rounded-lg px-3 py-1 flex items-center">
-                    {getVehicleIcon(service.vehicleType)}
-                    <span className="ml-2 text-sm font-medium">{service.vehicleType}</span>
+                  <div className="absolute top-4 left-4 flex flex-col gap-2">
+                    <div className="bg-white/90 backdrop-blur-sm rounded-lg px-3 py-1 flex items-center">
+                      {getVehicleIcon(service.vehicleType)}
+                      <span className="ml-2 text-sm font-medium">{service.vehicleType}</span>
+                    </div>
+                    {service.aiRecommended && (
+                      <div className="bg-gradient-to-r from-purple-500 to-blue-500 text-white rounded-lg px-2 py-1 flex items-center">
+                        <Bot className="w-3 h-3 mr-1" />
+                        <span className="text-xs font-medium">AI Pick</span>
+                      </div>
+                    )}
+                    {service.popularRoute && (
+                      <div className="bg-orange-500 text-white rounded-lg px-2 py-1 flex items-center">
+                        <TrendingUp className="w-3 h-3 mr-1" />
+                        <span className="text-xs font-medium">Popular</span>
+                      </div>
+                    )}
                   </div>
-                  <div className="absolute top-4 right-4 bg-green-500 text-white rounded-lg px-3 py-1">
-                    <span className="text-sm font-bold">LKR {service.price}</span>
+                  
+                  <div className="absolute top-4 right-4 flex flex-col gap-2">
+                    <div className="bg-green-500 text-white rounded-lg px-3 py-1">
+                      <span className="text-sm font-bold">LKR {service.price}</span>
+                    </div>
+                    {service.isLive && (
+                      <div className="bg-red-500 text-white rounded-lg px-2 py-1 flex items-center">
+                        <div className="w-2 h-2 bg-white rounded-full mr-1 animate-pulse"></div>
+                        <span className="text-xs">Live</span>
+                      </div>
+                    )}
+                  </div>
+                  
+                  <div className="absolute bottom-4 right-4">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        toggleCompare(service.id)
+                      }}
+                      className={`p-2 rounded-full transition-colors ${
+                        compareList.includes(service.id)
+                          ? 'bg-purple-500 text-white'
+                          : 'bg-white/80 text-gray-700 hover:bg-white'
+                      }`}
+                    >
+                      <GitCompare className="w-4 h-4" />
+                    </button>
                   </div>
                 </div>
                 
                 <div className="p-6">
                   <div className="flex items-start justify-between mb-3">
-                    <div>
-                      <h3 className="font-bold text-gray-900 group-hover:text-blue-600 transition-colors">
-                        {service.companyName}
-                      </h3>
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-1">
+                        <h3 className="font-bold text-gray-900 group-hover:text-blue-600 transition-colors">
+                          {service.companyName}
+                        </h3>
+                        {service.isVerified && (
+                          <CheckCircle className="w-4 h-4 text-blue-500" title="Verified Provider" />
+                        )}
+                      </div>
                       <p className="text-sm text-gray-600">{service.route}</p>
+                      {service.lastUpdated && (
+                        <p className="text-xs text-green-600">Updated {service.lastUpdated}</p>
+                      )}
                     </div>
                     <div className="flex items-center">
                       <Star className="w-4 h-4 text-yellow-500 fill-current mr-1" />
@@ -396,7 +620,14 @@ export const TransportationPage: React.FC = () => {
                       View Details
                     </Button>
                     <Button size="sm" className="flex-1 bg-blue-600 hover:bg-blue-700">
-                      Book Now
+                      {service.instantBooking ? 'Book Instantly' : 'Request Booking'}
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      className="px-3"
+                    >
+                      <Bookmark className="w-4 h-4" />
                     </Button>
                   </div>
                 </div>
@@ -411,12 +642,83 @@ export const TransportationPage: React.FC = () => {
           <p className="text-gray-600 mb-6 max-w-2xl mx-auto">
             Join our network of transport providers and connect with thousands of travelers looking for reliable transportation services.
           </p>
-          <Link to="/transport-registration">
-            <Button className="bg-gradient-to-r from-blue-600 to-green-600 hover:from-blue-700 hover:to-green-700 text-white px-8 py-3 rounded-xl">
-              Register as Transport Provider
+          <div className="flex gap-4 justify-center">
+            <Link to="/transport-registration">
+              <Button className="bg-gradient-to-r from-blue-600 to-green-600 hover:from-blue-700 hover:to-green-700 text-white px-8 py-3 rounded-xl">
+                Register as Transport Provider
+              </Button>
+            </Link>
+            <Button variant="outline" className="px-8 py-3 rounded-xl">
+              <Navigation className="w-5 h-5 mr-2" />
+              View Provider Dashboard
             </Button>
-          </Link>
+          </div>
         </div>
+
+        {/* Comparison Modal */}
+        {showComparison && compareList.length > 0 && (
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-2xl shadow-2xl max-w-6xl w-full max-h-[90vh] overflow-y-auto">
+              <div className="p-6 border-b">
+                <div className="flex justify-between items-center">
+                  <h2 className="text-2xl font-bold text-gray-900">Compare Services</h2>
+                  <button
+                    onClick={() => setShowComparison(false)}
+                    className="w-8 h-8 bg-gray-100 hover:bg-gray-200 rounded-full flex items-center justify-center"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+              </div>
+              
+              <div className="p-6">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  {compareList.map(serviceId => {
+                    const service = services.find(s => s.id === serviceId)
+                    if (!service) return null
+                    
+                    return (
+                      <Card key={service.id} className="border-2">
+                        <CardContent className="p-4">
+                          <img src={service.image} alt={service.companyName} className="w-full h-32 object-cover rounded-lg mb-4" />
+                          <h3 className="font-bold text-lg mb-2">{service.companyName}</h3>
+                          <div className="space-y-2 text-sm">
+                            <div className="flex justify-between">
+                              <span>Price:</span>
+                              <span className="font-semibold text-green-600">LKR {service.price}</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span>Rating:</span>
+                              <span className="flex items-center">
+                                <Star className="w-3 h-3 text-yellow-500 fill-current mr-1" />
+                                {service.rating}
+                              </span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span>Duration:</span>
+                              <span>{service.duration}</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span>Seats:</span>
+                              <span>{service.availableSeats} available</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span>Booking:</span>
+                              <span>{service.instantBooking ? 'Instant' : 'Request'}</span>
+                            </div>
+                          </div>
+                          <Button className="w-full mt-4 bg-blue-600 hover:bg-blue-700">
+                            Select This
+                          </Button>
+                        </CardContent>
+                      </Card>
+                    )
+                  })}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Service Detail Modal */}
         {selectedService && (
@@ -477,24 +779,34 @@ export const TransportationPage: React.FC = () => {
                           <div className="text-3xl font-bold text-green-600 mb-2">
                             LKR {selectedService.price}
                           </div>
-                          <div className="flex items-center justify-center">
+                          <div className="flex items-center justify-center mb-2">
                             <Star className="w-5 h-5 text-yellow-500 fill-current mr-1" />
                             <span className="font-medium">{selectedService.rating}</span>
                             <span className="text-gray-500 ml-1">({selectedService.reviewCount} reviews)</span>
                           </div>
+                          {selectedService.isVerified && (
+                            <div className="flex items-center justify-center text-blue-600 text-sm">
+                              <CheckCircle className="w-4 h-4 mr-1" />
+                              Verified Provider
+                            </div>
+                          )}
                         </div>
                         
                         <div className="space-y-3">
                           <Button className="w-full bg-blue-600 hover:bg-blue-700 py-3">
-                            Book This Service
+                            {selectedService.instantBooking ? 'Book Instantly' : 'Request Booking'}
+                          </Button>
+                          <Button variant="outline" className="w-full py-3">
+                            <Bookmark className="w-4 h-4 mr-2" />
+                            Add to Trip Plan
                           </Button>
                           <Button variant="outline" className="w-full py-3">
                             <Phone className="w-4 h-4 mr-2" />
                             Call Provider
                           </Button>
                           <Button variant="outline" className="w-full py-3">
-                            <Mail className="w-4 h-4 mr-2" />
-                            Send Message
+                            <MessageSquare className="w-4 h-4 mr-2" />
+                            Chat with Provider
                           </Button>
                         </div>
                       </CardContent>
@@ -502,8 +814,8 @@ export const TransportationPage: React.FC = () => {
 
                     <Card className="border-0 shadow-lg">
                       <CardContent className="p-6">
-                        <h4 className="font-semibold text-gray-900 mb-3">Contact Information</h4>
-                        <div className="space-y-2 text-sm">
+                        <h4 className="font-semibold text-gray-900 mb-3">Provider Info</h4>
+                        <div className="space-y-3 text-sm">
                           <div className="flex items-center text-gray-600">
                             <Phone className="w-4 h-4 mr-2" />
                             {selectedService.phone}
@@ -512,6 +824,32 @@ export const TransportationPage: React.FC = () => {
                             <Mail className="w-4 h-4 mr-2" />
                             {selectedService.email}
                           </div>
+                          {selectedService.lastUpdated && (
+                            <div className="text-green-600">
+                              Last updated: {selectedService.lastUpdated}
+                            </div>
+                          )}
+                          {selectedService.insuranceIncluded && (
+                            <div className="flex items-center text-blue-600">
+                              <Shield className="w-4 h-4 mr-2" />
+                              Insurance Included
+                            </div>
+                          )}
+                        </div>
+                      </CardContent>
+                    </Card>
+
+                    <Card className="border-0 shadow-lg">
+                      <CardContent className="p-6">
+                        <h4 className="font-semibold text-gray-900 mb-3">Community Insights</h4>
+                        <div className="space-y-2 text-sm text-gray-600">
+                          <p>• 45 travelers used this route last month</p>
+                          <p>• Highly rated for punctuality</p>
+                          <p>• Popular among solo travelers</p>
+                          <Button variant="outline" size="sm" className="w-full mt-3">
+                            <MessageSquare className="w-4 h-4 mr-2" />
+                            View Community Stories
+                          </Button>
                         </div>
                       </CardContent>
                     </Card>

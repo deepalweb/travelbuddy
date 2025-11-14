@@ -23,12 +23,8 @@ class ConfigService {
       return this.config;
     }
 
-    if (this.configPromise) {
-      return this.configPromise;
-    }
-
-    this.configPromise = this.fetchConfig();
-    this.config = await this.configPromise;
+    // Skip API call, use build-time config directly
+    this.config = this.getBuildTimeConfig();
     return this.config;
   }
 

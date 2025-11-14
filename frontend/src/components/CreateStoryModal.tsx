@@ -1,6 +1,7 @@
 import React, { useState } from 'react'
-import { X, Camera, MapPin, Upload } from 'lucide-react'
+import { X, Camera, MapPin, Upload, Search } from 'lucide-react'
 import { communityService } from '../services/communityService'
+import { PlacePicker } from './PlacePicker'
 
 interface Story {
   _id: string;
@@ -12,10 +13,17 @@ interface Story {
     profilePicture?: string;
   };
   location: string;
+  place?: {
+    placeId: string;
+    name: string;
+    coordinates: { lat: number; lng: number };
+    address: string;
+  };
   likes: number;
   comments: number;
   createdAt: string;
   isLiked?: boolean;
+  tags?: string[];
 }
 
 interface CreateStoryModalProps {
@@ -27,8 +35,11 @@ export const CreateStoryModal: React.FC<CreateStoryModalProps> = ({ onClose, onS
   const [title, setTitle] = useState('')
   const [content, setContent] = useState('')
   const [location, setLocation] = useState('')
+  const [place, setPlace] = useState<Story['place'] | null>(null)
   const [images, setImages] = useState<string[]>([])
+  const [tags, setTags] = useState<string[]>([])
   const [loading, setLoading] = useState(false)
+  const [showPlacePicker, setShowPlacePicker] = useState(false)
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files
@@ -51,15 +62,29 @@ export const CreateStoryModal: React.FC<CreateStoryModalProps> = ({ onClose, onS
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!title.trim() || !content.trim() || !location.trim()) return
+    if (!title.trim() || !content.trim() || (!location.trim() && !place)) return
 
     try {
       setLoading(true)
+      
+      // Generate AI tags if none selected
+      let finalTags = tags
+      if (tags.length === 0) {
+        try {
+          const aiTags = await communityService.generateAITags(title.trim(), content.trim())
+          finalTags = aiTags
+        } catch (error) {
+          console.log('AI tagging failed, using manual tags')
+        }
+      }
+      
       const newStory = await communityService.createStory({
         title: title.trim(),
         content: content.trim(),
-        location: location.trim(),
-        images
+        location: place?.name || location.trim(),
+        place,
+        images,
+        tags: finalTags
       })
       onStoryCreated(newStory)
     } catch (error) {
@@ -67,6 +92,16 @@ export const CreateStoryModal: React.FC<CreateStoryModalProps> = ({ onClose, onS
     } finally {
       setLoading(false)
     }
+  }
+
+  const handleAddTag = (tag: string) => {
+    if (tag && !tags.includes(tag)) {
+      setTags([...tags, tag])
+    }
+  }
+
+  const removeTag = (tagToRemove: string) => {
+    setTags(tags.filter(tag => tag !== tagToRemove))
   }
 
   return (
@@ -105,17 +140,55 @@ export const CreateStoryModal: React.FC<CreateStoryModalProps> = ({ onClose, onS
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Location
             </label>
-            <div className="relative">
-              <MapPin className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
-              <input
-                type="text"
-                value={location}
-                onChange={(e) => setLocation(e.target.value)}
-                placeholder="Where did this happen?"
-                className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                required
-              />
-            </div>
+            {place ? (
+              <div className="border border-gray-300 rounded-lg p-3 bg-gray-50">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-2">
+                    <MapPin className="w-4 h-4 text-purple-600" />
+                    <div>
+                      <p className="font-medium text-gray-900">{place.name}</p>
+                      <p className="text-sm text-gray-500">{place.address}</p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setPlace(null)}
+                    className="text-gray-400 hover:text-gray-600"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <div className="relative">
+                  <MapPin className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+                  <input
+                    type="text"
+                    value={location}
+                    onChange={(e) => setLocation(e.target.value)}
+                    placeholder="Where did this happen?"
+                    className="w-full pl-10 pr-12 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                    required={!place}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPlacePicker(true)}
+                    className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-purple-600"
+                  >
+                    <Search className="w-5 h-5" />
+                  </button>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowPlacePicker(true)}
+                  className="text-sm text-purple-600 hover:text-purple-700 flex items-center space-x-1"
+                >
+                  <Search className="w-4 h-4" />
+                  <span>Search for a place</span>
+                </button>
+              </div>
+            )}
           </div>
 
           {/* Content */}
@@ -131,6 +204,62 @@ export const CreateStoryModal: React.FC<CreateStoryModalProps> = ({ onClose, onS
               className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent resize-none"
               required
             />
+          </div>
+
+          {/* Tags */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Tags
+            </label>
+            <div className="space-y-2">
+              <div className="flex flex-wrap gap-2">
+                {tags.map((tag, index) => (
+                  <span
+                    key={index}
+                    className="inline-flex items-center px-3 py-1 rounded-full text-sm bg-purple-100 text-purple-800"
+                  >
+                    {tag}
+                    <button
+                      type="button"
+                      onClick={() => removeTag(tag)}
+                      className="ml-2 text-purple-600 hover:text-purple-800"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  </span>
+                ))}
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {['Adventure', 'Food', 'Culture', 'Nature', 'Photography', 'Beach', 'Mountain', 'City'].map((suggestedTag) => (
+                  !tags.includes(suggestedTag) && (
+                    <button
+                      key={suggestedTag}
+                      type="button"
+                      onClick={() => handleAddTag(suggestedTag)}
+                      className="px-3 py-1 text-sm border border-gray-300 rounded-full hover:bg-gray-50 text-gray-600"
+                    >
+                      + {suggestedTag}
+                    </button>
+                  )
+                ))}
+                {title.trim() && content.trim() && tags.length === 0 && (
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      try {
+                        const aiTags = await communityService.generateAITags(title.trim(), content.trim())
+                        setTags(aiTags)
+                      } catch (error) {
+                        console.error('AI tagging failed:', error)
+                      }
+                    }}
+                    className="px-3 py-1 text-sm bg-purple-100 text-purple-700 rounded-full hover:bg-purple-200 font-medium"
+                  >
+                    ✨ AI Suggest Tags
+                  </button>
+                )}
+              </div>
+            </div>
           </div>
 
           {/* Image Upload */}
@@ -188,7 +317,7 @@ export const CreateStoryModal: React.FC<CreateStoryModalProps> = ({ onClose, onS
             </button>
             <button
               type="submit"
-              disabled={loading || !title.trim() || !content.trim() || !location.trim()}
+              disabled={loading || !title.trim() || !content.trim() || (!location.trim() && !place)}
               className="flex-1 bg-gradient-to-r from-purple-600 to-pink-600 text-white px-6 py-3 rounded-lg hover:from-purple-700 hover:to-pink-700 transition-all duration-200 font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2"
             >
               {loading ? (
@@ -203,6 +332,18 @@ export const CreateStoryModal: React.FC<CreateStoryModalProps> = ({ onClose, onS
           </div>
         </form>
       </div>
+
+      {/* Google Places Picker Modal */}
+      {showPlacePicker && (
+        <PlacePicker
+          onClose={() => setShowPlacePicker(false)}
+          onPlaceSelect={(selectedPlace) => {
+            setPlace(selectedPlace)
+            setLocation(selectedPlace.name)
+            setShowPlacePicker(false)
+          }}
+        />
+      )}
     </div>
   )
 }

@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { Badge } from '../Badge'
 
 interface AgentApplication {
@@ -9,7 +9,8 @@ interface AgentApplication {
   phone: string
   address: string
   licenseNumber: string
-  experience: string
+  experience?: string
+  experienceYears?: string
   specialties: string[]
   submittedDate: string
   status: 'pending' | 'approved' | 'rejected'
@@ -17,65 +18,63 @@ interface AgentApplication {
 }
 
 export default function AgentApproval() {
-  const [applications, setApplications] = useState<AgentApplication[]>([
-    {
-      id: '1',
-      agencyName: 'Paradise Travel Agency',
-      ownerName: 'Emma Rodriguez',
-      email: 'emma@paradisetravel.com',
-      phone: '+1-555-0234',
-      address: '123 Main St, Downtown',
-      licenseNumber: 'TA-2024-001',
-      experience: '8 years',
-      specialties: ['Beach Resorts', 'Adventure Tours', 'Family Packages'],
-      submittedDate: '2024-01-16',
-      status: 'pending',
-      documents: ['license.pdf', 'insurance.pdf', 'certification.pdf']
-    },
-    {
-      id: '2',
-      agencyName: 'Mountain Explorer Tours',
-      ownerName: 'David Chen',
-      email: 'david@mountainexplorer.com',
-      phone: '+1-555-0567',
-      address: '456 Hill Road, Uptown',
-      licenseNumber: 'TA-2024-002',
-      experience: '12 years',
-      specialties: ['Mountain Trekking', 'Wildlife Safari', 'Cultural Tours'],
-      submittedDate: '2024-01-15',
-      status: 'pending',
-      documents: ['license.pdf', 'insurance.pdf', 'references.pdf']
-    },
-    {
-      id: '3',
-      agencyName: 'City Break Specialists',
-      ownerName: 'Lisa Thompson',
-      email: 'lisa@citybreak.com',
-      phone: '+1-555-0890',
-      address: '789 Urban Ave, Central',
-      licenseNumber: 'TA-2024-003',
-      experience: '5 years',
-      specialties: ['City Tours', 'Business Travel', 'Weekend Getaways'],
-      submittedDate: '2024-01-14',
-      status: 'approved',
-      documents: ['license.pdf', 'insurance.pdf', 'certification.pdf', 'portfolio.pdf']
-    }
-  ])
+  const [applications, setApplications] = useState<AgentApplication[]>([])
+  const [loading, setLoading] = useState(true)
 
-  const handleApprove = (id: string) => {
-    setApplications(prev => 
-      prev.map(app => 
-        app.id === id ? { ...app, status: 'approved' as const } : app
-      )
-    )
+  useEffect(() => {
+    fetchApplications()
+  }, [])
+
+  const fetchApplications = async () => {
+    try {
+      const response = await fetch('http://localhost:3001/api/travel-agents/admin/applications')
+      if (response.ok) {
+        const data = await response.json()
+        setApplications(data.applications)
+      }
+    } catch (error) {
+      console.error('Failed to fetch applications:', error)
+    } finally {
+      setLoading(false)
+    }
   }
 
-  const handleReject = (id: string) => {
-    setApplications(prev => 
-      prev.map(app => 
-        app.id === id ? { ...app, status: 'rejected' as const } : app
-      )
-    )
+  const handleApprove = async (id: string) => {
+    try {
+      const response = await fetch(`http://localhost:3001/api/travel-agents/admin/approve/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'approve' })
+      })
+      if (response.ok) {
+        setApplications(prev => 
+          prev.map(app => 
+            app.id === id ? { ...app, status: 'approved' as const } : app
+          )
+        )
+      }
+    } catch (error) {
+      console.error('Approval failed:', error)
+    }
+  }
+
+  const handleReject = async (id: string) => {
+    try {
+      const response = await fetch(`http://localhost:3001/api/travel-agents/admin/approve/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'reject' })
+      })
+      if (response.ok) {
+        setApplications(prev => 
+          prev.map(app => 
+            app.id === id ? { ...app, status: 'rejected' as const } : app
+          )
+        )
+      }
+    } catch (error) {
+      console.error('Rejection failed:', error)
+    }
   }
 
   const getStatusBadge = (status: string) => {
@@ -92,6 +91,15 @@ export default function AgentApproval() {
   }
 
   const pendingCount = applications.filter(app => app.status === 'pending').length
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+        <span className="ml-2">Loading applications...</span>
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-6">
@@ -142,7 +150,7 @@ export default function AgentApproval() {
                   <td className="px-6 py-4">
                     <div>
                       <div className="text-sm font-medium text-gray-900">License: {app.licenseNumber}</div>
-                      <div className="text-sm text-gray-500">Experience: {app.experience}</div>
+                      <div className="text-sm text-gray-500">Experience: {app.experience || app.experienceYears || 'Not specified'}</div>
                       <div className="text-sm text-gray-500 mt-2">
                         <div className="font-medium">Specialties:</div>
                         <div className="flex flex-wrap gap-1 mt-1">
@@ -153,7 +161,7 @@ export default function AgentApproval() {
                           ))}
                         </div>
                       </div>
-                      <div className="text-sm text-gray-500 mt-1">Applied: {app.submittedDate}</div>
+                      <div className="text-sm text-gray-500 mt-1">Applied: {app.submittedDate || new Date(app.createdAt || '').toLocaleDateString()}</div>
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">

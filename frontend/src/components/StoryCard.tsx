@@ -1,6 +1,6 @@
 import React, { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Heart, MessageCircle, MapPin, Calendar, MoreHorizontal } from 'lucide-react'
+import { Heart, MessageCircle, MapPin, Calendar, MoreHorizontal, ExternalLink } from 'lucide-react'
 
 interface Story {
   _id: string;
@@ -12,10 +12,17 @@ interface Story {
     profilePicture?: string;
   };
   location: string;
+  place?: {
+    placeId: string;
+    name: string;
+    coordinates: { lat: number; lng: number };
+    address: string;
+  };
   likes: number;
   comments: number;
   createdAt: string;
   isLiked?: boolean;
+  tags?: string[];
 }
 
 interface StoryCardProps {
@@ -78,6 +85,33 @@ export const StoryCard: React.FC<StoryCardProps> = ({ story, onLike }) => {
           {story.title}
         </h3>
         <p className="text-gray-700 mb-4 line-clamp-3 leading-relaxed">{story.content}</p>
+        
+        {/* Tags */}
+        {story.tags && story.tags.length > 0 && (
+          <div className="flex flex-wrap gap-2 mb-3">
+            {story.tags.map((tag, index) => (
+              <span
+                key={index}
+                className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-purple-100 text-purple-700 font-medium"
+              >
+                #{tag}
+              </span>
+            ))}
+          </div>
+        )}
+        
+        {/* Place Info */}
+        {story.place && (
+          <div className="bg-gray-50 rounded-lg p-3 mb-3">
+            <div className="flex items-center space-x-2">
+              <MapPin className="w-4 h-4 text-purple-600" />
+              <div>
+                <p className="font-medium text-gray-900 text-sm">{story.place.name}</p>
+                <p className="text-xs text-gray-500">{story.place.address}</p>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Images */}
