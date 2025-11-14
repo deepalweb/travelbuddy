@@ -1368,6 +1368,11 @@ try {
 
 // Trip generation endpoint with Azure OpenAI - no authentication required for public access
 app.post('/api/trips/generate', async (req, res) => {
+  // Add CORS headers
+  res.header('Access-Control-Allow-Origin', req.headers.origin || 'http://localhost:3000');
+  res.header('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  res.header('Access-Control-Allow-Credentials', 'true');
   const startTime = Date.now();
   
   try {
