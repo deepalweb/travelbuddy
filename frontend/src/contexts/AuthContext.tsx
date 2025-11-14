@@ -10,9 +10,10 @@ import {
   GoogleAuthProvider,
   type User as FirebaseUser
 } from 'firebase/auth'
-// import { useFirebase } from '../hooks/useFirebase' // Firebase disabled
+import { auth } from '../lib/firebase'
 import { useConfig } from './ConfigContext'
 import { apiService } from '../lib/api'
+import { debug } from '../utils/debug'
 
 interface User {
   id: string
@@ -50,13 +51,12 @@ export const useAuth = () => {
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null)
   const [isLoading, setIsLoading] = useState(true)
-  // const { firebase, loading: firebaseLoading } = useFirebase() // Firebase disabled
-  const firebase = null
+  const firebase = { auth }
   const firebaseLoading = false
   const { config, loading: configLoading } = useConfig()
 
   useEffect(() => {
-    console.log('🔐 AUTH STEP 1: AuthProvider useEffect triggered', {
+    debug.log('🔐 AUTH STEP 1: AuthProvider useEffect triggered', {
       firebaseLoading,
       configLoading,
       hasConfig: !!config,
@@ -64,28 +64,28 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     })
     
     if (configLoading || !config) {
-      console.log('⏳ AUTH STEP 1: Waiting for dependencies')
+      debug.log('⏳ AUTH STEP 1: Waiting for dependencies')
       return
     }
 
     // Check for demo token first and restore demo user
     const demoToken = localStorage.getItem('demo_token')
     if (demoToken) {
-      console.log('🔐 AUTH STEP 2: Demo token found, restoring demo user')
+      debug.log('🔐 AUTH STEP 2: Demo token found, restoring demo user')
       restoreDemoUser()
       return
     }
 
     if (!firebase) {
-      console.log('✅ AUTH STEP 2: Firebase disabled, no demo token - setting loading false')
+      debug.log('✅ AUTH STEP 2: Firebase disabled, no demo token - setting loading false')
       setIsLoading(false)
       return
     }
     
-    console.log('🔐 AUTH STEP 3: Setting up Firebase auth listener')
+    debug.log('🔐 AUTH STEP 3: Setting up Firebase auth listener')
     
     // Check for existing session
-    console.log('🔐 AUTH STEP 3.1: Checking existing session', {
+    debug.log('🔐 AUTH STEP 3.1: Checking existing session', {
       currentUser: firebase.auth.currentUser,
       localStorage: {
         demoToken: !!localStorage.getItem('demo_token'),
@@ -98,35 +98,35 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       try {
         const result = await getRedirectResult(firebase.auth)
         if (result?.user) {
-          console.log('Google Sign-In redirect successful:', result.user.email)
+          debug.log('Google Sign-In redirect successful:', result.user.email)
           await syncUserProfile(result.user)
           // Redirect to home page after successful login
           window.location.href = '/'
           return
         }
       } catch (error: any) {
-        console.error('Redirect result error:', error)
+        debug.error('Redirect result error:', error)
       }
     }
     
     checkRedirectResult()
     
     const unsubscribe = onAuthStateChanged(firebase.auth, async (firebaseUser) => {
-      console.log('🔐 AUTH STEP 4: Auth state changed', {
+      debug.log('🔐 AUTH STEP 4: Auth state changed', {
         hasUser: !!firebaseUser,
         uid: firebaseUser?.uid,
         email: firebaseUser?.email
       })
       
       if (firebaseUser) {
-        console.log('🔐 AUTH STEP 5: User found, syncing profile')
+        debug.log('🔐 AUTH STEP 5: User found, syncing profile')
         await syncUserProfile(firebaseUser)
       } else {
-        console.log('🔐 AUTH STEP 5: No user, setting null')
+        debug.log('🔐 AUTH STEP 5: No user, setting null')
         setUser(null)
       }
       setIsLoading(false)
-      console.log('✅ AUTH: Loading complete')
+      debug.log('✅ AUTH: Loading complete')
     })
 
     return () => unsubscribe()
@@ -157,12 +157,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           isAdmin: data.user.isAdmin
         })
       } else {
-        console.log('❌ Demo token invalid, removing')
+        debug.log('❌ Demo token invalid, removing')
         localStorage.removeItem('demo_token')
       }
     } catch (error) {
-      console.error('Failed to restore demo user:', error)
-      console.log('❌ Removing invalid demo token due to error')
+      debug.error('Failed to restore demo user:', error)
+      debug.log('❌ Removing invalid demo token due to error')
       localStorage.removeItem('demo_token')
     } finally {
       setIsLoading(false)
@@ -170,6 +170,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }
 
   const syncUserProfile = async (firebaseUser: FirebaseUser) => {
+    // Global deduplication to prevent multiple sync requests
+    const cacheKey = `sync_${firebaseUser.uid}`
+    if ((window as any)[cacheKey]) {
+      return
+    }
+    (window as any)[cacheKey] = true
+    
+    // Clear cache after 5 seconds
+    setTimeout(() => {
+      delete (window as any)[cacheKey]
+    }, 5000)
+
     try {
       const token = await firebaseUser.getIdToken()
       
@@ -212,7 +224,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         })
       }
     } catch (error) {
-      console.error('Failed to sync user profile:', error)
+      debug.error('Failed to sync user profile:', error)
+      // Fallback: create basic user object
+      setUser({
+        id: firebaseUser.uid,
+        email: firebaseUser.email || '',
+        username: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'User',
+        tier: 'free',
+        firebaseUid: firebaseUser.uid,
+        role: 'regular',
+        isAdmin: false
+      })
+    } catch (error) {
+      debug.error('Failed to sync user profile:', error)
       // Fallback: create basic user object
       setUser({
         id: firebaseUser.uid,
@@ -276,10 +300,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }
 
   const loginWithGoogle = async () => {
-    throw new Error('Firebase authentication disabled')
     if (!firebase) throw new Error('Firebase not initialized')
     
-    console.log('🔐 Starting Google Sign-In...')
+    debug.log('🔐 Starting Google Sign-In...')
     
     try {
       // Try popup first for better UX
@@ -290,12 +313,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         prompt: 'select_account'
       })
       
-      console.log('🔐 Attempting popup sign-in...')
+      debug.log('🔐 Attempting popup sign-in...')
       const result = await signInWithPopup(firebase.auth, provider)
-      console.log('✅ Google Sign-In popup successful:', result.user.email)
+      debug.log('✅ Google Sign-In popup successful:', result.user.email)
       
     } catch (popupError: any) {
-      console.warn('⚠️ Popup failed, trying redirect:', popupError.message)
+      debug.warn('⚠️ Popup failed, trying redirect:', popupError.message)
       
       // Fallback to redirect if popup fails
       if (popupError.code === 'auth/popup-blocked' || 
@@ -309,10 +332,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }
   
   const loginWithGoogleRedirect = async () => {
-    throw new Error('Firebase authentication disabled')
     if (!firebase) throw new Error('Firebase not initialized')
     
-    console.log('Starting Google Sign-In with redirect...')
+    debug.log('Starting Google Sign-In with redirect...')
     
     try {
       const provider = new GoogleAuthProvider()
@@ -325,7 +347,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       await signInWithRedirect(firebase.auth, provider)
       // The page will redirect, so no need to handle result here
     } catch (error: any) {
-      console.error('❌ Google Sign-In Redirect Error:', error)
+      debug.error('❌ Google Sign-In Redirect Error:', error)
       
       // Provide helpful error messages
       if (error.code === 'auth/unauthorized-domain') {
@@ -377,7 +399,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
       setUser(null)
     } catch (error) {
-      console.error('Logout failed:', error)
+      debug.error('Logout failed:', error)
     }
   }
 

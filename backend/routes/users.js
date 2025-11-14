@@ -51,6 +51,10 @@ const Deal = global.Deal || (() => {
 // Sync user profile with backend (create or update)
 router.post('/sync', bypassAuth, async (req, res) => {
   try {
+    if (!req.user || !req.user.uid) {
+      return res.status(401).json({ error: 'Authentication required' });
+    }
+    
     const { uid, email } = req.user;
     const userData = req.body;
 

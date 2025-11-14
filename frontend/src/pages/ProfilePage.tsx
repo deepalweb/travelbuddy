@@ -8,6 +8,7 @@ import { Badge } from '../components/Badge'
 import { SubscriptionModal } from '../components/SubscriptionModal'
 import { useUserSecurity } from '../hooks/useUserSecurity'
 import { User, Mail, Edit3, Save, X, MapPin, Calendar, Star, Shield, UserCheck, Crown, Zap, Bell, LogOut, Phone, Globe, Camera, Eye, Lock, Settings, MessageCircle, Heart, FileText, TrendingUp, Users, Car, Briefcase, Award, CheckCircle, AlertCircle } from 'lucide-react'
+import ProfilePictureUpload from '../components/ProfilePictureUpload'
 
 export const ProfilePage: React.FC = () => {
   const { user, updateProfile, logout } = useAuth()
@@ -128,6 +129,17 @@ export const ProfilePage: React.FC = () => {
     setIsEditing(false)
   }
 
+  const handleProfilePictureSuccess = (url: string) => {
+    console.log('Profile picture uploaded successfully:', url)
+    // Refresh user data to show new profile picture
+    fetchUserStats()
+  }
+
+  const handleProfilePictureError = (error: string) => {
+    console.error('Profile picture upload failed:', error)
+    // You could show a toast notification here
+  }
+
   if (!user) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -177,17 +189,12 @@ export const ProfilePage: React.FC = () => {
         <div className="max-w-7xl mx-auto px-6 py-16 relative">
           <div className="flex flex-col lg:flex-row items-center space-y-8 lg:space-y-0 lg:space-x-12">
             {/* Profile Picture */}
-            <div className="relative group">
-              <div className="w-40 h-40 bg-white/20 rounded-full flex items-center justify-center backdrop-blur-sm border-4 border-white/30 shadow-2xl">
-                {user.profilePicture ? (
-                  <img src={user.profilePicture} alt={user.username} className="w-full h-full rounded-full object-cover" />
-                ) : (
-                  <User className="w-20 h-20 text-white" />
-                )}
-              </div>
-              <button className="absolute bottom-3 right-3 w-12 h-12 bg-white text-blue-600 rounded-full flex items-center justify-center shadow-lg hover:scale-110 transition-all duration-200 group-hover:bg-blue-50">
-                <Camera className="w-6 h-6" />
-              </button>
+            <div className="flex justify-center">
+              <ProfilePictureUpload
+                currentPicture={user.profilePicture}
+                onUploadSuccess={handleProfilePictureSuccess}
+                onUploadError={handleProfilePictureError}
+              />
             </div>
             
             {/* User Info */}

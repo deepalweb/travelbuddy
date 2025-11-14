@@ -707,11 +707,15 @@ app.use(sanitizeInput);
 
 
 
-// Middleware
-app.use((req, res, next) => {
-  console.log('🔍 Request:', req.method, req.path, 'Origin:', req.headers.origin);
-  next();
-});
+// Middleware - only log in development
+if (process.env.NODE_ENV !== 'production') {
+  app.use((req, res, next) => {
+    if (process.env.DEBUG_REQUESTS === 'true') {
+      console.log('🔍 Request:', req.method, req.path, 'Origin:', req.headers.origin);
+    }
+    next();
+  });
+}
 
 // CORS configuration - permissive for development
 const corsOptions = {
@@ -1292,13 +1296,22 @@ app.set('TransportProvider', TransportProvider);
 global.User = User;
 global.TransportProvider = TransportProvider;
 
+// Load upload routes
+try {
+  const uploadRouter = (await import('./routes/upload.js')).default;
+  app.use('/api/upload', uploadRouter);
+  console.log('✅ Upload routes loaded');
+} catch (error) {
+  console.error('❌ Failed to load upload routes:', error);
+}
+
+// Serve uploaded files
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+
 // Load user profile routes RIGHT AFTER User model is defined
 try {
   const usersRouter = (await import('./routes/users.js')).default;
-  app.use('/api/users', requireFeature('users'), (req, res, next) => {
-    console.log('🔍 Users route intercepted:', req.method, req.path, req.headers.authorization?.substring(0, 30));
-    next();
-  }, usersRouter);
+  app.use('/api/users', requireFeature('users'), usersRouter);
   console.log('✅ User profile routes loaded after User model');
 } catch (error) {
   console.error('❌ Failed to load user routes:', error);

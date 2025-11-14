@@ -13,7 +13,7 @@ export const LoginPage: React.FC = () => {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   
-  const { login, register, loginDemo } = useAuth()
+  const { login, register, loginDemo, loginWithGoogle } = useAuth()
   const navigate = useNavigate()
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -141,6 +141,17 @@ export const LoginPage: React.FC = () => {
             <span className="px-4 text-sm text-gray-500">or</span>
             <div className="flex-1 border-t border-gray-300"></div>
           </div>
+
+          {/* Google Sign-In - Temporarily Disabled */}
+          <Button
+            disabled={true}
+            className="w-full py-3 mb-3 bg-gray-100 border border-gray-300 text-gray-400 cursor-not-allowed flex items-center justify-center"
+          >
+            <svg className="w-5 h-5 mr-2" viewBox="0 0 24 24">
+              <path fill="#9CA3AF" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+            </svg>
+            Google Sign-In (Setup Required)
+          </Button>
 
           {/* Demo Admin Login */}
           <Button
