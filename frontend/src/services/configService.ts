@@ -55,7 +55,7 @@ class ConfigService {
   }
 
   private getBuildTimeConfig(): RuntimeConfig {
-    const firebaseApiKey = import.meta.env.VITE_FIREBASE_API_KEY || '';
+    const firebaseApiKey = import.meta.env.VITE_FIREBASE_API_KEY || 'AIzaSyCuJr5N0ytr1h_Aq_5qQazNL0wQUnsZlAw';
     
     return {
       apiBaseUrl: import.meta.env.PROD 
