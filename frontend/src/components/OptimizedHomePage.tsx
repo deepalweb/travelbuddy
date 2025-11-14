@@ -150,6 +150,7 @@ import { Card, CardContent } from './Card'
 import { ImageWithFallback } from './ImageWithFallback'
 import { useUserLocation } from '../hooks/useUserLocation'
 import { SEOHead } from './SEOHead'
+import { useAuth } from '../contexts/AuthContext'
 
 // Lazy load heavy components
 const LazyDestinationGrid = lazy(() => import('./LazyDestinationGrid'))
@@ -219,15 +220,15 @@ const socialProof = {
   tripsPlanned: '125,000+',
   testimonials: [
     {
-      name: 'Priya S.',
-      location: 'Colombo',
-      text: 'Found hidden waterfalls in Ella I never knew existed!',
+      name: 'Sarah Chen',
+      location: 'Singapore',
+      text: 'TravelBuddy helped me discover amazing local cafes in Tokyo I would never have found!',
       rating: 5
     },
     {
-      name: 'David M.',
-      location: 'Kandy',
-      text: 'Saved 3 hours of planning. The AI knew exactly what I wanted.',
+      name: 'Michael Rodriguez',
+      location: 'Barcelona',
+      text: 'The AI recommendations were spot-on. Saved me hours of research for my Thailand trip.',
       rating: 5
     }
   ]
@@ -235,18 +236,17 @@ const socialProof = {
 
 export const OptimizedHomePage: React.FC = () => {
   const { location } = useUserLocation()
+  const { user } = useAuth()
   const [searchQuery, setSearchQuery] = useState('')
   const [isSearching, setIsSearching] = useState(false)
 
   const handleSearch = async () => {
     if (!searchQuery.trim()) return
     setIsSearching(true)
-    // Simulate search
     setTimeout(() => {
       setIsSearching(false)
-      // Navigate to search results
-      window.location.href = `/discovery?q=${encodeURIComponent(searchQuery)}`
-    }, 1000)
+      window.location.href = `/places?q=${encodeURIComponent(searchQuery)}`
+    }, 500)
   }
 
   return (
@@ -271,11 +271,13 @@ export const OptimizedHomePage: React.FC = () => {
             {/* Compact Header */}
             <div className="text-center text-white mb-8">
               <h1 className="text-3xl md:text-5xl lg:text-6xl font-bold mb-4 leading-tight">
-                Discover the World with Travel Buddy
-                <span className="block text-yellow-400">Your AI Travel Planner</span>
+                {user ? `Welcome back, ${user.name || 'Explorer'}!` : 'Discover the World with Travel Buddy'}
+                <span className="block text-yellow-400">
+                  {user ? 'Ready for your next adventure?' : 'Your AI Travel Planner'}
+                </span>
               </h1>
               <h2 className="text-lg md:text-xl mb-6 text-white/90 max-w-2xl mx-auto">
-                Join 50,000+ travelers who've planned 125,000+ trips with AI.
+                {user ? 'Plan your next trip with AI-powered recommendations' : 'Join 50,000+ travelers who\'ve planned 125,000+ trips with AI.'}
               </h2>
             </div>
             
@@ -316,9 +318,9 @@ export const OptimizedHomePage: React.FC = () => {
                               
                               {/* Personalized Greeting */}
                               <div className="mb-3">
-                                <p className="text-sm font-medium text-gray-800">Good morning, Explorer 👋 Ready to explore?</p>
+                                <p className="text-sm font-medium text-gray-800">Good morning! 👋 Ready to explore?</p>
                                 <div className="mt-2 bg-blue-50 px-3 py-2 rounded-full border border-blue-200 inline-block">
-                                  <p className="text-xs text-blue-700 font-medium">Perfect morning for cafes & culture ☕</p>
+                                  <p className="text-xs text-blue-700 font-medium">AI suggests: Museums & Parks nearby 🎨</p>
                                 </div>
                               </div>
                               
@@ -495,52 +497,49 @@ export const OptimizedHomePage: React.FC = () => {
                       </div>
                     </div>
                     
-                    {/* Compact App Store Badges */}
-                    <div className="flex flex-col sm:flex-row gap-3 animate-buttons-in" style={{animationDelay: '1.8s'}}>
-                      <a 
-                        href="https://apps.apple.com/app/travelbuddy" 
-                        className="flex items-center gap-3 bg-black/90 hover:bg-black text-white px-4 py-3 rounded-xl transition-all duration-300 hover:scale-105 backdrop-blur-sm border border-white/30 group/button"
-                        aria-label="Download on App Store"
-                      >
-                        <svg className="w-6 h-6 group-hover/button:scale-110 transition-transform duration-300" fill="currentColor" viewBox="0 0 24 24">
-                          <path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.81-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/>
-                        </svg>
-                        <div className="text-left">
-                          <div className="text-xs opacity-90">Download on</div>
-                          <div className="text-sm font-bold">App Store</div>
-                        </div>
-                      </a>
-                      
-                      <a 
-                        href="https://play.google.com/store/apps/details?id=com.travelbuddy" 
-                        className="flex items-center gap-3 bg-black/90 hover:bg-black text-white px-4 py-3 rounded-xl transition-all duration-300 hover:scale-105 backdrop-blur-sm border border-white/30 group/button"
-                        aria-label="Get on Google Play"
-                      >
-                        <svg className="w-6 h-6 group-hover/button:scale-110 transition-transform duration-300" fill="currentColor" viewBox="0 0 24 24">
-                          <path d="M3,20.5V3.5C3,2.91 3.34,2.39 3.84,2.15L13.69,12L3.84,21.85C3.34,21.6 3,21.09 3,20.5M16.81,15.12L6.05,21.34L14.54,12.85L16.81,15.12M20.16,10.81C20.5,11.08 20.75,11.5 20.75,12C20.75,12.5 20.53,12.9 20.18,13.18L17.89,14.5L15.39,12L17.89,9.5L20.16,10.81M6.05,2.66L16.81,8.88L14.54,11.15L6.05,2.66Z"/>
-                        </svg>
-                        <div className="text-left">
-                          <div className="text-xs opacity-90">GET IT ON</div>
-                          <div className="text-sm font-bold">Google Play</div>
-                        </div>
-                      </a>
+                    {/* Web App CTA */}
+                    <div className="animate-buttons-in" style={{animationDelay: '1.8s'}}>
+                      <p className="text-white/90 text-sm mb-3">Available as web app - no download needed!</p>
+                      <Link to={user ? "/trips" : "/register"}>
+                        <Button className="bg-gradient-to-r from-green-600 to-blue-600 hover:from-green-700 hover:to-blue-700 text-white px-6 py-3 rounded-xl font-semibold transition-all duration-300 hover:scale-105">
+                          {user ? "Start Planning" : "Try It Free"}
+                        </Button>
+                      </Link>
                     </div>
                   </div>
                 </div>
             
             {/* Secondary CTAs */}
             <div className="flex flex-col sm:flex-row gap-4 justify-center mt-6">
-              <Link to="/trips">
-                <Button className="bg-white/20 backdrop-blur-sm border border-white/30 text-white hover:bg-white hover:text-gray-900 px-6 py-3 rounded-xl transition-all duration-300">
-                  Start Trip Planning
-                </Button>
-              </Link>
-              <Link to="/discovery">
-                <Button className="bg-yellow-500 hover:bg-yellow-600 text-black px-6 py-3 rounded-xl font-semibold transition-all duration-300">
-                  Explore Destinations
-                  <ArrowRight className="w-4 h-4 ml-2" />
-                </Button>
-              </Link>
+              {user ? (
+                <>
+                  <Link to="/trips">
+                    <Button className="bg-white/20 backdrop-blur-sm border border-white/30 text-white hover:bg-white hover:text-gray-900 px-6 py-3 rounded-xl transition-all duration-300">
+                      Start Trip Planning
+                    </Button>
+                  </Link>
+                  <Link to="/places">
+                    <Button className="bg-yellow-500 hover:bg-yellow-600 text-black px-6 py-3 rounded-xl font-semibold transition-all duration-300">
+                      Explore Destinations
+                      <ArrowRight className="w-4 h-4 ml-2" />
+                    </Button>
+                  </Link>
+                </>
+              ) : (
+                <>
+                  <Link to="/register">
+                    <Button className="bg-yellow-500 hover:bg-yellow-600 text-black px-6 py-3 rounded-xl font-semibold transition-all duration-300">
+                      Get Started Free
+                      <ArrowRight className="w-4 h-4 ml-2" />
+                    </Button>
+                  </Link>
+                  <Link to="/login">
+                    <Button className="bg-white/20 backdrop-blur-sm border border-white/30 text-white hover:bg-white hover:text-gray-900 px-6 py-3 rounded-xl transition-all duration-300">
+                      Sign In
+                    </Button>
+                  </Link>
+                </>
+              )}
             </div>
           </div>
         </div>
@@ -593,7 +592,7 @@ export const OptimizedHomePage: React.FC = () => {
                   </div>
                   <div className="flex justify-between items-center">
                     <span className="text-lg font-bold text-blue-600">{destination.price}</span>
-                    <Link to={`/places/${destination.id}`}>
+                    <Link to="/places">
                       <Button className="bg-blue-600 text-white hover:bg-blue-700 px-4 py-2">
                         Explore
                       </Button>
@@ -606,7 +605,7 @@ export const OptimizedHomePage: React.FC = () => {
           
           {/* Single CTA */}
           <div className="text-center">
-            <Link to="/discovery">
+            <Link to="/places">
               <Button className="bg-blue-600 text-white hover:bg-blue-700 px-8 py-4 text-lg rounded-xl">
                 View All Destinations
                 <ArrowRight className="w-5 h-5 ml-2" />
@@ -734,9 +733,11 @@ export const OptimizedHomePage: React.FC = () => {
                 <p className={`mb-6 ${deal.urgent ? 'text-white/90' : 'text-gray-600'}`}>
                   {deal.description}
                 </p>
-                <Button className={`${deal.urgent ? 'bg-white text-green-600 hover:bg-gray-100' : 'bg-blue-600 text-white hover:bg-blue-700'} px-6 py-3 rounded-xl`}>
-                  {deal.urgent ? 'Start Free!' : 'Upgrade Now'}
-                </Button>
+                <Link to={deal.urgent ? (user ? '/trips' : '/register') : '/subscription'}>
+                  <Button className={`${deal.urgent ? 'bg-white text-green-600 hover:bg-gray-100' : 'bg-blue-600 text-white hover:bg-blue-700'} px-6 py-3 rounded-xl`}>
+                    {deal.urgent ? 'Start Free!' : 'Upgrade Now'}
+                  </Button>
+                </Link>
               </Card>
             ))}
           </div>
@@ -790,19 +791,19 @@ export const OptimizedHomePage: React.FC = () => {
                 icon: <Plane className="w-8 h-8" />,
                 title: 'Flights',
                 description: 'Best prices worldwide',
-                link: '/flights'
+                link: '/transport'
               },
               {
                 icon: <Hotel className="w-8 h-8" />,
                 title: 'Hotels',
                 description: 'From luxury to budget',
-                link: '/hotels'
+                link: '/services'
               },
               {
                 icon: <MapPin className="w-8 h-8" />,
                 title: 'Activities',
                 description: 'Local experiences',
-                link: '/activities'
+                link: '/discovery'
               },
               {
                 icon: <Calendar className="w-8 h-8" />,

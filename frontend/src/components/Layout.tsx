@@ -46,10 +46,10 @@ export const Layout: React.FC = () => {
     return <Navigate to="/" replace />
   }
   
-  // Redirect unauthenticated users to login (except for public pages)
-  const publicPaths = ['/login', '/register', '/role-selection']
+  // Show landing page for unauthenticated users on home route
+  const publicPaths = ['/login', '/register', '/role-selection', '/']
   if (!user && !publicPaths.includes(location.pathname)) {
-    return <Navigate to="/login" replace />
+    return <Navigate to="/" replace />
   }
   
   const renderPage = () => {
@@ -67,6 +67,7 @@ export const Layout: React.FC = () => {
     switch (location.pathname) {
       case '/':
       case '/home':
+        // Show landing page for unauthenticated users, dashboard for authenticated
         return <OptimizedHomePage />
       case '/discovery':
         return <DiscoveryPage />

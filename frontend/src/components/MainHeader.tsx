@@ -89,7 +89,7 @@ export const MainHeader: React.FC = () => {
   return (
     <header className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
       isScrolled 
-        ? 'bg-white/95 backdrop-blur-md shadow-lg border-b border-gray-200/50' 
+        ? 'bg-white/95 backdrop-blur-md shadow-lg border-b border-white/50' 
         : 'bg-black/30 backdrop-blur-sm'
     }`}>
       <div className="max-w-full mx-auto px-6 sm:px-8 lg:px-12">
@@ -104,12 +104,12 @@ export const MainHeader: React.FC = () => {
               </div>
               <div className="hidden sm:block">
                 <h1 className={`text-2xl font-bold transition-all duration-300 ${
-                  isScrolled ? 'text-gray-900' : 'text-white drop-shadow-lg'
+                  isScrolled ? 'text-black' : 'text-white drop-shadow-lg'
                 }`}>
                   TravelBuddy
                 </h1>
                 <p className={`text-xs font-medium transition-all duration-300 ${
-                  isScrolled ? 'text-gray-500' : 'text-white/90'
+                  isScrolled ? 'text-black/70' : 'text-white/90'
                 }`}>
                   Your Intelligent Travel Companion
                 </p>
@@ -204,7 +204,7 @@ export const MainHeader: React.FC = () => {
                   variant="ghost"
                   size="sm"
                   className={`relative p-2 ${
-                    isScrolled ? 'text-gray-700 hover:bg-gray-100' : 'text-white hover:bg-white/10'
+                    isScrolled ? 'text-white hover:bg-white/10' : 'text-white hover:bg-white/10'
                   }`}
                   title="Notifications"
                 >
@@ -217,7 +217,7 @@ export const MainHeader: React.FC = () => {
                   variant="ghost"
                   size="sm"
                   className={`p-2 ${
-                    isScrolled ? 'text-gray-700 hover:bg-gray-100' : 'text-white hover:bg-white/10'
+                    isScrolled ? 'text-white hover:bg-white/10' : 'text-white hover:bg-white/10'
                   }`}
                   title="Saved Trips & Favorites"
                 >
@@ -233,7 +233,7 @@ export const MainHeader: React.FC = () => {
                 size="sm"
                 onClick={() => setIsLanguageOpen(!isLanguageOpen)}
                 className={`flex items-center space-x-2 px-3 py-2 text-sm ${
-                  isScrolled ? 'text-gray-700 hover:bg-gray-100' : 'text-white hover:bg-white/10'
+                  isScrolled ? 'text-white hover:bg-white/10' : 'text-white hover:bg-white/10'
                 }`}
               >
                 <span>{currentLanguage.flag}</span>
