@@ -76,8 +76,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return
     }
 
-    if (!firebase) {
-      debug.log('✅ AUTH STEP 2: Firebase disabled, no demo token - setting loading false')
+    if (!firebase || !config?.firebase?.apiKey) {
+      debug.log('✅ AUTH STEP 2: Firebase disabled or not configured, no demo token - setting loading false')
       setIsLoading(false)
       return
     }
