@@ -108,18 +108,21 @@ function createRealisticItinerary(destination, days, budget, interests) {
   const dailyPlans = [];
   const actualDays = Math.max(1, days);
   
-  for (let day = 1; day <= days; day++) {
-    const startIndex = ((day-1)*3) % destinationData.activities.length;
+  for (let day = 1; day <= actualDays; day++) {
     const dayActivities = [];
+    const activitiesPerDay = Math.min(3, destinationData.activities.length);
     
-    for (let i = 0; i < 3; i++) {
-      const activityIndex = (startIndex + i) % destinationData.activities.length;
+    for (let i = 0; i < activitiesPerDay; i++) {
+      // Use different activities for each day to avoid repetition
+      const activityIndex = ((day - 1) * activitiesPerDay + i) % destinationData.activities.length;
       const activity = destinationData.activities[activityIndex];
       
       dayActivities.push({
         timeOfDay: ['09:00-11:30', '12:30-15:00', '16:00-18:30'][i] || '09:00-12:00',
         activityTitle: activity.name,
         description: activity.description,
+        address: activity.address || `${activity.name}, ${destination}`,
+        category: activity.category || 'Attraction',
         estimatedCost: budget === 'low' ? activity.costLow : budget === 'high' ? activity.costHigh : activity.costMed,
         duration: activity.duration,
         isVisited: false
@@ -128,7 +131,7 @@ function createRealisticItinerary(destination, days, budget, interests) {
     
     dailyPlans.push({
       day,
-      title: `Day ${day} - ${destinationData.dayTitles[day-1] || 'Exploration'}`,
+      title: `Day ${day} - ${destinationData.dayTitles[(day-1) % destinationData.dayTitles.length]}`,
       activities: dayActivities
     });
   }
@@ -272,19 +275,33 @@ function getDestinationData(destination) {
     }
   };
   
-  return destinations[destination] || {
-    introduction: `Welcome to ${destination}! Get ready for an amazing adventure exploring this wonderful destination.`,
-    conclusion: `Your ${destination} journey promises incredible memories and authentic local experiences.`,
-    dayTitles: ['Arrival & Exploration', 'Cultural Discovery', 'Local Experiences', 'Hidden Gems', 'Final Adventures'],
+  // Check for partial matches or create destination-specific content
+  const destLower = destination.toLowerCase();
+  
+  if (destLower.includes('india') || destLower.includes('delhi') || destLower.includes('mumbai')) {
+    return destinations['India'];
+  }
+  if (destLower.includes('paris') || destLower.includes('france')) {
+    return destinations['Paris'];
+  }
+  if (destLower.includes('sri lanka') || destLower.includes('colombo') || destLower.includes('kandy')) {
+    return destinations['Sri Lanka'];
+  }
+  
+  // Generate destination-specific content
+  return {
+    introduction: `Welcome to ${destination}! Discover the unique culture, stunning attractions, and authentic experiences that make this destination special.`,
+    conclusion: `Your ${destination} adventure combines must-see landmarks with authentic local experiences, creating memories that will last a lifetime.`,
+    dayTitles: ['Arrival & City Center', 'Cultural Highlights', 'Local Experiences', 'Hidden Gems', 'Final Exploration'],
     activities: [
-      { name: `${destination} City Center`, description: 'Explore the main attractions and landmarks', imageUrl: 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=400&h=300&fit=crop', costLow: '$10-20', costMed: '$20-40', costHigh: '$50-80', duration: '3 hours' },
-      { name: 'Local Market Visit', description: 'Experience local culture and try traditional foods', costLow: '$8-15', costMed: '$15-30', costHigh: '$35-60', duration: '2 hours' },
-      { name: 'Cultural Museum', description: 'Learn about local history and traditions', costLow: '$5-12', costMed: '$12-25', costHigh: '$30-50', duration: '2.5 hours' },
-      { name: 'Scenic Viewpoint', description: 'Enjoy panoramic views of the city', costLow: '$3-8', costMed: '$8-18', costHigh: '$20-35', duration: '1.5 hours' },
-      { name: 'Traditional Restaurant', description: 'Savor authentic local cuisine', costLow: '$15-25', costMed: '$25-45', costHigh: '$60-100', duration: '2 hours' },
-      { name: 'Walking Tour', description: 'Discover hidden gems with a local guide', costLow: '$10-20', costMed: '$20-35', costHigh: '$45-75', duration: '2.5 hours' }
+      { name: `${destination} Historic District`, description: `Explore the historic heart of ${destination} with its iconic landmarks and architecture`, costLow: '$10-20', costMed: '$20-40', costHigh: '$50-80', duration: '3 hours' },
+      { name: `${destination} Central Market`, description: `Experience the vibrant local market scene and taste authentic ${destination} specialties`, costLow: '$8-15', costMed: '$15-30', costHigh: '$35-60', duration: '2 hours' },
+      { name: `${destination} Cultural Museum`, description: `Learn about the rich history and cultural heritage of ${destination}`, costLow: '$5-12', costMed: '$12-25', costHigh: '$30-50', duration: '2.5 hours' },
+      { name: `${destination} Scenic Overlook`, description: `Enjoy breathtaking panoramic views of ${destination} and surrounding areas`, costLow: '$3-8', costMed: '$8-18', costHigh: '$20-35', duration: '1.5 hours' },
+      { name: `Traditional ${destination} Restaurant`, description: `Savor authentic local cuisine at a highly-rated traditional restaurant`, costLow: '$15-25', costMed: '$25-45', costHigh: '$60-100', duration: '2 hours' },
+      { name: `${destination} Walking Discovery Tour`, description: `Discover hidden gems and local secrets with an expert guide`, costLow: '$10-20', costMed: '$20-35', costHigh: '$45-75', duration: '2.5 hours' }
     ],
-    tips: ['Check local weather before heading out', 'Carry local currency for small vendors', 'Respect local customs and traditions', 'Try public transportation for authentic experience']
+    tips: [`Check ${destination} weather conditions before heading out`, 'Carry local currency for small vendors', `Respect ${destination} local customs and traditions`, 'Try public transportation for authentic local experience']
   };
 }
 
