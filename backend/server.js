@@ -3055,9 +3055,38 @@ app.get('/api/community/posts', async (req, res) => {
   }
 });
 
-// Add the missing AI endpoint
+// Get top travelers endpoint
+app.get('/api/posts/community', async (req, res) => {
+  res.header('Access-Control-Allow-Origin', req.headers.origin || '*');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, x-user-id, x-firebase-uid');
+  res.header('Access-Control-Allow-Credentials', 'true');
+  
+  try {
+    const users = await User.find()
+      .select('username profilePicture tier')
+      .sort({ createdAt: -1 })
+      .limit(10)
+      .lean();
+    
+    const topTravelers = users.map(user => ({
+      id: user._id,
+      name: user.username,
+      avatar: user.profilePicture,
+      tier: user.tier || 'free',
+      verified: user.tier === 'premium' || user.tier === 'pro'
+    }));
+    
+    res.json(topTravelers);
+  } catch (error) {
+    console.error('❌ Error fetching top travelers:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Create story endpoint
 app.post('/api/posts/community', async (req, res) => {
-  res.header('Access-Control-Allow-Origin', req.headers.origin || 'http://localhost:3000');
+  res.header('Access-Control-Allow-Origin', req.headers.origin || '*');
   res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
   res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, x-user-id, x-firebase-uid');
   res.header('Access-Control-Allow-Credentials', 'true');
