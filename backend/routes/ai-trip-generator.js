@@ -151,15 +151,37 @@ Return ONLY this JSON structure:
     const responseText = completion.choices[0].message.content.trim();
     console.log('✅ Azure OpenAI Response received');
     
-    // Extract JSON from response
-    let jsonStr = responseText;
-    if (responseText.includes('```json')) {
-      const match = responseText.match(/```json\s*([\s\S]*?)\s*```/);
-      if (match) jsonStr = match[1];
-    } else if (responseText.includes('{')) {
-      const match = responseText.match(/\{[\s\S]*\}/);
-      if (match) jsonStr = match[0];
+    // Extract and clean JSON from response
+    let jsonStr = responseText.trim();
+    
+    // Remove markdown code blocks
+    if (jsonStr.includes('```json')) {
+      const match = jsonStr.match(/```json\s*([\s\S]*?)\s*```/);
+      if (match) jsonStr = match[1].trim();
+    } else if (jsonStr.includes('```')) {
+      const match = jsonStr.match(/```\s*([\s\S]*?)\s*```/);
+      if (match) jsonStr = match[1].trim();
     }
+    
+    // Extract JSON object
+    if (jsonStr.includes('{')) {
+      const startIndex = jsonStr.indexOf('{');
+      const endIndex = jsonStr.lastIndexOf('}');
+      if (startIndex !== -1 && endIndex !== -1 && endIndex > startIndex) {
+        jsonStr = jsonStr.substring(startIndex, endIndex + 1);
+      }
+    }
+    
+    // Clean up common JSON issues
+    jsonStr = jsonStr
+      .replace(/,\s*}/g, '}')  // Remove trailing commas
+      .replace(/,\s*]/g, ']')  // Remove trailing commas in arrays
+      .replace(/\n/g, ' ')     // Replace newlines with spaces
+      .replace(/\r/g, '')      // Remove carriage returns
+      .replace(/\t/g, ' ')     // Replace tabs with spaces
+      .replace(/\s+/g, ' ');   // Normalize whitespace
+    
+    console.log('🔧 Cleaned JSON length:', jsonStr.length);
     
     const aiItinerary = JSON.parse(jsonStr);
     aiItinerary.id = `ai_trip_${Date.now()}`;
@@ -397,16 +419,16 @@ function getDestinationData(destination) {
     return destinations['Sri Lanka'];
   }
   
-  // Use Google Places API or return error for unknown destinations
+  // Use Google Places API fallback for unknown destinations
   console.log(`⚠️ No specific data for ${destination}, using Google Places API fallback`);
   
-  // Return minimal structure that forces AI generation
+  // Return structure that will use real places from Google Places API
   return {
-    introduction: `Welcome to ${destination}! This itinerary will be generated using real places and attractions.`,
-    conclusion: `Your ${destination} adventure will include authentic local experiences and real attractions.`,
-    dayTitles: ['Exploration Day'],
-    activities: [], // Empty to force AI generation
-    tips: ['Use real places and attractions', 'Research actual locations', 'Include specific addresses']
+    introduction: `Welcome to ${destination}! Discover amazing attractions and experiences.`,
+    conclusion: `Your ${destination} adventure includes real places and authentic experiences.`,
+    dayTitles: ['Arrival & Exploration', 'Cultural Highlights', 'Local Experiences', 'Hidden Gems', 'Final Adventures'],
+    activities: [], // Will be populated with real places from Google Places API
+    tips: ['Check local weather conditions', 'Respect local customs', 'Try local cuisine', 'Use public transportation']
   };
 }
 
