@@ -868,20 +868,14 @@ if (staticPath) {
   console.error('❌ No static files directory found');
 }
 
-// Load subscription and payment routes early
-/*try {
+// Load subscription routes
+try {
   const subscriptionsRouter = (await import('./routes/subscriptions.js')).default;
-  const paymentsRouter = (await import('./routes/payments.js')).default;
-  const paypalWebhookRouter = (await import('./webhooks/paypal.js')).default;
-  
   app.use('/api/subscriptions', subscriptionsRouter);
-  app.use('/api/payments', paymentsRouter);
-  app.use('/api/webhooks/paypal', paypalWebhookRouter);
-  
-  console.log('✅ Subscription and payment routes loaded');
+  console.log('✅ Subscription routes loaded');
 } catch (error) {
   console.error('❌ Failed to load subscription routes:', error);
-}*/
+}
 
 // Load config routes for mobile app
 try {
@@ -1012,7 +1006,7 @@ try {
 // Load AI trip generator routes (Google Places + AI Enhancement)
 try {
   const aiTripGeneratorRouter = (await import('./routes/ai-trip-generator.js')).default;
-  app.use('/api/trips', aiTripGeneratorRouter);
+  app.use('/api/ai-trips', aiTripGeneratorRouter);
   console.log('✅ AI trip generator routes loaded');
 } catch (error) {
   console.error('❌ Failed to load AI trip generator routes:', error);

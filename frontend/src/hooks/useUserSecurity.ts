@@ -34,7 +34,10 @@ export const useUserSecurity = () => {
         headers['x-user-id'] = user.id
       }
       
-      const response = await fetch('/api/users/security', { headers })
+      const apiUrl = import.meta.env.PROD 
+        ? window.location.origin 
+        : 'http://localhost:3001'
+      const response = await fetch(`${apiUrl}/api/users/security`, { headers })
       if (response.ok) {
         const data = await response.json()
         setSecurity(data)
@@ -59,7 +62,10 @@ export const useUserSecurity = () => {
         headers['x-user-id'] = user.id
       }
       
-      const response = await fetch('/api/users/security', {
+      const apiUrl = import.meta.env.PROD 
+        ? window.location.origin 
+        : 'http://localhost:3001'
+      const response = await fetch(`${apiUrl}/api/users/security`, {
         method: 'PUT',
         headers,
         body: JSON.stringify(updates)

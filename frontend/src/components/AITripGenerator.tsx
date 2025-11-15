@@ -1,6 +1,8 @@
 import React, { useState } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from './Card'
 import { Button } from './Button'
+import { useConfig } from '../contexts/ConfigContext'
+import { useAuth } from '../contexts/AuthContext'
 import { Sparkles, MapPin, Clock, X, Users, DollarSign, Heart, Camera, Utensils, Mountain, Building, Waves, TreePine, Calendar, Banknote } from 'lucide-react'
 
 interface AITripGeneratorProps {
@@ -10,6 +12,8 @@ interface AITripGeneratorProps {
 }
 
 export const AITripGenerator: React.FC<AITripGeneratorProps> = ({ onTripGenerated, onClose, selectedPlaces = [] }) => {
+  const { config } = useConfig()
+  const { user } = useAuth()
   const [formData, setFormData] = useState({
     destination: selectedPlaces.length > 0 ? selectedPlaces[0].location.city + ', ' + selectedPlaces[0].location.country : '',
     duration: '',
@@ -31,11 +35,23 @@ export const AITripGenerator: React.FC<AITripGeneratorProps> = ({ onTripGenerate
 
     setGenerating(true)
     try {
-      const response = await fetch('/api/trips/generate', {
+      const apiUrl = config?.apiBaseUrl || 'http://localhost:3001'
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+      }
+      
+      // Add authentication headers
+      const demoToken = localStorage.getItem('demo_token')
+      if (demoToken) {
+        headers['Authorization'] = `Bearer ${demoToken}`
+      }
+      if (user?.id) {
+        headers['x-user-id'] = user.id
+      }
+      
+      const response = await fetch(`${apiUrl}/api/ai-trips/generate`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers,
         body: JSON.stringify({
           destination: formData.destination,
           duration: formData.duration,
@@ -51,6 +67,17 @@ export const AITripGenerator: React.FC<AITripGeneratorProps> = ({ onTripGenerate
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({ error: 'Unknown error' }))
+        
+        if (response.status === 429 && errorData.upgradeRequired) {
+          alert(`Upgrade required: ${errorData.error}. Please upgrade to ${errorData.nextTier} plan to continue.`)
+          return
+        }
+        
+        if (response.status === 401 && errorData.upgradeRequired) {
+          alert('Please log in or upgrade your account to use AI trip generation.')
+          return
+        }
+        
         throw new Error(errorData.error || `HTTP error! status: ${response.status}`)
       }
 

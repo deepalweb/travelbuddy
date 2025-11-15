@@ -253,7 +253,7 @@ router.delete('/profile', bypassAuth, async (req, res) => {
 });
 
 // Get user stats with role-based data
-router.get('/:id/stats', async (req, res) => {
+router.get('/:id/stats', bypassAuth, async (req, res) => {
   try {
     console.log('📊 Stats request for user:', req.params.id);
     
@@ -263,21 +263,25 @@ router.get('/:id/stats', async (req, res) => {
     // Find user by Firebase UID or MongoDB ID
     let user = await User.findOne({ firebaseUid: userId });
     if (!user) {
-      user = await User.findById(userId);
+      try {
+        user = await User.findById(userId);
+      } catch (mongoError) {
+        console.log('⚠️ Invalid MongoDB ID format:', userId);
+      }
     }
     
     if (!user) {
       console.log('❌ User not found for ID:', userId);
-      return res.status(404).json({ error: 'User not found' });
+      return res.status(404).json({ error: 'User not found', userId });
     }
     
     console.log('👤 Found user for stats:', user._id);
 
     const [tripCount, postCount, favoriteCount, itineraryCount] = await Promise.all([
-      TripPlan.countDocuments({ userId: user._id }),
-      Post.countDocuments({ userId: user._id }),
+      TripPlan ? TripPlan.countDocuments({ userId: user._id }).catch(() => 0) : 0,
+      Post ? Post.countDocuments({ userId: user._id }).catch(() => 0) : 0,
       user.favoritePlaces ? user.favoritePlaces.length : 0,
-      Itinerary.countDocuments({ userId: user._id })
+      Itinerary ? Itinerary.countDocuments({ userId: user._id }).catch(() => 0) : 0
     ]);
 
     // Base stats
@@ -300,7 +304,7 @@ router.get('/:id/stats', async (req, res) => {
     // Role-based stats
     const role = user.activeRole || user.role || 'user';
     if (role === 'merchant') {
-      const dealCount = await Deal.countDocuments({ merchantId: user._id });
+      const dealCount = Deal ? await Deal.countDocuments({ merchantId: user._id }).catch(() => 0) : 0;
       stats.dealsCreated = dealCount;
       stats.businessRating = user.businessRating || 4.8;
     } else if (role === 'travel_agent') {
@@ -315,7 +319,12 @@ router.get('/:id/stats', async (req, res) => {
 
     res.json(stats);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error('❌ Stats endpoint error:', error);
+    res.status(500).json({ 
+      error: error.message, 
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined,
+      userId: req.params.id
+    });
   }
 });
 
@@ -624,9 +633,15 @@ router.get('/deals', bypassAuth, async (req, res) => {
 // Security endpoints
 router.get('/security', async (req, res) => {
   try {
-    const { uid } = req.user;
+    const userId = req.headers['x-user-id'];
+    if (!userId) {
+      return res.status(401).json({ error: 'User ID required' });
+    }
     
-    let user = await User.findOne({ firebaseUid: uid });
+    let user = await User.findOne({ firebaseUid: userId });
+    if (!user) {
+      user = await User.findById(userId);
+    }
     if (!user) {
       return res.status(404).json({ error: 'User not found' });
     }
@@ -645,10 +660,17 @@ router.get('/security', async (req, res) => {
 
 router.put('/security', async (req, res) => {
   try {
-    const { uid } = req.user;
+    const userId = req.headers['x-user-id'];
+    if (!userId) {
+      return res.status(401).json({ error: 'User ID required' });
+    }
+    
     const { twoFactorEnabled, emailVerified, phoneVerified } = req.body;
     
-    let user = await User.findOne({ firebaseUid: uid });
+    let user = await User.findOne({ firebaseUid: userId });
+    if (!user) {
+      user = await User.findById(userId);
+    }
     if (!user) {
       return res.status(404).json({ error: 'User not found' });
     }
