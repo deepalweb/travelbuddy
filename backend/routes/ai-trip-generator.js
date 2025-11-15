@@ -58,18 +58,24 @@ async function fetchRealPlaces(destination) {
 
 // Check Azure OpenAI status
 async function checkAzureOpenAIStatus() {
+  console.log('🔍 Checking Azure OpenAI status...');
+  console.log('AZURE_OPENAI_API_KEY:', process.env.AZURE_OPENAI_API_KEY ? 'SET' : 'MISSING');
+  console.log('AZURE_OPENAI_ENDPOINT:', process.env.AZURE_OPENAI_ENDPOINT || 'MISSING');
+  console.log('AZURE_OPENAI_DEPLOYMENT_NAME:', process.env.AZURE_OPENAI_DEPLOYMENT_NAME || 'MISSING');
+  
   if (!process.env.AZURE_OPENAI_API_KEY || !process.env.AZURE_OPENAI_ENDPOINT) {
     console.log('❌ Azure OpenAI credentials missing');
     return false;
   }
   
   try {
+    console.log('🧪 Testing Azure OpenAI connection...');
     const testCompletion = await openai.chat.completions.create({
       model: process.env.AZURE_OPENAI_DEPLOYMENT_NAME,
       messages: [{ role: "user", content: "Test" }],
       max_tokens: 5
     });
-    console.log('✅ Azure OpenAI is working');
+    console.log('✅ Azure OpenAI is working:', testCompletion.choices[0].message.content);
     return true;
   } catch (error) {
     console.log('❌ Azure OpenAI test failed:', error.message);
