@@ -4,13 +4,21 @@ import csrf from 'csurf';
 // Removed DOMPurify to avoid Trusted Types issues
 import validator from 'validator';
 
-// Rate limiting
+// Rate limiting - more permissive for production
 export const apiRateLimit = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100,
+  max: process.env.NODE_ENV === 'production' ? 1000 : 100, // Higher limit in production
   message: { error: 'Too many requests' },
   standardHeaders: true,
   legacyHeaders: false,
+  skip: (req) => {
+    // Skip rate limiting for health checks and static files
+    return req.path.includes('/health') || 
+           req.path.includes('/api/config') ||
+           req.path.includes('.js') ||
+           req.path.includes('.css') ||
+           req.path.includes('.ico');
+  }
 });
 
 // Security headers - CSP disabled for Firebase compatibility

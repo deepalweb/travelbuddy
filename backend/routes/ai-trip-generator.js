@@ -1,5 +1,6 @@
 import express from 'express';
 import OpenAI from 'openai';
+import fetch from 'node-fetch';
 import { requireSubscription } from '../middleware/subscriptionCheck.js';
 
 const router = express.Router();
@@ -14,14 +15,80 @@ const openai = process.env.AZURE_OPENAI_API_KEY ? new OpenAI({
   },
 }) : null;
 
+// Fetch real places from Google Places API
+async function fetchRealPlaces(destination) {
+  if (!process.env.GOOGLE_PLACES_API_KEY) {
+    console.log('Google Places API key not available');
+    return [];
+  }
+
+  try {
+    const geocodeUrl = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(destination)}&key=${process.env.GOOGLE_PLACES_API_KEY}`;
+    const geocodeResponse = await fetch(geocodeUrl);
+    const geocodeData = await geocodeResponse.json();
+    
+    if (geocodeData.status !== 'OK' || !geocodeData.results[0]) {
+      console.log('Geocoding failed for', destination);
+      return [];
+    }
+    
+    const { lat, lng } = geocodeData.results[0].geometry.location;
+    
+    const placesUrl = `https://maps.googleapis.com/maps/api/place/nearbysearch/json?location=${lat},${lng}&radius=25000&type=tourist_attraction&key=${process.env.GOOGLE_PLACES_API_KEY}`;
+    const placesResponse = await fetch(placesUrl);
+    const placesData = await placesResponse.json();
+    
+    if (placesData.status === 'OK') {
+      return placesData.results.slice(0, 10).map(place => ({
+        name: place.name,
+        description: `Visit ${place.name}, a popular attraction in ${destination}`,
+        address: place.vicinity || place.formatted_address,
+        category: place.types[0] || 'Attraction',
+        rating: place.rating || 4.0,
+        costLow: '$5-15', costMed: '$15-30', costHigh: '$30-60',
+        duration: '2 hours'
+      }));
+    }
+  } catch (error) {
+    console.error('Google Places API error:', error);
+  }
+  
+  return [];
+}
+
+// Check Azure OpenAI status
+async function checkAzureOpenAIStatus() {
+  if (!process.env.AZURE_OPENAI_API_KEY || !process.env.AZURE_OPENAI_ENDPOINT) {
+    console.log('❌ Azure OpenAI credentials missing');
+    return false;
+  }
+  
+  try {
+    const testCompletion = await openai.chat.completions.create({
+      model: process.env.AZURE_OPENAI_DEPLOYMENT_NAME,
+      messages: [{ role: "user", content: "Test" }],
+      max_tokens: 5
+    });
+    console.log('✅ Azure OpenAI is working');
+    return true;
+  } catch (error) {
+    console.log('❌ Azure OpenAI test failed:', error.message);
+    return false;
+  }
+}
+
 // Generate AI trip itinerary using Azure OpenAI
 async function generateAITrip(userPreferences) {
   const { destination, duration, travelStyle, budget, interests, travelers } = userPreferences;
   const days = parseInt(duration.match(/(\d+)/)?.[1] || '3');
 
-  if (!openai) {
-    console.log('Azure OpenAI not available, using fallback');
-    return createRealisticItinerary(destination, days, budget, interests);
+  // Check Azure OpenAI status first
+  const azureWorking = openai && await checkAzureOpenAIStatus();
+  
+  if (!azureWorking) {
+    console.log('🔄 Azure OpenAI unavailable, using Google Places API');
+    const realPlaces = await fetchRealPlaces(destination);
+    return createRealisticItinerary(destination, days, budget, interests, realPlaces);
   }
 
   const prompt = `Create a detailed ${days}-day travel itinerary for ${destination} with REAL places, addresses, and attractions.
@@ -97,23 +164,59 @@ Return ONLY this JSON structure:
     
   } catch (error) {
     console.error('❌ Azure OpenAI failed:', error);
-    console.log('🔄 Falling back to hardcoded data');
-    return createRealisticItinerary(destination, days, budget, interests);
+    console.log('🔄 Falling back to Google Places API');
+    const realPlaces = await fetchRealPlaces(destination);
+    return createRealisticItinerary(destination, days, budget, interests, realPlaces);
   }
 }
 
 // Create realistic itinerary with destination-specific content
-function createRealisticItinerary(destination, days, budget, interests) {
+function createRealisticItinerary(destination, days, budget, interests, realPlaces = []) {
   const destinationData = getDestinationData(destination);
-  const dailyPlans = [];
   const actualDays = Math.max(1, days);
+  
+  // Use real places from Google Places API if available
+  if (realPlaces && realPlaces.length > 0) {
+    destinationData.activities = realPlaces;
+  }
+  
+  // If no specific activities available, return error message
+  if (!destinationData.activities || destinationData.activities.length === 0) {
+    return {
+      id: `trip_${Date.now()}`,
+      tripTitle: `${destination} Trip Planning`,
+      destination,
+      duration: `${actualDays} day${actualDays > 1 ? 's' : ''}`,
+      introduction: `We're working on generating a detailed itinerary for ${destination} with real places and attractions.`,
+      conclusion: 'Please try again in a moment for a complete itinerary with actual locations.',
+      totalEstimatedCost: 'To be calculated with real places',
+      estimatedWalkingDistance: 'To be calculated',
+      dailyPlans: [{
+        day: 1,
+        title: 'Itinerary Generation in Progress',
+        activities: [{
+          timeOfDay: '00:00-00:00',
+          activityTitle: 'Real places loading...',
+          description: 'We are fetching real attractions and places for your destination. Please refresh or try again.',
+          address: 'Real addresses will be provided',
+          category: 'System Message',
+          estimatedCost: 'TBD',
+          duration: 'TBD',
+          isVisited: false
+        }]
+      }],
+      travelTips: ['Please try generating the trip again', 'Real places and attractions will be included'],
+      createdAt: new Date().toISOString()
+    };
+  }
+  
+  const dailyPlans = [];
   
   for (let day = 1; day <= actualDays; day++) {
     const dayActivities = [];
     const activitiesPerDay = Math.min(3, destinationData.activities.length);
     
     for (let i = 0; i < activitiesPerDay; i++) {
-      // Use different activities for each day to avoid repetition
       const activityIndex = ((day - 1) * activitiesPerDay + i) % destinationData.activities.length;
       const activity = destinationData.activities[activityIndex];
       
@@ -288,20 +391,16 @@ function getDestinationData(destination) {
     return destinations['Sri Lanka'];
   }
   
-  // Generate destination-specific content
+  // Use Google Places API or return error for unknown destinations
+  console.log(`⚠️ No specific data for ${destination}, using Google Places API fallback`);
+  
+  // Return minimal structure that forces AI generation
   return {
-    introduction: `Welcome to ${destination}! Discover the unique culture, stunning attractions, and authentic experiences that make this destination special.`,
-    conclusion: `Your ${destination} adventure combines must-see landmarks with authentic local experiences, creating memories that will last a lifetime.`,
-    dayTitles: ['Arrival & City Center', 'Cultural Highlights', 'Local Experiences', 'Hidden Gems', 'Final Exploration'],
-    activities: [
-      { name: `${destination} Historic District`, description: `Explore the historic heart of ${destination} with its iconic landmarks and architecture`, costLow: '$10-20', costMed: '$20-40', costHigh: '$50-80', duration: '3 hours' },
-      { name: `${destination} Central Market`, description: `Experience the vibrant local market scene and taste authentic ${destination} specialties`, costLow: '$8-15', costMed: '$15-30', costHigh: '$35-60', duration: '2 hours' },
-      { name: `${destination} Cultural Museum`, description: `Learn about the rich history and cultural heritage of ${destination}`, costLow: '$5-12', costMed: '$12-25', costHigh: '$30-50', duration: '2.5 hours' },
-      { name: `${destination} Scenic Overlook`, description: `Enjoy breathtaking panoramic views of ${destination} and surrounding areas`, costLow: '$3-8', costMed: '$8-18', costHigh: '$20-35', duration: '1.5 hours' },
-      { name: `Traditional ${destination} Restaurant`, description: `Savor authentic local cuisine at a highly-rated traditional restaurant`, costLow: '$15-25', costMed: '$25-45', costHigh: '$60-100', duration: '2 hours' },
-      { name: `${destination} Walking Discovery Tour`, description: `Discover hidden gems and local secrets with an expert guide`, costLow: '$10-20', costMed: '$20-35', costHigh: '$45-75', duration: '2.5 hours' }
-    ],
-    tips: [`Check ${destination} weather conditions before heading out`, 'Carry local currency for small vendors', `Respect ${destination} local customs and traditions`, 'Try public transportation for authentic local experience']
+    introduction: `Welcome to ${destination}! This itinerary will be generated using real places and attractions.`,
+    conclusion: `Your ${destination} adventure will include authentic local experiences and real attractions.`,
+    dayTitles: ['Exploration Day'],
+    activities: [], // Empty to force AI generation
+    tips: ['Use real places and attractions', 'Research actual locations', 'Include specific addresses']
   };
 }
 

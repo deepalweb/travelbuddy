@@ -678,7 +678,8 @@ function enforcePolicy(api) {
 
 // Security middleware - CSP disabled for Google APIs compatibility
 app.use(securityHeaders);
-app.use(apiRateLimit);
+// Apply rate limiting only to API routes, not health checks
+app.use('/api', apiRateLimit);
 app.use(sanitizeInput);
 
 // CSRF protection disabled for development
