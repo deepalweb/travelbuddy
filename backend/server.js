@@ -5594,7 +5594,25 @@ try {
 try {
   const dealsRouter = (await import('./routes/deals.js')).default;
   app.use('/api/deals', requireFeature('deals'), dealsRouter);
-  console.log('✅ Deals routes loaded');
+  console.log('✅ Deals routes loaded
+
+// Load transport provider routes
+try {
+  const transportRouter = (await import('./routes/transport-providers.js')).default;
+  app.use('/api/transport', transportRouter);
+  console.log('✅ Transport provider routes loaded');
+} catch (error) {
+  console.error('❌ Failed to load transport provider routes:', error);
+}
+
+// Load travel agent routes
+try {
+  const travelAgentRouter = (await import('./routes/travel-agents.js')).default;
+  app.use('/api/travel-agents', travelAgentRouter);
+  console.log('✅ Travel agent routes loaded');
+} catch (error) {
+  console.error('❌ Failed to load travel agent routes:', error);
+}');
 } catch (error) {
   console.error('❌ Failed to load deals routes:', error);
 }
