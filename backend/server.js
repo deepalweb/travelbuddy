@@ -949,6 +949,15 @@ try {
   console.error('❌ Failed to load places routes:', error);
 }
 
+// Load places photos routes
+try {
+  const placesPhotosRouter = (await import('./routes/places-photos.js')).default;
+  app.use('/api/places', placesPhotosRouter);
+  console.log('✅ Places photos routes loaded');
+} catch (error) {
+  console.error('❌ Failed to load places photos routes:', error);
+}
+
 // Load routes endpoints for navigation
 try {
   const routesRouter = (await import('./routes/routes.js')).default;

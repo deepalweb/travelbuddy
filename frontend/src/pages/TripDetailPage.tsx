@@ -2,8 +2,9 @@ import React, { useState, useEffect, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { Card, CardContent, CardHeader, CardTitle } from '../components/Card'
 import { Button } from '../components/Button'
-import { MapPin, Clock, Euro, CheckCircle, Circle, Star, Navigation, Save, Calendar, Users, DollarSign, ArrowLeft, Download, Share2, Filter, RotateCcw, List, Map, FileText, BarChart3, Cloud, Edit3 } from 'lucide-react'
+import { MapPin, Clock, Euro, CheckCircle, Circle, Star, Navigation, Save, Calendar, Users, DollarSign, ArrowLeft, Download, Share2, Filter, RotateCcw, List, Map, FileText, BarChart3, Cloud, Edit3, Car } from 'lucide-react'
 import { tripService } from '../services/tripService'
+import { placesService } from '../services/placesService'
 
 interface Trip {
   _id: string
@@ -32,6 +33,9 @@ interface Activity {
   estimatedCost: string
   isVisited: boolean
   rating?: number
+  imageUrl?: string
+  address?: string
+  category?: string
 }
 
 export const TripDetailPage: React.FC = () => {
@@ -39,6 +43,7 @@ export const TripDetailPage: React.FC = () => {
   const navigate = useNavigate()
   const [trip, setTrip] = useState<Trip | null>(null)
   const [loading, setLoading] = useState(true)
+  const [loadingImages, setLoadingImages] = useState(false)
   const [viewMode, setViewMode] = useState<'list' | 'map'>('list')
   const [showNotes, setShowNotes] = useState(false)
   const [tripNotes, setTripNotes] = useState('')
@@ -54,6 +59,12 @@ export const TripDetailPage: React.FC = () => {
       if (savedNotes) setTripNotes(savedNotes)
     }
   }, [id])
+
+  useEffect(() => {
+    if (trip && !loadingImages) {
+      loadPlaceImages()
+    }
+  }, [trip])
 
   useEffect(() => {
     if (viewMode === 'map' && trip && !mapLoaded) {
@@ -243,6 +254,34 @@ export const TripDetailPage: React.FC = () => {
     } finally {
       setLoading(false)
     }
+  }
+
+  const loadPlaceImages = async () => {
+    if (!trip || loadingImages) return
+    
+    setLoadingImages(true)
+    const updatedTrip = { ...trip }
+    
+    for (const day of updatedTrip.dailyPlans) {
+      for (const activity of day.activities) {
+        if (!activity.imageUrl) {
+          try {
+            const placeData = await placesService.getPlaceWithPhoto(activity.activityTitle, trip.destination)
+            if (placeData) {
+              activity.imageUrl = placeData.photo_url || undefined
+              activity.address = placeData.address
+              activity.rating = placeData.rating
+              activity.category = placeData.types?.[0]?.replace(/_/g, ' ') || undefined
+            }
+          } catch (error) {
+            console.error(`Failed to load image for ${activity.activityTitle}:`, error)
+          }
+        }
+      }
+    }
+    
+    setTrip(updatedTrip)
+    setLoadingImages(false)
   }
 
   const toggleActivityStatus = async (dayIndex: number, activityIndex: number) => {
@@ -522,6 +561,109 @@ export const TripDetailPage: React.FC = () => {
           </div>
         </div>
 
+        {/* Travel Agents Section */}
+        <Card className="mb-8 bg-gradient-to-r from-green-50 to-emerald-50 border-green-200">
+          <CardContent className="p-6">
+            <div className="flex items-center mb-6">
+              <Users className="w-5 h-5 text-green-600 mr-2" />
+              <h3 className="text-xl font-semibold text-gray-900">🧑‍💼 Recommended Travel Agents for This Trip</h3>
+            </div>
+            <p className="text-sm text-gray-600 mb-4">(Filtered by: {trip.destination} · Solo Traveler · Cultural/Adventure)</p>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="bg-white rounded-lg p-4 border border-green-200">
+                <div className="flex items-center justify-between mb-2">
+                  <h4 className="font-semibold text-gray-900">⭐ Raj Travel Experts</h4>
+                  <span className="text-yellow-600 text-sm">4.8★ (Verified)</span>
+                </div>
+                <p className="text-sm text-gray-600 mb-2">{trip.destination} • 210 trips completed</p>
+                <p className="text-sm text-gray-700 mb-3">✔ Cultural Tours · ✔ City Guides · ✔ Food Tours</p>
+                <div className="flex gap-2">
+                  <Button size="sm" variant="outline">View Profile</Button>
+                  <Button size="sm">Chat</Button>
+                  <Button size="sm" className="bg-green-600 hover:bg-green-700">Book</Button>
+                </div>
+              </div>
+              
+              <div className="bg-white rounded-lg p-4 border border-green-200">
+                <div className="flex items-center justify-between mb-2">
+                  <h4 className="font-semibold text-gray-900">⭐ Local Heritage Guides</h4>
+                  <span className="text-yellow-600 text-sm">4.7★</span>
+                </div>
+                <p className="text-sm text-gray-600 mb-2">{trip.destination} • Heritage Specialists</p>
+                <p className="text-sm text-gray-700 mb-3">✔ Historical Sites · ✔ Cultural Tours</p>
+                <div className="flex gap-2">
+                  <Button size="sm" variant="outline">View Profile</Button>
+                  <Button size="sm" className="bg-green-600 hover:bg-green-700">Book</Button>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Transportation Section */}
+        <Card className="mb-8 bg-gradient-to-r from-blue-50 to-cyan-50 border-blue-200">
+          <CardContent className="p-6">
+            <div className="flex items-center mb-6">
+              <Car className="w-5 h-5 text-blue-600 mr-2" />
+              <h3 className="text-xl font-semibold text-gray-900">🚘 Transport Packages for This Trip</h3>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="bg-white rounded-lg p-4 border border-blue-200">
+                <h4 className="font-semibold text-gray-900 mb-2">🚗 {trip.duration} Car + Driver Package</h4>
+                <p className="text-lg font-bold text-blue-600 mb-2">From $150–200</p>
+                <p className="text-sm text-gray-600 mb-3">Provider: {trip.destination} Ride Co. (4.9★)</p>
+                <div className="flex gap-2">
+                  <Button size="sm" variant="outline">View</Button>
+                  <Button size="sm" className="bg-blue-600 hover:bg-blue-700">Book</Button>
+                  <Button size="sm" variant="outline">Message</Button>
+                </div>
+              </div>
+              
+              <div className="bg-white rounded-lg p-4 border border-blue-200">
+                <h4 className="font-semibold text-gray-900 mb-2">🚕 Local Taxi Partners</h4>
+                <p className="text-lg font-bold text-blue-600 mb-2">Starting $6–$10 per ride</p>
+                <p className="text-sm text-gray-600 mb-3">On-demand booking available</p>
+                <Button size="sm" className="bg-blue-600 hover:bg-blue-700 w-full">Book Now</Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Deals Section */}
+        <Card className="mb-8 bg-gradient-to-r from-purple-50 to-pink-50 border-purple-200">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between mb-6">
+              <div className="flex items-center">
+                <DollarSign className="w-5 h-5 text-purple-600 mr-2" />
+                <h3 className="text-xl font-semibold text-gray-900">💸 Featured Deals for Your Trip</h3>
+              </div>
+              <Button variant="outline" size="sm">View All Deals →</Button>
+            </div>
+            <p className="text-sm text-gray-600 mb-4">❤️ Restaurants, Hotels & Attractions</p>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className="bg-white rounded-lg p-3 border border-purple-200">
+                <div className="text-sm font-semibold text-purple-700 mb-1">10% off at Local Restaurant</div>
+                <div className="text-xs text-gray-600">Traditional cuisine</div>
+              </div>
+              <div className="bg-white rounded-lg p-3 border border-purple-200">
+                <div className="text-sm font-semibold text-purple-700 mb-1">15% off Street Food Walk</div>
+                <div className="text-xs text-gray-600">Guided food tour</div>
+              </div>
+              <div className="bg-white rounded-lg p-3 border border-purple-200">
+                <div className="text-sm font-semibold text-purple-700 mb-1">5% Off Souvenir Shops</div>
+                <div className="text-xs text-gray-600">Near main attractions</div>
+              </div>
+              <div className="bg-white rounded-lg p-3 border border-purple-200">
+                <div className="text-sm font-semibold text-purple-700 mb-1">12% Off Boutique Hotel</div>
+                <div className="text-xs text-gray-600">Premium accommodation</div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
         {/* Trip Notes Section */}
         {showNotes && (
           <Card className="mb-8 bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200">
@@ -645,6 +787,23 @@ export const TripDetailPage: React.FC = () => {
                       }`}>
                         <CardContent className="p-6">
                           <div className="flex items-start justify-between">
+                            {/* Place Image */}
+                            <div className="w-32 h-24 rounded-lg overflow-hidden mr-6 flex-shrink-0 relative">
+                              {loadingImages && !activity.imageUrl ? (
+                                <div className="w-full h-full bg-gray-200 animate-pulse flex items-center justify-center">
+                                  <div className="text-xs text-gray-500">Loading...</div>
+                                </div>
+                              ) : (
+                                <img 
+                                  src={activity.imageUrl ? `${import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001'}${activity.imageUrl}` : 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=400&h=300&fit=crop'} 
+                                  alt={activity.activityTitle}
+                                  className="w-full h-full object-cover"
+                                  onError={(e) => {
+                                    e.currentTarget.src = 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=400&h=300&fit=crop';
+                                  }}
+                                />
+                              )}
+                            </div>
                             <div className="flex-1">
                               <div className="flex items-center space-x-3 mb-3">
                                 <span className="bg-teal-100 text-teal-700 px-3 py-1 rounded-full text-sm font-medium">
@@ -658,10 +817,23 @@ export const TripDetailPage: React.FC = () => {
                                 )}
                               </div>
                               
-                              <h4 className="text-xl font-bold text-gray-900 mb-2">{activity.activityTitle}</h4>
-                              <p className="text-gray-700 mb-4 leading-relaxed">{activity.description}</p>
+                              <div className="mb-4">
+                                <h4 className="text-xl font-bold text-gray-900 mb-2">{activity.activityTitle}</h4>
+                                {activity.address && (
+                                  <div className="flex items-start text-sm text-gray-600 mb-2">
+                                    <MapPin className="w-4 h-4 mr-2 mt-0.5 text-blue-500" />
+                                    <span>{activity.address}</span>
+                                  </div>
+                                )}
+                                {activity.category && (
+                                  <span className="inline-block bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded-full mb-2">
+                                    {activity.category}
+                                  </span>
+                                )}
+                                <p className="text-gray-700 leading-relaxed">{activity.description}</p>
+                              </div>
                               
-                              <div className="flex flex-wrap gap-4 text-sm">
+                              <div className="flex flex-wrap gap-4 text-sm mb-4">
                                 <div className="flex items-center text-gray-600">
                                   <Clock className="w-4 h-4 mr-1" />
                                   <span>{activity.duration}</span>
@@ -670,6 +842,34 @@ export const TripDetailPage: React.FC = () => {
                                   <DollarSign className="w-4 h-4 mr-1" />
                                   <span>{activity.estimatedCost}</span>
                                 </div>
+                              </div>
+                              
+                              {/* Transport Options */}
+                              <div className="bg-blue-50 rounded-lg p-3 mb-3">
+                                <h5 className="text-sm font-semibold text-blue-900 mb-2">Transport Options:</h5>
+                                <div className="flex flex-wrap gap-2 text-xs">
+                                  <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded">Tuk-tuk: $4 · 12 min</span>
+                                  <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded">Metro: $1 · 7 min</span>
+                                  <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded">Taxi: $8 · 5 min</span>
+                                </div>
+                                <Button size="sm" variant="outline" className="mt-2 text-xs">Book Transport →</Button>
+                              </div>
+                              
+                              {/* Local Deals */}
+                              <div className="bg-purple-50 rounded-lg p-3 mb-3">
+                                <h5 className="text-sm font-semibold text-purple-900 mb-2">Deals Nearby:</h5>
+                                <div className="space-y-1">
+                                  <div className="text-xs text-purple-700">🍽️ 10% Off at Local Restaurant</div>
+                                  <div className="text-xs text-purple-700">🏭 5% Off Souvenir Shop</div>
+                                </div>
+                                <Button size="sm" variant="outline" className="mt-2 text-xs">Use Deals →</Button>
+                              </div>
+                              
+                              {/* Travel Agent Add-on */}
+                              <div className="bg-green-50 rounded-lg p-3">
+                                <h5 className="text-sm font-semibold text-green-900 mb-2">Local Guide Available:</h5>
+                                <div className="text-xs text-green-700 mb-2">Heritage Guide (4.8★) — $20/hr</div>
+                                <Button size="sm" variant="outline" className="text-xs">Hire Guide →</Button>
                               </div>
                             </div>
                             
