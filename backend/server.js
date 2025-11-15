@@ -111,7 +111,17 @@ const PORT = process.env.PORT || 3001;
 
 // Simple CORS middleware - must be first
 app.use((req, res, next) => {
-  res.header('Access-Control-Allow-Origin', 'http://localhost:3000');
+  const origin = req.headers.origin;
+  const allowedOrigins = [
+    'http://localhost:3000',
+    'https://travelbuddylk.com',
+    'https://travelbuddy-b2c6hgbbgeh4esdh.eastus2-01.azurewebsites.net'
+  ];
+  
+  if (!origin || allowedOrigins.includes(origin)) {
+    res.header('Access-Control-Allow-Origin', origin || '*');
+  }
+  
   res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
   res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, Accept, Origin, X-Requested-With, x-user-id, x-firebase-uid, x-user-tier, x-admin-secret, x-csrf-token, X-CSRF-Token');
   res.header('Access-Control-Allow-Credentials', 'true');
