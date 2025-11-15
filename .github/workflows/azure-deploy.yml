@@ -307,40 +307,54 @@ jobs:
         echo "Waiting for deployment to stabilize..."
         sleep 60
     
-    - name: 🏥 Comprehensive Health Check
+    - name: 🏥 Health Check with Retry Logic
       run: |
         APP_URL="https://travelbuddy-b2c6hgbbgeh4esdh.eastus2-01.azurewebsites.net"
         
         echo "🔍 Testing deployment health for: $APP_URL"
         
-        # API Health Check
-        echo "Testing API health..."
-        api_response=$(curl -s -o /dev/null -w "%{http_code}" "$APP_URL/api/health" || echo "000")
-        if [ "$api_response" = "200" ]; then
-          echo "✅ API health check passed (200)"
-        else
-          echo "❌ API health check failed with status code: $api_response"
-          curl -s "$APP_URL/api/health" || echo "Failed to get response"
+        # Function to check endpoint with retries
+        check_endpoint() {
+          local url=$1
+          local name=$2
+          local max_retries=5
+          local retry=0
+          
+          while [ $retry -lt $max_retries ]; do
+            response=$(curl -s -o /dev/null -w "%{http_code}" "$url" || echo "000")
+            
+            if [ "$response" = "200" ]; then
+              echo "✅ $name check passed (200)"
+              return 0
+            elif [ "$response" = "429" ]; then
+              retry=$((retry + 1))
+              wait_time=$((2 ** retry))
+              echo "⏳ $name rate limited (429), retry $retry/$max_retries in ${wait_time}s"
+              sleep $wait_time
+            else
+              echo "❌ $name failed with status: $response"
+              return 1
+            fi
+          done
+          
+          echo "❌ $name failed after $max_retries retries"
+          return 1
+        }
+        
+        # Check endpoints
+        api_ok=false
+        frontend_ok=false
+        
+        if check_endpoint "$APP_URL/api/health" "API health"; then
+          api_ok=true
         fi
         
-        # Frontend Health Check
-        echo "Testing frontend..."
-        frontend_response=$(curl -s -o /dev/null -w "%{http_code}" "$APP_URL/" || echo "000")
-        if [ "$frontend_response" = "200" ]; then
-          echo "✅ Frontend health check passed (200)"
-        else
-          echo "❌ Frontend health check failed with status code: $frontend_response"
+        if check_endpoint "$APP_URL/" "Frontend"; then
+          frontend_ok=true
         fi
         
-
-        
-        # Test API endpoints
-        echo "Testing key API endpoints..."
-        config_response=$(curl -s -o /dev/null -w "%{http_code}" "$APP_URL/api/config/maps-key" || echo "000")
-        echo "Config endpoint: $config_response"
-        
-        # Overall health assessment
-        if [ "$api_response" = "200" ] && [ "$frontend_response" = "200" ]; then
+        # Overall assessment
+        if [ "$api_ok" = true ] && [ "$frontend_ok" = true ]; then
           echo "🎉 Overall deployment health: HEALTHY"
           exit 0
         else
