@@ -5603,7 +5603,10 @@ try {
 try {
   const dealsRouter = (await import('./routes/deals.js')).default;
   app.use('/api/deals', requireFeature('deals'), dealsRouter);
-  console.log('✅ Deals routes loaded
+  console.log('✅ Deals routes loaded');
+} catch (error) {
+  console.error('❌ Failed to load deals routes:', error);
+}
 
 // Load transport provider routes
 try {
