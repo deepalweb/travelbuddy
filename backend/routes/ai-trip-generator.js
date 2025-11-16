@@ -163,27 +163,56 @@ Return ONLY this JSON structure:
       if (match) jsonStr = match[1].trim();
     }
     
-    // Extract JSON object
+    // Extract JSON object with better bracket matching
     if (jsonStr.includes('{')) {
-      const startIndex = jsonStr.indexOf('{');
-      const endIndex = jsonStr.lastIndexOf('}');
-      if (startIndex !== -1 && endIndex !== -1 && endIndex > startIndex) {
+      let braceCount = 0;
+      let startIndex = -1;
+      let endIndex = -1;
+      
+      for (let i = 0; i < jsonStr.length; i++) {
+        if (jsonStr[i] === '{') {
+          if (startIndex === -1) startIndex = i;
+          braceCount++;
+        } else if (jsonStr[i] === '}') {
+          braceCount--;
+          if (braceCount === 0 && startIndex !== -1) {
+            endIndex = i;
+            break;
+          }
+        }
+      }
+      
+      if (startIndex !== -1 && endIndex !== -1) {
         jsonStr = jsonStr.substring(startIndex, endIndex + 1);
       }
     }
     
     // Clean up common JSON issues
     jsonStr = jsonStr
-      .replace(/,\s*}/g, '}')  // Remove trailing commas
-      .replace(/,\s*]/g, ']')  // Remove trailing commas in arrays
-      .replace(/\n/g, ' ')     // Replace newlines with spaces
-      .replace(/\r/g, '')      // Remove carriage returns
-      .replace(/\t/g, ' ')     // Replace tabs with spaces
-      .replace(/\s+/g, ' ');   // Normalize whitespace
+      .replace(/,\s*}/g, '}')     // Remove trailing commas before }
+      .replace(/,\s*]/g, ']')     // Remove trailing commas before ]
+      .replace(/\\n/g, '\\\\n')   // Escape newlines in strings
+      .replace(/\\r/g, '')        // Remove carriage returns
+      .replace(/\\t/g, ' ')       // Replace tabs with spaces
+      .replace(/[\u0000-\u001F\u007F-\u009F]/g, '') // Remove control characters
+      .replace(/\s+/g, ' ')       // Normalize whitespace
+      .trim();
     
     console.log('🔧 Cleaned JSON length:', jsonStr.length);
     
-    const aiItinerary = JSON.parse(jsonStr);
+    let aiItinerary;
+    try {
+      aiItinerary = JSON.parse(jsonStr);
+    } catch (parseError) {
+      console.log('❌ JSON parse failed, attempting repair...');
+      // Try to fix common JSON issues
+      jsonStr = jsonStr
+        .replace(/([^\\])"([^"]*?)"([^:])/g, '$1"$2"$3') // Fix unescaped quotes
+        .replace(/,\s*([}\]])/g, '$1') // Remove trailing commas more aggressively
+        .replace(/([{,]\s*)([a-zA-Z_][a-zA-Z0-9_]*):/g, '$1"$2":'); // Quote unquoted keys
+      
+      aiItinerary = JSON.parse(jsonStr);
+    }
     aiItinerary.id = `ai_trip_${Date.now()}`;
     aiItinerary.createdAt = new Date().toISOString();
     
@@ -191,7 +220,10 @@ Return ONLY this JSON structure:
     return aiItinerary;
     
   } catch (error) {
-    console.error('❌ Azure OpenAI failed:', error);
+    console.error('❌ Azure OpenAI failed:', error.message);
+    if (error.name === 'SyntaxError') {
+      console.log('📝 Raw response preview:', responseText?.substring(0, 500) + '...');
+    }
     console.log('🔄 Falling back to Google Places API');
     const realPlaces = await fetchRealPlaces(destination);
     return createRealisticItinerary(destination, days, budget, interests, realPlaces);
