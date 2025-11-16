@@ -5673,6 +5673,11 @@ app.use(notFoundHandler);
 app.use(errorHandler);
 
 httpServer.listen(PORT, () => {
+  console.log('🔧 Startup diagnostics:');
+  console.log('- PORT:', process.env.PORT || 'not set');
+  console.log('- NODE_ENV:', process.env.NODE_ENV || 'not set');
+  console.log('- MONGO_URI:', process.env.MONGO_URI ? 'configured' : 'missing');
+  console.log('- GOOGLE_PLACES_API_KEY:', process.env.GOOGLE_PLACES_API_KEY ? 'configured' : 'missing');
   const protocol = process.env.ENABLE_HTTPS === 'true' ? 'https' : 'http';
   console.log(`🚀 Server running on ${protocol}://localhost:${PORT}`);
   console.log(`🌤️ Weather API: ${process.env.GOOGLE_PLACES_API_KEY ? '✅ Google-enhanced weather configured' : '⚠️ Using mock data (set GOOGLE_PLACES_API_KEY for enhanced weather)'}`);
