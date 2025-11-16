@@ -4179,6 +4179,11 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'OK', database, timestamp: new Date().toISOString(), version: '1.1.0' });
 });
 
+// Simple health check at root
+app.get('/health', (req, res) => {
+  res.json({ status: 'OK', timestamp: new Date().toISOString() });
+});
+
 // Keep the old health endpoint for backward compatibility
 app.get('/health', (req, res) => {
   const dbState = mongoose.connection?.readyState;
