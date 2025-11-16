@@ -107,7 +107,8 @@ try {
 const app = express();
 // Enable gzip compression for faster API responses
 app.use(compression({ threshold: 1024 }));
-const PORT = process.env.PORT || 3001;
+const PORT = process.env.PORT || 8080;
+console.log('🔧 Starting server on port:', PORT);
 
 // Simple CORS middleware - must be first
 app.use((req, res, next) => {
@@ -1170,15 +1171,18 @@ function setEnrichmentInCache(items, lang) {
   }
 }
 
-// MongoDB connection (optional)
+// MongoDB connection (optional) - with error handling
 const MONGO_URI = process.env.MONGO_URI;
 const SKIP_MONGO = String(process.env.SKIP_MONGO || '').toLowerCase() === 'true';
 if (!SKIP_MONGO && MONGO_URI && MONGO_URI !== 'disabled') {
   mongoose.connect(MONGO_URI)
     .then(() => console.log('✅ MongoDB connected'))
-    .catch(err => console.error('❌ MongoDB connection error:', err));
+    .catch(err => {
+      console.error('❌ MongoDB connection error:', err.message);
+      console.log('ℹ️ Continuing without database...');
+    });
 } else {
-  console.warn('ℹ️ MongoDB connection skipped (set MONGO_URI and SKIP_MONGO=false to enable; set MONGO_URI="disabled" or SKIP_MONGO=true to skip).');
+  console.warn('ℹ️ MongoDB connection skipped');
 }
 
 // Generic Config Schema for key/value config
