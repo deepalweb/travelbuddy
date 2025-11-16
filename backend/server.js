@@ -5624,9 +5624,6 @@ try {
   console.log('✅ Travel agent routes loaded');
 } catch (error) {
   console.error('❌ Failed to load travel agent routes:', error);
-}');
-} catch (error) {
-  console.error('❌ Failed to load deals routes:', error);
 }
 
 
