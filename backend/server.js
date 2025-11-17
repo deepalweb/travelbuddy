@@ -108,7 +108,12 @@ const app = express();
 // Enable gzip compression for faster API responses
 app.use(compression({ threshold: 1024 }));
 const PORT = process.env.PORT || 8080;
-console.log('🔧 Starting server on port:', PORT);
+console.log('🔧 Starting TravelBuddy server...');
+console.log('📍 Port:', PORT);
+console.log('🌍 Environment:', process.env.NODE_ENV || 'development');
+console.log('🔗 MongoDB:', process.env.MONGO_URI ? 'configured' : 'not configured');
+console.log('🗝️ Google API:', process.env.GOOGLE_PLACES_API_KEY ? 'configured' : 'not configured');
+console.log('🤖 OpenAI:', process.env.AZURE_OPENAI_API_KEY ? 'configured' : 'not configured');
 
 // Production safeguards
 if (process.env.NODE_ENV === 'production') {
@@ -4974,12 +4979,31 @@ app.get('/api/cors-test', (req, res) => {
 app.get('/api/health', (req, res) => {
   const dbState = mongoose.connection?.readyState;
   const database = (SKIP_MONGO || !MONGO_URI || MONGO_URI === 'disabled') ? 'skipped' : (dbState === 1 ? 'connected' : 'disconnected');
-  res.json({ status: 'OK', database, timestamp: new Date().toISOString(), version: '1.1.0' });
+  res.json({ status: 'OK', database, timestamp: new Date().toISOString(), version: '1.2.0' });
+});
+
+// Root endpoint for domain verification
+app.get('/', (req, res) => {
+  res.json({ 
+    message: 'TravelBuddy API Server', 
+    status: 'running',
+    version: '1.2.0',
+    endpoints: {
+      health: '/api/health',
+      api: '/api/*'
+    },
+    timestamp: new Date().toISOString()
+  });
 });
 
 // Simple health check at root
 app.get('/health', (req, res) => {
   res.json({ status: 'OK', timestamp: new Date().toISOString() });
+});
+
+// Favicon handler
+app.get('/favicon.ico', (req, res) => {
+  res.status(204).end();
 });
 
 // Keep the old health endpoint for backward compatibility
