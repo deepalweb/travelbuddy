@@ -64,7 +64,7 @@ export const ProfilePictureUpload: React.FC<ProfilePictureUploadProps> = ({
         headers['x-user-id'] = userId;
       }
 
-      const response = await fetch('http://localhost:3001/api/upload/profile-picture', {
+      const response = await fetch('https://travelbuddy-b2c6hgbbgeh4esdh.eastus2-01.azurewebsites.net/api/upload/profile-picture', {
         method: 'POST',
         headers,
         body: formData

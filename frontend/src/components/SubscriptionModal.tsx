@@ -33,7 +33,7 @@ export const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
 
   const fetchTiers = async () => {
     try {
-      const apiUrl = config?.apiBaseUrl || 'http://localhost:3001'
+      const apiUrl = config?.apiBaseUrl || 'https://travelbuddy-b2c6hgbbgeh4esdh.eastus2-01.azurewebsites.net'
       const response = await fetch(`${apiUrl}/api/subscriptions/tiers`)
       if (response.ok) {
         const data = await response.json()
@@ -48,7 +48,7 @@ export const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
     if (!user?.id) return
     
     try {
-      const apiUrl = config?.apiBaseUrl || 'http://localhost:3001'
+      const apiUrl = config?.apiBaseUrl || 'https://travelbuddy-b2c6hgbbgeh4esdh.eastus2-01.azurewebsites.net'
       const response = await fetch(`${apiUrl}/api/subscriptions/status`, {
         headers: {
           'x-user-id': user.id
@@ -68,7 +68,7 @@ export const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
     
     setLoading(true)
     try {
-      const apiUrl = config?.apiBaseUrl || 'http://localhost:3001'
+      const apiUrl = config?.apiBaseUrl || 'https://travelbuddy-b2c6hgbbgeh4esdh.eastus2-01.azurewebsites.net'
       const response = await fetch(`${apiUrl}/api/subscriptions/upgrade`, {
         method: 'POST',
         headers: {

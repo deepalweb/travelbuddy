@@ -36,7 +36,7 @@ export const useUserSecurity = () => {
       
       const apiUrl = import.meta.env.PROD 
         ? window.location.origin 
-        : 'http://localhost:3001'
+        : 'https://travelbuddy-b2c6hgbbgeh4esdh.eastus2-01.azurewebsites.net'
       const response = await fetch(`${apiUrl}/api/users/security`, { headers })
       if (response.ok) {
         const data = await response.json()
@@ -64,7 +64,7 @@ export const useUserSecurity = () => {
       
       const apiUrl = import.meta.env.PROD 
         ? window.location.origin 
-        : 'http://localhost:3001'
+        : 'https://travelbuddy-b2c6hgbbgeh4esdh.eastus2-01.azurewebsites.net'
       const response = await fetch(`${apiUrl}/api/users/security`, {
         method: 'PUT',
         headers,

@@ -57,7 +57,7 @@ export default function TransportProviderDetails({ providerId, onClose }: Props)
 
   const fetchProviderDetails = async (providerId: string) => {
     try {
-      const response = await fetch(`http://localhost:3001/api/transport-providers/admin/details/${providerId}`)
+      const response = await fetch(`https://travelbuddy-b2c6hgbbgeh4esdh.eastus2-01.azurewebsites.net/api/transport-providers/admin/details/${providerId}`)
       if (response.ok) {
         const data = await response.json()
         setProvider(data)
@@ -72,7 +72,7 @@ export default function TransportProviderDetails({ providerId, onClose }: Props)
   const handleApprove = async () => {
     if (!provider) return
     try {
-      const response = await fetch(`http://localhost:3001/api/transport-providers/admin/approve/${provider._id}`, {
+      const response = await fetch(`https://travelbuddy-b2c6hgbbgeh4esdh.eastus2-01.azurewebsites.net/api/transport-providers/admin/approve/${provider._id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'approve', notes: 'Approved after detailed review' })
@@ -91,7 +91,7 @@ export default function TransportProviderDetails({ providerId, onClose }: Props)
     if (!reason) return
     
     try {
-      const response = await fetch(`http://localhost:3001/api/transport-providers/admin/approve/${provider._id}`, {
+      const response = await fetch(`https://travelbuddy-b2c6hgbbgeh4esdh.eastus2-01.azurewebsites.net/api/transport-providers/admin/approve/${provider._id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'reject', notes: reason })

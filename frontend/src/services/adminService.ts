@@ -1,4 +1,4 @@
-const ADMIN_API_BASE = process.env.REACT_APP_ADMIN_API_URL || 'http://localhost:3001/api/admin'
+const ADMIN_API_BASE = process.env.REACT_APP_ADMIN_API_URL || 'https://travelbuddy-b2c6hgbbgeh4esdh.eastus2-01.azurewebsites.net/api/admin'
 
 export class AdminService {
   private static instance: AdminService

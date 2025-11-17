@@ -42,7 +42,7 @@ interface CreateStoryData {
   tags?: string[];
 }
 
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3001/api'
+const API_BASE = import.meta.env.VITE_API_URL || 'https://travelbuddy-b2c6hgbbgeh4esdh.eastus2-01.azurewebsites.net/api'
 
 // Transform backend post to frontend story format
 const transformPost = (post: any): Story => {

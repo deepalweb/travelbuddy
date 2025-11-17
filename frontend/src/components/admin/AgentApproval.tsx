@@ -27,7 +27,7 @@ export default function AgentApproval() {
 
   const fetchApplications = async () => {
     try {
-      const response = await fetch('http://localhost:3001/api/travel-agents/admin/applications')
+      const response = await fetch('https://travelbuddy-b2c6hgbbgeh4esdh.eastus2-01.azurewebsites.net/api/travel-agents/admin/applications')
       if (response.ok) {
         const data = await response.json()
         setApplications(data.applications)
@@ -41,7 +41,7 @@ export default function AgentApproval() {
 
   const handleApprove = async (id: string) => {
     try {
-      const response = await fetch(`http://localhost:3001/api/travel-agents/admin/approve/${id}`, {
+      const response = await fetch(`https://travelbuddy-b2c6hgbbgeh4esdh.eastus2-01.azurewebsites.net/api/travel-agents/admin/approve/${id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'approve' })
@@ -60,7 +60,7 @@ export default function AgentApproval() {
 
   const handleReject = async (id: string) => {
     try {
-      const response = await fetch(`http://localhost:3001/api/travel-agents/admin/approve/${id}`, {
+      const response = await fetch(`https://travelbuddy-b2c6hgbbgeh4esdh.eastus2-01.azurewebsites.net/api/travel-agents/admin/approve/${id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'reject' })

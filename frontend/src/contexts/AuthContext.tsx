@@ -140,7 +140,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return
       }
 
-      const response = await fetch(`${config?.apiBaseUrl || 'http://localhost:3001'}/api/demo-auth/verify-token`, {
+      const response = await fetch(`${config?.apiBaseUrl || 'https://travelbuddy-b2c6hgbbgeh4esdh.eastus2-01.azurewebsites.net'}/api/demo-auth/verify-token`, {
         headers: {
           'Authorization': `Bearer ${demoToken}`
         }
@@ -186,7 +186,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const token = await firebaseUser.getIdToken()
       
       // Try to sync user with backend
-      const response = await fetch(`${config?.apiBaseUrl || 'http://localhost:3001'}/api/users/sync`, {
+      const response = await fetch(`${config?.apiBaseUrl || 'https://travelbuddy-b2c6hgbbgeh4esdh.eastus2-01.azurewebsites.net'}/api/users/sync`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -364,7 +364,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       localStorage.setItem('demo_token', 'demo-token-' + Date.now())
       
       // Uncomment when backend is running:
-      // const response = await fetch(`${config?.apiBaseUrl || 'http://localhost:3001'}/api/demo-auth/demo-login`, {
+      // const response = await fetch(`${config?.apiBaseUrl || 'https://travelbuddy-b2c6hgbbgeh4esdh.eastus2-01.azurewebsites.net'}/api/demo-auth/demo-login`, {
       //   method: 'POST',
       //   headers: { 'Content-Type': 'application/json' },
       //   body: JSON.stringify({ email: 'admin@travelbuddy.com', password: 'demo' })

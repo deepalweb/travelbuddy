@@ -156,7 +156,7 @@ export const AgentRegistration: React.FC = () => {
         }
       }
 
-      const response = await fetch('http://localhost:3001/api/travel-agents/register', {
+      const response = await fetch('https://travelbuddy-b2c6hgbbgeh4esdh.eastus2-01.azurewebsites.net/api/travel-agents/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(submitData)

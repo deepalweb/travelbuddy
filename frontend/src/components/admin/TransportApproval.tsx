@@ -27,7 +27,7 @@ export default function TransportApproval() {
 
   const fetchApplications = async () => {
     try {
-      const response = await fetch('http://localhost:3001/api/transport-providers/admin/applications')
+      const response = await fetch('https://travelbuddy-b2c6hgbbgeh4esdh.eastus2-01.azurewebsites.net/api/transport-providers/admin/applications')
       const data = await response.json()
       
       console.log('API Response:', response.status, response.ok)
@@ -66,7 +66,7 @@ export default function TransportApproval() {
 
   const handleApprove = async (id: string) => {
     try {
-      const response = await fetch(`http://localhost:3001/api/transport-providers/admin/approve/${id}`, {
+      const response = await fetch(`https://travelbuddy-b2c6hgbbgeh4esdh.eastus2-01.azurewebsites.net/api/transport-providers/admin/approve/${id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'approve', notes: 'Application approved by admin' })
@@ -89,7 +89,7 @@ export default function TransportApproval() {
     if (!reason) return
     
     try {
-      const response = await fetch(`http://localhost:3001/api/transport-providers/admin/approve/${id}`, {
+      const response = await fetch(`https://travelbuddy-b2c6hgbbgeh4esdh.eastus2-01.azurewebsites.net/api/transport-providers/admin/approve/${id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'reject', notes: reason })

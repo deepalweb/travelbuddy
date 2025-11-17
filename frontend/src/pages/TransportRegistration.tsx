@@ -210,7 +210,7 @@ export const TransportRegistration: React.FC = () => {
         fleetSize: formData.fleetSize || '1'
       }
       
-      const response = await fetch('http://localhost:3001/api/transport-providers/register', {
+      const response = await fetch('https://travelbuddy-b2c6hgbbgeh4esdh.eastus2-01.azurewebsites.net/api/transport-providers/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(submitData)

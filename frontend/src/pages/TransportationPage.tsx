@@ -171,7 +171,7 @@ export const TransportationPage: React.FC = () => {
 
   const fetchServices = async () => {
     try {
-      const response = await fetch('http://localhost:3001/api/transport-providers/services')
+      const response = await fetch('https://travelbuddy-b2c6hgbbgeh4esdh.eastus2-01.azurewebsites.net/api/transport-providers/services')
       if (response.ok) {
         const data = await response.json()
         console.log('API Response:', data)
