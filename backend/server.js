@@ -2768,11 +2768,12 @@ app.get('/api/users/:id/stats', async (req, res) => {
     }
     if (!user) return res.status(404).json({ error: 'User not found' });
 
+    // Safe model access with fallbacks
     const [tripCount, postCount, favoriteCount, itineraryCount] = await Promise.all([
-      TripPlan.countDocuments({ userId: user._id }),
-      Post.countDocuments({ userId: user._id }),
+      TripPlan ? TripPlan.countDocuments({ userId: user._id }).catch(() => 0) : Promise.resolve(0),
+      Post ? Post.countDocuments({ userId: user._id }).catch(() => 0) : Promise.resolve(0),
       user.favoritePlaces ? user.favoritePlaces.length : 0,
-      Itinerary.countDocuments({ userId: user._id })
+      Itinerary ? Itinerary.countDocuments({ userId: user._id }).catch(() => 0) : Promise.resolve(0)
     ]);
 
     const stats = {
