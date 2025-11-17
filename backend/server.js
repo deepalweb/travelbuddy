@@ -110,6 +110,26 @@ app.use(compression({ threshold: 1024 }));
 const PORT = process.env.PORT || 8080;
 console.log('🔧 Starting server on port:', PORT);
 
+// Production safeguards
+if (process.env.NODE_ENV === 'production') {
+  // Memory cleanup
+  setInterval(() => {
+    if (placesCache.size > 1000) placesCache.clear();
+    if (enrichCache.size > 1000) enrichCache.clear();
+    if (detailsCache.size > 500) detailsCache.clear();
+  }, 3600000); // Every hour
+  
+  // Global error handlers
+  process.on('uncaughtException', (error) => {
+    console.error('💥 Uncaught Exception:', error.message);
+    // Don't exit in production
+  });
+  
+  process.on('unhandledRejection', (reason) => {
+    console.error('💥 Unhandled Rejection:', reason);
+  });
+}
+
 // Simple CORS middleware - must be first
 app.use((req, res, next) => {
   const origin = req.headers.origin;
@@ -1384,8 +1404,8 @@ try {
   console.error('❌ Failed to load auth status routes:', error);
 }
 
-// Trip generation endpoint with Azure OpenAI - no authentication required for public access
-app.post('/api/trips/generate', async (req, res) => {
+// Trip generation endpoint with Azure OpenAI - with cost protection
+app.post('/api/trips/generate', enforcePolicy('openai'), async (req, res) => {
   // Add CORS headers
   res.header('Access-Control-Allow-Origin', req.headers.origin || 'http://localhost:3000');
   res.header('Access-Control-Allow-Methods', 'POST, OPTIONS');
@@ -3683,12 +3703,12 @@ app.get('/api/config/maps-key', (req, res) => {
 // Get Firebase config for frontend
 app.get('/api/config/firebase', (req, res) => {
   const firebaseConfig = {
-    apiKey: 'AIzaSyCuJr5N0ytr1h_Aq_5qQazNL0wQUnsZlAw',
-    authDomain: 'travelbuddy-2d1c5.firebaseapp.com',
-    projectId: 'travelbuddy-2d1c5',
-    storageBucket: 'travelbuddy-2d1c5.firebasestorage.app',
-    messagingSenderId: '45425409967',
-    appId: '1:45425409967:web:782638c65a40dcb156b95a'
+    apiKey: process.env.VITE_FIREBASE_API_KEY,
+    authDomain: process.env.VITE_FIREBASE_AUTH_DOMAIN,
+    projectId: process.env.VITE_FIREBASE_PROJECT_ID,
+    storageBucket: process.env.VITE_FIREBASE_STORAGE_BUCKET,
+    messagingSenderId: process.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+    appId: process.env.VITE_FIREBASE_APP_ID
   };
   res.json(firebaseConfig);
 });
@@ -3697,12 +3717,12 @@ app.get('/api/config/firebase', (req, res) => {
 app.get('/api/runtime-config', (req, res) => {
   res.json({
     firebase: {
-      apiKey: 'AIzaSyCuJr5N0ytr1h_Aq_5qQazNL0wQUnsZlAw',
-      authDomain: 'travelbuddy-2d1c5.firebaseapp.com',
-      projectId: 'travelbuddy-2d1c5',
-      storageBucket: 'travelbuddy-2d1c5.firebasestorage.app',
-      messagingSenderId: '45425409967',
-      appId: '1:45425409967:web:782638c65a40dcb156b95a'
+      apiKey: process.env.VITE_FIREBASE_API_KEY,
+      authDomain: process.env.VITE_FIREBASE_AUTH_DOMAIN,
+      projectId: process.env.VITE_FIREBASE_PROJECT_ID,
+      storageBucket: process.env.VITE_FIREBASE_STORAGE_BUCKET,
+      messagingSenderId: process.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+      appId: process.env.VITE_FIREBASE_APP_ID
     }
   });
 });
@@ -3721,8 +3741,8 @@ app.get('/api/firebase-debug', (req, res) => {
       referer: req.get('referer')
     },
     firebaseConfig: {
-      authDomain: 'travelbuddy-2d1c5.firebaseapp.com',
-      projectId: 'travelbuddy-2d1c5'
+      authDomain: process.env.VITE_FIREBASE_AUTH_DOMAIN,
+      projectId: process.env.VITE_FIREBASE_PROJECT_ID
     },
     requiredAuthorizedDomains: [
       currentDomain,
