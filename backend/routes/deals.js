@@ -3,20 +3,7 @@ import mongoose from 'mongoose';
 
 const router = express.Router();
 
-// Add CORS middleware for deals routes
-router.use((req, res, next) => {
-  res.header('Access-Control-Allow-Origin', req.headers.origin || '*');
-  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, x-user-id, x-firebase-uid');
-  res.header('Access-Control-Allow-Credentials', 'true');
-  
-  if (req.method === 'OPTIONS') {
-    return res.sendStatus(200);
-  }
-  next();
-});
-
-// Deal Schema (if not already defined in server.js)
+// Deal Schema (if not already defined)
 const dealSchema = new mongoose.Schema({
   title: String,
   description: String,
@@ -66,41 +53,23 @@ try {
   Deal = mongoose.model('Deal', dealSchema);
 }
 
-// Get all active deals
+// GET /api/deals - Get active deals
 router.get('/', async (req, res) => {
   try {
-    const { businessType, isActive, limit = '50', merchantId } = req.query;
+    const { isActive = 'true', limit = '20' } = req.query;
     
-    // Build query
     const query = {};
-    
     if (isActive === 'true') {
       query.isActive = true;
-    }
-    
-    if (businessType && businessType !== 'all') {
-      query.businessType = businessType;
-    }
-    
-    if (merchantId) {
-      query.merchantId = merchantId;
-    }
-    
-    // Date filtering for active deals
-    if (isActive === 'true') {
-      const now = new Date();
-      query.$and = [
-        { $or: [{ startsAt: { $exists: false } }, { startsAt: null }, { startsAt: { $lte: now } }] },
-        { $or: [{ endsAt: { $exists: false } }, { endsAt: null }, { endsAt: { $gte: now } }] }
-      ];
+      query.validUntil = { $gte: new Date() };
     }
     
     const deals = await Deal.find(query)
       .sort({ createdAt: -1 })
-      .limit(parseInt(limit.toString(), 10))
+      .limit(parseInt(limit))
       .lean();
     
-    console.log(`✅ Found ${deals.length} deals`);
+    console.log(`✅ Found ${deals.length} active deals`);
     res.json(deals);
   } catch (error) {
     console.error('❌ Error fetching deals:', error);
@@ -108,97 +77,67 @@ router.get('/', async (req, res) => {
   }
 });
 
-// Create new deal
-router.post('/', async (req, res) => {
+// POST /api/deals/:dealId/claim - Claim a deal
+router.post('/:dealId/claim', async (req, res) => {
   try {
-    const deal = new Deal(req.body);
-    await deal.save();
-    console.log('✅ Created new deal:', deal.title);
-    res.json(deal);
-  } catch (error) {
-    console.error('❌ Error creating deal:', error);
-    res.status(400).json({ error: error.message });
-  }
-});
-
-// Update deal
-router.put('/:id', async (req, res) => {
-  try {
-    const deal = await Deal.findByIdAndUpdate(req.params.id, req.body, { new: true });
-    if (!deal) {
-      return res.status(404).json({ error: 'Deal not found' });
-    }
-    console.log('✅ Updated deal:', deal.title);
-    res.json(deal);
-  } catch (error) {
-    console.error('❌ Error updating deal:', error);
-    res.status(400).json({ error: error.message });
-  }
-});
-
-// Delete deal
-router.delete('/:id', async (req, res) => {
-  try {
-    const deal = await Deal.findByIdAndDelete(req.params.id);
-    if (!deal) {
-      return res.status(404).json({ error: 'Deal not found' });
-    }
-    console.log('✅ Deleted deal:', deal.title);
-    res.json({ success: true });
-  } catch (error) {
-    console.error('❌ Error deleting deal:', error);
-    res.status(500).json({ error: error.message });
-  }
-});
-
-// Track deal views
-router.post('/:id/view', async (req, res) => {
-  try {
-    const deal = await Deal.findByIdAndUpdate(
-      req.params.id, 
-      { $inc: { views: 1 } },
-      { new: true }
-    );
-    if (!deal) {
-      return res.status(404).json({ error: 'Deal not found' });
-    }
-    res.json({ success: true, views: deal.views });
-  } catch (error) {
-    console.error('❌ Error tracking deal view:', error);
-    res.status(500).json({ error: error.message });
-  }
-});
-
-// Claim deal
-router.post('/:id/claim', async (req, res) => {
-  try {
-    const { userId } = req.body;
-    const deal = await Deal.findByIdAndUpdate(
-      req.params.id, 
-      { $inc: { claims: 1 } },
-      { new: true }
-    );
+    const { dealId } = req.params;
+    
+    const deal = await Deal.findById(dealId);
     if (!deal) {
       return res.status(404).json({ error: 'Deal not found' });
     }
     
-    console.log(`✅ Deal claimed: ${deal.title} by user ${userId || 'anonymous'}`);
-    res.json({ success: true, claims: deal.claims });
+    if (!deal.isActive || deal.validUntil < new Date()) {
+      return res.status(400).json({ error: 'Deal is no longer active' });
+    }
+    
+    // Increment claims count
+    deal.claims = (deal.claims || 0) + 1;
+    await deal.save();
+    
+    console.log(`✅ Deal claimed: ${deal.title}`);
+    res.json({ success: true, message: 'Deal claimed successfully' });
   } catch (error) {
     console.error('❌ Error claiming deal:', error);
     res.status(500).json({ error: error.message });
   }
 });
 
-// Get user's claimed deals
-router.get('/user/:userId/claimed', async (req, res) => {
+// GET /api/users/:userId/deals - Get user's deals
+router.get('/users/:userId/deals', async (req, res) => {
   try {
-    // In a real implementation, you'd track claimed deals in a separate collection
-    // For now, return empty array as placeholder
-    res.json([]);
+    const { userId } = req.params;
+    
+    // Find deals created by this merchant
+    const deals = await Deal.find({ merchantId: userId })
+      .sort({ createdAt: -1 })
+      .lean();
+    
+    console.log(`✅ Found ${deals.length} deals for user ${userId}`);
+    res.json(deals);
   } catch (error) {
     console.error('❌ Error fetching user deals:', error);
     res.status(500).json({ error: error.message });
+  }
+});
+
+// POST /api/deals - Create new deal (for merchants)
+router.post('/', async (req, res) => {
+  try {
+    const dealData = {
+      ...req.body,
+      merchantId: req.headers['x-user-id'] || req.body.merchantId,
+      createdAt: new Date()
+    };
+    
+    const deal = new Deal(dealData);
+    await deal.save();
+    
+    console.log(`✅ Deal created: ${deal.title}`);
+    res.status(201).json(deal);
+  } catch (error) {
+    console.error('❌ Error creating deal:', error);
+    res.status(400).json({ error: error.message });
   }
 });
 

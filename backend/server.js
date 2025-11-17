@@ -1368,6 +1368,16 @@ try {
 // Serve uploaded files
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
+// Load deals routes
+try {
+  const dealsRouter = (await import('./routes/deals.js')).default;
+  app.use('/api/deals', dealsRouter);
+  app.use('/api', dealsRouter); // Also mount under /api for user deals
+  console.log('✅ Deals routes loaded');
+} catch (error) {
+  console.error('❌ Failed to load deals routes:', error);
+}
+
 // Load user profile routes RIGHT AFTER User model is defined
 try {
   const usersRouter = (await import('./routes/users.js')).default;
@@ -2987,6 +2997,40 @@ app.get('/api/users/:id', flexAuth, async (req, res) => {
   }
 });
 
+// Mobile-specific user profile endpoint
+app.get('/api/users/profile/:userId', async (req, res) => {
+  try {
+    let user = await User.findOne({ firebaseUid: req.params.userId })
+      .populate('followers', 'username profilePicture')
+      .populate('following', 'username profilePicture');
+    
+    if (!user) {
+      user = await User.findById(req.params.userId)
+        .populate('followers', 'username profilePicture')
+        .populate('following', 'username profilePicture');
+    }
+    
+    if (!user) return res.status(404).json({ error: 'User not found' });
+    
+    const profile = {
+      id: user._id,
+      firebaseUid: user.firebaseUid,
+      username: user.username,
+      email: user.email,
+      profilePicture: user.profilePicture,
+      tier: user.tier,
+      followersCount: user.followers?.length || 0,
+      followingCount: user.following?.length || 0,
+      travelStats: user.travelStats,
+      memberSince: user.createdAt
+    };
+    
+    res.json(profile);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Get user stats
 app.get('/api/users/:id/stats', async (req, res) => {
   try {
@@ -3808,8 +3852,11 @@ app.patch('/api/users/trip-plans/:id/activities', async (req, res) => {
 // HIGH PRIORITY: Social Features
 app.get('/api/users/followers', async (req, res) => {
   try {
-    const userId = req.headers['x-user-id'];
-    const user = await User.findById(userId).populate('followers', 'username profilePicture');
+    const userId = req.headers['x-user-id'] || req.headers['x-firebase-uid'];
+    let user = await User.findOne({ firebaseUid: userId }).populate('followers', 'username profilePicture');
+    if (!user) {
+      user = await User.findById(userId).populate('followers', 'username profilePicture');
+    }
     res.json(user?.followers || []);
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -3818,9 +3865,62 @@ app.get('/api/users/followers', async (req, res) => {
 
 app.get('/api/users/following', async (req, res) => {
   try {
-    const userId = req.headers['x-user-id'];
-    const user = await User.findById(userId).populate('following', 'username profilePicture');
+    const userId = req.headers['x-user-id'] || req.headers['x-firebase-uid'];
+    let user = await User.findOne({ firebaseUid: userId }).populate('following', 'username profilePicture');
+    if (!user) {
+      user = await User.findById(userId).populate('following', 'username profilePicture');
+    }
     res.json(user?.following || []);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.get('/api/users/followers/count', async (req, res) => {
+  try {
+    const userId = req.headers['x-user-id'] || req.headers['x-firebase-uid'];
+    let user = await User.findOne({ firebaseUid: userId });
+    if (!user) {
+      user = await User.findById(userId);
+    }
+    res.json({ count: user?.followers?.length || 0 });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.get('/api/users/following/count', async (req, res) => {
+  try {
+    const userId = req.headers['x-user-id'] || req.headers['x-firebase-uid'];
+    let user = await User.findOne({ firebaseUid: userId });
+    if (!user) {
+      user = await User.findById(userId);
+    }
+    res.json({ count: user?.following?.length || 0 });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.delete('/api/users/profile', async (req, res) => {
+  try {
+    const userId = req.headers['x-user-id'] || req.headers['x-firebase-uid'];
+    if (!userId) return res.status(401).json({ error: 'User ID required' });
+    
+    let user = await User.findOne({ firebaseUid: userId });
+    if (!user) {
+      user = await User.findById(userId);
+    }
+    if (!user) return res.status(404).json({ error: 'User not found' });
+    
+    // Delete user and all associated data
+    await Promise.all([
+      User.findByIdAndDelete(user._id),
+      TripPlan.deleteMany({ userId: user._id }),
+      Post.deleteMany({ userId: user._id })
+    ]);
+    
+    res.json({ success: true, message: 'User account deleted' });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -3828,11 +3928,19 @@ app.get('/api/users/following', async (req, res) => {
 
 app.post('/api/users/follow/:userId', async (req, res) => {
   try {
-    const followerId = req.headers['x-user-id'];
+    const followerId = req.headers['x-user-id'] || req.headers['x-firebase-uid'];
     const followeeId = req.params.userId;
     
-    await User.findByIdAndUpdate(followerId, { $addToSet: { following: followeeId } });
-    await User.findByIdAndUpdate(followeeId, { $addToSet: { followers: followerId } });
+    let follower = await User.findOne({ firebaseUid: followerId });
+    if (!follower) follower = await User.findById(followerId);
+    
+    let followee = await User.findOne({ firebaseUid: followeeId });
+    if (!followee) followee = await User.findById(followeeId);
+    
+    if (!follower || !followee) return res.status(404).json({ error: 'User not found' });
+    
+    await User.findByIdAndUpdate(follower._id, { $addToSet: { following: followee._id } });
+    await User.findByIdAndUpdate(followee._id, { $addToSet: { followers: follower._id } });
     res.json({ success: true });
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -3841,11 +3949,19 @@ app.post('/api/users/follow/:userId', async (req, res) => {
 
 app.delete('/api/users/follow/:userId', async (req, res) => {
   try {
-    const followerId = req.headers['x-user-id'];
+    const followerId = req.headers['x-user-id'] || req.headers['x-firebase-uid'];
     const followeeId = req.params.userId;
     
-    await User.findByIdAndUpdate(followerId, { $pull: { following: followeeId } });
-    await User.findByIdAndUpdate(followeeId, { $pull: { followers: followerId } });
+    let follower = await User.findOne({ firebaseUid: followerId });
+    if (!follower) follower = await User.findById(followerId);
+    
+    let followee = await User.findOne({ firebaseUid: followeeId });
+    if (!followee) followee = await User.findById(followeeId);
+    
+    if (!follower || !followee) return res.status(404).json({ error: 'User not found' });
+    
+    await User.findByIdAndUpdate(follower._id, { $pull: { following: followee._id } });
+    await User.findByIdAndUpdate(followee._id, { $pull: { followers: follower._id } });
     res.json({ success: true });
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -3863,6 +3979,46 @@ app.get('/api/safety/info', async (req, res) => {
     tips: ['Keep valuables secure', 'Stay in well-lit areas at night'],
     emergencyNumbers: { police: '911', medical: '911', fire: '911' }
   });
+});
+
+app.get('/api/safety/alerts', async (req, res) => {
+  const { lat, lng, radius = 10000 } = req.query;
+  if (!lat || !lng) return res.status(400).json({ error: 'lat and lng required' });
+  
+  res.json([
+    {
+      id: 'alert_1',
+      type: 'weather',
+      severity: 'moderate',
+      title: 'Heavy Rain Expected',
+      message: 'Heavy rainfall expected in the area. Carry an umbrella.',
+      location: { lat: parseFloat(lat), lng: parseFloat(lng) },
+      validUntil: new Date(Date.now() + 6 * 60 * 60 * 1000)
+    }
+  ]);
+});
+
+app.post('/api/safety/report', async (req, res) => {
+  try {
+    const { type, description, location, severity = 'low' } = req.body;
+    if (!type || !description || !location) {
+      return res.status(400).json({ error: 'type, description, and location required' });
+    }
+    
+    const report = {
+      id: `report_${Date.now()}`,
+      type,
+      description,
+      location,
+      severity,
+      reportedAt: new Date(),
+      status: 'pending'
+    };
+    
+    res.json({ success: true, reportId: report.id });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
 });
 
 app.get('/api/emergency/services', async (req, res) => {
@@ -3883,12 +4039,17 @@ app.get('/api/emergency/numbers', async (req, res) => {
 // HIGH PRIORITY: Travel Stats
 app.get('/api/users/travel-stats', async (req, res) => {
   try {
-    const userId = req.headers['x-user-id'];
-    const user = await User.findById(userId);
+    const userId = req.headers['x-user-id'] || req.headers['x-firebase-uid'];
+    let user = await User.findOne({ firebaseUid: userId });
+    if (!user) {
+      user = await User.findById(userId);
+    }
+    if (!user) return res.status(404).json({ error: 'User not found' });
+    
     const stats = {
       totalPlacesVisited: user?.favoritePlaces?.length || 0,
-      totalTrips: await TripPlan.countDocuments({ userId }),
-      totalPosts: await Post.countDocuments({ userId }),
+      totalTrips: await TripPlan.countDocuments({ userId: user._id }),
+      totalPosts: await Post.countDocuments({ userId: user._id }),
       countriesVisited: 1,
       totalDistance: 0
     };
@@ -3900,8 +4061,14 @@ app.get('/api/users/travel-stats', async (req, res) => {
 
 app.put('/api/users/travel-stats', async (req, res) => {
   try {
-    const userId = req.headers['x-user-id'];
-    await User.findByIdAndUpdate(userId, { travelStats: req.body });
+    const userId = req.headers['x-user-id'] || req.headers['x-firebase-uid'];
+    let user = await User.findOne({ firebaseUid: userId });
+    if (!user) {
+      user = await User.findById(userId);
+    }
+    if (!user) return res.status(404).json({ error: 'User not found' });
+    
+    await User.findByIdAndUpdate(user._id, { travelStats: req.body });
     res.json({ success: true });
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -3941,6 +4108,108 @@ app.get('/api/users/:userId/trips', async (req, res) => {
 });
 
 // User trip plans alias for mobile app
+app.get('/api/users/trip-plans', async (req, res) => {
+  try {
+    const userId = req.headers['x-user-id'] || req.headers['x-firebase-uid'];
+    if (!userId) return res.status(401).json({ error: 'User ID required' });
+    
+    let user = await User.findOne({ firebaseUid: userId });
+    if (!user) {
+      user = await User.findById(userId);
+    }
+    if (!user) return res.status(404).json({ error: 'User not found' });
+    
+    const trips = await TripPlan.find({ userId: user._id }).sort({ createdAt: -1 });
+    res.json(trips);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.post('/api/users/trip-plans', async (req, res) => {
+  try {
+    const userId = req.headers['x-user-id'] || req.headers['x-firebase-uid'];
+    if (!userId) return res.status(401).json({ error: 'User ID required' });
+    
+    let user = await User.findOne({ firebaseUid: userId });
+    if (!user) {
+      user = await User.findById(userId);
+    }
+    if (!user) return res.status(404).json({ error: 'User not found' });
+    
+    const tripData = { ...req.body, userId: user._id };
+    const trip = new TripPlan(tripData);
+    await trip.save();
+    res.status(201).json(trip);
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
+app.put('/api/users/trip-plans/:id', async (req, res) => {
+  try {
+    const userId = req.headers['x-user-id'] || req.headers['x-firebase-uid'];
+    if (!userId) return res.status(401).json({ error: 'User ID required' });
+    
+    let user = await User.findOne({ firebaseUid: userId });
+    if (!user) {
+      user = await User.findById(userId);
+    }
+    if (!user) return res.status(404).json({ error: 'User not found' });
+    
+    const trip = await TripPlan.findOneAndUpdate(
+      { _id: req.params.id, userId: user._id },
+      req.body,
+      { new: true }
+    );
+    
+    if (!trip) return res.status(404).json({ error: 'Trip plan not found' });
+    res.json(trip);
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
+app.delete('/api/users/trip-plans/:id', async (req, res) => {
+  try {
+    const userId = req.headers['x-user-id'] || req.headers['x-firebase-uid'];
+    if (!userId) return res.status(401).json({ error: 'User ID required' });
+    
+    await TripPlan.findByIdAndDelete(req.params.id);
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.post('/api/users/trip-plans/sync', async (req, res) => {
+  try {
+    const userId = req.headers['x-user-id'] || req.headers['x-firebase-uid'];
+    if (!userId) return res.status(401).json({ error: 'User ID required' });
+    
+    let user = await User.findOne({ firebaseUid: userId });
+    if (!user) {
+      user = await User.findById(userId);
+    }
+    if (!user) return res.status(404).json({ error: 'User not found' });
+    
+    const { tripPlans } = req.body;
+    
+    for (const plan of tripPlans) {
+      plan.userId = user._id;
+      await TripPlan.findOneAndUpdate(
+        { localId: plan.localId },
+        plan,
+        { upsert: true }
+      );
+    }
+    
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 app.get('/api/users/:userId/trip-plans', async (req, res) => {
   try {
     let user = await User.findOne({ firebaseUid: req.params.userId });
@@ -4012,29 +4281,28 @@ app.post('/api/users/trip-plans/sync', async (req, res) => {
 // MEDIUM PRIORITY: User Subscription Management
 app.put('/api/users/subscription', async (req, res) => {
   try {
-    const userId = req.headers['x-user-id'];
+    const userId = req.headers['x-user-id'] || req.headers['x-firebase-uid'];
     const { tier, status, endDate } = req.body;
     
-    const user = await User.findByIdAndUpdate(userId, {
+    let user = await User.findOne({ firebaseUid: userId });
+    if (!user) {
+      user = await User.findById(userId);
+    }
+    if (!user) return res.status(404).json({ error: 'User not found' });
+    
+    const updatedUser = await User.findByIdAndUpdate(user._id, {
       tier,
       subscriptionStatus: status,
       subscriptionEndDate: endDate
     }, { new: true });
     
-    res.json(user);
+    res.json(updatedUser);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 });
 
-app.get('/api/users/:userId/deals', async (req, res) => {
-  try {
-    const deals = await Deal.find({ merchantId: req.params.userId });
-    res.json(deals);
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
+// User deals endpoint moved to deals router
 
 app.post('/api/ai/safety-content', enforcePolicy('openai'), async (req, res) => {
   const { latitude, longitude, location, contentType } = req.body;
