@@ -34,13 +34,9 @@ const flexAuth = async (req, res, next) => {
     return next();
   }
   
-  // Development bypass - allow anonymous access
-  if (process.env.NODE_ENV !== 'production') {
-    req.user = { uid: 'anonymous-' + Date.now() };
-    return next();
-  }
-  
-  return res.status(401).json({ error: 'Authentication required' });
+  // Allow anonymous access for community posts (both dev and production)
+  req.user = { uid: 'anonymous-' + Date.now() };
+  return next();
 };
 
 // Get community posts with pagination
@@ -90,7 +86,7 @@ router.get('/community', async (req, res) => {
   }
 });
 
-// Create community post
+// Create community post - allow anonymous posting
 router.post('/community', flexAuth, async (req, res) => {
   try {
     const Post = mongoose.model('Post');

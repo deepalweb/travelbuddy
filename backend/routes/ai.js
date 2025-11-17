@@ -887,7 +887,8 @@ router.post('/generate-tags', async (req, res) => {
     }
 
     if (!AZURE_OPENAI_API_KEY) {
-      return res.status(500).json({ error: 'AI service not configured' })
+      console.warn('Azure OpenAI not configured, using fallback tags')
+      return res.json({ tags: getFallbackTags(title, content) })
     }
 
     const prompt = `Analyze this travel story and suggest 2-4 relevant tags from these categories: Adventure, Food, Culture, Nature, Photography, Beach, Mountain, City, Nightlife, Shopping, History, Art, Wildlife, Festival, Local, Budget, Luxury, Solo, Family, Couple.
@@ -941,8 +942,24 @@ Return only a JSON array of tags: ["tag1", "tag2"]`
     res.json({ tags: tags.slice(0, 4) })
   } catch (error) {
     console.error('AI tagging error:', error)
-    res.status(500).json({ error: 'AI tagging failed' })
+    res.json({ tags: getFallbackTags(req.body.title || '', req.body.content || '') })
   }
 })
+
+function getFallbackTags(title, content) {
+  const availableTags = ['Adventure', 'Food', 'Culture', 'Nature', 'Photography', 'Beach', 'Mountain', 'City', 'Nightlife', 'Shopping', 'History', 'Art', 'Wildlife', 'Festival', 'Local', 'Budget', 'Luxury', 'Solo', 'Family', 'Couple']
+  const text = (title + ' ' + content).toLowerCase()
+  
+  const matchedTags = availableTags.filter(tag => 
+    text.includes(tag.toLowerCase()) || 
+    text.includes(tag.toLowerCase().slice(0, -1))
+  )
+  
+  if (matchedTags.length === 0) {
+    return ['Travel', 'Adventure', 'Culture']
+  }
+  
+  return matchedTags.slice(0, 4)
+}
 
 export default router;

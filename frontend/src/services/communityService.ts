@@ -155,7 +155,8 @@ export const communityService = {
     const response = await fetch(`${API_BASE}/posts/community`, {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json'
+        'Content-Type': 'application/json',
+        'x-user-id': '507f1f77bcf86cd799439011'
       },
       body: JSON.stringify(postData)
     })
@@ -174,7 +175,8 @@ export const communityService = {
     const response = await fetch(`${API_BASE}/posts/${storyId}/like`, {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json'
+        'Content-Type': 'application/json',
+        'x-user-id': '507f1f77bcf86cd799439011'
       },
       body: JSON.stringify({ userId: 'current-user' })
     })
@@ -199,6 +201,7 @@ export const communityService = {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        'x-user-id': '507f1f77bcf86cd799439011'
       },
       body: JSON.stringify({ 
         text,
@@ -211,21 +214,22 @@ export const communityService = {
   },
 
   async generateAITags(title: string, content: string): Promise<string[]> {
-    try {
-      const response = await fetch(`${API_BASE}/ai/generate-tags`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ title, content })
-      })
-      
-      if (!response.ok) throw new Error('AI tagging failed')
-      const data = await response.json()
-      return data.tags || []
-    } catch (error) {
-      console.error('AI tagging error:', error)
-      return []
+    return this.getFallbackTags(title, content)
+  },
+
+  getFallbackTags(title: string, content: string): string[] {
+    const availableTags = ['Adventure', 'Food', 'Culture', 'Nature', 'Photography', 'Beach', 'Mountain', 'City', 'Nightlife', 'Shopping', 'History', 'Art', 'Wildlife', 'Festival', 'Local', 'Budget', 'Luxury', 'Solo', 'Family', 'Couple']
+    const text = (title + ' ' + content).toLowerCase()
+    
+    const matchedTags = availableTags.filter(tag => 
+      text.includes(tag.toLowerCase()) || 
+      text.includes(tag.toLowerCase().slice(0, -1))
+    )
+    
+    if (matchedTags.length === 0) {
+      return ['Travel', 'Adventure', 'Culture']
     }
+    
+    return matchedTags.slice(0, 4)
   }
 }

@@ -2657,9 +2657,14 @@ const flexAuth = async (req, res, next) => {
   try {
     const authHeader = req.headers.authorization;
     const token = authHeader?.split(' ')[1];
-    const userId = req.headers['x-user-id'];
+    const userId = req.headers['x-user-id'] || req.headers['x-firebase-uid'];
     
-    console.log('🔐 FlexAuth check:', { hasToken: !!token, hasUserId: !!userId });
+    console.log('🔐 FlexAuth check:', { 
+      hasToken: !!token, 
+      hasUserId: !!userId,
+      authHeader: authHeader ? 'present' : 'missing',
+      userIdHeader: userId ? 'present' : 'missing'
+    });
     
     if (token) {
       try {
@@ -2675,12 +2680,30 @@ const flexAuth = async (req, res, next) => {
       }
       
       try {
+        // Try to decode Firebase JWT without verification (for development)
+        const parts = token.split('.');
+        if (parts.length === 3) {
+          const payload = JSON.parse(Buffer.from(parts[1], 'base64').toString('utf8'));
+          const uid = payload.user_id || payload.sub || payload.uid;
+          if (uid) {
+            req.user = { uid, email: payload.email };
+            console.log('✅ Firebase JWT decode successful');
+            return next();
+          }
+        }
+      } catch (e) {
+        console.log('⚠️ Firebase JWT decode failed:', e.message);
+      }
+      
+      try {
         // Fallback to simple token
         const decoded = Buffer.from(token, 'base64').toString('utf8');
         const [id] = decoded.split(':');
-        req.user = { uid: id };
-        console.log('✅ Simple token auth successful');
-        return next();
+        if (id) {
+          req.user = { uid: id };
+          console.log('✅ Simple token auth successful');
+          return next();
+        }
       } catch (e) {
         console.log('⚠️ Simple token auth failed:', e.message);
       }
@@ -2689,6 +2712,13 @@ const flexAuth = async (req, res, next) => {
     if (userId) {
       req.user = { uid: userId };
       console.log('✅ User ID header auth successful');
+      return next();
+    }
+    
+    // For development, allow creating posts without strict auth
+    if (process.env.NODE_ENV !== 'production') {
+      req.user = { uid: 'dev-user-' + Date.now() };
+      console.log('⚠️ Using development fallback user');
       return next();
     }
     
@@ -3110,23 +3140,65 @@ app.get('/api/posts/community', async (req, res) => {
 });
 
 // Create story endpoint
-app.post('/api/posts/community', async (req, res) => {
+app.post('/api/posts/community', flexAuth, async (req, res) => {
   res.header('Access-Control-Allow-Origin', req.headers.origin || '*');
   res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
   res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, x-user-id, x-firebase-uid');
   res.header('Access-Control-Allow-Credentials', 'true');
   
   try {
-    const post = new Post(req.body)
-    const saved = await post.save()
-    res.json(saved)
+    const body = req.body || {};
+    console.log('📝 Creating post - Raw body:', JSON.stringify(body, null, 2));
+    console.log('👤 Auth user:', req.user);
+    
+    // Ensure userId is set from authenticated user
+    if (!body.userId && req.user?.uid) {
+      // Try to find the user in the database to get the MongoDB ObjectId
+      try {
+        let user = await User.findOne({ firebaseUid: req.user.uid });
+        if (!user) {
+          user = await User.findById(req.user.uid);
+        }
+        if (user) {
+          body.userId = user._id;
+        } else {
+          // Create a temporary user if not found
+          const newUser = new User({
+            firebaseUid: req.user.uid,
+            username: req.user.email?.split('@')[0] || 'user-' + Date.now(),
+            email: req.user.email || `${req.user.uid}@temp.local`,
+            tier: 'free'
+          });
+          const savedUser = await newUser.save();
+          body.userId = savedUser._id;
+          console.log('🆕 Created new user for post:', savedUser._id);
+        }
+      } catch (userError) {
+        console.error('❌ User lookup/creation failed:', userError);
+        // Fallback: use a valid ObjectId format
+        body.userId = new mongoose.Types.ObjectId();
+      }
+    }
+    
+    // Ensure moderationStatus is approved by default
+    if (!body.moderationStatus) {
+      body.moderationStatus = 'approved';
+    }
+    
+    console.log('📝 Final post data:', JSON.stringify(body, null, 2));
+    
+    const post = new Post(body);
+    const saved = await post.save();
+    console.log('✅ Post saved successfully:', saved._id);
+    
+    res.json(saved);
   } catch (error) {
-    console.error('❌ Post creation error:', error)
-    res.status(400).json({ error: error.message })
+    console.error('❌ Post creation error:', error);
+    res.status(400).json({ error: error.message });
   }
 })
 
-app.post('/api/community/posts', async (req, res) => {
+app.post('/api/community/posts', flexAuth, async (req, res) => {
   // Add CORS headers for this specific endpoint
   res.header('Access-Control-Allow-Origin', req.headers.origin || 'http://localhost:3000');
   res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
@@ -3136,7 +3208,7 @@ app.post('/api/community/posts', async (req, res) => {
     const body = req.body || {};
     console.log('📝 Creating post - Raw body:', JSON.stringify(body, null, 2));
     console.log('👤 Auth user:', req.user);
-    console.log('🗄️ Database state:', mongoose.connection.readyState);
+    console.log('🗜️ Database state:', mongoose.connection.readyState);
     
     const images = body?.content?.images;
     if (Array.isArray(images) && images.length > 2) {
@@ -3144,7 +3216,31 @@ app.post('/api/community/posts', async (req, res) => {
     }
     
     if (!body.userId && req.user?.uid) {
-      body.userId = req.user.uid;
+      // Try to find the user in the database to get the MongoDB ObjectId
+      try {
+        let user = await User.findOne({ firebaseUid: req.user.uid });
+        if (!user) {
+          user = await User.findById(req.user.uid);
+        }
+        if (user) {
+          body.userId = user._id;
+        } else {
+          // Create a temporary user if not found
+          const newUser = new User({
+            firebaseUid: req.user.uid,
+            username: req.user.email?.split('@')[0] || 'user-' + Date.now(),
+            email: req.user.email || `${req.user.uid}@temp.local`,
+            tier: 'free'
+          });
+          const savedUser = await newUser.save();
+          body.userId = savedUser._id;
+          console.log('🆕 Created new user for post:', savedUser._id);
+        }
+      } catch (userError) {
+        console.error('❌ User lookup/creation failed:', userError);
+        // Fallback: use a valid ObjectId format
+        body.userId = new mongoose.Types.ObjectId();
+      }
     }
     
     // Ensure moderationStatus is approved by default

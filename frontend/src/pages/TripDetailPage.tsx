@@ -400,7 +400,13 @@ export const TripDetailPage: React.FC = () => {
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
           <h2 className="text-2xl font-bold text-gray-900 mb-2">Trip Not Found</h2>
-          <Button onClick={() => navigate('/trips')}>Back to Trips</Button>
+          <Button onClick={() => {
+            if (window.history.length > 1) {
+              navigate(-1)
+            } else {
+              navigate('/trips')
+            }
+          }}>Back to Trips</Button>
         </div>
       </div>
     )
@@ -421,7 +427,13 @@ export const TripDetailPage: React.FC = () => {
         <div className="relative max-w-6xl mx-auto px-4 py-12">
           <Button 
             variant="outline" 
-            onClick={() => navigate('/trips')} 
+            onClick={() => {
+              if (window.history.length > 1) {
+                navigate(-1)
+              } else {
+                navigate('/trips')
+              }
+            }} 
             className="mb-6 bg-white/20 border-white/30 text-white hover:bg-white/30"
           >
             <ArrowLeft className="w-4 h-4 mr-2" />
@@ -948,10 +960,16 @@ export const TripDetailPage: React.FC = () => {
               </div>
               
               <Button 
-                onClick={() => navigate('/trips')} 
+                onClick={() => {
+                  if (window.history.length > 1) {
+                    navigate(-1)
+                  } else {
+                    navigate('/trips')
+                  }
+                }} 
                 className="bg-gradient-to-r from-teal-600 to-blue-600 hover:from-teal-700 hover:to-blue-700 text-white px-8 py-4 rounded-full text-lg font-semibold shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105"
               >
-                Create My Trip Like This →
+                Back to Trips →
               </Button>
             </div>
           </CardContent>
