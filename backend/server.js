@@ -1350,7 +1350,13 @@ userSchema.index({ 'businessProfile.verificationStatus': 1 });
 userSchema.index({ 'agentProfile.verificationStatus': 1 });
 userSchema.index({ 'transportProfile.verificationStatus': 1 });
 
-const User = mongoose.model('User', userSchema);
+let User;
+try {
+  User = mongoose.model('User');
+} catch {
+  User = mongoose.model('User', userSchema);
+}
+console.log('✅ User model registered successfully');
 
 // Import TransportProvider model
 import TransportProvider from './models/TransportProvider.js';
@@ -1736,17 +1742,16 @@ const tripPlanSchema = new mongoose.Schema({
   createdAt: { type: Date, default: Date.now }
 });
 
-const TripPlan = mongoose.model('TripPlan', tripPlanSchema);
+let TripPlan;
+try {
+  TripPlan = mongoose.model('TripPlan');
+} catch {
+  TripPlan = mongoose.model('TripPlan', tripPlanSchema);
+}
 
 // Make TripPlan available globally for routes
 global.TripPlan = TripPlan;
-
-// Ensure model is properly exported
-if (!global.TripPlan) {
-  console.error('❌ TripPlan model not properly set in global scope');
-} else {
-  console.log('✅ TripPlan model available globally');
-}
+console.log('✅ TripPlan model registered successfully');
 
 // Post Schema
 const postSchema = new mongoose.Schema({
@@ -1809,8 +1814,14 @@ postSchema.index({ tags: 1 });
 postSchema.index({ 'place.placeId': 1 });
 postSchema.index({ location: 'text', 'content.title': 'text', 'content.text': 'text' });
 
-const Post = mongoose.model('Post', postSchema);
+let Post;
+try {
+  Post = mongoose.model('Post');
+} catch {
+  Post = mongoose.model('Post', postSchema);
+}
 global.Post = Post;
+console.log('✅ Post model registered successfully');
 
 // Review Schema
 const reviewSchema = new mongoose.Schema({
@@ -1822,7 +1833,13 @@ const reviewSchema = new mongoose.Schema({
   createdAt: { type: Date, default: Date.now }
 });
 
-const Review = mongoose.model('Review', reviewSchema);
+let Review;
+try {
+  Review = mongoose.model('Review');
+} catch {
+  Review = mongoose.model('Review', reviewSchema);
+}
+console.log('✅ Review model registered successfully');
 
 // Deal Schema
 const dealSchema = new mongoose.Schema({
@@ -1867,7 +1884,14 @@ const dealSchema = new mongoose.Schema({
   createdAt: { type: Date, default: Date.now }
 });
 
-const Deal = mongoose.model('Deal', dealSchema);
+let Deal;
+try {
+  Deal = mongoose.model('Deal');
+  console.log('✅ Deal model already exists, reusing');
+} catch {
+  Deal = mongoose.model('Deal', dealSchema);
+  console.log('✅ Deal model created successfully');
+}
 global.Deal = Deal;
 
 // Event Schema
@@ -1882,7 +1906,13 @@ const eventSchema = new mongoose.Schema({
   createdAt: { type: Date, default: Date.now }
 });
 
-const Event = mongoose.model('Event', eventSchema);
+let Event;
+try {
+  Event = mongoose.model('Event');
+} catch {
+  Event = mongoose.model('Event', eventSchema);
+}
+console.log('✅ Event model registered successfully');
 
 // One-Day Itinerary Schema
 const itinerarySchema = new mongoose.Schema({
@@ -1895,8 +1925,14 @@ const itinerarySchema = new mongoose.Schema({
   createdAt: { type: Date, default: Date.now }
 });
 
-const Itinerary = mongoose.model('Itinerary', itinerarySchema);
+let Itinerary;
+try {
+  Itinerary = mongoose.model('Itinerary');
+} catch {
+  Itinerary = mongoose.model('Itinerary', itinerarySchema);
+}
 global.Itinerary = Itinerary;
+console.log('✅ Itinerary model registered successfully');
 
 // Local Dish Schema
 const dishSchema = new mongoose.Schema({
@@ -1935,7 +1971,13 @@ dishSchema.index({ 'location.city': 1, 'location.country': 1 });
 dishSchema.index({ cuisine: 1 });
 dishSchema.index({ tags: 1 });
 
-const Dish = mongoose.model('Dish', dishSchema);
+let Dish;
+try {
+  Dish = mongoose.model('Dish');
+} catch {
+  Dish = mongoose.model('Dish', dishSchema);
+}
+console.log('✅ Dish model registered successfully');
 
 // CORS configuration for both web and mobile
 const allowedOrigins = [
@@ -4429,7 +4471,13 @@ const reportSchema = new mongoose.Schema({
   createdAt: { type: Date, default: Date.now }
 });
 
-const Report = mongoose.model('Report', reportSchema);
+let Report;
+try {
+  Report = mongoose.model('Report');
+} catch {
+  Report = mongoose.model('Report', reportSchema);
+}
+console.log('✅ Report model registered successfully');
 
 // Report post endpoint
 app.post('/api/reports', async (req, res) => {
