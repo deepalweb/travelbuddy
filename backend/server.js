@@ -1999,10 +1999,21 @@ app.use(cors({
 }));
 
 // Import and use unified routes
-const unifiedRoutes = require('./routes/unified');
-const testRoutes = require('./routes/test');
-app.use('/api/v1', unifiedRoutes);
-app.use('/api', testRoutes);
+try {
+  const unifiedRoutes = (await import('./routes/unified.js')).default;
+  app.use('/api/v1', unifiedRoutes);
+  console.log('✅ Unified routes loaded');
+} catch (error) {
+  console.error('❌ Failed to load unified routes:', error);
+}
+
+try {
+  const testRoutes = (await import('./routes/test.js')).default;
+  app.use('/api', testRoutes);
+  console.log('✅ Test routes loaded');
+} catch (error) {
+  console.error('❌ Failed to load test routes:', error);
+}
 
 // API Routes
 // Batch enrichment cache endpoint: returns cached enrichment and records new ones from client
