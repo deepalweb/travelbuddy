@@ -1062,6 +1062,15 @@ try {
   console.error('❌ Failed to load posts routes:', error);
 }
 
+// Load transport provider routes
+try {
+  const transportProvidersRouter = (await import('./routes/transport-providers.js')).default;
+  app.use('/api/transport-providers', transportProvidersRouter);
+  console.log('✅ Transport provider routes loaded');
+} catch (error) {
+  console.error('❌ Failed to load transport provider routes:', error);
+}
+
 // Payment routes (Stripe scaffold) - mount only when explicitly enabled to allow
 // running the app without the `stripe` package or Stripe env vars.
 if (String(process.env.ENABLE_STRIPE || '').toLowerCase() === 'true') {
