@@ -1,5 +1,5 @@
-// import 'package:firebase_auth/firebase_auth.dart'; // Firebase disabled
-// import 'package:google_sign_in/google_sign_in.dart'; // Google Sign-in disabled
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 import 'dart:io' show Platform;
 
 class GoogleSignInHelper {
@@ -10,7 +10,7 @@ class GoogleSignInHelper {
       scopes: ['email', 'profile'],
       // Use different configurations for different platforms
       serverClientId: Platform.isAndroid 
-          ? '45425409967-ela9ibo2h0b713amblatn1pg956j7n3c.apps.googleusercontent.com'
+          ? '45425409967-19m9oj4o2frp2081kaeg2ji3gj1k54d4.apps.googleusercontent.com'
           : null,
     );
     return _googleSignIn!;

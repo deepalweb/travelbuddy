@@ -6,7 +6,7 @@ import '../models/enhanced_activity.dart' hide ActivityType;
 import '../models/enhanced_activity.dart' as EA;
 
 class LocationAlertService {
-  // API key removed - using backend endpoint instead
+  static const String _placesApiKey = 'AIzaSyA89E6gkU7-nUMYk9JPt6xxYHVV4Yevtio';
   static StreamSubscription<Position>? _locationSubscription;
   static List<EnhancedActivity> _currentPlan = [];
   static Function(String, List<Map<String, dynamic>>)? _onNearbyPlacesFound;
@@ -119,10 +119,11 @@ class LocationAlertService {
     double lng, {
     int radius = 300,
   }) async {
-    final url = '${Environment.backendUrl}/api/places/nearby'
-        '?lat=$lat&lng=$lng'
+    final url = 'https://maps.googleapis.com/maps/api/place/nearbysearch/json'
+        '?location=$lat,$lng'
         '&radius=$radius'
-        '&type=tourist_attraction|restaurant|museum|park';
+        '&type=tourist_attraction|restaurant|museum|park'
+        '&key=$_placesApiKey';
     
     final response = await http.get(Uri.parse(url));
     

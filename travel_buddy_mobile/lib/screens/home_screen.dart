@@ -7,14 +7,14 @@ import 'dart:convert';
 import 'dart:typed_data';
 import 'dart:async';
 import '../providers/app_provider.dart';
+import '../providers/language_provider.dart';
 import '../widgets/safe_widget.dart';
-import '../config/environment.dart';
+import '../widgets/subscription_status_widget.dart';
 import '../models/travel_style.dart';
 import '../models/trip.dart';
 import '../screens/language_assistant_screen.dart';
 import '../screens/deal_detail_screen.dart';
 import '../screens/trip_plan_detail_screen.dart';
-import '../screens/safety_screen.dart';
 
 
 class HomeScreen extends StatefulWidget {
@@ -358,7 +358,7 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<Map<String, dynamic>> _fetchRealWeatherForecast(Position location) async {
     try {
       final response = await http.get(
-        Uri.parse('${Environment.backendUrl}/api/weather/forecast?lat=${location.latitude}&lng=${location.longitude}'),
+        Uri.parse('http://localhost:3001/api/weather/forecast?lat=${location.latitude}&lng=${location.longitude}'),
       );
       
       if (response.statusCode == 200) {
@@ -408,7 +408,49 @@ class _HomeScreenState extends State<HomeScreen> {
                 icon: const Icon(Icons.notifications_outlined),
                 onPressed: () => _showNotifications(appProvider),
               ),
-
+              // Language Quick Access Button
+              Consumer<LanguageProvider>(
+                builder: (context, languageProvider, child) {
+                  return IconButton(
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const LanguageAssistantScreen(),
+                        ),
+                      );
+                    },
+                    icon: Stack(
+                      children: [
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              languageProvider.currentLanguageInfo.flag,
+                              style: const TextStyle(fontSize: 16),
+                            ),
+                            const SizedBox(width: 2),
+                            const Icon(Icons.translate, size: 16),
+                          ],
+                        ),
+                        if (languageProvider.showLocationSuggestion)
+                          Positioned(
+                            right: 0,
+                            top: 0,
+                            child: Container(
+                              width: 8,
+                              height: 8,
+                              decoration: const BoxDecoration(
+                                color: Colors.red,
+                                shape: BoxShape.circle,
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                  );
+                },
+              ),
               IconButton(
                 icon: const Icon(Icons.refresh),
                 onPressed: _loadData,
@@ -423,7 +465,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-
+                    const SubscriptionStatusWidget(),
                     _buildWelcomeCard(appProvider),
                     const SizedBox(height: 16),
                     _buildInProgressTrips(appProvider),
@@ -1746,12 +1788,7 @@ class _HomeScreenState extends State<HomeScreen> {
     switch (action) {
       case 'Safety Hub':
       case 'safety':
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => const SafetyScreen(),
-          ),
-        );
+        Navigator.pushNamed(context, '/safety');
         break;
       case 'Translator':
       case 'translator':
@@ -1916,9 +1953,9 @@ class _HomeScreenState extends State<HomeScreen> {
       // Get location name first
       final locationName = await _getLocationName(lat, lng);
       
-      // Use Azure backend to get emergency numbers
+      // Use Azure OpenAI to get emergency numbers
       final response = await http.post(
-        Uri.parse('${Environment.backendUrl}/api/emergency/emergency-numbers'),
+        Uri.parse('http://localhost:3001/api/emergency/emergency-numbers'),
         headers: {'Content-Type': 'application/json'},
         body: json.encode({
           'location': locationName,

@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import '../providers/app_provider.dart';
 import '../providers/community_provider.dart';
 import '../models/community_post.dart';

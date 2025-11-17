@@ -1,5 +1,5 @@
-// import 'package:google_sign_in/google_sign_in.dart'; // Google Sign-in disabled
-// import 'package:firebase_auth/firebase_auth.dart'; // Firebase disabled
+import 'package:google_sign_in/google_sign_in.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 class GoogleSignInService {
   static final GoogleSignIn _googleSignIn = GoogleSignIn(
@@ -9,8 +9,14 @@ class GoogleSignInService {
   static final FirebaseAuth _auth = FirebaseAuth.instance;
 
   static Future<UserCredential?> signInWithGoogle() async {
-    print('❌ Firebase authentication disabled');
-    throw 'Firebase authentication has been disabled. Please use email authentication.';
+    try {
+      print('❌ Google Sign-In not available - PigeonUserDetails compatibility issue');
+      print('Google Sign in error: Google Sign-In is currently unavailable. Please use email sign-in instead');
+      return null;
+    } catch (e) {
+      print('Google Sign-In error: $e');
+      return null;
+    }
   }
 
   static Future<void> signOut() async {

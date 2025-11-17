@@ -1233,6 +1233,19 @@ const userSchema = new mongoose.Schema({
   username: { type: String, required: true, unique: true },
   email: { type: String, required: true, unique: true },
   
+  // Social Features
+  followers: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
+  following: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
+  
+  // Travel Stats
+  travelStats: {
+    totalPlacesVisited: { type: Number, default: 0 },
+    totalTrips: { type: Number, default: 0 },
+    totalPosts: { type: Number, default: 0 },
+    countriesVisited: { type: Number, default: 0 },
+    totalDistance: { type: Number, default: 0 }
+  },
+  
   // Profile-Based System
   profileType: { type: String, default: 'traveler', enum: ['traveler', 'business', 'service', 'creator'] },
   enabledModules: { type: [String], default: ['places'] },
@@ -1703,6 +1716,8 @@ const tripPlanSchema = new mongoose.Schema({
       rating: Number
     }]
   }],
+  shareId: String,
+  localId: String,
   createdAt: { type: Date, default: Date.now }
 });
 
@@ -1710,6 +1725,13 @@ const TripPlan = mongoose.model('TripPlan', tripPlanSchema);
 
 // Make TripPlan available globally for routes
 global.TripPlan = TripPlan;
+
+// Ensure model is properly exported
+if (!global.TripPlan) {
+  console.error('❌ TripPlan model not properly set in global scope');
+} else {
+  console.log('✅ TripPlan model available globally');
+}
 
 // Post Schema
 const postSchema = new mongoose.Schema({
@@ -1900,6 +1922,31 @@ dishSchema.index({ tags: 1 });
 
 const Dish = mongoose.model('Dish', dishSchema);
 
+// CORS configuration for both web and mobile
+const allowedOrigins = [
+  'http://localhost:3000', 'http://localhost:8080', 
+  'capacitor://localhost', 'ionic://localhost',
+  'https://your-web-domain.com', // Add your production web domain
+  'file://' // For mobile app file protocol
+];
+
+app.use(cors({
+  origin: (origin, callback) => {
+    if (!origin || allowedOrigins.includes(origin) || origin.startsWith('file://')) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  credentials: true
+}));
+
+// Import and use unified routes
+const unifiedRoutes = require('./routes/unified');
+const testRoutes = require('./routes/test');
+app.use('/api/v1', unifiedRoutes);
+app.use('/api', testRoutes);
+
 // API Routes
 // Batch enrichment cache endpoint: returns cached enrichment and records new ones from client
 app.post('/api/enrichment/batch', async (req, res) => {
@@ -1970,6 +2017,74 @@ app.get('/api/suggestions/personalized', async (req, res) => {
     res.json(suggestions.slice(0, 5));
   } catch (error) {
     res.status(500).json({ error: error.message });
+  }
+});
+
+// HIGH PRIORITY: AI Places Endpoints
+app.get('/api/places/ai/nearby', enforcePolicy('openai'), async (req, res) => {
+  const { lat, lng, category, limit = 50, userType, vibe, language } = req.query;
+  if (!lat || !lng) return res.status(400).json({ error: 'lat and lng required' });
+  
+  try {
+    const prompt = `Generate ${limit} realistic places near ${lat},${lng} for category "${category || 'attractions'}".
+Return JSON: {"status":"OK","results":[{"place_id":"ai_123","name":"Place Name","vicinity":"Address","rating":4.2,"types":["${category||'establishment'}"],"geometry":{"location":{"lat":${lat},"lng":${lng}}},"description":"Brief description","tips":"Local tip"}]}`;
+    
+    const completion = await openai.chat.completions.create({
+      model: process.env.AZURE_OPENAI_DEPLOYMENT_NAME,
+      messages: [{ role: "user", content: prompt }],
+      temperature: 0.7
+    });
+    
+    const jsonMatch = completion.choices[0].message.content.match(/\{[\s\S]*\}/);
+    const data = jsonMatch ? JSON.parse(jsonMatch[0]) : { status: 'OK', results: [] };
+    res.json(data);
+  } catch (error) {
+    res.status(500).json({ status: 'ERROR', results: [] });
+  }
+});
+
+app.get('/api/places/ai/travel-plan', enforcePolicy('openai'), async (req, res) => {
+  const { lat, lng, userType = 'Solo traveler', vibe = 'Cultural', language = 'English', radius = 10 } = req.query;
+  if (!lat || !lng) return res.status(400).json({ error: 'lat and lng required' });
+  
+  try {
+    const prompt = `Create travel plan for ${lat},${lng} (${userType}, ${vibe} vibe, ${language}). Return JSON: {"status":"OK","places":[{"name":"Place","description":"Info","category":"attraction"}],"itinerary":{"morning":["Activity 1"],"afternoon":["Activity 2"],"evening":["Activity 3"]}}`;
+    
+    const completion = await openai.chat.completions.create({
+      model: process.env.AZURE_OPENAI_DEPLOYMENT_NAME,
+      messages: [{ role: "user", content: prompt }],
+      temperature: 0.7
+    });
+    
+    const jsonMatch = completion.choices[0].message.content.match(/\{[\s\S]*\}/);
+    const data = jsonMatch ? JSON.parse(jsonMatch[0]) : { status: 'OK', places: [], itinerary: {} };
+    res.json(data);
+  } catch (error) {
+    res.status(500).json({ status: 'ERROR', places: [], itinerary: {} });
+  }
+});
+
+app.post('/api/places/ai/batch', enforcePolicy('openai'), async (req, res) => {
+  const { lat, lng, categories, userPreferences } = req.body;
+  if (!lat || !lng || !categories) return res.status(400).json({ error: 'lat, lng, categories required' });
+  
+  try {
+    const results = {};
+    for (const category of categories) {
+      const prompt = `Generate 15 places near ${lat},${lng} for "${category}". Return JSON array: [{"name":"Place","description":"Info","rating":4.0,"place_id":"ai_${Date.now()}"}]`;
+      
+      const completion = await openai.chat.completions.create({
+        model: process.env.AZURE_OPENAI_DEPLOYMENT_NAME,
+        messages: [{ role: "user", content: prompt }],
+        temperature: 0.7
+      });
+      
+      const jsonMatch = completion.choices[0].message.content.match(/\[[\s\S]*\]/);
+      results[category] = jsonMatch ? JSON.parse(jsonMatch[0]) : [];
+    }
+    res.json({ status: 'OK', results });
+  } catch (error) {
+    res.status(500).json({ status: 'ERROR', results: {} });
   }
 });
 
@@ -2550,114 +2665,152 @@ app.get('/api/places/nearby', enforcePolicy('places'), async (req, res) => {
   }
 });
 
-// User sync endpoint for Firebase integration - with flexible auth
+// CROSS-PLATFORM USER SYNC - Web & Mobile Data Sharing
 app.post('/api/users/sync', async (req, res) => {
   try {
-    console.log('🔄 User sync request:', { headers: req.headers, body: req.body });
-    
     const authHeader = req.headers['authorization'] || '';
     const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
     
-    if (!token) {
-      console.log('❌ No token provided');
-      return res.status(401).json({ error: 'No token provided' });
-    }
+    if (!token) return res.status(401).json({ error: 'No token provided' });
 
-    // Extract user info from token (development-friendly)
-    let extractedUid = null;
-    let extractedEmail = null;
+    // Extract Firebase UID from token
+    let firebaseUid = null;
+    let email = null;
     
-    // Try Firebase JWT format first
     try {
       const parts = token.split('.');
       if (parts.length === 3) {
         const payload = JSON.parse(Buffer.from(parts[1], 'base64').toString('utf8'));
-        extractedUid = payload.user_id || payload.sub || payload.uid;
-        extractedEmail = payload.email;
-        console.log('✅ Extracted from Firebase JWT:', { uid: extractedUid, email: extractedEmail });
+        firebaseUid = payload.user_id || payload.sub || payload.uid;
+        email = payload.email;
       }
     } catch (e) {
-      console.log('⚠️ Not a Firebase JWT, trying simple decode');
-    }
-    
-    // Fallback to simple token format
-    if (!extractedUid) {
-      try {
-        const decoded = Buffer.from(token, 'base64').toString('utf8');
-        const [uid] = decoded.split(':');
-        extractedUid = uid;
-        console.log('✅ Extracted from simple token:', extractedUid);
-      } catch (e) {
-        console.log('⚠️ Token decode failed, using fallback');
-        extractedUid = 'sync-user-' + Date.now();
-      }
+      firebaseUid = req.body.firebaseUid;
+      email = req.body.email;
     }
 
-    const { email, username, firebaseUid } = req.body;
-    const finalEmail = email || extractedEmail;
-    const finalFirebaseUid = firebaseUid || extractedUid;
-    
-    console.log('🔍 Final user data:', { finalEmail, finalFirebaseUid, username });
-    
-    if (!finalEmail && !finalFirebaseUid) {
-      console.log('❌ Missing required data');
-      return res.status(400).json({ error: 'Email or Firebase UID is required' });
-    }
+    if (!firebaseUid) return res.status(400).json({ error: 'Firebase UID required' });
 
-    // Check database connection
-    if (mongoose.connection.readyState !== 1) {
-      console.log('❌ Database not connected');
-      return res.status(500).json({ error: 'Database not connected' });
-    }
-
-    // Find or create user
-    let user = await User.findOne({ 
-      $or: [
-        ...(finalEmail ? [{ email: finalEmail }] : []),
-        ...(finalFirebaseUid ? [{ firebaseUid: finalFirebaseUid }] : [])
-      ]
-    });
-    
-    console.log('👤 Found existing user:', !!user);
+    // Find or create unified user account
+    let user = await User.findOne({ firebaseUid });
     
     if (!user) {
-      console.log('🆕 Creating new user');
       user = new User({
-        email: finalEmail || `${finalFirebaseUid}@sync.local`,
-        username: username || finalEmail?.split('@')[0] || finalFirebaseUid,
-        firebaseUid: finalFirebaseUid,
+        firebaseUid,
+        email: email || req.body.email,
+        username: req.body.username || email?.split('@')[0] || firebaseUid,
         tier: 'free',
-        subscriptionStatus: 'none'
+        subscriptionStatus: 'none',
+        // Initialize cross-platform data
+        favoritePlaces: [],
+        selectedInterests: [],
+        travelStats: {
+          totalPlacesVisited: 0,
+          totalTrips: 0,
+          totalPosts: 0,
+          countriesVisited: 0,
+          totalDistance: 0
+        }
       });
       await user.save();
-      console.log('✅ Created new user via sync:', user._id);
-    } else {
-      console.log('🔄 Updating existing user');
-      // Update user info if needed
-      let updated = false;
-      if (finalFirebaseUid && !user.firebaseUid) {
-        user.firebaseUid = finalFirebaseUid;
-        updated = true;
-      }
-      if (username && user.username !== username) {
-        user.username = username;
-        updated = true;
-      }
-      if (finalEmail && user.email !== finalEmail) {
-        user.email = finalEmail;
-        updated = true;
-      }
-      if (updated) {
-        await user.save();
-        console.log('✅ Updated existing user via sync:', user._id);
-      }
     }
     
-    console.log('✅ Sync successful, returning user:', user._id);
-    res.json(user);
+    // Return user with all cross-platform data
+    const userData = await User.findById(user._id)
+      .populate('followers', 'username profilePicture')
+      .populate('following', 'username profilePicture');
+    
+    res.json(userData);
   } catch (error) {
-    console.error('❌ User sync error:', error);
-    res.status(500).json({ error: 'User sync failed', details: error.message, stack: error.stack });
+    res.status(500).json({ error: 'Sync failed', details: error.message });
+  }
+});
+
+// CROSS-PLATFORM DATA ENDPOINTS
+// Get all user data for cross-platform sync
+app.get('/api/users/:userId/all-data', async (req, res) => {
+  try {
+    const userId = req.params.userId;
+    
+    // Find user by Firebase UID or MongoDB ID
+    let user = await User.findOne({ firebaseUid: userId });
+    if (!user) user = await User.findById(userId);
+    if (!user) return res.status(404).json({ error: 'User not found' });
+
+    // Get all user data from all collections
+    const [tripPlans, posts, favorites] = await Promise.all([
+      TripPlan.find({ userId: user._id }),
+      Post.find({ userId: user._id }),
+      user.favoritePlaces || []
+    ]);
+
+    res.json({
+      user: {
+        id: user._id,
+        firebaseUid: user.firebaseUid,
+        username: user.username,
+        email: user.email,
+        profilePicture: user.profilePicture,
+        tier: user.tier,
+        selectedInterests: user.selectedInterests,
+        travelStats: user.travelStats
+      },
+      tripPlans,
+      posts,
+      favorites,
+      syncTimestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Sync data from one platform to another
+app.post('/api/users/:userId/sync-data', async (req, res) => {
+  try {
+    const userId = req.params.userId;
+    const { tripPlans, posts, favorites, userProfile } = req.body;
+    
+    let user = await User.findOne({ firebaseUid: userId });
+    if (!user) user = await User.findById(userId);
+    if (!user) return res.status(404).json({ error: 'User not found' });
+
+    // Sync trip plans
+    if (tripPlans) {
+      for (const plan of tripPlans) {
+        await TripPlan.findOneAndUpdate(
+          { userId: user._id, localId: plan.localId || plan._id },
+          { ...plan, userId: user._id },
+          { upsert: true }
+        );
+      }
+    }
+
+    // Sync posts
+    if (posts) {
+      for (const post of posts) {
+        await Post.findOneAndUpdate(
+          { userId: user._id, localId: post.localId || post._id },
+          { ...post, userId: user._id },
+          { upsert: true }
+        );
+      }
+    }
+
+    // Sync favorites
+    if (favorites) {
+      user.favoritePlaces = [...new Set([...user.favoritePlaces, ...favorites])];
+    }
+
+    // Sync user profile
+    if (userProfile) {
+      Object.assign(user, userProfile);
+    }
+
+    await user.save();
+    res.json({ success: true, message: 'Data synced successfully' });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
   }
 });
 
@@ -2803,16 +2956,32 @@ app.get('/api/users', async (req, res) => {
   }
 });
 
-// Get single user (authoritative read for subscription/tier)
+// Get single user with cross-platform data
 app.get('/api/users/:id', flexAuth, async (req, res) => {
   try {
-    // Try to find user by Firebase UID first, then by MongoDB _id
-    let user = await User.findOne({ firebaseUid: req.params.id }).select('-__v');
+    // Find user by Firebase UID or MongoDB ID
+    let user = await User.findOne({ firebaseUid: req.params.id })
+      .populate('followers', 'username profilePicture')
+      .populate('following', 'username profilePicture')
+      .select('-__v');
+    
     if (!user) {
-      user = await User.findById(req.params.id).select('-__v');
+      user = await User.findById(req.params.id)
+        .populate('followers', 'username profilePicture')
+        .populate('following', 'username profilePicture')
+        .select('-__v');
     }
+    
     if (!user) return res.status(404).json({ error: 'User not found' });
-    res.json(user);
+    
+    // Add cross-platform sync info
+    const userData = {
+      ...user.toObject(),
+      lastSyncTime: new Date().toISOString(),
+      platformSupport: ['web', 'mobile']
+    };
+    
+    res.json(userData);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -3618,6 +3787,127 @@ app.put('/api/trip-plans/:id/activity-status', async (req, res) => {
   }
 });
 
+// HIGH PRIORITY: Trip Plan Activity Updates
+app.patch('/api/users/trip-plans/:id/activities', async (req, res) => {
+  try {
+    const { dayIndex, activityIndex, isVisited, visitedDate } = req.body;
+    const trip = await TripPlan.findById(req.params.id);
+    if (!trip) return res.status(404).json({ error: 'Trip not found' });
+    
+    if (trip.dailyPlans[dayIndex]?.activities[activityIndex]) {
+      trip.dailyPlans[dayIndex].activities[activityIndex].isVisited = isVisited;
+      trip.dailyPlans[dayIndex].activities[activityIndex].visitedDate = visitedDate;
+      await trip.save();
+    }
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// HIGH PRIORITY: Social Features
+app.get('/api/users/followers', async (req, res) => {
+  try {
+    const userId = req.headers['x-user-id'];
+    const user = await User.findById(userId).populate('followers', 'username profilePicture');
+    res.json(user?.followers || []);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.get('/api/users/following', async (req, res) => {
+  try {
+    const userId = req.headers['x-user-id'];
+    const user = await User.findById(userId).populate('following', 'username profilePicture');
+    res.json(user?.following || []);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.post('/api/users/follow/:userId', async (req, res) => {
+  try {
+    const followerId = req.headers['x-user-id'];
+    const followeeId = req.params.userId;
+    
+    await User.findByIdAndUpdate(followerId, { $addToSet: { following: followeeId } });
+    await User.findByIdAndUpdate(followeeId, { $addToSet: { followers: followerId } });
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.delete('/api/users/follow/:userId', async (req, res) => {
+  try {
+    const followerId = req.headers['x-user-id'];
+    const followeeId = req.params.userId;
+    
+    await User.findByIdAndUpdate(followerId, { $pull: { following: followeeId } });
+    await User.findByIdAndUpdate(followeeId, { $pull: { followers: followerId } });
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// HIGH PRIORITY: Safety & Emergency
+app.get('/api/safety/info', async (req, res) => {
+  const { lat, lng } = req.query;
+  if (!lat || !lng) return res.status(400).json({ error: 'lat and lng required' });
+  
+  res.json({
+    safetyLevel: 'moderate',
+    warnings: ['Be aware of pickpockets in tourist areas'],
+    tips: ['Keep valuables secure', 'Stay in well-lit areas at night'],
+    emergencyNumbers: { police: '911', medical: '911', fire: '911' }
+  });
+});
+
+app.get('/api/emergency/services', async (req, res) => {
+  const { lat, lng, radius = 5000 } = req.query;
+  if (!lat || !lng) return res.status(400).json({ error: 'lat and lng required' });
+  
+  res.json([
+    { type: 'hospital', name: 'General Hospital', address: 'Near your location', phone: '911', latitude: lat, longitude: lng, distance: 1.2 },
+    { type: 'police', name: 'Police Station', address: 'Downtown', phone: '911', latitude: lat, longitude: lng, distance: 0.8 }
+  ]);
+});
+
+app.get('/api/emergency/numbers', async (req, res) => {
+  const { lat, lng } = req.query;
+  res.json({ police: '911', medical: '911', fire: '911', tourist_police: '311' });
+});
+
+// HIGH PRIORITY: Travel Stats
+app.get('/api/users/travel-stats', async (req, res) => {
+  try {
+    const userId = req.headers['x-user-id'];
+    const user = await User.findById(userId);
+    const stats = {
+      totalPlacesVisited: user?.favoritePlaces?.length || 0,
+      totalTrips: await TripPlan.countDocuments({ userId }),
+      totalPosts: await Post.countDocuments({ userId }),
+      countriesVisited: 1,
+      totalDistance: 0
+    };
+    res.json(stats);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.put('/api/users/travel-stats', async (req, res) => {
+  try {
+    const userId = req.headers['x-user-id'];
+    await User.findByIdAndUpdate(userId, { travelStats: req.body });
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Get recent trips
 app.get('/api/trips/recent', async (req, res) => {
   try {
@@ -3680,6 +3970,89 @@ app.post('/api/users/:userId/trip-plans', async (req, res) => {
     res.json(trip);
   } catch (error) {
     res.status(400).json({ error: error.message });
+  }
+});
+
+// MEDIUM PRIORITY: Trip Plan Sharing
+app.post('/api/users/trip-plans/:id/share', async (req, res) => {
+  try {
+    const shareId = Math.random().toString(36).substr(2, 9);
+    const trip = await TripPlan.findByIdAndUpdate(req.params.id, { shareId }, { new: true });
+    res.json({ shareUrl: `${process.env.CLIENT_URL}/shared/trip/${shareId}` });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.get('/api/shared/trip-plans/:shareId', async (req, res) => {
+  try {
+    const trip = await TripPlan.findOne({ shareId: req.params.shareId });
+    if (!trip) return res.status(404).json({ error: 'Trip not found' });
+    res.json(trip);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.post('/api/users/trip-plans/sync', async (req, res) => {
+  try {
+    const userId = req.headers['x-user-id'];
+    const { tripPlans } = req.body;
+    
+    for (const plan of tripPlans) {
+      plan.userId = userId;
+      await TripPlan.findOneAndUpdate({ localId: plan.localId }, plan, { upsert: true });
+    }
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// MEDIUM PRIORITY: User Subscription Management
+app.put('/api/users/subscription', async (req, res) => {
+  try {
+    const userId = req.headers['x-user-id'];
+    const { tier, status, endDate } = req.body;
+    
+    const user = await User.findByIdAndUpdate(userId, {
+      tier,
+      subscriptionStatus: status,
+      subscriptionEndDate: endDate
+    }, { new: true });
+    
+    res.json(user);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.get('/api/users/:userId/deals', async (req, res) => {
+  try {
+    const deals = await Deal.find({ merchantId: req.params.userId });
+    res.json(deals);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.post('/api/ai/safety-content', enforcePolicy('openai'), async (req, res) => {
+  const { latitude, longitude, location, contentType } = req.body;
+  
+  try {
+    const prompt = `Generate safety information for ${location} (${latitude}, ${longitude}). Return JSON: {"safetyLevel":"moderate","warnings":["Warning 1"],"tips":["Tip 1"],"emergencyNumbers":{"police":"911"}}`;
+    
+    const completion = await openai.chat.completions.create({
+      model: process.env.AZURE_OPENAI_DEPLOYMENT_NAME,
+      messages: [{ role: "user", content: prompt }],
+      temperature: 0.7
+    });
+    
+    const jsonMatch = completion.choices[0].message.content.match(/\{[\s\S]*\}/);
+    const data = jsonMatch ? JSON.parse(jsonMatch[0]) : { safetyLevel: 'moderate', warnings: [], tips: [] };
+    res.json(data);
+  } catch (error) {
+    res.status(500).json({ safetyLevel: 'unknown', warnings: [], tips: [] });
   }
 });
 

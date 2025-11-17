@@ -1,16 +1,18 @@
 class Environment {
-  // Backend configuration
-  static const String backendUrl = String.fromEnvironment('BACKEND_URL', defaultValue: 'https://travelbuddy-b2c6hgbbgeh4esdh.eastus2-01.azurewebsites.net');
-  static const String baseUrl = backendUrl;
-  static const bool isProduction = bool.fromEnvironment('IS_PRODUCTION', defaultValue: false);
-  static const bool enableDebugLogging = !isProduction;
+  // Backend configuration - AZURE PRODUCTION
+  static const String backendUrl = 'https://travelbuddy-b2c6hgbbgeh4esdh.eastus2-01.azurewebsites.net';
+  static const String baseUrl = backendUrl; // Add baseUrl alias
+  static const bool isProduction = true; // Production mode
+  static const bool enableDebugLogging = false; // Disable debug logging in production
   
   // PayPal configuration (sandbox values)
   static const String paypalClientId = 'YOUR_SANDBOX_CLIENT_ID';
   static const String paypalSecret = 'YOUR_SANDBOX_SECRET';
   static const String paypalEnvironment = 'sandbox';
   
-  // API keys should be fetched from backend, not stored in mobile app
+  // Hybrid Places API Configuration
+  static const String azureMapsApiKey = 'YOUR_AZURE_MAPS_KEY';
+  static const String googleMapsApiKey = 'YOUR_GOOGLE_MAPS_KEY'; // For premium features only
   
   // Cost Optimization Settings
   static const int cacheExpiryHours = 24; // Cache popular places

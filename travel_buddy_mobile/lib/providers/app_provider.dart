@@ -1204,14 +1204,28 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
       print('  - Radius: $_selectedRadius');
       print('  - Backend URL: ${Environment.backendUrl}');
       
-      // Test direct API call
+      // Test network connectivity with detailed logging
       try {
-        final testUrl = '${Environment.backendUrl}/api/places/nearby?lat=${_currentLocation!.latitude}&lng=${_currentLocation!.longitude}&q=${Uri.encodeComponent(query)}&limit=10';
-        print('🔧 TESTING: $testUrl');
-        final testResponse = await http.get(Uri.parse(testUrl));
-        print('🔧 RESULT: ${testResponse.statusCode} - ${testResponse.body.substring(0, 200)}');
+        print('🌐 Testing backend connectivity...');
+        final testResponse = await http.get(
+          Uri.parse('${Environment.backendUrl}/health'),
+          headers: {'Content-Type': 'application/json'},
+        ).timeout(const Duration(seconds: 10));
+        
+        print('🌐 Backend connectivity test:');
+        print('   Status: ${testResponse.statusCode}');
+        print('   Headers: ${testResponse.headers}');
+        print('   Body: ${testResponse.body.substring(0, math.min(200, testResponse.body.length))}');
+        
+        if (testResponse.statusCode == 200) {
+          print('✅ Backend is responding correctly');
+        } else {
+          print('⚠️ Backend returned non-200 status: ${testResponse.statusCode}');
+        }
       } catch (e) {
-        print('🔧 TEST ERROR: $e');
+        print('❌ Network test failed: $e');
+        print('❌ Cannot reach backend at ${Environment.backendUrl}');
+        print('❌ This will likely cause places API to fail');
       }
       
       // Get user preferences for AI
@@ -1234,21 +1248,21 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
         );
         print('🔍 Search results for: $query');
       } else if (_selectedCategory != 'all') {
-        // Single category search - use category-specific query
+        // Single category search
         places = await placesService.fetchPlacesPipeline(
           latitude: _currentLocation!.latitude,
           longitude: _currentLocation!.longitude,
-          query: query, // This already contains the category-specific query from _getCategoryQuery
+          query: query,
           radius: _selectedRadius,
-          topN: 30, // Increased for better category results
+          topN: 25,
           offset: loadMore ? _places.length : 0,
           userType: userType,
           vibe: vibe,
           language: language,
         );
-        print('📂 Category results for: $_selectedCategory with query: $query');
+        print('📂 Category results for: $_selectedCategory');
       } else {
-        // Load diverse, high-quality places with smart distribution (only for 'all' category)
+        // Load diverse, high-quality places with smart distribution
         final now = DateTime.now();
         final hour = now.hour;
         final isEvening = hour >= 18;
@@ -1403,12 +1417,6 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
         }
       }
 
-      // Filter places by category if not 'all' and not search query
-      if (_selectedCategory != 'all' && searchQuery.isEmpty) {
-        places = _filterPlacesByCategory(places, _selectedCategory);
-        print('🔍 Filtered to ${places.length} places for category: $_selectedCategory');
-      }
-      
       // AI Enrichment and distance calculation
       places = await _enrichPlacesWithAI(places);
       
@@ -1620,7 +1628,11 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
     notifyListeners();
     
     // Load places with the selected category
-    loadNearbyPlaces(); // Always use loadNearbyPlaces for consistent filtering
+    if (category == 'all') {
+      loadPlaceSections(); // Load sections for 'all'
+    } else {
+      loadNearbyPlaces(); // Load filtered places for specific category
+    }
   }
   
   Future<void> loadMorePlaces() async {
@@ -1634,20 +1646,20 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
     
     switch (category) {
       case 'food':
-        return isEvening ? _expandKeywords(['restaurants', 'bars', 'dining']) : _expandKeywords(['restaurants', 'cafes', 'food']);
+        return isEvening ? _expandKeywords(['restaurants', 'bars']) : _expandKeywords(['restaurants', 'cafes']);
       case 'landmarks':
-        return _expandKeywords(['landmarks', 'attractions', 'tourist attractions', 'monuments']);
+        return _expandKeywords(['landmarks', 'attractions']);
       case 'culture':
-        return _expandKeywords(['museums', 'galleries', 'cultural centers', 'theaters']);
+        return _expandKeywords(['museums', 'galleries']);
       case 'nature':
-        return _expandKeywords(['parks', 'nature', 'gardens', 'outdoor spaces']);
+        return _expandKeywords(['parks', 'nature']);
       case 'shopping':
-        return _expandKeywords(['shopping', 'markets', 'malls', 'stores']);
+        return _expandKeywords(['shopping', 'markets']);
       case 'spa':
-        return _expandKeywords(['spa', 'wellness', 'massage', 'beauty salon']);
+        return _expandKeywords(['spa', 'wellness']);
       case 'all':
       default:
-        return _expandKeywords(['attractions', 'places of interest']);
+        return _expandKeywords(['attractions']);
     }
   }
   
@@ -2394,42 +2406,6 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
     }
   }
 
-  Future<void> deleteAllTripPlans() async {
-    print('🗑️ Deleting all trip plans...');
-    
-    // Get all plan IDs before clearing
-    final planIds = _tripPlans.map((p) => p.id).toList();
-    
-    // Clear locally
-    _tripPlans.clear();
-    _itineraries.clear();
-    
-    // Delete from storage
-    for (final planId in planIds) {
-      await _storageService.deleteTripPlan(planId);
-    }
-    
-    // Clear itineraries from storage
-    for (final itinerary in _itineraries) {
-      await _storageService.deleteItinerary(itinerary.id);
-    }
-    
-    // Delete from backend if user is logged in
-    if (_currentUser?.mongoId != null) {
-      try {
-        for (final planId in planIds) {
-          await TripPlansApiService.deleteTripPlan(planId);
-        }
-        print('☁️ All trip plans deleted from backend');
-      } catch (e) {
-        print('⚠️ Backend delete failed: $e');
-      }
-    }
-    
-    print('✅ All trip plans deleted successfully');
-    notifyListeners();
-  }
-
   // Update activity visited status
   Future<void> updateActivityVisitedStatus(String tripPlanId, int dayIndex, int activityIndex, bool isVisited) async {
     final tripIndex = _tripPlans.indexWhere((trip) => trip.id == tripPlanId);
@@ -2928,31 +2904,6 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
     notifyListeners();
   }
 
-  // Clear all trip data and start fresh
-  Future<void> clearAllTripData() async {
-    print('🗑️ Clearing all trip data...');
-    
-    // Clear in-memory data
-    _tripPlans.clear();
-    _itineraries.clear();
-    
-    // Clear from storage
-    await _storageService.clearAllTripData();
-    
-    // Clear from backend if user is logged in
-    if (_currentUser?.mongoId != null) {
-      try {
-        await TripPlansApiService.clearAllUserTripPlans();
-        print('☁️ Cleared trip data from backend');
-      } catch (e) {
-        print('⚠️ Backend clear failed: $e');
-      }
-    }
-    
-    print('✅ All trip data cleared successfully');
-    notifyListeners();
-  }
-
   Future<void> forceRefreshPlaces() async {
     debugPrint('🔄 Force refresh places - bypassing cache and updating location');
     
@@ -3324,63 +3275,6 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
     }
     
     return 'Hello, thank you!';
-  }
-  
-  // Filter places by category type
-  List<Place> _filterPlacesByCategory(List<Place> places, String category) {
-    if (category == 'all') return places;
-    
-    return places.where((place) {
-      final type = place.type.toLowerCase();
-      final name = place.name.toLowerCase();
-      
-      switch (category) {
-        case 'food':
-          return type.contains('restaurant') || 
-                 type.contains('cafe') || 
-                 type.contains('bar') || 
-                 type.contains('food') ||
-                 name.contains('restaurant') ||
-                 name.contains('cafe') ||
-                 name.contains('bar');
-        case 'landmarks':
-          return type.contains('tourist_attraction') || 
-                 type.contains('landmark') || 
-                 type.contains('monument') ||
-                 type.contains('attraction') ||
-                 name.contains('museum') ||
-                 name.contains('monument');
-        case 'culture':
-          return type.contains('museum') || 
-                 type.contains('art_gallery') || 
-                 type.contains('cultural') ||
-                 type.contains('theater') ||
-                 name.contains('museum') ||
-                 name.contains('gallery');
-        case 'nature':
-          return type.contains('park') || 
-                 type.contains('nature') || 
-                 type.contains('garden') ||
-                 type.contains('beach') ||
-                 name.contains('park') ||
-                 name.contains('garden');
-        case 'shopping':
-          return type.contains('shopping') || 
-                 type.contains('store') || 
-                 type.contains('mall') ||
-                 type.contains('market') ||
-                 name.contains('shop') ||
-                 name.contains('mall');
-        case 'spa':
-          return type.contains('spa') || 
-                 type.contains('beauty') || 
-                 type.contains('wellness') ||
-                 name.contains('spa') ||
-                 name.contains('massage');
-        default:
-          return true;
-      }
-    }).toList();
   }
 
 

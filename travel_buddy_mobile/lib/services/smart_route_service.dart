@@ -7,7 +7,7 @@ import '../models/route_models.dart';
 import '../config/environment.dart';
 
 class SmartRouteService {
-  // Using backend directions API instead of direct Google calls
+  static const String _directionsBaseUrl = 'https://maps.googleapis.com/maps/api/directions/json';
   
   /// Creates optimized route with actual road directions
   static Future<SmartRouteResult> createSmartRoute({
@@ -168,7 +168,7 @@ class SmartRouteService {
         'origin': '${origin.latitude},${origin.longitude}',
         'destination': '${destination.latitude},${destination.longitude}',
         'mode': _getTravelMode(preferences.transportMode),
-        // API key handled by backend
+        'key': Environment.googleMapsApiKey,
       };
 
       if (waypoints.isNotEmpty) {

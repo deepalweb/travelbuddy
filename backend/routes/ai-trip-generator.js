@@ -211,7 +211,12 @@ Return ONLY this JSON structure:
         .replace(/,\s*([}\]])/g, '$1') // Remove trailing commas more aggressively
         .replace(/([{,]\s*)([a-zA-Z_][a-zA-Z0-9_]*):/g, '$1"$2":'); // Quote unquoted keys
       
-      aiItinerary = JSON.parse(jsonStr);
+      try {
+        aiItinerary = JSON.parse(jsonStr);
+      } catch (secondParseError) {
+        console.log('❌ Second JSON parse failed, using fallback');
+        throw new Error('JSON parsing failed: ' + secondParseError.message);
+      }
     }
     aiItinerary.id = `ai_trip_${Date.now()}`;
     aiItinerary.createdAt = new Date().toISOString();
@@ -221,9 +226,6 @@ Return ONLY this JSON structure:
     
   } catch (error) {
     console.error('❌ Azure OpenAI failed:', error.message);
-    if (error.name === 'SyntaxError') {
-      console.log('📝 Raw response preview:', responseText?.substring(0, 500) + '...');
-    }
     console.log('🔄 Falling back to Google Places API');
     const realPlaces = await fetchRealPlaces(destination);
     return createRealisticItinerary(destination, days, budget, interests, realPlaces);

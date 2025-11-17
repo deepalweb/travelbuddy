@@ -18,7 +18,7 @@ class TripPlansApiService {
       
       print('💾 Saving trip plan to backend: ${tripPlan.tripTitle}');
       
-      final response = await _dio.post('/api/users/${user.uid}/trip-plans', 
+      final response = await _dio.post('/api/users/trip-plans', 
         data: tripPlan.toJson()
       );
       
@@ -46,7 +46,7 @@ class TripPlansApiService {
       
       print('📥 Fetching trip plans for user: ${user.uid}');
       
-      final response = await _dio.get('/api/users/${user.uid}/trip-plans');
+      final response = await _dio.get('/api/users/trip-plans');
       
       if (response.statusCode == 200 && response.data != null) {
         final List<dynamic> data = response.data;
@@ -74,7 +74,7 @@ class TripPlansApiService {
       
       print('🔄 Updating trip plan: ${tripPlan.tripTitle}');
       
-      final response = await _dio.put('/api/trip-plans/${tripPlan.id}',
+      final response = await _dio.put('/api/users/trip-plans/${tripPlan.id}',
         data: tripPlan.toJson()
       );
       
@@ -99,7 +99,7 @@ class TripPlansApiService {
         return false;
       }
       
-      final response = await _dio.put('/api/trip-plans/$tripPlanId/activity-status',
+      final response = await _dio.patch('/api/users/trip-plans/$tripPlanId/activities',
         data: {
           'dayIndex': dayIndex,
           'activityIndex': activityIndex,
@@ -126,7 +126,7 @@ class TripPlansApiService {
       
       print('🗑️ Deleting trip plan: $tripPlanId');
       
-      final response = await _dio.delete('/api/trip-plans/$tripPlanId');
+      final response = await _dio.delete('/api/users/trip-plans/$tripPlanId');
       
       if (response.statusCode == 200 || response.statusCode == 204) {
         print('✅ Trip plan deleted successfully');
@@ -209,31 +209,6 @@ class TripPlansApiService {
     } catch (e) {
       print('❌ Error fetching shared trip plan: $e');
       return null;
-    }
-  }
-
-  // Clear all user trip plans from backend
-  static Future<bool> clearAllUserTripPlans() async {
-    try {
-      final user = FirebaseAuth.instance.currentUser;
-      if (user == null) {
-        print('❌ No authenticated user to clear trip plans');
-        return false;
-      }
-      
-      print('🗑️ Clearing all trip plans for user: ${user.uid}');
-      
-      final response = await _dio.delete('/api/users/${user.uid}/trip-plans/all');
-      
-      if (response.statusCode == 200 || response.statusCode == 204) {
-        print('✅ All trip plans cleared from backend');
-        return true;
-      }
-      
-      return false;
-    } catch (e) {
-      print('❌ Error clearing trip plans: $e');
-      return false;
     }
   }
 }

@@ -8,13 +8,13 @@ const router = express.Router();
 const User = global.User || mongoose.model('User');
 
 // Use real models from global scope (defined in server.js)
-const TripPlan = global.TripPlan || (() => {
-  try {
-    return mongoose.model('TripPlan');
-  } catch {
-    return null;
-  }
-})();
+let TripPlan;
+try {
+  TripPlan = global.TripPlan || mongoose.model('TripPlan');
+} catch (e) {
+  console.warn('TripPlan model not available:', e.message);
+  TripPlan = null;
+}
 
 const Post = global.Post || (() => {
   try {
@@ -542,6 +542,12 @@ router.get('/trip-plans', bypassAuth, async (req, res) => {
 router.post('/trip-plans', bypassAuth, async (req, res) => {
   try {
     console.log('🚀 Creating trip plan via users route:', req.body);
+    
+    if (!TripPlan) {
+      console.error('❌ TripPlan model not available');
+      return res.status(500).json({ error: 'TripPlan model not available' });
+    }
+    
     const { uid } = req.user;
     
     let user = await User.findOne({ firebaseUid: uid });
