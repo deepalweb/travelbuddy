@@ -2827,13 +2827,39 @@ app.get('/api/users/:id/stats', async (req, res) => {
     }
     if (!user) return res.status(404).json({ error: 'User not found' });
 
-    // Safe model access with fallbacks
-    const [tripCount, postCount, favoriteCount, itineraryCount] = await Promise.all([
-      TripPlan ? TripPlan.countDocuments({ userId: user._id }).catch(() => 0) : Promise.resolve(0),
-      Post ? Post.countDocuments({ userId: user._id }).catch(() => 0) : Promise.resolve(0),
-      user.favoritePlaces ? user.favoritePlaces.length : 0,
-      Itinerary ? Itinerary.countDocuments({ userId: user._id }).catch(() => 0) : Promise.resolve(0)
-    ]);
+    // Safe model access with fallbacks and proper error handling
+    let tripCount = 0;
+    let postCount = 0;
+    let itineraryCount = 0;
+    
+    try {
+      if (global.TripPlan) {
+        tripCount = await global.TripPlan.countDocuments({ userId: user._id });
+      }
+    } catch (e) {
+      console.warn('TripPlan count failed:', e.message);
+      tripCount = 0;
+    }
+    
+    try {
+      if (global.Post) {
+        postCount = await global.Post.countDocuments({ userId: user._id });
+      }
+    } catch (e) {
+      console.warn('Post count failed:', e.message);
+      postCount = 0;
+    }
+    
+    try {
+      if (global.Itinerary) {
+        itineraryCount = await global.Itinerary.countDocuments({ userId: user._id });
+      }
+    } catch (e) {
+      console.warn('Itinerary count failed:', e.message);
+      itineraryCount = 0;
+    }
+    
+    const favoriteCount = user.favoritePlaces ? user.favoritePlaces.length : 0;
 
     const stats = {
       totalTrips: tripCount,
@@ -2851,6 +2877,7 @@ app.get('/api/users/:id/stats', async (req, res) => {
 
     res.json(stats);
   } catch (error) {
+    console.error('User stats error:', error);
     res.status(500).json({ error: error.message });
   }
 });
