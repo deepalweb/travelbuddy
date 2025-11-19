@@ -160,6 +160,10 @@ export const TransportationPage: React.FC = () => {
   const [showAiSuggestions, setShowAiSuggestions] = useState(false)
   const [compareList, setCompareList] = useState<string[]>([])
   const [showComparison, setShowComparison] = useState(false)
+  const [verifiedOnly, setVerifiedOnly] = useState(false)
+  const [instantBookingOnly, setInstantBookingOnly] = useState(false)
+  const [ecoFriendlyOnly, setEcoFriendlyOnly] = useState(false)
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     fetchServices()
@@ -167,10 +171,11 @@ export const TransportationPage: React.FC = () => {
 
   useEffect(() => {
     filterServices()
-  }, [services, searchTerm, selectedVehicleType, fromLocation, toLocation, maxPrice, minRating])
+  }, [services, searchTerm, selectedVehicleType, fromLocation, toLocation, maxPrice, minRating, verifiedOnly, instantBookingOnly, ecoFriendlyOnly])
 
   const fetchServices = async () => {
     try {
+      setLoading(true)
       const response = await fetch('https://travelbuddy-b2c6hgbbgeh4esdh.eastus2-01.azurewebsites.net/api/transport-providers/services')
       if (response.ok) {
         const data = await response.json()
@@ -187,6 +192,8 @@ export const TransportationPage: React.FC = () => {
       console.error('Failed to fetch services:', error)
       console.log('Using mock data due to error')
       setServices(mockServices)
+    } finally {
+      setLoading(false)
     }
   }
 
@@ -199,8 +206,13 @@ export const TransportationPage: React.FC = () => {
       const matchesTo = !toLocation || service.toLocation.toLowerCase().includes(toLocation.toLowerCase())
       const matchesPrice = service.price <= maxPrice
       const matchesRating = service.rating >= minRating
+      const matchesVerified = !verifiedOnly || service.isVerified
+      const matchesInstantBooking = !instantBookingOnly || service.instantBooking
+      const matchesEcoFriendly = !ecoFriendlyOnly || service.ecoFriendly
+      // Date filtering can be implemented when services have schedule data
+      const matchesDate = !selectedDate // Placeholder for future date filtering
 
-      return matchesSearch && matchesVehicleType && matchesFrom && matchesTo && matchesPrice && matchesRating
+      return matchesSearch && matchesVehicleType && matchesFrom && matchesTo && matchesPrice && matchesRating && matchesVerified && matchesInstantBooking && matchesEcoFriendly && matchesDate
     })
     
     // Sort by AI recommendations first
@@ -326,7 +338,10 @@ export const TransportationPage: React.FC = () => {
                     className="w-full pl-10 pr-4 py-3 bg-white/20 border border-white/30 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-white/50"
                   />
                 </div>
-                <Button className="bg-white text-blue-600 hover:bg-blue-50 py-3 rounded-xl font-semibold">
+                <Button 
+                  onClick={filterServices}
+                  className="bg-white text-blue-600 hover:bg-blue-50 py-3 rounded-xl font-semibold"
+                >
                   <Search className="w-5 h-5 mr-2" />
                   Search
                 </Button>
@@ -456,15 +471,30 @@ export const TransportationPage: React.FC = () => {
                   <label className="block text-sm font-medium text-gray-700 mb-2">Quick Filters</label>
                   <div className="space-y-2">
                     <label className="flex items-center">
-                      <input type="checkbox" className="mr-2" />
+                      <input 
+                        type="checkbox" 
+                        className="mr-2" 
+                        checked={verifiedOnly}
+                        onChange={(e) => setVerifiedOnly(e.target.checked)}
+                      />
                       <span className="text-sm">Verified Only</span>
                     </label>
                     <label className="flex items-center">
-                      <input type="checkbox" className="mr-2" />
+                      <input 
+                        type="checkbox" 
+                        className="mr-2" 
+                        checked={instantBookingOnly}
+                        onChange={(e) => setInstantBookingOnly(e.target.checked)}
+                      />
                       <span className="text-sm">Instant Booking</span>
                     </label>
                     <label className="flex items-center">
-                      <input type="checkbox" className="mr-2" />
+                      <input 
+                        type="checkbox" 
+                        className="mr-2" 
+                        checked={ecoFriendlyOnly}
+                        onChange={(e) => setEcoFriendlyOnly(e.target.checked)}
+                      />
                       <span className="text-sm">Eco-Friendly</span>
                     </label>
                   </div>
@@ -491,11 +521,41 @@ export const TransportationPage: React.FC = () => {
         )}
 
         {/* Services Grid/List */}
-        <div className={viewMode === 'grid' 
-          ? 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6'
-          : viewMode === 'list' ? 'space-y-4' : 'hidden'
-        }>
-          {filteredServices.map(service => (
+        {loading ? (
+          <div className="flex justify-center items-center h-64">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+          </div>
+        ) : (
+          <div className={viewMode === 'grid' 
+            ? 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6'
+            : viewMode === 'list' ? 'space-y-4' : 'hidden'
+          }>
+            {filteredServices.length === 0 ? (
+              <div className="col-span-full text-center py-12">
+                <div className="text-gray-400 mb-4">
+                  <Car className="w-16 h-16 mx-auto mb-4" />
+                </div>
+                <h3 className="text-xl font-semibold text-gray-700 mb-2">No services found</h3>
+                <p className="text-gray-500 mb-4">Try adjusting your search criteria or filters</p>
+                <Button 
+                  onClick={() => {
+                    setSearchTerm('')
+                    setSelectedVehicleType('All')
+                    setFromLocation('')
+                    setToLocation('')
+                    setMaxPrice(5000)
+                    setMinRating(0)
+                    setVerifiedOnly(false)
+                    setInstantBookingOnly(false)
+                    setEcoFriendlyOnly(false)
+                  }}
+                  className="bg-blue-600 hover:bg-blue-700 text-white"
+                >
+                  Clear All Filters
+                </Button>
+              </div>
+            ) : (
+              filteredServices.map(service => (
             <Card key={service.id} className="group hover:shadow-xl transition-all duration-300 cursor-pointer border-0 shadow-lg">
               <CardContent className="p-0">
                 <div className="relative">
@@ -633,8 +693,10 @@ export const TransportationPage: React.FC = () => {
                 </div>
               </CardContent>
             </Card>
-          ))}
-        </div>
+              ))
+            )}
+          </div>
+        )}
 
         {/* CTA Section */}
         <div className="mt-16 text-center bg-gradient-to-r from-blue-50 to-green-50 rounded-2xl p-8">

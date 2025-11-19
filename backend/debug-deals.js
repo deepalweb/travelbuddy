@@ -1,9 +1,12 @@
 import express from 'express';
 import mongoose from 'mongoose';
+import dotenv from 'dotenv';
 
-const router = express.Router();
+dotenv.config();
 
-// Deal Schema (if not already defined)
+const app = express();
+
+// Deal Schema
 const dealSchema = new mongoose.Schema({
   title: String,
   description: String,
@@ -53,16 +56,11 @@ try {
   Deal = mongoose.model('Deal', dealSchema);
 }
 
-// GET /api/deals - Get active deals
-router.get('/', async (req, res) => {
-  // Prevent caching to ensure recent deals are always shown
-  res.set({
-    'Cache-Control': 'no-cache, no-store, must-revalidate',
-    'Pragma': 'no-cache',
-    'Expires': '0'
-  });
-  
+// Test the exact route logic
+app.get('/test-deals', async (req, res) => {
   try {
+    console.log('🔍 Testing deals route logic...');
+    
     const { isActive = 'true', limit = '20', businessType } = req.query;
     
     const query = {};
@@ -99,75 +97,35 @@ router.get('/', async (req, res) => {
       });
     }
     
-    res.json(deals);
+    res.json({
+      success: true,
+      count: deals.length,
+      deals: deals
+    });
   } catch (error) {
-    console.error('❌ Error fetching deals:', error);
-    res.status(500).json({ error: error.message });
+    console.error('❌ Error in deals route:', error);
+    res.status(500).json({ 
+      error: error.message,
+      stack: error.stack
+    });
   }
 });
 
-// POST /api/deals/:dealId/claim - Claim a deal
-router.post('/:dealId/claim', async (req, res) => {
+async function startDebugServer() {
   try {
-    const { dealId } = req.params;
+    console.log('🔗 Connecting to MongoDB...');
+    await mongoose.connect(process.env.MONGO_URI);
+    console.log('✅ Connected to MongoDB');
     
-    const deal = await Deal.findById(dealId);
-    if (!deal) {
-      return res.status(404).json({ error: 'Deal not found' });
-    }
+    const port = 3002;
+    app.listen(port, () => {
+      console.log(`🚀 Debug server running on port ${port}`);
+      console.log(`🔍 Test URL: http://localhost:${port}/test-deals`);
+    });
     
-    if (!deal.isActive || deal.validUntil < new Date()) {
-      return res.status(400).json({ error: 'Deal is no longer active' });
-    }
-    
-    // Increment claims count
-    deal.claims = (deal.claims || 0) + 1;
-    await deal.save();
-    
-    console.log(`✅ Deal claimed: ${deal.title}`);
-    res.json({ success: true, message: 'Deal claimed successfully' });
   } catch (error) {
-    console.error('❌ Error claiming deal:', error);
-    res.status(500).json({ error: error.message });
+    console.error('❌ Failed to start debug server:', error);
   }
-});
+}
 
-// GET /api/users/:userId/deals - Get user's deals
-router.get('/users/:userId/deals', async (req, res) => {
-  try {
-    const { userId } = req.params;
-    
-    // Find deals created by this merchant
-    const deals = await Deal.find({ merchantId: userId })
-      .sort({ createdAt: -1 })
-      .lean();
-    
-    console.log(`✅ Found ${deals.length} deals for user ${userId}`);
-    res.json(deals);
-  } catch (error) {
-    console.error('❌ Error fetching user deals:', error);
-    res.status(500).json({ error: error.message });
-  }
-});
-
-// POST /api/deals - Create new deal (for merchants)
-router.post('/', async (req, res) => {
-  try {
-    const dealData = {
-      ...req.body,
-      merchantId: req.headers['x-user-id'] || req.body.merchantId,
-      createdAt: new Date()
-    };
-    
-    const deal = new Deal(dealData);
-    await deal.save();
-    
-    console.log(`✅ Deal created: ${deal.title}`);
-    res.status(201).json(deal);
-  } catch (error) {
-    console.error('❌ Error creating deal:', error);
-    res.status(400).json({ error: error.message });
-  }
-});
-
-export default router;
+startDebugServer();

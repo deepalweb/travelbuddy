@@ -15,4 +15,5 @@ export interface Deal {
   claims: number;
   isActive: boolean;
   validUntil?: Date;
+  createdAt?: Date;
 }

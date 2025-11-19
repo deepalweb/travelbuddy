@@ -23,6 +23,8 @@ export const dealsService = {
   async getDeals(businessType?: string, sortBy?: string): Promise<Deal[]> {
     const params = new URLSearchParams()
     params.append('isActive', 'true')
+    // Add timestamp to prevent caching
+    params.append('_t', Date.now().toString())
     if (businessType && businessType !== 'all') {
       params.append('businessType', businessType)
     }
@@ -30,14 +32,30 @@ export const dealsService = {
       params.append('sort', sortBy)
     }
     
-    const response = await fetch(`${API_BASE}/api/deals?${params}`, {
+    const url = `${API_BASE}/api/deals?${params}`
+    console.log('🔍 Fetching deals from:', url)
+    
+    const response = await fetch(url, {
       credentials: 'include',
       headers: {
-        'Accept': 'application/json'
+        'Accept': 'application/json',
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'Pragma': 'no-cache'
       }
     })
-    if (!response.ok) throw new Error('Failed to fetch deals')
-    return response.json()
+    
+    console.log('📊 Response status:', response.status)
+    
+    if (!response.ok) {
+      const errorText = await response.text()
+      console.error('❌ Deals fetch failed:', response.status, errorText)
+      throw new Error(`Failed to fetch deals: ${response.status}`)
+    }
+    
+    const deals = await response.json()
+    console.log(`✅ Received ${deals.length} deals from API`)
+    
+    return deals
   },
 
   async getTrendingDeals(): Promise<Deal[]> {

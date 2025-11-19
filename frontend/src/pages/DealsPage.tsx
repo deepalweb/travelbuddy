@@ -23,6 +23,7 @@ interface Deal {
   claims: number;
   isActive: boolean;
   validUntil?: Date;
+  createdAt?: Date;
 }
 
 const businessTypes = [
@@ -61,12 +62,15 @@ export const DealsPage: React.FC = () => {
     filterDeals()
   }, [deals, searchTerm, sortBy])
 
-  const loadDeals = async () => {
+  const loadDeals = async (forceRefresh = false) => {
     try {
+      console.log('🔄 Loading deals for type:', selectedType, forceRefresh ? '(forced refresh)' : '')
       setLoading(true)
       const data = await dealsService.getDeals(selectedType)
+      console.log('✅ Deals loaded successfully:', data.length, 'deals')
       setDeals(data)
     } catch (error) {
+      console.error('❌ Error loading deals:', error)
       setDeals([])
     } finally {
       setLoading(false)
@@ -162,7 +166,7 @@ export const DealsPage: React.FC = () => {
               </div>
               <div className="flex gap-2">
                 <Button
-                  onClick={loadDeals}
+                  onClick={() => loadDeals(true)}
                   className="bg-white/20 text-white hover:bg-white/30 font-semibold px-4 py-3"
                 >
                   Refresh
