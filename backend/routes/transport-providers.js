@@ -5,10 +5,31 @@ import TransportProvider from '../models/TransportProvider.js';
 
 const router = express.Router();
 
+// Test endpoint
+router.get('/test', (req, res) => {
+  res.json({ message: 'Transport providers route is working', timestamp: new Date().toISOString() });
+});
+
+// Handle preflight OPTIONS requests
+router.options('/register', (req, res) => {
+  res.header('Access-Control-Allow-Origin', req.headers.origin || '*');
+  res.header('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  res.header('Access-Control-Allow-Credentials', 'true');
+  res.sendStatus(200);
+});
+
 // Transport provider registration
 router.post('/register', async (req, res) => {
+  // Add CORS headers
+  res.header('Access-Control-Allow-Origin', req.headers.origin || '*');
+  res.header('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  res.header('Access-Control-Allow-Credentials', 'true');
+  
   try {
-    console.log('Registration request:', req.body);
+    console.log('Registration request received');
+    console.log('Request body keys:', Object.keys(req.body || {}));
     
     const {
       companyName,
@@ -36,42 +57,32 @@ router.post('/register', async (req, res) => {
       return res.status(400).json({ error: 'Must select at least one service area' });
     }
 
-    // Create provider profile with all form data
-    const providerProfile = new TransportProvider({
-      // Map all form fields to database model
-      companyLogo: req.body.companyLogo,
+    // Create provider profile with minimal required fields first
+    const providerData = {
       companyName,
       ownerName,
       email,
       phone,
-      address,
-      description: req.body.description,
-      businessRegNumber: req.body.businessRegNumber,
+      address: address || 'Not provided',
       licenseNumber,
-      businessRegDoc: req.body.businessRegDoc,
-      insuranceCert: req.body.insuranceCert,
-      verificationPhotos: req.body.verificationPhotos || [],
-      fleetSize,
-      vehicleTypes,
-      vehiclePhotos: req.body.vehiclePhotos || [],
-      amenities: req.body.amenities || [],
-      country: req.body.country || 'Sri Lanka',
-      serviceAreas,
-      islandWide: req.body.islandWide || false,
-      airportTransfers: req.body.airportTransfers || false,
-      airportPricing: req.body.airportPricing,
-      pricingModel: req.body.pricingModel,
-      basePrice: req.body.basePrice,
-      minBookingHours: req.body.minBookingHours,
-      availability: req.body.availability || {},
-      driverCount: req.body.driverCount,
-      driverCertifications: req.body.driverCertifications || [],
-      driverIds: req.body.driverIds || [],
-      documents: documents || [],
-      password: req.body.password, // Should be hashed in production
+      fleetSize: fleetSize || '1',
+      vehicleTypes: Array.isArray(vehicleTypes) ? vehicleTypes : [vehicleTypes].filter(Boolean),
+      serviceAreas: Array.isArray(serviceAreas) ? serviceAreas : [serviceAreas].filter(Boolean),
       verificationStatus: 'pending',
       isActive: false
-    });
+    };
+    
+    // Add optional fields if provided
+    if (req.body.description) providerData.description = req.body.description;
+    if (req.body.businessRegNumber) providerData.businessRegNumber = req.body.businessRegNumber;
+    if (req.body.country) providerData.country = req.body.country;
+    if (req.body.islandWide) providerData.islandWide = req.body.islandWide;
+    if (req.body.airportTransfers) providerData.airportTransfers = req.body.airportTransfers;
+    if (req.body.basePrice) providerData.basePrice = req.body.basePrice;
+    if (req.body.amenities) providerData.amenities = req.body.amenities;
+    
+    console.log('Creating provider with data:', providerData);
+    const providerProfile = new TransportProvider(providerData);
 
     // Save to database
     const savedProvider = await providerProfile.save();
@@ -85,7 +96,13 @@ router.post('/register', async (req, res) => {
 
 
   } catch (error) {
-    res.status(500).json({ error: 'Failed to register transport provider' });
+    console.error('Registration error:', error);
+    console.error('Error stack:', error.stack);
+    res.status(500).json({ 
+      error: 'Failed to register transport provider',
+      details: error.message,
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+    });
   }
 });
 
