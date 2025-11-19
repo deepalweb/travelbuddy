@@ -4,12 +4,34 @@ import { requireRole, requirePermission } from '../middleware/rbac.js';
 
 const router = express.Router();
 
+// CORS headers for all routes
+router.use((req, res, next) => {
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
+  next();
+});
+
+// Handle preflight requests
+router.options('*', (req, res) => {
+  res.sendStatus(200);
+});
+
 // In-memory storage for travel agent applications
 let agentApplications = [];
+
+// Test endpoint
+router.get('/test', (req, res) => {
+  res.json({ message: 'Travel agents API is working', timestamp: new Date().toISOString() });
+});
 
 // Travel agent registration (no auth required)
 router.post('/register', async (req, res) => {
   try {
+    console.log('Travel agent registration request received');
+    console.log('Request body:', JSON.stringify(req.body, null, 2));
+    console.log('Request headers:', req.headers);
+
     const {
       agencyName,
       ownerName,
@@ -33,36 +55,43 @@ router.post('/register', async (req, res) => {
 
     // Basic validation
     if (!agencyName || !ownerName || !email || !phone) {
-      return res.status(400).json({ error: 'Missing required fields: agencyName, ownerName, email, phone' });
+      console.log('Validation failed - missing required fields');
+      return res.status(400).json({ 
+        error: 'Missing required fields', 
+        required: ['agencyName', 'ownerName', 'email', 'phone'],
+        received: { agencyName: !!agencyName, ownerName: !!ownerName, email: !!email, phone: !!phone }
+      });
     }
 
-    console.log('Registration data received:', { agencyName, ownerName, email, phone, specialties, languages });
+    console.log('Validation passed, creating agent profile');
 
-    // Store in memory (in production, save to database)
+    // Simplified data structure to avoid potential serialization issues
     const agentProfile = {
       id: Date.now().toString(),
-      agencyName,
-      ownerName,
-      email,
-      phone,
-      whatsapp: whatsapp || '',
-      website: website || '',
-      address: address || '',
-      location,
-      licenseNumber: licenseNumber || '',
-      experienceYears: experienceYears || '',
-      about: about || '',
-      priceRange: priceRange || '',
-      operatingRegions: operatingRegions || [],
-      specialties: specialties || [],
-      languages: languages || [],
-      profilePhoto,
-      portfolioImages: portfolioImages || [],
-      documents,
+      agencyName: String(agencyName || ''),
+      ownerName: String(ownerName || ''),
+      email: String(email || ''),
+      phone: String(phone || ''),
+      whatsapp: String(whatsapp || ''),
+      website: String(website || ''),
+      address: String(address || ''),
+      location: location || null,
+      licenseNumber: String(licenseNumber || ''),
+      experienceYears: String(experienceYears || ''),
+      about: String(about || ''),
+      priceRange: String(priceRange || ''),
+      operatingRegions: Array.isArray(operatingRegions) ? operatingRegions : [],
+      specialties: Array.isArray(specialties) ? specialties : [],
+      languages: Array.isArray(languages) ? languages : [],
+      profilePhoto: profilePhoto || null,
+      portfolioImages: Array.isArray(portfolioImages) ? portfolioImages : [],
+      documents: documents || null,
       status: 'pending',
       submittedDate: new Date().toISOString().split('T')[0],
       createdAt: new Date().toISOString()
     };
+
+    console.log('Agent profile created:', { id: agentProfile.id, agencyName: agentProfile.agencyName });
 
     // Add to applications array
     agentApplications.push(agentProfile);
@@ -71,13 +100,25 @@ router.post('/register', async (req, res) => {
     console.log('Total applications:', agentApplications.length);
 
     res.json({
+      success: true,
       message: 'Travel agent registration submitted successfully',
       status: 'pending',
       agentId: agentProfile.id
     });
   } catch (error) {
-    console.error('Registration error:', error);
-    res.status(500).json({ error: 'Failed to register travel agent' });
+    console.error('Travel agent registration error:', error);
+    console.error('Error stack:', error.stack);
+    console.error('Error details:', {
+      name: error.name,
+      message: error.message,
+      stack: error.stack
+    });
+    
+    res.status(500).json({ 
+      error: 'Failed to register travel agent',
+      details: error.message,
+      timestamp: new Date().toISOString()
+    });
   }
 });
 
