@@ -205,7 +205,192 @@ class ApiService {
   async getMonthlyUsageStats(months = 12) {
     return this.request(`/usage/aggregate/monthly?months=${months}`);
   }
-}
+
+  // Trip Planning Endpoints
+  async getUserTripPlans() {
+    const token = localStorage.getItem('auth_token');
+    return this.request('/users/trip-plans', {
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+  }
+
+  async createTripPlan(tripData: any) {
+    const token = localStorage.getItem('auth_token');
+    return this.request('/users/trip-plans', {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${token}` },
+      body: JSON.stringify(tripData)
+    });
+  }
+
+  async updateTripPlan(tripId: string, tripData: any) {
+    const token = localStorage.getItem('auth_token');
+    return this.request(`/users/trip-plans/${tripId}`, {
+      method: 'PUT',
+      headers: { 'Authorization': `Bearer ${token}` },
+      body: JSON.stringify(tripData)
+    });
+  }
+
+  async deleteTripPlan(tripId: string) {
+    const token = localStorage.getItem('auth_token');
+    return this.request(`/users/trip-plans/${tripId}`, {
+      method: 'DELETE',
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+  }
+
+  async updateActivityStatus(tripId: string, dayIndex: number, activityIndex: number, isVisited: boolean) {
+    const token = localStorage.getItem('auth_token');
+    return this.request(`/users/trip-plans/${tripId}/activities`, {
+      method: 'PATCH',
+      headers: { 'Authorization': `Bearer ${token}` },
+      body: JSON.stringify({
+        dayIndex,
+        activityIndex,
+        isVisited,
+        visitedDate: isVisited ? new Date().toISOString() : null
+      })
+    });
+  }
+
+  async generateTripPlan(params: any) {
+    const token = localStorage.getItem('auth_token');
+    return this.request('/ai/trip-generator', {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${token}` },
+      body: JSON.stringify(params)
+    });
+  }
+
+  // User Favorites Endpoints
+  async getUserFavorites() {
+    const token = localStorage.getItem('auth_token');
+    return this.request('/users/favorites', {
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+  }
+
+  async addFavorite(placeId: string) {
+    const token = localStorage.getItem('auth_token');
+    return this.request('/users/favorites', {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${token}` },
+      body: JSON.stringify({ placeId })
+    });
+  }
+
+  async removeFavorite(placeId: string) {
+    const token = localStorage.getItem('auth_token');
+    return this.request(`/users/favorites/${placeId}`, {
+      method: 'DELETE',
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+  }
+
+  async toggleFavorite(placeId: string) {
+    const token = localStorage.getItem('auth_token');
+    return this.request('/users/favorites/toggle', {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${token}` },
+      body: JSON.stringify({ placeId })
+    });
+  }
+
+  // User Preferences Endpoints
+  async getUserTravelStyle() {
+    const token = localStorage.getItem('auth_token');
+    return this.request('/users/travel-style', {
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+  }
+
+  async updateUserTravelStyle(travelStyle: string) {
+    const token = localStorage.getItem('auth_token');
+    return this.request('/users/travel-style', {
+      method: 'PUT',
+      headers: { 'Authorization': `Bearer ${token}` },
+      body: JSON.stringify({ travelStyle })
+    });
+  }
+
+  async getUserPreferences() {
+    const token = localStorage.getItem('auth_token');
+    return this.request('/users/preferences', {
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+  }
+
+  async updateUserPreferences(preferences: any) {
+    const token = localStorage.getItem('auth_token');
+    return this.request('/users/preferences', {
+      method: 'PUT',
+      headers: { 'Authorization': `Bearer ${token}` },
+      body: JSON.stringify(preferences)
+    });
+  }
+
+  // Extended User Profile Endpoints
+  async getExtendedUserProfile() {
+    const token = localStorage.getItem('auth_token');
+    return this.request('/users/profile/extended', {
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+  }
+
+  async updateExtendedUserProfile(profileData: any) {
+    const token = localStorage.getItem('auth_token');
+    return this.request('/users/profile/extended', {
+      method: 'PUT',
+      headers: { 'Authorization': `Bearer ${token}` },
+      body: JSON.stringify(profileData)
+    });
+  }
+
+  async uploadProfilePicture(formData: FormData) {
+    const token = localStorage.getItem('auth_token');
+    return fetch(`${this.baseURL}/api/users/profile/picture`, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${token}` },
+      body: formData
+    });
+  }
+
+  // AI Service Endpoints
+  async generateAITripPlan(params: any) {
+    const token = localStorage.getItem('auth_token');
+    return this.request('/ai/trip-generator', {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${token}` },
+      body: JSON.stringify(params)
+    });
+  }
+
+  async getAIRecommendations(params: any) {
+    const token = localStorage.getItem('auth_token');
+    return this.request('/ai/recommendations', {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${token}` },
+      body: JSON.stringify(params)
+    });
+  }
+
+  async generatePlaceAIContent(placeData: any) {
+    const token = localStorage.getItem('auth_token');
+    return this.request('/ai/place-content', {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${token}` },
+      body: JSON.stringify(placeData)
+    });
+  }
+
+  async getCachedPlaceAIContent(placeId: string) {
+    return this.request(`/ai/place-content/${placeId}`);
+  }
+
+  async enhancedPlacesSearch(queryParams: string) {
+    return this.request(`/enhanced-places/search?${queryParams}`);
+  }
 
 export const apiService = new ApiService();
 export default apiService;

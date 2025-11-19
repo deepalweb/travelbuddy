@@ -1,181 +1,262 @@
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://travelbuddy-b2c6hgbbgeh4esdh.eastus2-01.azurewebsites.net'
+import { apiService } from './apiService'
 
-export interface Trip {
-  _id?: string
+export interface TripPlan {
+  id: string
   tripTitle: string
   destination: string
   duration: string
   introduction: string
-  dailyPlans: DailyPlan[]
+  dailyPlans: DailyTripPlan[]
   conclusion: string
-  totalEstimatedCost: string
-  estimatedWalkingDistance: string
-  userId?: string
-  createdAt?: string
+  accommodationSuggestions?: string[]
+  transportationTips?: string[]
+  budgetConsiderations?: string[]
 }
 
-export interface DailyPlan {
+export interface DailyTripPlan {
   day: number
   title: string
-  date: string
   theme?: string
-  activities: Activity[]
-  dayEstimatedCost: string
-  dayWalkingDistance: string
+  activities: ActivityDetail[]
+  photoUrl?: string
 }
 
-export interface Activity {
+export interface ActivityDetail {
   timeOfDay: string
   activityTitle: string
   description: string
-  location?: string
-  duration: string
-  estimatedCost: string
-  type: 'transport' | 'accommodation' | 'activity' | 'meal' | 'other'
-  rating?: number
-  googlePlaceId?: string
-  isVisited: boolean
-  visitedDate?: string
-  practicalTip?: string
+  estimatedDuration: string
+  location: string
+  notes?: string
+  icon?: string
   category?: string
+  startTime?: string
+  endTime?: string
+  duration?: string
+  place?: any
+  type?: string
+  estimatedCost?: string
+  costBreakdown?: any
+  transportFromPrev?: any
+  tips?: string[]
+  weatherBackup?: string
+  crowdLevel?: string
+  imageURL?: string
+  bookingLinks?: string[]
+  googlePlaceId?: string
+  highlight?: boolean
+  socialProof?: string
+  rating?: number
+  userRatingsTotal?: number
+  practicalTip?: string
+  travelMode?: string
+  travelTimeMin?: number
+  estimatedVisitDurationMin?: number
+  photoThumbnail?: string
+  fullAddress?: string
+  openingHours?: any
+  isOpenNow?: boolean
+  weatherNote?: string
+  tags?: string[]
+  bookingLink?: string
+  isVisited?: boolean
+  visitedDate?: string
 }
 
-export const tripService = {
-  async createTrip(trip: Omit<Trip, '_id' | 'createdAt'>): Promise<Trip> {
-    if (!trip.tripTitle?.trim() || !trip.destination?.trim()) {
-      throw new Error('Trip title and destination are required')
+class TripService {
+  private baseURL: string
+
+  constructor() {
+    this.baseURL = import.meta.env.VITE_API_BASE_URL || 'https://travelbuddy-b2c6hgbbgeh4esdh.eastus2-01.azurewebsites.net'
+  }
+
+  private async request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
+    const url = `${this.baseURL}/api${endpoint}`
+    
+    const config: RequestInit = {
+      headers: {
+        'Content-Type': 'application/json',
+        ...options.headers,
+      },
+      ...options,
+    }
+
+    const response = await fetch(url, config)
+    
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({ message: 'Request failed' }))
+      throw new Error(errorData.message || `HTTP ${response.status}: ${response.statusText}`)
     }
     
-    try {
-      const newTrip: Trip = {
-        ...trip,
-        _id: Date.now().toString(),
-        createdAt: new Date().toISOString(),
-        tripTitle: trip.tripTitle.trim(),
-        destination: trip.destination.trim()
-      }
-      
-      const existingTrips = JSON.parse(localStorage.getItem('trips') || '[]')
-      if (!Array.isArray(existingTrips)) {
-        throw new Error('Invalid trips data in storage')
-      }
-      
-      existingTrips.push(newTrip)
-      localStorage.setItem('trips', JSON.stringify(existingTrips))
-      
-      return newTrip
-    } catch (error) {
-      console.error('Error creating trip:', error)
-      if (error instanceof Error) {
-        throw error
-      }
-      throw new Error('Failed to create trip: Unknown error')
-    }
-  },
+    return response.json()
+  }
 
-  async getTrips(userId?: string): Promise<Trip[]> {
+  // Get user's trip plans
+  async getUserTripPlans(): Promise<TripPlan[]> {
     try {
-      const tripsData = localStorage.getItem('trips')
-      if (!tripsData) return []
-      
-      const trips = JSON.parse(tripsData)
-      if (!Array.isArray(trips)) {
-        console.warn('Invalid trips data format, resetting storage')
-        localStorage.setItem('trips', '[]')
-        return []
-      }
-      
-      return userId ? trips.filter((trip: Trip) => trip.userId === userId) : trips
+      const token = localStorage.getItem('auth_token')
+      const response = await this.request<TripPlan[]>('/users/trip-plans', {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      })
+      return response
     } catch (error) {
-      console.error('Error fetching trips:', error)
-      localStorage.setItem('trips', '[]') // Reset corrupted data
+      console.error('Error fetching trip plans:', error)
       return []
     }
-  },
+  }
 
-  async getUserTrips(userId: string): Promise<Trip[]> {
-    if (!userId?.trim()) {
-      throw new Error('User ID is required')
-    }
-    
+  // Save trip plan
+  async saveTripPlan(tripPlan: Omit<TripPlan, 'id'>): Promise<TripPlan | null> {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/users/${encodeURIComponent(userId.trim())}/trip-plans`)
-      
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ message: 'Request failed' }))
-        throw new Error(errorData.message || `Failed to fetch user trips: HTTP ${response.status}`)
-      }
-      
-      const data = await response.json()
-      return Array.isArray(data) ? data : []
+      const token = localStorage.getItem('auth_token')
+      const response = await this.request<TripPlan>('/users/trip-plans', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify(tripPlan),
+      })
+      return response
     } catch (error) {
-      console.error('Error fetching user trips:', error)
-      if (error instanceof TypeError && error.message.includes('fetch')) {
-        throw new Error('Network connection failed. Please check your internet connection.')
-      }
-      throw error
+      console.error('Error saving trip plan:', error)
+      return null
     }
-  },
+  }
 
-  async getTripById(tripId: string): Promise<Trip> {
+  // Update trip plan
+  async updateTripPlan(tripPlan: TripPlan): Promise<boolean> {
     try {
-      // Load trip from localStorage
-      const trips = JSON.parse(localStorage.getItem('trips') || '[]')
-      const trip = trips.find((t: Trip) => t._id === tripId)
-      
-      if (!trip) {
-        throw new Error('Trip not found')
-      }
-      
-      return trip
+      const token = localStorage.getItem('auth_token')
+      await this.request(`/users/trip-plans/${tripPlan.id}`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify(tripPlan),
+      })
+      return true
     } catch (error) {
-      console.error('Error fetching trip:', error)
-      throw new Error('Failed to fetch trip')
+      console.error('Error updating trip plan:', error)
+      return false
     }
-  },
+  }
 
-  async deleteTrip(tripId: string): Promise<void> {
+  // Delete trip plan
+  async deleteTripPlan(tripPlanId: string): Promise<boolean> {
     try {
-      const trips = JSON.parse(localStorage.getItem('trips') || '[]')
-      const filteredTrips = trips.filter((trip: Trip) => trip._id !== tripId)
-      localStorage.setItem('trips', JSON.stringify(filteredTrips))
+      const token = localStorage.getItem('auth_token')
+      await this.request(`/users/trip-plans/${tripPlanId}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      })
+      return true
     } catch (error) {
-      console.error('Error deleting trip:', error)
-      throw new Error('Failed to delete trip')
+      console.error('Error deleting trip plan:', error)
+      return false
     }
-  },
+  }
 
-  async updateTrip(tripId: string, updatedTrip: Partial<Trip>): Promise<Trip> {
+  // Update activity visited status
+  async updateActivityStatus(
+    tripPlanId: string, 
+    dayIndex: number, 
+    activityIndex: number, 
+    isVisited: boolean
+  ): Promise<boolean> {
     try {
-      const trips = JSON.parse(localStorage.getItem('trips') || '[]')
-      const tripIndex = trips.findIndex((trip: Trip) => trip._id === tripId)
-      
-      if (tripIndex === -1) {
-        throw new Error('Trip not found')
-      }
-      
-      trips[tripIndex] = { ...trips[tripIndex], ...updatedTrip }
-      localStorage.setItem('trips', JSON.stringify(trips))
-      
-      return trips[tripIndex]
-    } catch (error) {
-      console.error('Error updating trip:', error)
-      throw new Error('Failed to update trip')
-    }
-  },
-
-  async updateActivityStatus(tripId: string, dayIndex: number, activityIndex: number, isVisited: boolean): Promise<void> {
-    try {
-      const trips = JSON.parse(localStorage.getItem('trips') || '[]')
-      const tripIndex = trips.findIndex((trip: Trip) => trip._id === tripId)
-      
-      if (tripIndex !== -1) {
-        trips[tripIndex].dailyPlans[dayIndex].activities[activityIndex].isVisited = isVisited
-        localStorage.setItem('trips', JSON.stringify(trips))
-      }
+      const token = localStorage.getItem('auth_token')
+      await this.request(`/users/trip-plans/${tripPlanId}/activities`, {
+        method: 'PATCH',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          dayIndex,
+          activityIndex,
+          isVisited,
+          visitedDate: isVisited ? new Date().toISOString() : null,
+        }),
+      })
+      return true
     } catch (error) {
       console.error('Error updating activity status:', error)
-      throw new Error('Failed to update activity status')
+      return false
+    }
+  }
+
+  // Share trip plan
+  async shareTripPlan(tripPlanId: string): Promise<string | null> {
+    try {
+      const token = localStorage.getItem('auth_token')
+      const response = await this.request<{ shareUrl: string }>(`/users/trip-plans/${tripPlanId}/share`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      })
+      return response.shareUrl
+    } catch (error) {
+      console.error('Error sharing trip plan:', error)
+      return null
+    }
+  }
+
+  // Get shared trip plan
+  async getSharedTripPlan(shareId: string): Promise<TripPlan | null> {
+    try {
+      const response = await this.request<TripPlan>(`/shared/trip-plans/${shareId}`)
+      return response
+    } catch (error) {
+      console.error('Error fetching shared trip plan:', error)
+      return null
+    }
+  }
+
+  // Generate AI trip plan
+  async generateTripPlan(params: {
+    destination: string
+    duration: string
+    interests: string
+    pace?: string
+    budget?: string
+  }): Promise<TripPlan | null> {
+    try {
+      const token = localStorage.getItem('auth_token')
+      const response = await this.request<TripPlan>('/ai/trip-generator', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify(params),
+      })
+      return response
+    } catch (error) {
+      console.error('Error generating trip plan:', error)
+      return null
+    }
+  }
+
+  // Sync local plans to backend
+  async syncLocalPlans(localPlans: TripPlan[]): Promise<boolean> {
+    try {
+      const token = localStorage.getItem('auth_token')
+      await this.request('/users/trip-plans/sync', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({ tripPlans: localPlans }),
+      })
+      return true
+    } catch (error) {
+      console.error('Error syncing local plans:', error)
+      return false
     }
   }
 }
+
+export const tripService = new TripService()

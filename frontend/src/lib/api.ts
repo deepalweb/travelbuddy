@@ -216,6 +216,308 @@ class ApiService {
   async healthCheck() {
     return this.request('/health')
   }
+
+  // Trip Planning API
+  async getUserTrips() {
+    const token = localStorage.getItem('auth_token')
+    return this.request('/users/trip-plans', {
+      headers: { 'Authorization': `Bearer ${token}` }
+    })
+  }
+
+  async createTrip(tripData: any) {
+    const token = localStorage.getItem('auth_token')
+    return this.request('/users/trip-plans', {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${token}` },
+      body: JSON.stringify(tripData)
+    })
+  }
+
+  async updateTrip(tripId: string, tripData: any) {
+    const token = localStorage.getItem('auth_token')
+    return this.request(`/users/trip-plans/${tripId}`, {
+      method: 'PUT',
+      headers: { 'Authorization': `Bearer ${token}` },
+      body: JSON.stringify(tripData)
+    })
+  }
+
+  async deleteTrip(tripId: string) {
+    const token = localStorage.getItem('auth_token')
+    return this.request(`/users/trip-plans/${tripId}`, {
+      method: 'DELETE',
+      headers: { 'Authorization': `Bearer ${token}` }
+    })
+  }
+
+  async updateTripActivity(tripId: string, dayIndex: number, activityIndex: number, isVisited: boolean) {
+    const token = localStorage.getItem('auth_token')
+    return this.request(`/users/trip-plans/${tripId}/activities`, {
+      method: 'PATCH',
+      headers: { 'Authorization': `Bearer ${token}` },
+      body: JSON.stringify({
+        dayIndex,
+        activityIndex,
+        isVisited,
+        visitedDate: isVisited ? new Date().toISOString() : null
+      })
+    })
+  }
+
+  async generateAITrip(params: {
+    destination: string
+    duration: string
+    interests: string
+    pace?: string
+    budget?: string
+  }) {
+    const token = localStorage.getItem('auth_token')
+    return this.request('/ai/trip-generator', {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${token}` },
+      body: JSON.stringify(params)
+    })
+  }
+
+  // User Favorites API
+  async getUserFavoriteIds() {
+    const token = localStorage.getItem('auth_token')
+    return this.request('/users/favorites', {
+      headers: { 'Authorization': `Bearer ${token}` }
+    })
+  }
+
+  async addToFavorites(placeId: string) {
+    const token = localStorage.getItem('auth_token')
+    return this.request('/users/favorites', {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${token}` },
+      body: JSON.stringify({ placeId })
+    })
+  }
+
+  async removeFromFavorites(placeId: string) {
+    const token = localStorage.getItem('auth_token')
+    return this.request(`/users/favorites/${placeId}`, {
+      method: 'DELETE',
+      headers: { 'Authorization': `Bearer ${token}` }
+    })
+  }
+
+  async togglePlaceFavorite(placeId: string) {
+    const token = localStorage.getItem('auth_token')
+    return this.request('/users/favorites/toggle', {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${token}` },
+      body: JSON.stringify({ placeId })
+    })
+  }
+
+  // User Preferences API
+  async getTravelStyle() {
+    const token = localStorage.getItem('auth_token')
+    return this.request('/users/travel-style', {
+      headers: { 'Authorization': `Bearer ${token}` }
+    })
+  }
+
+  async setTravelStyle(travelStyle: string) {
+    const token = localStorage.getItem('auth_token')
+    return this.request('/users/travel-style', {
+      method: 'PUT',
+      headers: { 'Authorization': `Bearer ${token}` },
+      body: JSON.stringify({ travelStyle })
+    })
+  }
+
+  async getPreferences() {
+    const token = localStorage.getItem('auth_token')
+    return this.request('/users/preferences', {
+      headers: { 'Authorization': `Bearer ${token}` }
+    })
+  }
+
+  async updatePreferences(preferences: any) {
+    const token = localStorage.getItem('auth_token')
+    return this.request('/users/preferences', {
+      method: 'PUT',
+      headers: { 'Authorization': `Bearer ${token}` },
+      body: JSON.stringify(preferences)
+    })
+  }
+
+  // Extended Profile API
+  async getExtendedProfile() {
+    const token = localStorage.getItem('auth_token')
+    return this.request('/users/profile/extended', {
+      headers: { 'Authorization': `Bearer ${token}` }
+    })
+  }
+
+  async updateExtendedProfile(profileData: any) {
+    const token = localStorage.getItem('auth_token')
+    return this.request('/users/profile/extended', {
+      method: 'PUT',
+      headers: { 'Authorization': `Bearer ${token}` },
+      body: JSON.stringify(profileData)
+    })
+  }
+
+  async uploadAvatar(file: File) {
+    const token = localStorage.getItem('auth_token')
+    const formData = new FormData()
+    formData.append('profilePicture', file)
+    
+    return fetch(`${await this.getBaseUrl()}/users/profile/picture`, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${token}` },
+      body: formData
+    })
+  }
+
+  // AI Features API
+  async generateTrip(params: any) {
+    const token = localStorage.getItem('auth_token')
+    return this.request('/ai/trip-generator', {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${token}` },
+      body: JSON.stringify(params)
+    })
+  }
+
+  async getSmartRecommendations(params: any) {
+    const token = localStorage.getItem('auth_token')
+    return this.request('/ai/recommendations', {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${token}` },
+      body: JSON.stringify(params)
+    })
+  }
+
+  async getPlaceAIContent(placeId: string) {
+    return this.request(`/ai/place-content/${placeId}`)
+  }
+
+  async enhancedSearch(query: string, filters?: any) {
+    const params = new URLSearchParams({ q: query })
+    if (filters) {
+      Object.entries(filters).forEach(([key, value]) => {
+        if (value) params.append(key, value.toString())
+      })
+    }
+    return this.request(`/enhanced-places/search?${params}`)
+  }
+
+  // Subscription Management API
+  async getSubscriptionTiers() {
+    return this.request('/subscriptions/tiers')
+  }
+
+  async getUserSubscription(userId: string) {
+    const token = localStorage.getItem('auth_token')
+    return this.request(`/subscriptions/${userId}`, {
+      headers: { 'Authorization': `Bearer ${token}` }
+    })
+  }
+
+  async getSubscriptionUsage(userId: string) {
+    const token = localStorage.getItem('auth_token')
+    return this.request(`/subscriptions/${userId}/usage`, {
+      headers: { 'Authorization': `Bearer ${token}` }
+    })
+  }
+
+  async startFreeTrial(userId: string, tier: string) {
+    const token = localStorage.getItem('auth_token')
+    return this.request('/subscriptions/trial', {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${token}` },
+      body: JSON.stringify({ userId, tier, trialDays: 7 })
+    })
+  }
+
+  async upgradeSubscription(userId: string, tier: string) {
+    const token = localStorage.getItem('auth_token')
+    return this.request('/subscriptions/upgrade', {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${token}` },
+      body: JSON.stringify({ userId, tier })
+    })
+  }
+
+  async cancelSubscription(userId: string, reason?: string) {
+    const token = localStorage.getItem('auth_token')
+    return this.request(`/subscriptions/${userId}/cancel`, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${token}` },
+      body: JSON.stringify({ cancelAtPeriodEnd: true, reason: reason || 'user_requested' })
+    })
+  }
+
+  async processPayment(userId: string, tier: string, amount: number, paymentMethod: string = 'paypal') {
+    const token = localStorage.getItem('auth_token')
+    return this.request('/subscriptions/payment', {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${token}` },
+      body: JSON.stringify({ userId, tier, amount, paymentMethod })
+    })
+  }
+
+  async getPaymentHistory(userId: string) {
+    const token = localStorage.getItem('auth_token')
+    return this.request(`/payments/${userId}/history`, {
+      headers: { 'Authorization': `Bearer ${token}` }
+    })
+  }
+
+  async checkTrialUsage(userId: string) {
+    const response = await this.request(`/users/${userId}/trial-history`)
+    return response?.hasUsedTrial === true
+  }
 }
 
 export const apiService = new ApiService()
+
+// Subscription helper functions
+export const subscriptionHelpers = {
+  canAccessFeature: (subscription: any, feature: string): boolean => {
+    if (!subscription || subscription.status === 'expired' || subscription.status === 'cancelled') {
+      const freeFeatures = ['basic_search', 'view_places', 'basic_trip_planning', 'community_view']
+      return freeFeatures.includes(feature)
+    }
+
+    const tierFeatures: Record<string, string[]> = {
+      free: ['basic_search', 'view_places', 'basic_trip_planning', 'community_view'],
+      basic: ['basic_search', 'view_places', 'basic_trip_planning', 'community_view', 'extended_search', 'basic_ai', 'favorites'],
+      premium: ['basic_search', 'view_places', 'basic_trip_planning', 'community_view', 'extended_search', 'basic_ai', 'favorites', 'advanced_ai', 'offline_maps', 'priority_support'],
+      pro: ['basic_search', 'view_places', 'basic_trip_planning', 'community_view', 'extended_search', 'basic_ai', 'favorites', 'advanced_ai', 'offline_maps', 'priority_support', 'business_features', 'team_collaboration']
+    }
+
+    const features = tierFeatures[subscription.tier] || tierFeatures.free
+    return features.includes(feature)
+  },
+
+  getTierLimits: (tier: string) => {
+    const limits: Record<string, any> = {
+      free: { placesPerDay: 10, aiQueriesPerMonth: 0, dealsPerDay: 3, favoritesMax: 10, tripsPerMonth: 1 },
+      basic: { placesPerDay: 30, aiQueriesPerMonth: 5, dealsPerDay: 10, favoritesMax: 50, tripsPerMonth: 5 },
+      premium: { placesPerDay: 100, aiQueriesPerMonth: 20, dealsPerDay: 25, favoritesMax: -1, tripsPerMonth: 15 },
+      pro: { placesPerDay: -1, aiQueriesPerMonth: 100, dealsPerDay: -1, favoritesMax: -1, tripsPerMonth: -1 }
+    }
+    return limits[tier] || limits.free
+  },
+
+  isTrialExpired: (subscription: any): boolean => {
+    if (!subscription || subscription.status !== 'trial') return false
+    if (!subscription.trialEndDate) return false
+    return new Date() > new Date(subscription.trialEndDate)
+  },
+
+  hasActiveSubscription: (subscription: any): boolean => {
+    if (!subscription) return false
+    if (subscription.status === 'active') return true
+    if (subscription.status === 'trial' && !subscriptionHelpers.isTrialExpired(subscription)) return true
+    return false
+  }
+}
