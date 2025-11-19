@@ -391,6 +391,7 @@ class ApiService {
   async enhancedPlacesSearch(queryParams: string) {
     return this.request(`/enhanced-places/search?${queryParams}`);
   }
+}
 
 export const apiService = new ApiService();
 export default apiService;
