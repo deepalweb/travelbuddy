@@ -93,7 +93,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     })
 
-    // Skip redirect result check to prevent loops
+    // Check for redirect result
+    const checkRedirectResult = async () => {
+      try {
+        const result = await getRedirectResult(firebase.auth)
+        if (result?.user) {
+          debug.log('Google Sign-In redirect successful:', result.user.email)
+          await syncUserProfile(result.user)
+          return
+        }
+      } catch (error: any) {
+        debug.error('Redirect result error:', error)
+      }
+    }
+    
+    checkRedirectResult()
     
     const unsubscribe = onAuthStateChanged(firebase.auth, async (firebaseUser) => {
       debug.log('🔐 AUTH STEP 4: Auth state changed', {
@@ -285,16 +299,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const result = await signInWithPopup(firebase.auth, provider)
       debug.log('✅ Google Sign-In successful:', result.user.email)
       
-      // User state will be updated by onAuthStateChanged
       return result
       
     } catch (error: any) {
       debug.error('❌ Google Sign-In Error:', error)
       
-      if (error.code === 'auth/popup-closed-by-user') {
-        throw new Error('Sign-in cancelled')
-      } else if (error.code === 'auth/popup-blocked') {
-        throw new Error('Popup blocked. Please allow popups and try again.')
+      // Try redirect if popup fails
+      if (error.code === 'auth/popup-closed-by-user' || error.code === 'auth/popup-blocked') {
+        debug.log('🔄 Popup failed, trying redirect...')
+        await loginWithGoogleRedirect()
+        return
       } else if (error.code === 'auth/unauthorized-domain') {
         throw new Error('Domain not authorized for Google Sign-in')
       } else {
