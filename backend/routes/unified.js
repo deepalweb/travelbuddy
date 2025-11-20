@@ -1,5 +1,5 @@
-const express = require('express');
-const router = express.Router();
+import express from 'express'
+const router = express.Router()
 
 // Platform detection middleware
 router.use((req, res, next) => {
@@ -79,4 +79,4 @@ router.get('/deals', async (req, res) => {
   }
 });
 
-module.exports = router;
+export default router

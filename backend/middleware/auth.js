@@ -8,6 +8,13 @@ export const bypassAuth = (req, res, next) => {
   const userId = req.headers['x-user-id'];
   
   if (token) {
+    // Check for demo token first
+    const demoToken = process.env.DEMO_TOKEN || 'demo-token-123';
+    if (token === demoToken) {
+      req.user = { uid: 'demo-user-123' };
+      return next();
+    }
+    
     try {
       const parts = token.split('.');
       if (parts.length === 3) {
@@ -63,6 +70,13 @@ export const authenticateFirebase = async (req, res, next) => {
 
     if (!token) {
       return res.status(401).json({ error: 'Firebase token required' });
+    }
+
+    // Check for demo token first
+    const demoToken = process.env.DEMO_TOKEN || 'demo-token-123';
+    if (token === demoToken) {
+      req.user = { uid: 'demo-user-123' };
+      return next();
     }
 
     // For local development, allow bypass if Firebase Admin is not configured
@@ -127,6 +141,13 @@ export const optionalAuth = async (req, res, next) => {
     const token = authHeader && authHeader.split(' ')[1];
 
     if (token) {
+      // Check for demo token first
+      const demoToken = process.env.DEMO_TOKEN || 'demo-token-123';
+      if (token === demoToken) {
+        req.user = { uid: 'demo-user-123' };
+        return next();
+      }
+      
       const decodedToken = await admin.auth().verifyIdToken(token);
       req.user = decodedToken;
     }
@@ -180,7 +201,14 @@ export const devFriendlyAuth = async (req, res, next) => {
     }
 
     if (token) {
-      // Only Firebase JWT in development
+      // Check for demo token first
+      const demoToken = process.env.DEMO_TOKEN || 'demo-token-123';
+      if (token === demoToken) {
+        req.user = { uid: 'demo-user-123' };
+        return next();
+      }
+      
+      // Firebase JWT in development
       try {
         const parts = token.split('.');
         if (parts.length === 3 && parts.every(part => part.length > 0)) {

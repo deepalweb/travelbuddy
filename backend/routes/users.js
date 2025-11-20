@@ -51,7 +51,14 @@ const Deal = global.Deal || (() => {
 // Sync user profile with backend (create or update)
 router.post('/sync', bypassAuth, async (req, res) => {
   try {
-    console.log('🔄 Users route sync request:', { user: req.user, body: req.body });
+    console.log('🔄 Users route sync request:', { 
+      user: req.user, 
+      body: req.body,
+      headers: {
+        authorization: req.headers.authorization ? 'Bearer [REDACTED]' : 'none',
+        'x-user-id': req.headers['x-user-id'] || 'none'
+      }
+    });
     
     // Check if User model is available
     if (!User) {
@@ -61,28 +68,55 @@ router.post('/sync', bypassAuth, async (req, res) => {
     
     // Extract user info from headers if not in req.user
     if (!req.user || !req.user.uid) {
+      console.log('⚠️ No user in req.user, attempting to extract from headers');
       const userId = req.headers['x-user-id'];
       const authHeader = req.headers['authorization'];
       
       if (userId) {
+        console.log('✅ Using x-user-id header:', userId);
         req.user = { uid: userId };
       } else if (authHeader) {
         const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
         if (token) {
           try {
-            const decoded = Buffer.from(token, 'base64').toString('utf8');
-            const [uid] = decoded.split(':');
-            req.user = { uid };
+            // Try Firebase JWT decode first
+            const parts = token.split('.');
+            if (parts.length === 3) {
+              const payload = JSON.parse(Buffer.from(parts[1], 'base64').toString('utf8'));
+              const uid = payload.user_id || payload.sub || payload.uid;
+              if (uid) {
+                console.log('✅ Extracted uid from Firebase token:', uid);
+                req.user = { uid, email: payload.email };
+              } else {
+                console.log('⚠️ No uid found in Firebase token payload');
+              }
+            } else {
+              // Fallback to simple base64 decode
+              const decoded = Buffer.from(token, 'base64').toString('utf8');
+              const [uid] = decoded.split(':');
+              console.log('✅ Extracted uid from simple token:', uid);
+              req.user = { uid };
+            }
           } catch (e) {
-            console.log('⚠️ Token decode failed in users route');
+            console.log('⚠️ Token decode failed in users route:', e.message);
           }
         }
       }
     }
     
     if (!req.user || !req.user.uid) {
-      console.log('❌ Auth failed - no user or uid');
-      return res.status(401).json({ error: 'Authentication required' });
+      console.log('❌ Auth failed - no user or uid. Final req.user:', req.user);
+      return res.status(401).json({ 
+        error: 'Authentication required',
+        debug: {
+          hasUser: !!req.user,
+          hasUid: !!(req.user && req.user.uid),
+          headers: {
+            hasAuth: !!req.headers.authorization,
+            hasUserId: !!req.headers['x-user-id']
+          }
+        }
+      });
     }
     
     const { uid, email } = req.user;
@@ -529,18 +563,36 @@ router.put('/subscription', bypassAuth, async (req, res) => {
 });
 
 // Trip plans endpoints
-router.get('/trip-plans', bypassAuth, async (req, res) => {
+router.get('/trip-plans', devFriendlyAuth, async (req, res) => {
   try {
     console.log('🔍 Fetching trip plans via users route');
+    console.log('🔍 Authenticated user:', req.user);
+    
     const { uid } = req.user;
     
     let user = await User.findOne({ firebaseUid: uid });
+    
+    // Auto-create user if they don't exist
     if (!user) {
-      console.log('❌ User not found for uid:', uid);
-      return res.status(404).json({ error: 'User not found' });
+      console.log('🆕 Creating new user for uid:', uid);
+      const { email } = req.user;
+      user = new User({
+        firebaseUid: uid,
+        username: email?.split('@')[0] || `user-${uid.slice(-6)}`,
+        email: email || `${uid}@temp.local`,
+        tier: 'free'
+      });
+      await user.save();
+      console.log('✅ Created new user:', user._id);
     }
 
     console.log('👤 Found user:', user._id);
+    
+    if (!TripPlan) {
+      console.log('❌ TripPlan model not available');
+      return res.json([]);
+    }
+    
     const trips = await TripPlan.find({ userId: user._id }).sort({ createdAt: -1 });
     console.log(`✅ Found ${trips.length} trips for user`);
     res.json(trips);
@@ -550,7 +602,7 @@ router.get('/trip-plans', bypassAuth, async (req, res) => {
   }
 });
 
-router.post('/trip-plans', bypassAuth, async (req, res) => {
+router.post('/trip-plans', devFriendlyAuth, async (req, res) => {
   try {
     console.log('🚀 Creating trip plan via users route:', req.body);
     
@@ -582,7 +634,7 @@ router.post('/trip-plans', bypassAuth, async (req, res) => {
   }
 });
 
-router.put('/trip-plans/:id', bypassAuth, async (req, res) => {
+router.put('/trip-plans/:id', devFriendlyAuth, async (req, res) => {
   try {
     const { uid } = req.user;
     const { id } = req.params;
@@ -608,7 +660,7 @@ router.put('/trip-plans/:id', bypassAuth, async (req, res) => {
   }
 });
 
-router.delete('/trip-plans/:id', bypassAuth, async (req, res) => {
+router.delete('/trip-plans/:id', devFriendlyAuth, async (req, res) => {
   try {
     const { uid } = req.user;
     const { id } = req.params;
@@ -724,5 +776,21 @@ function _calculateBadges(trips, posts, favorites) {
 function _calculateTravelScore(trips, posts, favorites, itineraries) {
   return Math.min(1000, (trips * 50) + (posts * 20) + (favorites * 10) + (itineraries * 30));
 }
+
+// Debug endpoint to test if users routes are working
+router.get('/test', (req, res) => {
+  console.log('🧪 Users test endpoint hit');
+  res.json({ 
+    message: 'Users routes are working!', 
+    timestamp: new Date().toISOString(),
+    availableRoutes: [
+      'GET /api/users/test',
+      'GET /api/users/trip-plans',
+      'POST /api/users/trip-plans',
+      'PUT /api/users/trip-plans/:id',
+      'DELETE /api/users/trip-plans/:id'
+    ]
+  });
+});
 
 export default router;

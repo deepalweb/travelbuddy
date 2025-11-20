@@ -18,9 +18,17 @@ import { RoleSelectionPage } from './pages/RoleSelectionPage'
 import { TransportRegistration } from './pages/TransportRegistration'
 import { TransportationPage } from './pages/TransportationPage'
 import { SubscriptionPage } from './pages/SubscriptionPage'
+import { checkFirebaseStatus } from './utils/firebaseStatus'
 
 const AppContent: React.FC = () => {
   const { config, loading, error } = useConfig()
+
+  // Check Firebase status on app load
+  React.useEffect(() => {
+    if (!loading && config) {
+      checkFirebaseStatus()
+    }
+  }, [loading, config])
 
   if (loading) {
     return <LoadingScreen />

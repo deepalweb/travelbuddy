@@ -70,36 +70,96 @@ class TripService {
     this.baseURL = import.meta.env.VITE_API_BASE_URL || 'https://travelbuddy-b2c6hgbbgeh4esdh.eastus2-01.azurewebsites.net'
   }
 
+  // Helper method to get authentication token
+  private async getAuthToken(): Promise<string | null> {
+    // Try demo token first (for demo login)
+    const demoToken = localStorage.getItem('demo_token')
+    if (demoToken) {
+      console.log('🔐 Using demo token for authentication')
+      return demoToken
+    }
+    
+    // Try Firebase token
+    try {
+      const { auth } = await import('../lib/firebase')
+      if (auth?.currentUser) {
+        const token = await auth.currentUser.getIdToken()
+        console.log('🔐 Using Firebase token for authentication')
+        return token
+      }
+    } catch (firebaseError) {
+      console.log('⚠️ Firebase not available:', firebaseError.message)
+    }
+    
+    // Fallback to other stored tokens
+    const authToken = localStorage.getItem('auth_token')
+    if (authToken) {
+      console.log('🔐 Using fallback auth token')
+      return authToken
+    }
+    
+    console.log('❌ No authentication token found')
+    return null
+  }
+
+  // Helper method to get authenticated headers
+  private async getAuthHeaders(): Promise<Record<string, string>> {
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json'
+    }
+    
+    const token = await this.getAuthToken()
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`
+    }
+    
+    return headers
+  }
+
   private async request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
     const url = `${this.baseURL}/api${endpoint}`
     
+    // Get auth headers and merge with provided headers
+    const authHeaders = await this.getAuthHeaders()
+    
     const config: RequestInit = {
       headers: {
-        'Content-Type': 'application/json',
+        ...authHeaders,
         ...options.headers,
       },
       ...options,
     }
 
+    console.log(`🚀 Making request to: ${url}`)
+    console.log(`🔑 Auth headers:`, Object.keys(authHeaders))
+    
     const response = await fetch(url, config)
     
+    console.log(`📊 Response status: ${response.status} ${response.statusText}`)
+    
     if (!response.ok) {
-      const errorData = await response.json().catch(() => ({ message: 'Request failed' }))
+      const errorText = await response.text()
+      console.log(`❌ Error response:`, errorText)
+      
+      let errorData
+      try {
+        errorData = JSON.parse(errorText)
+      } catch {
+        errorData = { message: errorText || 'Request failed' }
+      }
+      
       throw new Error(errorData.message || `HTTP ${response.status}: ${response.statusText}`)
     }
     
-    return response.json()
+    const data = await response.json()
+    console.log(`✅ Success response:`, Array.isArray(data) ? `Array with ${data.length} items` : 'Object')
+    return data
   }
 
   // Get user's trip plans
   async getUserTripPlans(): Promise<TripPlan[]> {
     try {
-      const token = localStorage.getItem('auth_token')
-      const response = await this.request<TripPlan[]>('/users/trip-plans', {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-      })
+      const response = await this.request<TripPlan[]>('/users/trip-plans')
       return response
     } catch (error) {
       console.error('Error fetching trip plans:', error)
@@ -110,12 +170,8 @@ class TripService {
   // Save trip plan
   async saveTripPlan(tripPlan: Omit<TripPlan, 'id'>): Promise<TripPlan | null> {
     try {
-      const token = localStorage.getItem('auth_token')
       const response = await this.request<TripPlan>('/users/trip-plans', {
         method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
         body: JSON.stringify(tripPlan),
       })
       return response
@@ -128,12 +184,8 @@ class TripService {
   // Update trip plan
   async updateTripPlan(tripPlan: TripPlan): Promise<boolean> {
     try {
-      const token = localStorage.getItem('auth_token')
       await this.request(`/users/trip-plans/${tripPlan.id}`, {
         method: 'PUT',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
         body: JSON.stringify(tripPlan),
       })
       return true
@@ -143,22 +195,7 @@ class TripService {
     }
   }
 
-  // Delete trip plan
-  async deleteTripPlan(tripPlanId: string): Promise<boolean> {
-    try {
-      const token = localStorage.getItem('auth_token')
-      await this.request(`/users/trip-plans/${tripPlanId}`, {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-      })
-      return true
-    } catch (error) {
-      console.error('Error deleting trip plan:', error)
-      return false
-    }
-  }
+
 
   // Update activity visited status
   async updateActivityStatus(
@@ -225,12 +262,10 @@ class TripService {
     budget?: string
   }): Promise<TripPlan | null> {
     try {
-      const token = localStorage.getItem('auth_token')
+      const headers = await this.getAuthHeaders()
       const response = await this.request<TripPlan>('/ai/trip-generator', {
         method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
+        headers,
         body: JSON.stringify(params),
       })
       return response
@@ -243,12 +278,10 @@ class TripService {
   // Sync local plans to backend
   async syncLocalPlans(localPlans: TripPlan[]): Promise<boolean> {
     try {
-      const token = localStorage.getItem('auth_token')
+      const headers = await this.getAuthHeaders()
       await this.request('/users/trip-plans/sync', {
         method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
+        headers,
         body: JSON.stringify({ tripPlans: localPlans }),
       })
       return true
@@ -258,8 +291,51 @@ class TripService {
     }
   }
 
+  // Create trip plan
+  async createTrip(tripPlan: Omit<TripPlan, 'id'> & { userId?: string }): Promise<TripPlan | null> {
+    try {
+      const headers = await this.getAuthHeaders()
+      const response = await this.request<TripPlan>('/users/trip-plans', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(tripPlan),
+      })
+      return response
+    } catch (error) {
+      console.error('Error creating trip plan:', error)
+      return null
+    }
+  }
+
+  // Delete trip plan
+  async deleteTrip(tripPlanId: string): Promise<boolean> {
+    try {
+      const headers = await this.getAuthHeaders()
+      await this.request(`/users/trip-plans/${tripPlanId}`, {
+        method: 'DELETE',
+        headers,
+      })
+      return true
+    } catch (error) {
+      console.error('Error deleting trip plan:', error)
+      return false
+    }
+  }
+
+  // Test connection to backend
+  async testConnection(): Promise<boolean> {
+    try {
+      const response = await this.request('/users/test')
+      console.log('✅ Backend connection test successful:', response)
+      return true
+    } catch (error) {
+      console.error('❌ Backend connection test failed:', error)
+      return false
+    }
+  }
+
   // Alias for getUserTripPlans (compatibility)
-  async getTrips(): Promise<TripPlan[]> {
+  async getTrips(userId?: string): Promise<TripPlan[]> {
     return this.getUserTripPlans()
   }
 }

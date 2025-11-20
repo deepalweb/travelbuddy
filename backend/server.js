@@ -905,14 +905,7 @@ if (staticPath) {
   console.error('❌ No static files directory found');
 }
 
-// Load subscription routes
-try {
-  const subscriptionsRouter = (await import('./routes/subscriptions.js')).default;
-  app.use('/api/subscriptions', subscriptionsRouter);
-  console.log('✅ Subscription routes loaded');
-} catch (error) {
-  console.error('❌ Failed to load subscription routes:', error);
-}
+
 
 // Load config routes for mobile app
 try {
@@ -959,23 +952,9 @@ try {
   console.error('❌ Failed to load place details routes:', error);
 }
 
-// Load emergency services routes
-try {
-  const emergencyRouter = (await import('./routes/emergency.js')).default;
-  app.use('/api/emergency', emergencyRouter);
-  console.log('✅ Emergency services routes loaded');
-} catch (error) {
-  console.error('❌ Failed to load emergency services routes:', error);
-}
 
-// Load translation routes
-try {
-  const translationRouter = (await import('./routes/translation.js')).default;
-  app.use('/api/translation', translationRouter);
-  console.log('✅ Translation routes loaded');
-} catch (error) {
-  console.error('❌ Failed to load translation routes:', error);
-}
+
+
 
 // Load places routes (All roles)
 try {
@@ -1067,14 +1046,7 @@ try {
   console.error('❌ Failed to load posts routes:', error);
 }
 
-// Load transport provider routes
-try {
-  const transportProvidersRouter = (await import('./routes/transport-providers.js')).default;
-  app.use('/api/transport-providers', transportProvidersRouter);
-  console.log('✅ Transport provider routes loaded');
-} catch (error) {
-  console.error('❌ Failed to load transport provider routes:', error);
-}
+
 
 // Payment routes (Stripe scaffold) - mount only when explicitly enabled to allow
 // running the app without the `stripe` package or Stripe env vars.
@@ -1413,7 +1385,7 @@ app.get('/api/auth/status', async (req, res) => {
         endpoints: {
           demoLogin: '/api/demo-auth/demo-login',
           firebaseSync: '/api/users/sync',
-          createAdmin: '/api/setup/create-admin'
+          createAdmin: '/api/admin/users'
         }
       },
       database: {
@@ -2007,13 +1979,7 @@ try {
   console.error('❌ Failed to load unified routes:', error);
 }
 
-try {
-  const testRoutes = (await import('./routes/test.js')).default;
-  app.use('/api', testRoutes);
-  console.log('✅ Test routes loaded');
-} catch (error) {
-  console.error('❌ Failed to load test routes:', error);
-}
+
 
 // API Routes
 // Batch enrichment cache endpoint: returns cached enrichment and records new ones from client
@@ -6360,14 +6326,7 @@ app.put('/api/business/profile', async (req, res) => {
 
 
 
-// Merchant routes (Merchant + Admin only)
-try {
-  const merchantsRouter = (await import('./routes/merchants.js')).default;
-  app.use('/api/merchants', merchantsRouter);
-  console.log('✅ Merchants routes loaded');
-} catch (error) {
-  console.error('❌ Failed to load merchants routes:', error);
-}
+
 
 // Role management routes
 try {
@@ -6378,76 +6337,21 @@ try {
   console.error('❌ Failed to load roles routes:', error);
 }
 
-// Service Provider routes
-try {
-  const servicesRouter = (await import('./routes/services.js')).default;
-  app.use('/api/services', servicesRouter);
-  console.log('✅ Services routes loaded');
-} catch (error) {
-  console.error('❌ Failed to load services routes:', error);
-}
 
-try {
-  const bookingsRouter = (await import('./routes/bookings.js')).default;
-  app.use('/api/bookings', bookingsRouter);
-  console.log('✅ Bookings routes loaded');
-} catch (error) {
-  console.error('❌ Failed to load bookings routes:', error);
-}
 
-// Demo auth routes for testing
-try {
-  const demoAuthRouter = (await import('./routes/demo-auth.js')).default;
-  app.use('/api/demo-auth', demoAuthRouter);
-  console.log('✅ Demo auth routes loaded');
-} catch (error) {
-  console.error('❌ Failed to load demo auth routes:', error);
-}
 
-// Setup routes for initial configuration
-try {
-  const setupRouter = (await import('./routes/setup.js')).default;
-  app.use('/api/setup', setupRouter);
-  console.log('✅ Setup routes loaded');
-} catch (error) {
-  console.error('❌ Failed to load setup routes:', error);
-}
 
-// Load partners routes
-try {
-  const partnersRouter = (await import('./routes/partners.js')).default;
-  app.use('/api/partners', partnersRouter);
-  console.log('✅ Partners routes loaded');
-} catch (error) {
-  console.error('❌ Failed to load partners routes:', error);
-}
 
-// Load transport provider routes (Transport Provider + Admin only)
-try {
-  const transportRouter = (await import('./routes/transport-providers.js')).default;
-  app.use('/api/transport-providers', transportRouter);
-  console.log('✅ Transport provider routes loaded');
-} catch (error) {
-  console.error('❌ Failed to load transport provider routes:', error);
-}
 
-// Load travel agent routes (Travel Agent + Admin only)
-try {
-  const agentsRouter = (await import('./routes/travel-agents.js')).default;
-  app.use('/api/travel-agents', agentsRouter);
-  console.log('✅ Travel agent routes loaded');
-} catch (error) {
-  console.error('❌ Failed to load travel agent routes:', error);
-}
 
-// Load ecosystem management routes
-try {
-  const ecosystemRouter = (await import('./routes/ecosystem.js')).default;
-  app.use('/api/ecosystem', ecosystemRouter);
-  console.log('✅ Ecosystem management routes loaded');
-} catch (error) {
-  console.error('❌ Failed to load ecosystem routes:', error);
-}
+
+
+
+
+
+
+
+
 
 // Load features routes
 try {
@@ -6458,14 +6362,7 @@ try {
   console.error('❌ Failed to load features routes:', error);
 }
 
-// Load role test routes (development only)
-try {
-  const roleTestRouter = (await import('./routes/role-test.js')).default;
-  app.use('/api/role-test', roleTestRouter);
-  console.log('✅ Role test routes loaded');
-} catch (error) {
-  console.error('❌ Failed to load role test routes:', error);
-}
+
 
 // Admin routes - Enhanced with middleware
 try {
@@ -6485,43 +6382,13 @@ try {
   console.error('❌ Failed to load deals routes:', error);
 }
 
-// Load transport provider routes
-try {
-  const transportRouter = (await import('./routes/transport-providers.js')).default;
-  app.use('/api/transport', transportRouter);
-  console.log('✅ Transport provider routes loaded');
-} catch (error) {
-  console.error('❌ Failed to load transport provider routes:', error);
-}
-
-// Load travel agent routes
-try {
-  const travelAgentRouter = (await import('./routes/travel-agents.js')).default;
-  app.use('/api/travel-agents', travelAgentRouter);
-  console.log('✅ Travel agent routes loaded');
-} catch (error) {
-  console.error('❌ Failed to load travel agent routes:', error);
-}
 
 
 
-// Serve admin dashboard from admin folder
-const adminPath = path.join(__dirname, '../admin/dist');
-if (existsSync(adminPath)) {
-  console.log('✅ Admin dashboard found at:', adminPath);
-  app.use('/admin', express.static(adminPath, {
-    maxAge: '1d',
-    etag: false,
-    index: 'index.html'
-  }));
-  
-  // Handle admin SPA routing
-  app.get('/admin/*', (req, res) => {
-    res.sendFile(path.join(adminPath, 'index.html'));
-  });
-} else {
-  console.warn('❌ Admin dashboard not found at:', adminPath);
-}
+
+
+
+
 
 // Serve React app (catch-all for SPA routing)
 app.get('*', (req, res) => {

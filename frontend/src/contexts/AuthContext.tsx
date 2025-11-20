@@ -352,7 +352,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       // Mock demo login without backend
       const demoUser = {
-        id: 'demo-user-' + Date.now(),
+        id: 'demo-user-123',
         email: 'admin@travelbuddy.com',
         username: 'Demo Admin',
         tier: 'premium',
@@ -361,7 +361,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
       
       setUser(demoUser)
-      localStorage.setItem('demo_token', 'demo-token-' + Date.now())
+      localStorage.setItem('demo_token', 'demo-token-123')
       
       // Uncomment when backend is running:
       // const response = await fetch(`${config?.apiBaseUrl || 'https://travelbuddy-b2c6hgbbgeh4esdh.eastus2-01.azurewebsites.net'}/api/demo-auth/demo-login`, {

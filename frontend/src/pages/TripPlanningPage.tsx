@@ -48,6 +48,14 @@ export const TripPlanningPage: React.FC = () => {
   const fetchTrips = async () => {
     try {
       setLoading(true)
+      
+      // Test backend connection first
+      const connectionOk = await tripService.testConnection()
+      if (!connectionOk) {
+        console.error('Backend connection failed')
+        return
+      }
+      
       const data = await tripService.getTrips(user?.id)
       setTrips(data)
     } catch (error) {
