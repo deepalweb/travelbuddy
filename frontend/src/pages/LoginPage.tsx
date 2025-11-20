@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { Button } from '../components/Button'
@@ -13,8 +13,15 @@ export const LoginPage: React.FC = () => {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   
-  const { login, register, loginDemo, loginWithGoogle } = useAuth()
+  const { login, register, loginDemo, loginWithGoogle, user } = useAuth()
   const navigate = useNavigate()
+
+  // Navigate to home when user is authenticated
+  useEffect(() => {
+    if (user && !loading) {
+      navigate('/')
+    }
+  }, [user, loading, navigate])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -149,10 +156,9 @@ export const LoginPage: React.FC = () => {
               setError('')
               try {
                 await loginWithGoogle()
-                navigate('/')
+                // Don't navigate immediately, let auth state change handle it
               } catch (error: any) {
                 setError(error.message || 'Google sign-in failed')
-              } finally {
                 setLoading(false)
               }
             }}

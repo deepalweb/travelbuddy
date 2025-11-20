@@ -93,21 +93,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     })
 
-    // Check for redirect result first
-    const checkRedirectResult = async () => {
-      try {
-        const result = await getRedirectResult(firebase.auth)
-        if (result?.user) {
-          debug.log('Google Sign-In redirect successful:', result.user.email)
-          await syncUserProfile(result.user)
-          return
-        }
-      } catch (error: any) {
-        debug.error('Redirect result error:', error)
-      }
-    }
-    
-    checkRedirectResult()
+    // Skip redirect result check to prevent loops
     
     const unsubscribe = onAuthStateChanged(firebase.auth, async (firebaseUser) => {
       debug.log('🔐 AUTH STEP 4: Auth state changed', {
