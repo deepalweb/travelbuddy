@@ -53,6 +53,12 @@ router.post('/sync', bypassAuth, async (req, res) => {
   try {
     console.log('🔄 Users route sync request:', { user: req.user, body: req.body });
     
+    // Check if User model is available
+    if (!User) {
+      console.error('❌ User model not available');
+      return res.status(500).json({ error: 'User model not available' });
+    }
+    
     // Extract user info from headers if not in req.user
     if (!req.user || !req.user.uid) {
       const userId = req.headers['x-user-id'];
@@ -140,8 +146,13 @@ router.post('/sync', bypassAuth, async (req, res) => {
 
     res.json(user);
   } catch (error) {
-    console.error('Error syncing user profile:', error);
-    res.status(500).json({ error: error.message, stack: error.stack });
+    console.error('❌ Error syncing user profile:', error);
+    res.status(500).json({ 
+      error: error.message, 
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined,
+      userModelAvailable: !!User,
+      mongooseConnection: mongoose.connection.readyState
+    });
   }
 });
 

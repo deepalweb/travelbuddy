@@ -257,6 +257,11 @@ class TripService {
       return false
     }
   }
+
+  // Alias for getUserTripPlans (compatibility)
+  async getTrips(): Promise<TripPlan[]> {
+    return this.getUserTripPlans()
+  }
 }
 
 export const tripService = new TripService()
