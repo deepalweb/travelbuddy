@@ -100,8 +100,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (result?.user) {
           debug.log('Google Sign-In redirect successful:', result.user.email)
           await syncUserProfile(result.user)
-          // Redirect to home page after successful login
-          window.location.href = '/'
           return
         }
       } catch (error: any) {
@@ -293,28 +291,28 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     debug.log('🔐 Starting Google Sign-In...')
     
     try {
-      // Try popup first for better UX
       const provider = new GoogleAuthProvider()
       provider.addScope('email')
       provider.addScope('profile')
-      provider.setCustomParameters({
-        prompt: 'select_account'
-      })
       
       debug.log('🔐 Attempting popup sign-in...')
       const result = await signInWithPopup(firebase.auth, provider)
-      debug.log('✅ Google Sign-In popup successful:', result.user.email)
+      debug.log('✅ Google Sign-In successful:', result.user.email)
       
-    } catch (popupError: any) {
-      debug.warn('⚠️ Popup failed, trying redirect:', popupError.message)
+      // User state will be updated by onAuthStateChanged
+      return result
       
-      // Fallback to redirect if popup fails
-      if (popupError.code === 'auth/popup-blocked' || 
-          popupError.code === 'auth/popup-closed-by-user' ||
-          popupError.message.includes('popup')) {
-        await loginWithGoogleRedirect()
+    } catch (error: any) {
+      debug.error('❌ Google Sign-In Error:', error)
+      
+      if (error.code === 'auth/popup-closed-by-user') {
+        throw new Error('Sign-in cancelled')
+      } else if (error.code === 'auth/popup-blocked') {
+        throw new Error('Popup blocked. Please allow popups and try again.')
+      } else if (error.code === 'auth/unauthorized-domain') {
+        throw new Error('Domain not authorized for Google Sign-in')
       } else {
-        throw popupError
+        throw new Error(error.message || 'Google sign-in failed')
       }
     }
   }
