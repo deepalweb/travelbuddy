@@ -843,6 +843,22 @@ class _HomeScreenState extends State<HomeScreen> {
         'gradient': [const Color(0xFF4CAF50), const Color(0xFF45A049)],
         'action': 'translator',
       },
+      {
+        'label': 'Transport',
+        'icon': Icons.directions_car_outlined,
+        'activeIcon': Icons.directions_car,
+        'color': const Color(0xFF9C27B0),
+        'gradient': [const Color(0xFF9C27B0), const Color(0xFF7B1FA2)],
+        'action': 'transport',
+      },
+      {
+        'label': 'Travel Agent',
+        'icon': Icons.support_agent_outlined,
+        'activeIcon': Icons.support_agent,
+        'color': const Color(0xFFFF9800),
+        'gradient': [const Color(0xFFFF9800), const Color(0xFFF57C00)],
+        'action': 'travel_agent',
+      },
     ];
 
     return Column(
@@ -873,11 +889,11 @@ class _HomeScreenState extends State<HomeScreen> {
         GridView.builder(
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
-          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: 3,
+          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: actions.length > 3 ? 3 : actions.length,
             mainAxisSpacing: 12,
             crossAxisSpacing: 12,
-            childAspectRatio: 0.9,
+            childAspectRatio: 0.85,
           ),
           itemCount: actions.length,
           itemBuilder: (context, index) {
@@ -1803,6 +1819,14 @@ class _HomeScreenState extends State<HomeScreen> {
       case 'weather':
         _showWeatherModal(appProvider);
         break;
+      case 'Transport':
+      case 'transport':
+        _showTransportModal();
+        break;
+      case 'Travel Agent':
+      case 'travel_agent':
+        _showTravelAgentModal();
+        break;
       default:
         appProvider.setCurrentTabIndex(1);
         break;
@@ -2174,6 +2198,246 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  void _showTransportModal() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        height: MediaQuery.of(context).size.height * 0.6,
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        child: Column(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [Colors.purple[400]!, Colors.purple[600]!],
+                ),
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.directions_car, color: Colors.white, size: 28),
+                  const SizedBox(width: 12),
+                  const Text(
+                    'Transport Services',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const Spacer(),
+                  IconButton(
+                    onPressed: () => Navigator.pop(context),
+                    icon: const Icon(Icons.close, color: Colors.white),
+                  ),
+                ],
+              ),
+            ),
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.all(20),
+                child: Column(
+                  children: [
+                    _buildTransportOption(
+                      'Book Vehicle',
+                      'Cars, bikes, tuk-tuks & more',
+                      Icons.car_rental,
+                      Colors.blue,
+                      () => _showComingSoon('Vehicle Booking'),
+                    ),
+                    const SizedBox(height: 16),
+                    _buildTransportOption(
+                      'Route Search',
+                      'Find best routes & directions',
+                      Icons.route,
+                      Colors.green,
+                      () => _showComingSoon('Route Search'),
+                    ),
+                    const SizedBox(height: 16),
+                    _buildTransportOption(
+                      'Public Transport',
+                      'Buses, trains & schedules',
+                      Icons.directions_bus,
+                      Colors.orange,
+                      () => _showComingSoon('Public Transport'),
+                    ),
+                    const SizedBox(height: 16),
+                    _buildTransportOption(
+                      'AI Recommendations',
+                      'Smart transport suggestions',
+                      Icons.psychology,
+                      Colors.purple,
+                      () => _showComingSoon('AI Transport'),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showTravelAgentModal() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        height: MediaQuery.of(context).size.height * 0.6,
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        child: Column(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [Colors.orange[400]!, Colors.orange[600]!],
+                ),
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.support_agent, color: Colors.white, size: 28),
+                  const SizedBox(width: 12),
+                  const Text(
+                    'Travel Agents',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const Spacer(),
+                  IconButton(
+                    onPressed: () => Navigator.pop(context),
+                    icon: const Icon(Icons.close, color: Colors.white),
+                  ),
+                ],
+              ),
+            ),
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.all(20),
+                child: Column(
+                  children: [
+                    _buildTransportOption(
+                      'Find Agents',
+                      'Discover verified travel experts',
+                      Icons.search,
+                      Colors.blue,
+                      () => _showComingSoon('Agent Discovery'),
+                    ),
+                    const SizedBox(height: 16),
+                    _buildTransportOption(
+                      'Specializations',
+                      'Adventure, luxury, budget trips',
+                      Icons.category,
+                      Colors.green,
+                      () => _showComingSoon('Agent Specializations'),
+                    ),
+                    const SizedBox(height: 16),
+                    _buildTransportOption(
+                      'Direct Chat',
+                      'Message agents instantly',
+                      Icons.chat,
+                      Colors.orange,
+                      () => _showComingSoon('Agent Chat'),
+                    ),
+                    const SizedBox(height: 16),
+                    _buildTransportOption(
+                      'Reviews & Ratings',
+                      'Check agent feedback',
+                      Icons.star_rate,
+                      Colors.purple,
+                      () => _showComingSoon('Agent Reviews'),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTransportOption(
+    String title,
+    String subtitle,
+    IconData icon,
+    Color color,
+    VoidCallback onTap,
+  ) {
+    return Card(
+      elevation: 2,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(8),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: color.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(icon, color: color, size: 24),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      subtitle,
+                      style: TextStyle(
+                        color: Colors.grey[600],
+                        fontSize: 14,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Icon(Icons.arrow_forward_ios, size: 16, color: Colors.grey[400]),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showComingSoon(String feature) {
+    Navigator.pop(context);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('$feature coming soon!'),
+        backgroundColor: Colors.blue,
+        behavior: SnackBarBehavior.floating,
       ),
     );
   }

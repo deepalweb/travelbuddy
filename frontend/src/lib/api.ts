@@ -475,6 +475,20 @@ class ApiService {
     const response = await this.request(`/users/${userId}/trial-history`)
     return response?.hasUsedTrial === true
   }
+
+  // Trip methods (aliases for compatibility)
+  async getTrips() {
+    return this.getUserTrips()
+  }
+
+  async createTrip(tripData: any) {
+    const token = localStorage.getItem('auth_token')
+    return this.request('/users/trip-plans', {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${token}` },
+      body: JSON.stringify(tripData)
+    })
+  }
 }
 
 export const apiService = new ApiService()
