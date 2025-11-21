@@ -1372,6 +1372,15 @@ try {
   console.error('❌ Failed to load user routes:', error);
 }
 
+// Load transport providers routes
+try {
+  const transportProvidersRouter = (await import('./routes/transport-providers.js')).default;
+  app.use('/api/transport-providers', transportProvidersRouter);
+  console.log('✅ Transport providers routes loaded');
+} catch (error) {
+  console.error('❌ Failed to load transport providers routes:', error);
+}
+
 // Direct auth status endpoint
 app.get('/api/auth/status', async (req, res) => {
   try {
