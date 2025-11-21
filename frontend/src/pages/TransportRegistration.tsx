@@ -260,18 +260,15 @@ export const TransportRegistration: React.FC = () => {
             <div className="mx-auto w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mb-6">
               <Check className="w-10 h-10 text-green-600" />
             </div>
-            <h2 className="text-3xl font-bold text-gray-900 mb-4">Application Submitted Successfully!</h2>
+            <h2 className="text-3xl font-bold text-gray-900 mb-4">Registration Successful!</h2>
             <p className="text-gray-600 mb-4">
-              Thank you for joining TravelBuddy's transport network. Your comprehensive application has been received.
+              Welcome to TravelBuddy's transport network! Your account is now active.
             </p>
-            <div className="bg-blue-50 rounded-lg p-4 mb-6">
-              <h3 className="font-semibold text-blue-900 mb-2">What's Next?</h3>
-              <ul className="text-sm text-blue-700 space-y-1">
-                <li>• Document verification (1-2 days)</li>
-                <li>• Background check (2-3 days)</li>
-                <li>• Account activation email</li>
-                <li>• Access to provider dashboard</li>
-              </ul>
+            <div className="bg-green-50 rounded-lg p-4 mb-6">
+              <h3 className="font-semibold text-green-900 mb-2">✅ You're All Set!</h3>
+              <p className="text-sm text-green-700">
+                You can now access your provider dashboard and start managing your transport services.
+              </p>
             </div>
           </div>
           <div className="space-y-3">
