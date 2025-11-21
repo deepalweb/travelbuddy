@@ -4,67 +4,43 @@ import mongoose from 'mongoose';
 
 const router = express.Router();
 
+// Helper function to get models with retry logic
+const getModel = (modelName) => {
+  try {
+    // Try global first
+    if (global[modelName]) return global[modelName];
+    // Try mongoose registry
+    return mongoose.model(modelName);
+  } catch (e) {
+    return null;
+  }
+};
+
 // Use the main User model from server.js
-const User = global.User || mongoose.model('User');
+const getUser = () => getModel('User');
+let User = getUser();
 
-// Use real models from global scope (defined in server.js)
-let TripPlan;
-try {
-  TripPlan = global.TripPlan || mongoose.model('TripPlan');
-} catch (e) {
-  console.warn('TripPlan model not available:', e.message);
-  TripPlan = null;
-}
+// Get other models with fallbacks
+const getTripPlan = () => getModel('TripPlan');
+const getPost = () => getModel('Post');
+const getItinerary = () => getModel('Itinerary');
+const getDeal = () => getModel('Deal');
 
-const Post = global.Post || (() => {
-  try {
-    return mongoose.model('Post');
-  } catch {
-    return {
-      countDocuments: () => 0,
-      deleteMany: () => Promise.resolve()
-    };
-  }
-})();
-
-const Itinerary = global.Itinerary || (() => {
-  try {
-    return mongoose.model('Itinerary');
-  } catch {
-    return {
-      countDocuments: () => 0,
-      deleteMany: () => Promise.resolve()
-    };
-  }
-})();
-
-const Deal = global.Deal || (() => {
-  try {
-    return mongoose.model('Deal');
-  } catch {
-    return {
-      find: () => ({ sort: () => [] })
-    };
-  }
-})();
+let TripPlan = getTripPlan();
+let Post = getPost();
+let Itinerary = getItinerary();
+let Deal = getDeal();
 
 // Sync user profile with backend (create or update)
 router.post('/sync', bypassAuth, async (req, res) => {
   try {
-    console.log('🔄 Users route sync request:', { 
-      user: req.user, 
-      body: req.body,
-      headers: {
-        authorization: req.headers.authorization ? 'Bearer [REDACTED]' : 'none',
-        'x-user-id': req.headers['x-user-id'] || 'none'
-      }
+    console.log('🔄 Users route sync request received');
+    console.log('📋 Request body:', req.body);
+    console.log('🔑 Auth headers:', {
+      authorization: req.headers.authorization ? 'Bearer [REDACTED]' : 'none',
+      'x-user-id': req.headers['x-user-id'] || 'none'
     });
-    
-    // Check if User model is available
-    if (!User) {
-      console.error('❌ User model not available');
-      return res.status(500).json({ error: 'User model not available' });
-    }
+    console.log('👤 Req.user:', req.user);
     
     // Extract user info from headers if not in req.user
     if (!req.user || !req.user.uid) {
@@ -118,6 +94,31 @@ router.post('/sync', bypassAuth, async (req, res) => {
         }
       });
     }
+    
+    // Check if User model is available (retry if needed)
+    if (!User) {
+      console.log('⚠️ User model not available, retrying...');
+      User = getUser();
+    }
+    if (!User) {
+      console.error('❌ User model still not available after retry');
+      console.error('🔍 Debug info:', {
+        globalUser: !!global.User,
+        mongooseConnection: mongoose.connection.readyState,
+        mongooseModels: Object.keys(mongoose.models)
+      });
+      return res.status(500).json({ 
+        error: 'User model not available',
+        debug: {
+          message: 'User model not initialized',
+          globalUser: !!global.User,
+          dbState: mongoose.connection.readyState,
+          availableModels: Object.keys(mongoose.models)
+        }
+      });
+    }
+    
+    console.log('✅ User model available');
     
     const { uid, email } = req.user;
     const userData = req.body;
@@ -178,14 +179,24 @@ router.post('/sync', bypassAuth, async (req, res) => {
       await user.save();
     }
 
+    console.log('✅ User sync successful:', user._id);
     res.json(user);
   } catch (error) {
     console.error('❌ Error syncing user profile:', error);
+    console.error('📊 Error details:', {
+      name: error.name,
+      message: error.message,
+      stack: error.stack
+    });
     res.status(500).json({ 
       error: error.message, 
       stack: process.env.NODE_ENV === 'development' ? error.stack : undefined,
-      userModelAvailable: !!User,
-      mongooseConnection: mongoose.connection.readyState
+      debug: {
+        userModelAvailable: !!User,
+        mongooseConnection: mongoose.connection.readyState,
+        mongooseModels: Object.keys(mongoose.models),
+        globalUser: !!global.User
+      }
     });
   }
 });
@@ -193,6 +204,9 @@ router.post('/sync', bypassAuth, async (req, res) => {
 // Get user profile
 router.get('/profile', bypassAuth, async (req, res) => {
   try {
+    if (!User) User = getUser();
+    if (!User) return res.status(500).json({ error: 'User model not available' });
+    
     const { uid } = req.user;
     
     let user = await User.findOne({ firebaseUid: uid });
@@ -284,11 +298,15 @@ router.delete('/profile', bypassAuth, async (req, res) => {
       return res.status(404).json({ error: 'User not found' });
     }
 
-    // Also delete related data
+    // Also delete related data (retry getting models if needed)
+    if (!TripPlan) TripPlan = getTripPlan();
+    if (!Post) Post = getPost();
+    if (!Itinerary) Itinerary = getItinerary();
+    
     await Promise.all([
-      TripPlan.deleteMany({ userId: user._id }),
-      Post.deleteMany({ userId: user._id }),
-      Itinerary.deleteMany({ userId: user._id })
+      TripPlan ? TripPlan.deleteMany({ userId: user._id }) : Promise.resolve(),
+      Post ? Post.deleteMany({ userId: user._id }) : Promise.resolve(),
+      Itinerary ? Itinerary.deleteMany({ userId: user._id }) : Promise.resolve()
     ]);
 
     res.json({ success: true });
@@ -300,6 +318,9 @@ router.delete('/profile', bypassAuth, async (req, res) => {
 // Get user stats with role-based data
 router.get('/:id/stats', bypassAuth, async (req, res) => {
   try {
+    if (!User) User = getUser();
+    if (!User) return res.status(500).json({ error: 'User model not available' });
+    
     console.log('📊 Stats request for user:', req.params.id);
     
     // Use the ID from the URL parameter
@@ -322,6 +343,11 @@ router.get('/:id/stats', bypassAuth, async (req, res) => {
     
     console.log('👤 Found user for stats:', user._id);
 
+    // Retry getting models if they weren't available at startup
+    if (!TripPlan) TripPlan = getTripPlan();
+    if (!Post) Post = getPost();
+    if (!Itinerary) Itinerary = getItinerary();
+    
     const [tripCount, postCount, favoriteCount, itineraryCount] = await Promise.all([
       TripPlan ? TripPlan.countDocuments({ userId: user._id }).catch(() => 0) : 0,
       Post ? Post.countDocuments({ userId: user._id }).catch(() => 0) : 0,
@@ -349,6 +375,7 @@ router.get('/:id/stats', bypassAuth, async (req, res) => {
     // Role-based stats
     const role = user.activeRole || user.role || 'user';
     if (role === 'merchant') {
+      if (!Deal) Deal = getDeal();
       const dealCount = Deal ? await Deal.countDocuments({ merchantId: user._id }).catch(() => 0) : 0;
       stats.dealsCreated = dealCount;
       stats.businessRating = user.businessRating || 4.8;
@@ -479,8 +506,10 @@ router.get('/travel-stats', bypassAuth, async (req, res) => {
     }
 
     // Calculate travel stats from user data
+    if (!TripPlan) TripPlan = getTripPlan();
+    
     const [tripCount, favoriteCount] = await Promise.all([
-      TripPlan.countDocuments({ userId: user._id }),
+      TripPlan ? TripPlan.countDocuments({ userId: user._id }) : 0,
       user.favoritePlaces ? user.favoritePlaces.length : 0
     ]);
 
@@ -568,6 +597,15 @@ router.get('/trip-plans', devFriendlyAuth, async (req, res) => {
     console.log('🔍 Fetching trip plans via users route');
     console.log('🔍 Authenticated user:', req.user);
     
+    // Retry getting models
+    if (!User) User = getUser();
+    if (!TripPlan) TripPlan = getTripPlan();
+    
+    if (!User) {
+      console.error('❌ User model not available');
+      return res.status(500).json({ error: 'User model not available' });
+    }
+    
     const { uid } = req.user;
     
     let user = await User.findOne({ firebaseUid: uid });
@@ -589,7 +627,7 @@ router.get('/trip-plans', devFriendlyAuth, async (req, res) => {
     console.log('👤 Found user:', user._id);
     
     if (!TripPlan) {
-      console.log('❌ TripPlan model not available');
+      console.log('⚠️ TripPlan model not available yet, returning empty array');
       return res.json([]);
     }
     
@@ -606,8 +644,25 @@ router.post('/trip-plans', devFriendlyAuth, async (req, res) => {
   try {
     console.log('🚀 Creating trip plan via users route:', req.body);
     
+    // Always retry getting models
+    User = getUser();
+    TripPlan = getTripPlan();
+    
+    // Also check global
+    if (!TripPlan && global.TripPlan) {
+      TripPlan = global.TripPlan;
+    }
+    
+    if (!User) {
+      console.error('❌ User model not available');
+      console.error('Available models:', Object.keys(mongoose.models));
+      return res.status(500).json({ error: 'User model not available' });
+    }
+    
     if (!TripPlan) {
       console.error('❌ TripPlan model not available');
+      console.error('Available models:', Object.keys(mongoose.models));
+      console.error('Global TripPlan:', !!global.TripPlan);
       return res.status(500).json({ error: 'TripPlan model not available' });
     }
     
@@ -636,6 +691,14 @@ router.post('/trip-plans', devFriendlyAuth, async (req, res) => {
 
 router.put('/trip-plans/:id', devFriendlyAuth, async (req, res) => {
   try {
+    // Retry getting models
+    if (!User) User = getUser();
+    if (!TripPlan) TripPlan = getTripPlan();
+    
+    if (!User || !TripPlan) {
+      return res.status(500).json({ error: 'Required models not available' });
+    }
+    
     const { uid } = req.user;
     const { id } = req.params;
     
@@ -662,6 +725,14 @@ router.put('/trip-plans/:id', devFriendlyAuth, async (req, res) => {
 
 router.delete('/trip-plans/:id', devFriendlyAuth, async (req, res) => {
   try {
+    // Retry getting models
+    if (!User) User = getUser();
+    if (!TripPlan) TripPlan = getTripPlan();
+    
+    if (!User || !TripPlan) {
+      return res.status(500).json({ error: 'Required models not available' });
+    }
+    
     const { uid } = req.user;
     const { id } = req.params;
     
@@ -684,6 +755,14 @@ router.delete('/trip-plans/:id', devFriendlyAuth, async (req, res) => {
 // User deals endpoint
 router.get('/deals', bypassAuth, async (req, res) => {
   try {
+    // Retry getting models
+    if (!User) User = getUser();
+    if (!Deal) Deal = getDeal();
+    
+    if (!User) {
+      return res.status(500).json({ error: 'User model not available' });
+    }
+    
     const { uid } = req.user;
     
     let user = await User.findOne({ firebaseUid: uid });
@@ -692,6 +771,9 @@ router.get('/deals', bypassAuth, async (req, res) => {
     }
 
     // Get deals for this user (if they're a merchant)
+    if (!Deal) {
+      return res.json([]);
+    }
     const deals = await Deal.find({ merchantId: user._id }).sort({ createdAt: -1 });
     res.json(deals);
   } catch (error) {
@@ -702,6 +784,9 @@ router.get('/deals', bypassAuth, async (req, res) => {
 // Security endpoints
 router.get('/security', async (req, res) => {
   try {
+    if (!User) User = getUser();
+    if (!User) return res.status(500).json({ error: 'User model not available' });
+    
     const userId = req.headers['x-user-id'];
     if (!userId) {
       return res.status(401).json({ error: 'User ID required' });
@@ -779,18 +864,41 @@ function _calculateTravelScore(trips, posts, favorites, itineraries) {
 
 // Debug endpoint to test if users routes are working
 router.get('/test', (req, res) => {
-  console.log('🧪 Users test endpoint hit');
-  res.json({ 
-    message: 'Users routes are working!', 
-    timestamp: new Date().toISOString(),
-    availableRoutes: [
-      'GET /api/users/test',
-      'GET /api/users/trip-plans',
-      'POST /api/users/trip-plans',
-      'PUT /api/users/trip-plans/:id',
-      'DELETE /api/users/trip-plans/:id'
-    ]
-  });
+  try {
+    console.log('🧪 Users test endpoint hit');
+    
+    // Check model availability
+    const models = {
+      User: !!getUser(),
+      TripPlan: !!getTripPlan(),
+      Post: !!getPost(),
+      Itinerary: !!getItinerary(),
+      Deal: !!getDeal()
+    };
+    
+    res.json({ 
+      message: 'Users routes are working!', 
+      timestamp: new Date().toISOString(),
+      database: {
+        connected: mongoose.connection.readyState === 1,
+        state: mongoose.connection.readyState,
+        states: { 0: 'disconnected', 1: 'connected', 2: 'connecting', 3: 'disconnecting' }
+      },
+      models,
+      availableRoutes: [
+        'GET /api/users/test',
+        'POST /api/users/sync',
+        'GET /api/users/profile',
+        'GET /api/users/trip-plans',
+        'POST /api/users/trip-plans',
+        'PUT /api/users/trip-plans/:id',
+        'DELETE /api/users/trip-plans/:id'
+      ]
+    });
+  } catch (error) {
+    console.error('❌ Test endpoint error:', error);
+    res.status(500).json({ error: error.message });
+  }
 });
 
 export default router;
