@@ -462,6 +462,9 @@ export const TravelAgentsPage: React.FC = () => {
                         src={agent.photo}
                         alt={agent.name}
                         className="w-16 h-16 rounded-full object-cover border-2 border-white shadow-md"
+                        onError={(e) => {
+                          e.currentTarget.src = 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=150&fit=crop&crop=face'
+                        }}
                       />
                       {agent.verified && (
                         <div className="absolute -bottom-1 -right-1 w-6 h-6 bg-green-500 rounded-full flex items-center justify-center border-2 border-white">
@@ -607,6 +610,9 @@ export const TravelAgentsPage: React.FC = () => {
                       src={selectedAgent.photo}
                       alt={selectedAgent.name}
                       className="w-24 h-24 rounded-full object-cover border-4 border-white/20"
+                      onError={(e) => {
+                        e.currentTarget.src = 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=150&fit=crop&crop=face'
+                      }}
                     />
                     {selectedAgent.verified && (
                       <div className="absolute -bottom-2 -right-2 w-8 h-8 bg-green-500 rounded-full flex items-center justify-center border-2 border-white">
