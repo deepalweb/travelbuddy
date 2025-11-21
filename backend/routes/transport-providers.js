@@ -99,6 +99,15 @@ router.post('/register', async (req, res) => {
   } catch (error) {
     console.error('Registration error:', error);
     console.error('Error stack:', error.stack);
+    
+    // Handle duplicate email error
+    if (error.code === 11000 || error.message.includes('duplicate')) {
+      return res.status(400).json({ 
+        error: 'Email already registered',
+        details: 'A transport provider with this email already exists'
+      });
+    }
+    
     res.status(500).json({ 
       error: 'Failed to register transport provider',
       details: error.message,
