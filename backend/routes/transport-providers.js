@@ -98,6 +98,9 @@ router.post('/register', async (req, res) => {
 
   } catch (error) {
     console.error('Registration error:', error);
+    console.error('Error name:', error.name);
+    console.error('Error message:', error.message);
+    console.error('Error code:', error.code);
     console.error('Error stack:', error.stack);
     
     // Handle duplicate email error
@@ -108,10 +111,19 @@ router.post('/register', async (req, res) => {
       });
     }
     
+    // Handle validation errors
+    if (error.name === 'ValidationError') {
+      return res.status(400).json({ 
+        error: 'Validation failed',
+        details: error.message
+      });
+    }
+    
     res.status(500).json({ 
       error: 'Failed to register transport provider',
       details: error.message,
-      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+      errorName: error.name,
+      errorCode: error.code
     });
   }
 });
