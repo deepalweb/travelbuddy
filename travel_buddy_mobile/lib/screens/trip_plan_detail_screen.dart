@@ -7,7 +7,6 @@ import '../services/azure_openai_service.dart';
 import '../providers/app_provider.dart';
 import '../screens/route_plan_screen.dart';
 import '../screens/enhanced_route_plan_screen.dart';
-import '../screens/simple_route_map_screen.dart';
 import '../screens/smart_route_list_screen.dart';
 import '../screens/activity_detail_screen.dart';
 import '../screens/place_detail_screen.dart';

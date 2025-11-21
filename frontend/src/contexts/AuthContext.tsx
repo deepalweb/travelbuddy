@@ -171,6 +171,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // Global deduplication to prevent multiple sync requests
     const cacheKey = `sync_${firebaseUser.uid}`
     if ((window as any)[cacheKey]) {
+      debug.log('⏭️ Skipping duplicate sync request')
       return
     }
     (window as any)[cacheKey] = true
@@ -181,24 +182,38 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }, 5000)
 
     try {
+      debug.log('🔄 Starting user sync for:', firebaseUser.uid)
+      debug.log('📧 User email:', firebaseUser.email)
+      
       const token = await firebaseUser.getIdToken()
+      debug.log('🔑 Firebase token obtained:', token ? 'Yes' : 'No')
+      
+      const syncData = {
+        email: firebaseUser.email,
+        username: firebaseUser.displayName || firebaseUser.email?.split('@')[0],
+        firebaseUid: firebaseUser.uid
+      }
+      debug.log('📤 Sync data:', syncData)
+      
+      const apiUrl = `${config?.apiBaseUrl || 'https://travelbuddy-b2c6hgbbgeh4esdh.eastus2-01.azurewebsites.net'}/api/users/sync`
+      debug.log('🌐 API URL:', apiUrl)
       
       // Try to sync user with backend
-      const response = await fetch(`${config?.apiBaseUrl || 'https://travelbuddy-b2c6hgbbgeh4esdh.eastus2-01.azurewebsites.net'}/api/users/sync`, {
+      const response = await fetch(apiUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
-        body: JSON.stringify({
-          email: firebaseUser.email,
-          username: firebaseUser.displayName || firebaseUser.email?.split('@')[0],
-          firebaseUid: firebaseUser.uid
-        })
+        body: JSON.stringify(syncData)
       })
+      
+      debug.log('📊 Response status:', response.status)
+      debug.log('📊 Response ok:', response.ok)
       
       if (response.ok) {
         const userData = await response.json()
+        debug.log('✅ Sync successful:', userData)
         setUser({
           id: userData._id,
           email: userData.email,
@@ -210,6 +225,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           isAdmin: userData.isAdmin || false
         })
       } else {
+        const errorText = await response.text()
+        debug.error('❌ Sync failed with response:', errorText)
+        debug.log('⚠️ Using fallback user object')
         // Fallback: create basic user object
         setUser({
           id: firebaseUser.uid,
@@ -222,8 +240,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         })
       }
     } catch (error) {
-      debug.error('Failed to sync user profile:', error)
-      // Fallback: create basic user object
+      debug.error('💥 User sync error:', error)
+      debug.log('⚠️ Using fallback user object due to error')
+      // Fallback: create basic user object - don't block auth flow
       setUser({
         id: firebaseUser.uid,
         email: firebaseUser.email || '',

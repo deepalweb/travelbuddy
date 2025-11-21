@@ -1,6 +1,6 @@
 import { configService } from '../services/configService'
 
-let API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://travelbuddy-b2c6hgbbgeh4esdh.eastus2-01.azurewebsites.net'
+let API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001'
 
 class ApiService {
   private async getBaseUrl(): Promise<string> {
@@ -479,15 +479,6 @@ class ApiService {
   // Trip methods (aliases for compatibility)
   async getTrips() {
     return this.getUserTrips()
-  }
-
-  async createTrip(tripData: any) {
-    const token = localStorage.getItem('auth_token')
-    return this.request('/users/trip-plans', {
-      method: 'POST',
-      headers: { 'Authorization': `Bearer ${token}` },
-      body: JSON.stringify(tripData)
-    })
   }
 }
 

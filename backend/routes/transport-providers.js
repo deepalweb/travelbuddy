@@ -141,7 +141,7 @@ router.get('/services', async (req, res) => {
       arrival: 'On Demand',
       availableSeats: Math.floor(Math.random() * 20) + 5,
       totalSeats: Math.floor(Math.random() * 30) + 20,
-      amenities: provider.amenities.length > 0 ? provider.amenities : ['AC', 'Professional Driver'],
+      amenities: provider.amenities && provider.amenities.length > 0 ? provider.amenities : ['AC', 'Professional Driver'],
       rating: 4.0 + Math.random(),
       reviewCount: Math.floor(Math.random() * 50) + 10,
       image: provider.vehiclePhotos && provider.vehiclePhotos.length > 0 ? provider.vehiclePhotos[0] : 'https://images.unsplash.com/photo-1544620347-c4fd4a3d5957?w=400&h=250&fit=crop',
