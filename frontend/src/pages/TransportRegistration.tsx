@@ -238,6 +238,9 @@ export const TransportRegistration: React.FC = () => {
         localStorage.removeItem('transportRegistrationDraft')
         setSubmitted(true)
       } else {
+        const errorData = await response.json().catch(() => ({}))
+        console.error('Registration error:', errorData)
+        alert(`Registration failed: ${errorData.error || errorData.details || 'Unknown error'}`)
         throw new Error('Registration failed')
       }
     } catch (error) {
