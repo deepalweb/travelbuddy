@@ -105,6 +105,8 @@ try {
 } catch {}
 
 const app = express();
+// Enable trust proxy for Azure App Service
+app.set('trust proxy', true);
 // Enable gzip compression for faster API responses
 app.use(compression({ threshold: 1024 }));
 const PORT = process.env.PORT || 8080;
