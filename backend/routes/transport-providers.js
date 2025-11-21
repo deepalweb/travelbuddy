@@ -68,8 +68,9 @@ router.post('/register', async (req, res) => {
       fleetSize: fleetSize || '1',
       vehicleTypes: Array.isArray(vehicleTypes) ? vehicleTypes : [vehicleTypes].filter(Boolean),
       serviceAreas: Array.isArray(serviceAreas) ? serviceAreas : [serviceAreas].filter(Boolean),
-      verificationStatus: 'pending',
-      isActive: false
+      verificationStatus: 'approved',
+      isActive: true,
+      approvedAt: new Date()
     };
     
     // Add optional fields if provided
