@@ -149,7 +149,7 @@ app.use((req, res, next) => {
   }
   
   res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, Accept, Origin, X-Requested-With, x-user-id, x-firebase-uid, x-user-tier, x-admin-secret, x-csrf-token, X-CSRF-Token');
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, Accept, Origin, X-Requested-With, x-user-id, x-firebase-uid, x-user-tier, x-admin-secret, x-csrf-token, X-CSRF-Token, cache-control, Cache-Control');
   res.header('Access-Control-Allow-Credentials', 'true');
   
   if (req.method === 'OPTIONS') {
@@ -811,7 +811,7 @@ const corsOptions = {
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'x-user-id', 'x-firebase-uid', 'x-user-tier', 'x-admin-secret', 'x-csrf-token', 'X-CSRF-Token', 'Accept', 'Origin', 'X-Requested-With']
+  allowedHeaders: ['Content-Type', 'Authorization', 'x-user-id', 'x-firebase-uid', 'x-user-tier', 'x-admin-secret', 'x-csrf-token', 'X-CSRF-Token', 'Accept', 'Origin', 'X-Requested-With', 'cache-control', 'Cache-Control']
 };
 
 app.use(cors(corsOptions));
@@ -822,7 +822,7 @@ if (process.env.NODE_ENV !== 'production') {
     res.header('Access-Control-Allow-Origin', req.headers.origin || 'http://localhost:3000');
     res.header('Access-Control-Allow-Credentials', 'true');
     res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH');
-    res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, x-user-id, x-firebase-uid, x-user-tier, x-admin-secret, x-csrf-token, X-CSRF-Token, Accept, Origin, X-Requested-With');
+    res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, x-user-id, x-firebase-uid, x-user-tier, x-admin-secret, x-csrf-token, X-CSRF-Token, Accept, Origin, X-Requested-With, cache-control, Cache-Control');
     next();
   });
 }
