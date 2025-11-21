@@ -334,6 +334,20 @@ class TripService {
     }
   }
 
+  // Get trip by ID
+  async getTripById(tripId: string): Promise<TripPlan | null> {
+    try {
+      const headers = await this.getAuthHeaders()
+      const response = await this.request<TripPlan>(`/users/trip-plans/${tripId}`, {
+        headers,
+      })
+      return response
+    } catch (error) {
+      console.error('Error fetching trip:', error)
+      return null
+    }
+  }
+
   // Alias for getUserTripPlans (compatibility)
   async getTrips(userId?: string): Promise<TripPlan[]> {
     return this.getUserTripPlans()

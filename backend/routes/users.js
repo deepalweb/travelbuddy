@@ -592,6 +592,36 @@ router.put('/subscription', bypassAuth, async (req, res) => {
 });
 
 // Trip plans endpoints
+router.get('/trip-plans/:id', devFriendlyAuth, async (req, res) => {
+  try {
+    console.log('🔍 Fetching single trip plan:', req.params.id);
+    
+    User = getUser();
+    TripPlan = getTripPlan();
+    if (!TripPlan && global.TripPlan) TripPlan = global.TripPlan;
+    
+    if (!User || !TripPlan) {
+      return res.status(500).json({ error: 'Required models not available' });
+    }
+    
+    const { uid } = req.user;
+    let user = await User.findOne({ firebaseUid: uid });
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    const trip = await TripPlan.findOne({ _id: req.params.id, userId: user._id });
+    if (!trip) {
+      return res.status(404).json({ error: 'Trip not found' });
+    }
+
+    res.json(trip);
+  } catch (error) {
+    console.error('❌ Error fetching trip:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 router.get('/trip-plans', devFriendlyAuth, async (req, res) => {
   try {
     console.log('🔍 Fetching trip plans via users route');
