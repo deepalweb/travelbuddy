@@ -109,8 +109,8 @@ const experienceLevels = ['1-3 years', '3-7 years', '7-10 years', '10+ years']
 const verificationTypes = ['TravelBuddy Verified', 'Government Licensed', 'Tour Guide License', 'Insurance Covered', 'Award Winner']
 
 export const TravelAgentsPage: React.FC = () => {
-  const [agents, setAgents] = useState<TravelAgent[]>(mockAgents)
-  const [filteredAgents, setFilteredAgents] = useState<TravelAgent[]>(mockAgents)
+  const [agents, setAgents] = useState<TravelAgent[]>([])
+  const [filteredAgents, setFilteredAgents] = useState<TravelAgent[]>([])
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedLocation, setSelectedLocation] = useState('')
   const [selectedRegion, setSelectedRegion] = useState('')
@@ -123,10 +123,33 @@ export const TravelAgentsPage: React.FC = () => {
   const [viewMode, setViewMode] = useState<'grid' | 'list' | 'map'>('grid')
   const [showFilters, setShowFilters] = useState(false)
   const [selectedAgent, setSelectedAgent] = useState<TravelAgent | null>(null)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    fetchAgents()
+  }, [])
 
   useEffect(() => {
     filterAgents()
-  }, [searchTerm, selectedLocation, selectedRegion, selectedSpecializations, minRating, selectedLanguages, selectedExperience, selectedVerifications, verifiedOnly])
+  }, [agents, searchTerm, selectedLocation, selectedRegion, selectedSpecializations, minRating, selectedLanguages, selectedExperience, selectedVerifications, verifiedOnly])
+
+  const fetchAgents = async () => {
+    try {
+      setLoading(true)
+      const response = await fetch('https://travelbuddy-b2c6hgbbgeh4esdh.eastus2-01.azurewebsites.net/api/travel-agents')
+      if (response.ok) {
+        const data = await response.json()
+        setAgents(data)
+      } else {
+        setAgents(mockAgents)
+      }
+    } catch (error) {
+      console.error('Failed to fetch agents:', error)
+      setAgents(mockAgents)
+    } finally {
+      setLoading(false)
+    }
+  }
 
   const filterAgents = () => {
     let filtered = agents.filter(agent => {
@@ -419,6 +442,11 @@ export const TravelAgentsPage: React.FC = () => {
 
         {/* Agents Grid/List */}
         {viewMode !== 'map' && (
+          loading ? (
+            <div className="flex justify-center items-center h-64">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
+            </div>
+          ) : (
           <div className={viewMode === 'grid' 
             ? 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6'
             : 'space-y-4'
@@ -528,6 +556,7 @@ export const TravelAgentsPage: React.FC = () => {
               </Card>
             ))}
           </div>
+          )
         )}
 
         {/* CTA Section */}
