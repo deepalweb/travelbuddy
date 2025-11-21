@@ -1381,6 +1381,15 @@ try {
   console.error('❌ Failed to load transport providers routes:', error);
 }
 
+// Load travel agents routes
+try {
+  const travelAgentsRouter = (await import('./routes/travel-agents.js')).default;
+  app.use('/api/travel-agents', travelAgentsRouter);
+  console.log('✅ Travel agents routes loaded');
+} catch (error) {
+  console.error('❌ Failed to load travel agents routes:', error);
+}
+
 // Direct auth status endpoint
 app.get('/api/auth/status', async (req, res) => {
   try {
