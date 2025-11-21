@@ -49,17 +49,25 @@ export const TripPlanningPage: React.FC = () => {
     try {
       setLoading(true)
       
+      if (!user?.id) {
+        console.log('No user ID available')
+        setTrips([])
+        return
+      }
+      
       // Test backend connection first
       const connectionOk = await tripService.testConnection()
       if (!connectionOk) {
         console.error('Backend connection failed')
+        setTrips([])
         return
       }
       
-      const data = await tripService.getTrips(user?.id)
-      setTrips(data)
+      const data = await tripService.getTrips(user.id)
+      setTrips(Array.isArray(data) ? data : [])
     } catch (error) {
       console.error('Failed to fetch trips:', error)
+      setTrips([])
     } finally {
       setLoading(false)
     }
@@ -175,12 +183,23 @@ export const TripPlanningPage: React.FC = () => {
             selectedPlaces={selectedPlaces}
             onTripGenerated={async (trip) => {
               try {
-                await tripService.createTrip({ ...trip, userId: user?.id })
-                setShowAIGenerator(false)
-                setSelectedPlaces([])
-                fetchTrips()
+                if (!user?.id) {
+                  console.error('No user ID available')
+                  alert('Please log in to save trips')
+                  return
+                }
+                const savedTrip = await tripService.createTrip({ ...trip, userId: user.id })
+                if (savedTrip) {
+                  setShowAIGenerator(false)
+                  setSelectedPlaces([])
+                  fetchTrips()
+                } else {
+                  console.error('Failed to save trip - no response')
+                  alert('Failed to save trip. Please try again.')
+                }
               } catch (error) {
                 console.error('Failed to save AI trip:', error)
+                alert('Failed to save trip. Please try again.')
               }
             }}
             onClose={() => {
