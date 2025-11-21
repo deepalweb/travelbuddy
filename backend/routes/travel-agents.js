@@ -68,25 +68,36 @@ router.post('/register', async (req, res) => {
     // Simplified data structure to avoid potential serialization issues
     const agentProfile = {
       id: Date.now().toString(),
+      name: String(ownerName || ''),
+      agency: String(agencyName || ''),
+      photo: profilePhoto || 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=150&fit=crop&crop=face',
+      location: String(address || ''),
+      specializations: Array.isArray(specialties) ? specialties : [],
+      rating: 4.5,
+      reviewCount: 0,
+      languages: Array.isArray(languages) ? languages : [],
+      verified: true,
+      experience: parseInt(experienceYears) || 0,
+      description: String(about || ''),
+      phone: String(phone || ''),
+      email: String(email || ''),
+      priceRange: String(priceRange || ''),
+      responseTime: '< 2 hours',
+      totalTrips: 0,
+      trustBadges: ['New Agent'],
+      profileCompletion: 85,
+      // Keep original fields for admin
       agencyName: String(agencyName || ''),
       ownerName: String(ownerName || ''),
-      email: String(email || ''),
-      phone: String(phone || ''),
       whatsapp: String(whatsapp || ''),
       website: String(website || ''),
       address: String(address || ''),
-      location: location || null,
       licenseNumber: String(licenseNumber || ''),
       experienceYears: String(experienceYears || ''),
-      about: String(about || ''),
-      priceRange: String(priceRange || ''),
       operatingRegions: Array.isArray(operatingRegions) ? operatingRegions : [],
-      specialties: Array.isArray(specialties) ? specialties : [],
-      languages: Array.isArray(languages) ? languages : [],
-      profilePhoto: profilePhoto || null,
       portfolioImages: Array.isArray(portfolioImages) ? portfolioImages : [],
       documents: documents || null,
-      status: 'pending',
+      status: 'approved',
       submittedDate: new Date().toISOString().split('T')[0],
       createdAt: new Date().toISOString()
     };
@@ -127,61 +138,26 @@ router.get('/', async (req, res) => {
   try {
     const { location, specialty, language, minRating } = req.query;
     
-    // Mock agents data (enhanced from existing frontend)
-    const agents = [
-      {
-        id: '1',
-        name: 'Sarah Johnson',
-        agency: 'Adventure Lanka Tours',
-        photo: 'https://images.unsplash.com/photo-1494790108755-2616b612b47c?w=150&h=150&fit=crop&crop=face',
-        location: 'Colombo, Sri Lanka',
-        specializations: ['Adventure', 'Cultural', 'Wildlife'],
-        rating: 4.8,
-        reviewCount: 127,
-        languages: ['English', 'Sinhala'],
-        verified: true,
-        experience: 8,
-        description: 'Specialized in authentic Sri Lankan experiences with focus on adventure and cultural immersion.',
-        phone: '+94 77 123 4567',
-        email: 'sarah@adventurelanka.com',
-        priceRange: '$50-150/day'
-      },
-      {
-        id: '2',
-        name: 'Rajesh Patel',
-        agency: 'Island Paradise Travel',
-        photo: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=150&fit=crop&crop=face',
-        location: 'Kandy, Sri Lanka',
-        specializations: ['Honeymoon', 'Luxury', 'Beach'],
-        rating: 4.9,
-        reviewCount: 89,
-        languages: ['English', 'Hindi', 'Tamil'],
-        verified: true,
-        experience: 12,
-        description: 'Luxury travel specialist creating unforgettable honeymoon and beach experiences.',
-        phone: '+94 81 234 5678',
-        email: 'rajesh@islandparadise.lk',
-        priceRange: '$100-300/day'
-      }
-    ];
+    // Get approved agents from in-memory storage
+    const agents = agentApplications.filter(app => app.status === 'approved');
 
     // Apply filters
     let filteredAgents = agents;
     if (location) {
       filteredAgents = filteredAgents.filter(agent => 
-        agent.location.toLowerCase().includes(location.toLowerCase())
+        agent.location && agent.location.toLowerCase().includes(location.toLowerCase())
       );
     }
     if (specialty) {
       filteredAgents = filteredAgents.filter(agent => 
-        agent.specializations.some(spec => 
+        agent.specializations && agent.specializations.some(spec => 
           spec.toLowerCase().includes(specialty.toLowerCase())
         )
       );
     }
     if (language) {
       filteredAgents = filteredAgents.filter(agent => 
-        agent.languages.some(lang => 
+        agent.languages && agent.languages.some(lang => 
           lang.toLowerCase().includes(language.toLowerCase())
         )
       );
