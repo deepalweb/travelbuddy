@@ -204,10 +204,28 @@ export const TransportRegistration: React.FC = () => {
     setIsSubmitting(true)
     try {
       const submitData = {
-        ...formData,
+        companyName: formData.companyName,
+        ownerName: formData.ownerName,
+        email: formData.email,
+        phone: formData.phone,
+        address: formData.address,
+        description: formData.description,
+        businessRegNumber: formData.businessRegNumber,
+        licenseNumber: formData.licenseNumber,
+        fleetSize: formData.fleetSize || '1',
         vehicleTypes: formData.vehicleTypes.length > 0 ? formData.vehicleTypes : ['car'],
+        amenities: formData.amenities,
+        country: formData.country,
         serviceAreas: formData.islandWide ? ['Island Wide'] : formData.serviceAreas,
-        fleetSize: formData.fleetSize || '1'
+        islandWide: formData.islandWide,
+        airportTransfers: formData.airportTransfers,
+        airportPricing: formData.airportPricing,
+        pricingModel: formData.pricingModel,
+        basePrice: formData.basePrice,
+        minBookingHours: formData.minBookingHours,
+        availability: formData.availability,
+        driverCount: formData.driverCount,
+        driverCertifications: formData.driverCertifications
       }
       
       const response = await fetch('https://travelbuddy-b2c6hgbbgeh4esdh.eastus2-01.azurewebsites.net/api/transport-providers/register', {
