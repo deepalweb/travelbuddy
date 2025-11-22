@@ -1,4 +1,5 @@
 import express from 'express';
+import mongoose from 'mongoose';
 import { verifyFirebaseToken } from '../middleware/auth.js';
 import { requireRole, requirePermission } from '../middleware/rbac.js';
 import TravelAgent from '../models/TravelAgent.js';
@@ -31,6 +32,13 @@ router.post('/register', async (req, res) => {
     console.log('Travel agent registration request received');
     console.log('Request body:', JSON.stringify(req.body, null, 2));
     console.log('Request headers:', req.headers);
+    
+    // Check MongoDB connection
+    console.log('MongoDB connection state:', mongoose.connection.readyState);
+    
+    // Check if TravelAgent model is available
+    console.log('TravelAgent model available:', !!TravelAgent);
+    console.log('TravelAgent model name:', TravelAgent?.modelName);
 
     const {
       agencyName,
@@ -64,6 +72,16 @@ router.post('/register', async (req, res) => {
     }
 
     console.log('Validation passed, creating agent profile');
+    
+    // Ensure MongoDB is connected
+    if (mongoose.connection.readyState !== 1) {
+      console.error('MongoDB not connected. Connection state:', mongoose.connection.readyState);
+      return res.status(500).json({ 
+        error: 'Database connection error', 
+        details: 'MongoDB is not connected',
+        connectionState: mongoose.connection.readyState
+      });
+    }
 
     const agentProfile = new TravelAgent({
       agencyName,
@@ -101,16 +119,31 @@ router.post('/register', async (req, res) => {
       submittedDate: new Date().toISOString().split('T')[0]
     });
 
-    await agentProfile.save();
-    console.log('Agent profile saved to MongoDB:', agentProfile._id);
+    console.log('Attempting to save agent profile to MongoDB...');
+    const savedAgent = await agentProfile.save();
+    console.log('Agent profile saved to MongoDB successfully:', savedAgent._id);
+    console.log('Saved agent data:', {
+      id: savedAgent._id,
+      agencyName: savedAgent.agencyName,
+      ownerName: savedAgent.ownerName,
+      email: savedAgent.email,
+      status: savedAgent.status
+    });
     
-    console.log('Travel agent registration successful:', agentProfile._id);
+    console.log('Travel agent registration successful:', savedAgent._id);
 
     res.json({
       success: true,
       message: 'Travel agent registration submitted successfully',
       status: 'approved',
-      agentId: agentProfile._id
+      agentId: savedAgent._id,
+      agent: {
+        id: savedAgent._id,
+        agencyName: savedAgent.agencyName,
+        ownerName: savedAgent.ownerName,
+        email: savedAgent.email,
+        status: savedAgent.status
+      }
     });
   } catch (error) {
     console.error('Travel agent registration error:', error);
