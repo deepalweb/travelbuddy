@@ -664,7 +664,7 @@ export const NewHomePage: React.FC = () => {
                   className="text-5xl md:text-7xl font-extrabold leading-tight tracking-tighter drop-shadow-xl"
                   style={{ textShadow: '0 4px 15px rgba(0,0,0,0.5)' }}
                 >
-                  Discover the World with Ease
+                  Plan Trips, Explore Destinations, and Travel the World with Ease
                 </h1>
                 <p className="max-w-2xl text-xl text-white/90 drop-shadow-lg">
                   Your intelligent travel companion — plan, book, and explore anywhere.
