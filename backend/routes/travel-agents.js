@@ -19,11 +19,62 @@ router.options('*', (req, res) => {
   res.sendStatus(200);
 });
 
+// Test registration endpoint with minimal data
+router.post('/test-register', async (req, res) => {
+  try {
+    console.log('Test registration attempt');
+    
+    if (mongoose.connection.readyState !== 1) {
+      return res.status(500).json({ error: 'MongoDB not connected' });
+    }
+    
+    const testAgent = new TravelAgent({
+      agencyName: 'Test Agency',
+      ownerName: 'Test Owner',
+      email: 'test@example.com',
+      phone: '1234567890'
+    });
+    
+    const saved = await testAgent.save();
+    res.json({ success: true, id: saved._id });
+  } catch (error) {
+    console.error('Test registration error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // MongoDB storage - no in-memory array needed
 
 // Test endpoint
-router.get('/test', (req, res) => {
-  res.json({ message: 'Travel agents API is working', timestamp: new Date().toISOString() });
+router.get('/test', async (req, res) => {
+  try {
+    // Test MongoDB connection and TravelAgent model
+    const connectionState = mongoose.connection.readyState;
+    const modelTest = !!TravelAgent;
+    
+    // Try to count documents
+    let docCount = 0;
+    if (connectionState === 1) {
+      docCount = await TravelAgent.countDocuments();
+    }
+    
+    res.json({ 
+      message: 'Travel agents API is working', 
+      timestamp: new Date().toISOString(),
+      mongodb: {
+        connected: connectionState === 1,
+        state: connectionState,
+        modelAvailable: modelTest,
+        documentCount: docCount
+      }
+    });
+  } catch (error) {
+    res.status(500).json({
+      error: 'Test failed',
+      details: error.message,
+      timestamp: new Date().toISOString()
+    });
+  }
 });
 
 // Travel agent registration (no auth required)
