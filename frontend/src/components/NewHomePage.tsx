@@ -756,10 +756,7 @@ export const NewHomePage: React.FC = () => {
               Popular Destinations
             </div>
             <h2 className="text-5xl font-bold text-gray-900 mb-6 leading-tight">
-              Discover Amazing
-              <span className="block text-transparent bg-clip-text bg-gradient-to-r from-orange-500 to-red-500">
-                Destinations
-              </span>
+              Explore Top Destinations Around the World
             </h2>
             <p className="text-xl text-gray-600 max-w-2xl mx-auto mb-8">
               From bustling cities to serene landscapes, explore handpicked destinations that offer unforgettable experiences
@@ -855,7 +852,7 @@ export const NewHomePage: React.FC = () => {
       <section className="py-20 bg-white">
         <div className="max-w-7xl mx-auto px-4">
           <div className="text-center mb-12">
-            <h2 className="text-4xl font-bold text-gray-900 mb-6">Plan your trip from anywhere — to anywhere.</h2>
+            <h2 className="text-4xl font-bold text-gray-900 mb-6">Plan Your Perfect Trip — Anytime, Anywhere</h2>
             <p className="text-xl text-gray-600 mb-6 max-w-2xl mx-auto">
               Our AI-powered trip planner creates personalized itineraries in seconds. 
               Just tell us where you want to go, and we'll handle the rest.
@@ -947,7 +944,7 @@ export const NewHomePage: React.FC = () => {
       <section className="py-20 bg-gray-50">
         <div className="max-w-7xl mx-auto px-4">
           <div className="text-center mb-16">
-            <h2 className="text-4xl font-bold text-gray-900 mb-4">Stay Anywhere</h2>
+            <h2 className="text-4xl font-bold text-gray-900 mb-4">Find the Best Places to Stay for Every Budget</h2>
             <p className="text-xl text-gray-600 mb-8">Find and compare accommodations worldwide — from luxury to local stays.</p>
             
             <div className="flex justify-center mb-8">
@@ -1026,10 +1023,7 @@ export const NewHomePage: React.FC = () => {
               Transportation Hub
             </div>
             <h2 className="text-5xl font-bold text-gray-900 mb-6 leading-tight">
-              Get Around
-              <span className="block text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-green-600">
-                With Ease
-              </span>
+              Navigate Cities Effortlessly With Smart Route Planning
             </h2>
             <p className="text-xl text-gray-600 max-w-2xl mx-auto">
               From international flights to local buses, find the perfect way to reach your destination
@@ -1214,10 +1208,7 @@ export const NewHomePage: React.FC = () => {
               Limited Time Offers
             </div>
             <h2 className="text-5xl font-bold text-gray-900 mb-6 leading-tight">
-              Exclusive
-              <span className="block text-transparent bg-clip-text bg-gradient-to-r from-purple-600 to-pink-600">
-                Travel Deals
-              </span>
+              Unlock Exclusive Travel Deals & Limited-Time Offers
             </h2>
             <p className="text-xl text-gray-600 max-w-2xl mx-auto">
               Save big on your next adventure with our handpicked deals and special offers
@@ -1336,10 +1327,7 @@ export const NewHomePage: React.FC = () => {
               Join Our Community
             </div>
             <h2 className="text-5xl font-bold text-gray-900 mb-6 leading-tight">
-              Global Traveler
-              <span className="block text-transparent bg-clip-text bg-gradient-to-r from-orange-500 to-red-500">
-                Network
-              </span>
+              Join a Global Community of Travelers & Explorers
             </h2>
             <p className="text-xl text-gray-600 max-w-2xl mx-auto mb-4">
               Join 50,000+ travelers worldwide. Share your journeys, get inspired.
@@ -1490,7 +1478,7 @@ export const NewHomePage: React.FC = () => {
               <Calendar className="w-4 h-4" />
               Global Events
             </div>
-            <h2 className="text-4xl font-bold text-gray-900 mb-4">Events & Festivals Worldwide</h2>
+            <h2 className="text-4xl font-bold text-gray-900 mb-4">Discover Events, Festivals & Cultures Worldwide</h2>
             <p className="text-xl text-gray-600 mb-8">Experience authentic local culture and celebrations around the globe</p>
             
             <div className="flex justify-center mb-8">
@@ -1563,7 +1551,7 @@ export const NewHomePage: React.FC = () => {
       <section className="py-20 bg-gray-50">
         <div className="max-w-7xl mx-auto px-4">
           <div className="text-center mb-16">
-            <h2 className="text-4xl font-bold text-gray-900 mb-4">Meet Local Experts</h2>
+            <h2 className="text-4xl font-bold text-gray-900 mb-4">Connect With Local Guides, Hosts & Travel Experts</h2>
             <p className="text-xl text-gray-600">Connect with experienced local guides</p>
           </div>
           
