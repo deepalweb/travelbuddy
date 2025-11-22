@@ -197,17 +197,20 @@ router.post('/register', async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Travel agent registration error:', error);
+    console.error('=== TRAVEL AGENT REGISTRATION ERROR ===');
+    console.error('Error name:', error.name);
+    console.error('Error message:', error.message);
     console.error('Error stack:', error.stack);
-    console.error('Error details:', {
-      name: error.name,
-      message: error.message,
-      stack: error.stack
-    });
+    console.error('MongoDB state:', mongoose.connection.readyState);
+    console.error('TravelAgent model:', !!TravelAgent);
+    console.error('Request body keys:', Object.keys(req.body || {}));
+    console.error('==========================================');
     
     res.status(500).json({ 
       error: 'Failed to register travel agent',
       details: error.message,
+      errorName: error.name,
+      mongoState: mongoose.connection.readyState,
       timestamp: new Date().toISOString()
     });
   }
