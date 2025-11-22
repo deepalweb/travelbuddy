@@ -1,6 +1,7 @@
 import express from 'express';
 import { verifyFirebaseToken } from '../middleware/auth.js';
 import { requireRole, requirePermission } from '../middleware/rbac.js';
+import TravelAgent from '../models/TravelAgent.js';
 
 const router = express.Router();
 
@@ -17,8 +18,7 @@ router.options('*', (req, res) => {
   res.sendStatus(200);
 });
 
-// In-memory storage for travel agent applications
-let agentApplications = [];
+// MongoDB storage - no in-memory array needed
 
 // Test endpoint
 router.get('/test', (req, res) => {
@@ -65,56 +65,52 @@ router.post('/register', async (req, res) => {
 
     console.log('Validation passed, creating agent profile');
 
-    // Simplified data structure to avoid potential serialization issues
-    const agentProfile = {
-      id: Date.now().toString(),
-      name: String(ownerName || ''),
-      agency: String(agencyName || ''),
+    const agentProfile = new TravelAgent({
+      agencyName,
+      ownerName,
+      email,
+      phone,
+      whatsapp,
+      website,
+      address,
+      location: address,
+      licenseNumber,
+      experienceYears,
+      about,
+      priceRange,
+      operatingRegions: Array.isArray(operatingRegions) ? operatingRegions : [],
+      specialties: Array.isArray(specialties) ? specialties : [],
+      languages: Array.isArray(languages) ? languages : [],
+      profilePhoto,
+      portfolioImages: Array.isArray(portfolioImages) ? portfolioImages : [],
+      documents,
+      name: ownerName,
+      agency: agencyName,
       photo: profilePhoto || 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=150&fit=crop&crop=face',
-      location: String(address || ''),
       specializations: Array.isArray(specialties) ? specialties : [],
       rating: 4.5,
       reviewCount: 0,
-      languages: Array.isArray(languages) ? languages : [],
       verified: true,
       experience: parseInt(experienceYears) || 0,
-      description: String(about || ''),
-      phone: String(phone || ''),
-      email: String(email || ''),
-      priceRange: String(priceRange || ''),
+      description: about || '',
       responseTime: '< 2 hours',
       totalTrips: 0,
       trustBadges: ['New Agent'],
       profileCompletion: 85,
-      // Keep original fields for admin
-      agencyName: String(agencyName || ''),
-      ownerName: String(ownerName || ''),
-      whatsapp: String(whatsapp || ''),
-      website: String(website || ''),
-      address: String(address || ''),
-      licenseNumber: String(licenseNumber || ''),
-      experienceYears: String(experienceYears || ''),
-      operatingRegions: Array.isArray(operatingRegions) ? operatingRegions : [],
-      portfolioImages: Array.isArray(portfolioImages) ? portfolioImages : [],
-      documents: documents || null,
       status: 'approved',
-      submittedDate: new Date().toISOString().split('T')[0],
-      createdAt: new Date().toISOString()
-    };
+      submittedDate: new Date().toISOString().split('T')[0]
+    });
 
-    console.log('Agent profile created:', { id: agentProfile.id, agencyName: agentProfile.agencyName });
-
-    // Add to applications array
-    agentApplications.push(agentProfile);
+    await agentProfile.save();
+    console.log('Agent profile saved to MongoDB:', agentProfile._id);
     
-    console.log('Travel agent registration successful:', agentProfile.id);
-    console.log('Total applications:', agentApplications.length);
+    console.log('Travel agent registration successful:', agentProfile._id);
 
     res.json({
       success: true,
       message: 'Travel agent registration submitted successfully',
-      status: 'pending',
-      agentId: agentProfile.id
+      status: 'approved',
+      agentId: agentProfile._id
     });
   } catch (error) {
     console.error('Travel agent registration error:', error);
@@ -138,37 +134,23 @@ router.get('/', async (req, res) => {
   try {
     const { location, specialty, language, minRating } = req.query;
     
-    // Get approved agents from in-memory storage
-    const agents = agentApplications.filter(app => app.status === 'approved');
-
-    // Apply filters
-    let filteredAgents = agents;
+    const query = { status: 'approved' };
+    
     if (location) {
-      filteredAgents = filteredAgents.filter(agent => 
-        agent.location && agent.location.toLowerCase().includes(location.toLowerCase())
-      );
+      query.location = { $regex: location, $options: 'i' };
     }
     if (specialty) {
-      filteredAgents = filteredAgents.filter(agent => 
-        agent.specializations && agent.specializations.some(spec => 
-          spec.toLowerCase().includes(specialty.toLowerCase())
-        )
-      );
+      query.specializations = { $regex: specialty, $options: 'i' };
     }
     if (language) {
-      filteredAgents = filteredAgents.filter(agent => 
-        agent.languages && agent.languages.some(lang => 
-          lang.toLowerCase().includes(language.toLowerCase())
-        )
-      );
+      query.languages = { $regex: language, $options: 'i' };
     }
     if (minRating) {
-      filteredAgents = filteredAgents.filter(agent => 
-        agent.rating >= parseFloat(minRating)
-      );
+      query.rating = { $gte: parseFloat(minRating) };
     }
 
-    res.json(filteredAgents);
+    const agents = await TravelAgent.find(query).lean();
+    res.json(agents);
   } catch (error) {
     res.status(500).json({ error: 'Failed to fetch travel agents' });
   }
@@ -327,16 +309,14 @@ router.get('/admin/applications', async (req, res) => {
   try {
     const { status } = req.query;
     
-    let applications = agentApplications;
-    if (status) {
-      applications = applications.filter(app => app.status === status);
-    }
+    const query = status ? { status } : {};
+    const applications = await TravelAgent.find(query).lean();
     
     const summary = {
-      total: agentApplications.length,
-      pending: agentApplications.filter(app => app.status === 'pending').length,
-      approved: agentApplications.filter(app => app.status === 'approved').length,
-      rejected: agentApplications.filter(app => app.status === 'rejected').length
+      total: await TravelAgent.countDocuments(),
+      pending: await TravelAgent.countDocuments({ status: 'pending' }),
+      approved: await TravelAgent.countDocuments({ status: 'approved' }),
+      rejected: await TravelAgent.countDocuments({ status: 'rejected' })
     };
     
     res.json({ applications, summary });
@@ -350,25 +330,43 @@ router.get('/admin/applications', async (req, res) => {
 router.put('/admin/approve/:agentId', async (req, res) => {
   try {
     const { agentId } = req.params;
-    const { action } = req.body; // 'approve' or 'reject'
+    const { action } = req.body;
     
-    const agentIndex = agentApplications.findIndex(app => app.id === agentId);
-    if (agentIndex === -1) {
+    const agent = await TravelAgent.findByIdAndUpdate(
+      agentId,
+      { 
+        status: action === 'approve' ? 'approved' : 'rejected',
+        updatedAt: new Date()
+      },
+      { new: true }
+    );
+    
+    if (!agent) {
       return res.status(404).json({ error: 'Agent not found' });
     }
-    
-    agentApplications[agentIndex].status = action === 'approve' ? 'approved' : 'rejected';
-    agentApplications[agentIndex].processedAt = new Date().toISOString();
     
     res.json({
       success: true,
       message: `Agent ${action}d successfully`,
       agentId,
-      status: agentApplications[agentIndex].status
+      status: agent.status
     });
   } catch (error) {
     console.error('Failed to process approval:', error);
     res.status(500).json({ error: 'Failed to process approval' });
+  }
+});
+
+// Get single agent by ID
+router.get('/:id', async (req, res) => {
+  try {
+    const agent = await TravelAgent.findById(req.params.id).lean();
+    if (!agent) {
+      return res.status(404).json({ error: 'Agent not found' });
+    }
+    res.json(agent);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to fetch agent' });
   }
 });
 
