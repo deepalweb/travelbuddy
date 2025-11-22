@@ -25,7 +25,7 @@ const travelAgentSchema = new mongoose.Schema({
   // Media
   profilePhoto: String,
   portfolioImages: [String],
-  documents: String,
+  documents: mongoose.Schema.Types.Mixed,
   
   // Frontend Display Fields
   name: String,
