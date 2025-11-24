@@ -125,14 +125,25 @@ class TripPlansApiService {
       }
       
       print('🗑️ Deleting trip plan: $tripPlanId');
+      print('🔑 User UID: ${user.uid}');
       
       final response = await _dio.delete('/api/users/trip-plans/$tripPlanId');
+      
+      print('📊 Response status: ${response.statusCode}');
+      print('📊 Response data: ${response.data}');
       
       if (response.statusCode == 200 || response.statusCode == 204) {
         print('✅ Trip plan deleted successfully');
         return true;
       }
       
+      print('⚠️ Unexpected status code: ${response.statusCode}');
+      return false;
+    } on DioException catch (e) {
+      print('❌ DioException deleting trip plan:');
+      print('   Status: ${e.response?.statusCode}');
+      print('   Message: ${e.message}');
+      print('   Data: ${e.response?.data}');
       return false;
     } catch (e) {
       print('❌ Error deleting trip plan: $e');

@@ -755,29 +755,47 @@ router.put('/trip-plans/:id', devFriendlyAuth, async (req, res) => {
 
 router.delete('/trip-plans/:id', devFriendlyAuth, async (req, res) => {
   try {
+    console.log('🗑️ DELETE trip plan request:', req.params.id);
+    
     // Retry getting models
     if (!User) User = getUser();
     if (!TripPlan) TripPlan = getTripPlan();
     
     if (!User || !TripPlan) {
+      console.error('❌ Models not available');
       return res.status(500).json({ error: 'Required models not available' });
     }
     
     const { uid } = req.user;
     const { id } = req.params;
     
+    console.log('👤 User UID:', uid);
+    console.log('🆔 Trip ID:', id);
+    
+    // Validate MongoDB ObjectId format
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      console.error('❌ Invalid trip plan ID format:', id);
+      return res.status(400).json({ error: 'Invalid trip plan ID format' });
+    }
+    
     let user = await User.findOne({ firebaseUid: uid });
     if (!user) {
+      console.error('❌ User not found for UID:', uid);
       return res.status(404).json({ error: 'User not found' });
     }
+    
+    console.log('✅ User found:', user._id);
 
     const trip = await TripPlan.findOneAndDelete({ _id: id, userId: user._id });
     if (!trip) {
+      console.error('❌ Trip plan not found or not owned by user');
       return res.status(404).json({ error: 'Trip plan not found' });
     }
 
+    console.log('✅ Trip plan deleted:', trip.tripTitle);
     res.json({ success: true });
   } catch (error) {
+    console.error('❌ Error deleting trip plan:', error);
     res.status(500).json({ error: error.message });
   }
 });

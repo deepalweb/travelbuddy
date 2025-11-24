@@ -2390,20 +2390,28 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
   }
 
   Future<void> deleteTripPlan(String tripPlanId) async {
-    // Delete locally first
-    await _storageService.deleteTripPlan(tripPlanId);
-    _tripPlans.removeWhere((trip) => trip.id == tripPlanId);
-    notifyListeners();
+    print('🗑️ Starting delete for trip plan: $tripPlanId');
     
-    // Delete from backend if user is logged in
+    // Delete from backend first if user is logged in
+    bool backendDeleted = false;
     if (_currentUser?.mongoId != null) {
       try {
-        await TripPlansApiService.deleteTripPlan(tripPlanId);
-        print('☁️ Trip plan deleted from backend');
+        backendDeleted = await TripPlansApiService.deleteTripPlan(tripPlanId);
+        if (backendDeleted) {
+          print('✅ Trip plan deleted from backend');
+        } else {
+          print('⚠️ Backend delete returned false');
+        }
       } catch (e) {
-        print('⚠️ Backend delete failed, plan deleted locally: $e');
+        print('❌ Backend delete failed: $e');
       }
     }
+    
+    // Delete locally
+    await _storageService.deleteTripPlan(tripPlanId);
+    _tripPlans.removeWhere((trip) => trip.id == tripPlanId);
+    print('✅ Trip plan deleted locally. Remaining: ${_tripPlans.length}');
+    notifyListeners();
   }
 
   // Update activity visited status
