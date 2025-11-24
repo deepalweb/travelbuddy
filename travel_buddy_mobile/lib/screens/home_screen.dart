@@ -15,6 +15,7 @@ import '../models/trip.dart';
 import '../screens/language_assistant_screen.dart';
 import '../screens/deal_detail_screen.dart';
 import '../screens/trip_plan_detail_screen.dart';
+import '../screens/transport_screen.dart';
 
 
 class HomeScreen extends StatefulWidget {
@@ -2203,88 +2204,10 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _showTransportModal() {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) => Container(
-        height: MediaQuery.of(context).size.height * 0.6,
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-        ),
-        child: Column(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [Colors.purple[400]!, Colors.purple[600]!],
-                ),
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-              ),
-              child: Row(
-                children: [
-                  const Icon(Icons.directions_car, color: Colors.white, size: 28),
-                  const SizedBox(width: 12),
-                  const Text(
-                    'Transport Services',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const Spacer(),
-                  IconButton(
-                    onPressed: () => Navigator.pop(context),
-                    icon: const Icon(Icons.close, color: Colors.white),
-                  ),
-                ],
-              ),
-            ),
-            Expanded(
-              child: Padding(
-                padding: const EdgeInsets.all(20),
-                child: Column(
-                  children: [
-                    _buildTransportOption(
-                      'Book Vehicle',
-                      'Cars, bikes, tuk-tuks & more',
-                      Icons.car_rental,
-                      Colors.blue,
-                      () => _showComingSoon('Vehicle Booking'),
-                    ),
-                    const SizedBox(height: 16),
-                    _buildTransportOption(
-                      'Route Search',
-                      'Find best routes & directions',
-                      Icons.route,
-                      Colors.green,
-                      () => _showComingSoon('Route Search'),
-                    ),
-                    const SizedBox(height: 16),
-                    _buildTransportOption(
-                      'Public Transport',
-                      'Buses, trains & schedules',
-                      Icons.directions_bus,
-                      Colors.orange,
-                      () => _showComingSoon('Public Transport'),
-                    ),
-                    const SizedBox(height: 16),
-                    _buildTransportOption(
-                      'AI Recommendations',
-                      'Smart transport suggestions',
-                      Icons.psychology,
-                      Colors.purple,
-                      () => _showComingSoon('AI Transport'),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ],
-        ),
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => const TransportScreen(),
       ),
     );
   }

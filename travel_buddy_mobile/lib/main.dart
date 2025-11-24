@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'providers/app_provider.dart';
 import 'providers/community_provider.dart';
 import 'providers/language_provider.dart';
+import 'providers/transport_provider.dart';
 import 'screens/splash_screen.dart';
 import 'screens/safety_screen.dart';
 import 'screens/ai_plan_screen.dart';
@@ -82,6 +83,7 @@ class TravelBuddyApp extends StatelessWidget {
         ChangeNotifierProvider(create: (context) => AppProvider()),
         ChangeNotifierProvider(create: (context) => CommunityProvider()),
         ChangeNotifierProvider(create: (context) => LanguageProvider()..initialize()),
+        ChangeNotifierProvider(create: (context) => TransportProvider()),
       ],
       child: Consumer<AppProvider>(
         // Note: CommunityProvider is available throughout the app
