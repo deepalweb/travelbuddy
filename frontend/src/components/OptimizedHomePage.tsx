@@ -360,7 +360,7 @@ export const OptimizedHomePage: React.FC = () => {
             <div className="bg-white rounded-lg shadow-sm border border-gray-200">
               <div className="h-24 rounded-t-lg relative overflow-hidden">
                 <img 
-                  src="https://images.unsplash.com/photo-1511739001486-6bfe10ce785f?w=300&h=200&fit=crop&auto=format&q=80" 
+                  src="https://picsum.photos/300/200?random=1" 
                   alt="Eiffel Tower" 
                   className="w-full h-full object-cover"
                 />
@@ -382,7 +382,7 @@ export const OptimizedHomePage: React.FC = () => {
             <div className="bg-white rounded-lg shadow-sm border border-gray-200">
               <div className="h-24 rounded-t-lg relative overflow-hidden">
                 <img 
-                  src="https://images.unsplash.com/photo-1502602898536-47ad22581b52?w=300&h=200&fit=crop&auto=format&q=80" 
+                  src="https://picsum.photos/300/200?random=2" 
                   alt="Notre Dame" 
                   className="w-full h-full object-cover"
                 />
@@ -425,7 +425,7 @@ export const OptimizedHomePage: React.FC = () => {
               <div className="flex items-center">
                 <div className="w-12 h-12 rounded-lg overflow-hidden mr-3">
                   <img 
-                    src="https://images.unsplash.com/photo-1414235077428-338989a2e8c0?w=100&h=100&fit=crop&auto=format&q=80" 
+                    src="https://picsum.photos/100/100?random=3" 
                     alt="Restaurant" 
                     className="w-full h-full object-cover"
                   />
@@ -473,10 +473,10 @@ export const OptimizedHomePage: React.FC = () => {
               </div>
               <div className="flex gap-2">
                 <div className="w-8 h-8 rounded overflow-hidden">
-                  <img src="https://images.unsplash.com/photo-1511739001486-6bfe10ce785f?w=50&h=50&fit=crop&auto=format&q=80" alt="" className="w-full h-full object-cover" />
+                  <img src="https://picsum.photos/50/50?random=4" alt="" className="w-full h-full object-cover" />
                 </div>
                 <div className="w-8 h-8 rounded overflow-hidden">
-                  <img src="https://images.unsplash.com/photo-1566139884669-4b9356b4c040?w=50&h=50&fit=crop&auto=format&q=80" alt="" className="w-full h-full object-cover" />
+                  <img src="https://picsum.photos/50/50?random=5" alt="" className="w-full h-full object-cover" />
                 </div>
               </div>
             </div>
@@ -517,7 +517,7 @@ export const OptimizedHomePage: React.FC = () => {
               <div className="bg-white rounded-lg p-3 shadow-sm border border-gray-200">
                 <div className="flex items-center">
                   <div className="w-8 h-8 rounded overflow-hidden mr-3">
-                    <img src="https://images.unsplash.com/photo-1511739001486-6bfe10ce785f?w=50&h=50&fit=crop&auto=format&q=80" alt="" className="w-full h-full object-cover" />
+                    <img src="https://picsum.photos/50/50?random=6" alt="" className="w-full h-full object-cover" />
                   </div>
                   <div className="flex-1">
                     <p className="text-xs font-bold text-gray-900">Eiffel Tower</p>
