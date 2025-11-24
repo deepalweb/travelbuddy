@@ -144,7 +144,7 @@ const customStyles = `
   }
 `
 import { Link } from 'react-router-dom'
-import { Search, ArrowRight, MapPin, Star, Calendar, Plane, Hotel, DollarSign, Sparkles, Clock } from 'lucide-react'
+import { Search, ArrowRight, MapPin, Star, Calendar, Plane, Hotel, DollarSign, Sparkles, Clock, Car, Heart, ChevronDown } from 'lucide-react'
 import { Button } from './Button'
 import { Card, CardContent } from './Card'
 import { ImageWithFallback } from './ImageWithFallback'
@@ -163,39 +163,121 @@ const SectionLoader = () => (
   </div>
 )
 
-// Worldwide unique destinations data
-const featuredDestinations = [
-  {
-    id: 1,
-    name: 'Torres del Paine',
-    country: 'Chile',
-    image: 'https://images.unsplash.com/photo-1551632811-561732d1e306?w=400&h=300&fit=crop&auto=format&q=60',
-    rating: 4.9,
-    price: 'Free to start',
-    popular: true,
-    type: 'hiking'
-  },
-  {
-    id: 2,
-    name: 'Whitehaven Beach',
-    country: 'Australia', 
-    image: 'https://images.unsplash.com/photo-1544551763-46a013bb70d5?w=400&h=300&fit=crop&auto=format&q=60',
-    rating: 4.8,
-    price: 'Free to start',
-    popular: true,
-    type: 'beach'
-  },
-  {
-    id: 3,
-    name: 'Hallstatt',
-    country: 'Austria',
-    image: 'https://images.unsplash.com/photo-1527838832700-5059252407fa?w=400&h=300&fit=crop&auto=format&q=60',
-    rating: 4.7,
-    price: 'Free to start',
-    trending: true,
-    type: 'town'
+// FAQ Accordion Component
+const FAQAccordion = () => {
+  const [openIndex, setOpenIndex] = useState<number | null>(null)
+  
+  const faqs = [
+    {
+      icon: "🤖",
+      question: "How does TravelBuddy create my itinerary?",
+      answer: "Our AI analyzes your preferences, budget, travel dates, and interests to create personalized itineraries in under 2 minutes. We consider factors like weather, local events, opening hours, and travel distances to optimize your trip."
+    },
+    {
+      icon: "💰",
+      question: "Is the AI trip planner free?",
+      answer: "Yes! Our basic AI trip planner is completely free forever. You can create unlimited itineraries, discover places, and plan trips without any cost. Premium features like offline access and advanced weather AI are available for $9.99/month."
+    },
+    {
+      icon: "📱",
+      question: "Can I use the app offline?",
+      answer: "Premium users can download their complete itineraries, maps, and place details for offline access. This includes photos, descriptions, contact information, and navigation - perfect for international travel without roaming charges."
+    },
+    {
+      icon: "✅",
+      question: "Are deals verified?",
+      answer: "All deals are verified in real-time through our partner network. We work directly with hotels, airlines, and activity providers to ensure accurate pricing and availability. Deals are updated every 15 minutes."
+    },
+    {
+      icon: "🎯",
+      question: "How accurate are the AI recommendations?",
+      answer: "Our AI has a 94% satisfaction rate based on user feedback. It learns from 125,000+ successful trips and considers 200+ factors including weather, crowds, local events, and personal preferences to make recommendations."
+    },
+    {
+      icon: "👥",
+      question: "Can I share my itinerary with friends?",
+      answer: "Yes! You can share itineraries via link, export to PDF, or collaborate in real-time. Friends can add suggestions, vote on activities, and make changes together - perfect for group travel planning."
+    }
+  ]
+  
+  return (
+    <div className="space-y-4">
+      {faqs.map((faq, index) => (
+        <div key={index} className="group">
+          <div className="bg-white rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 border border-gray-100 overflow-hidden">
+            <button
+              onClick={() => setOpenIndex(openIndex === index ? null : index)}
+              className="w-full p-6 text-left flex items-center justify-between hover:bg-gray-50 transition-colors duration-200"
+            >
+              <div className="flex items-center">
+                <div className="w-12 h-12 bg-gradient-to-br from-blue-100 to-purple-100 rounded-xl flex items-center justify-center mr-4 group-hover:scale-110 transition-transform duration-300">
+                  <span className="text-xl">{faq.icon}</span>
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-gray-900 group-hover:text-blue-600 transition-colors duration-200">
+                    {faq.question}
+                  </h3>
+                  <p className="text-xs text-gray-500 mt-1">Click to see answer</p>
+                </div>
+              </div>
+              <div className={`w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center transition-all duration-300 ${
+                openIndex === index ? 'rotate-180 bg-blue-600' : 'group-hover:bg-blue-200'
+              }`}>
+                <ChevronDown className={`w-4 h-4 transition-colors duration-300 ${
+                  openIndex === index ? 'text-white' : 'text-blue-600'
+                }`} />
+              </div>
+            </button>
+            
+            <div className={`overflow-hidden transition-all duration-300 ease-in-out ${
+              openIndex === index ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'
+            }`}>
+              <div className="px-6 pb-6">
+                <div className="bg-gradient-to-r from-blue-50 to-purple-50 rounded-xl p-4 border-l-4 border-blue-500">
+                  <p className="text-gray-700 leading-relaxed">{faq.answer}</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+// Month-based dynamic destinations
+const getMonthlyDestinations = () => {
+  const currentMonth = new Date().getMonth()
+  const monthlyDestinations = {
+    0: [ // January
+      { id: 1, name: 'Dubai', country: 'UAE', image: 'https://images.unsplash.com/photo-1512453979798-5ea266f8880c?w=400&h=300&fit=crop&auto=format&q=60', rating: 4.8, reason: 'Perfect weather', popular: true },
+      { id: 2, name: 'Goa', country: 'India', image: 'https://images.unsplash.com/photo-1512343879784-a960bf40e7f2?w=400&h=300&fit=crop&auto=format&q=60', rating: 4.6, reason: 'Peak season' },
+      { id: 3, name: 'Patagonia', country: 'Chile', image: 'https://images.unsplash.com/photo-1551632811-561732d1e306?w=400&h=300&fit=crop&auto=format&q=60', rating: 4.9, reason: 'Summer season' },
+      { id: 4, name: 'New Zealand', country: 'South Island', image: 'https://images.unsplash.com/photo-1469474968028-56623f02e42e?w=400&h=300&fit=crop&auto=format&q=60', rating: 4.7, reason: 'Summer adventures' },
+      { id: 5, name: 'Thailand', country: 'Bangkok', image: 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=400&h=300&fit=crop&auto=format&q=60', rating: 4.5, reason: 'Cool & dry' },
+      { id: 6, name: 'Myanmar', country: 'Bagan', image: 'https://images.unsplash.com/photo-1570366583862-f91883984fde?w=400&h=300&fit=crop&auto=format&q=60', rating: 4.6, reason: 'Ideal climate' },
+      { id: 7, name: 'Egypt', country: 'Cairo', image: 'https://images.unsplash.com/photo-1539650116574-75c0c6d73f6e?w=400&h=300&fit=crop&auto=format&q=60', rating: 4.4, reason: 'Mild temperatures' },
+      { id: 8, name: 'Argentina', country: 'Buenos Aires', image: 'https://images.unsplash.com/photo-1589909202802-8f4aadce1849?w=400&h=300&fit=crop&auto=format&q=60', rating: 4.5, reason: 'Summer vibes' },
+      { id: 9, name: 'Australia', country: 'Sydney', image: 'https://images.unsplash.com/photo-1506973035872-a4ec16b8e8d9?w=400&h=300&fit=crop&auto=format&q=60', rating: 4.8, reason: 'Beach season', trending: true }
+    ],
+    10: [ // November
+      { id: 1, name: 'Kyoto', country: 'Japan', image: 'https://images.unsplash.com/photo-1493976040374-85c8e12f0c0e?w=400&h=300&fit=crop&auto=format&q=60', rating: 4.9, reason: 'Autumn foliage', popular: true },
+      { id: 2, name: 'Dubai', country: 'UAE', image: 'https://images.unsplash.com/photo-1512453979798-5ea266f8880c?w=400&h=300&fit=crop&auto=format&q=60', rating: 4.8, reason: 'Ideal weather' },
+      { id: 3, name: 'Patagonia', country: 'Chile', image: 'https://images.unsplash.com/photo-1551632811-561732d1e306?w=400&h=300&fit=crop&auto=format&q=60', rating: 4.9, reason: 'Peak season' },
+      { id: 4, name: 'India', country: 'Rajasthan', image: 'https://images.unsplash.com/photo-1524492412937-b28074a5d7da?w=400&h=300&fit=crop&auto=format&q=60', rating: 4.7, reason: 'Pleasant weather' },
+      { id: 5, name: 'Myanmar', country: 'Bagan', image: 'https://images.unsplash.com/photo-1570366583862-f91883984fde?w=400&h=300&fit=crop&auto=format&q=60', rating: 4.6, reason: 'Cool & dry', trending: true },
+      { id: 6, name: 'Nepal', country: 'Kathmandu', image: 'https://images.unsplash.com/photo-1544735716-392fe2489ffa?w=400&h=300&fit=crop&auto=format&q=60', rating: 4.5, reason: 'Clear mountain views' },
+      { id: 7, name: 'Egypt', country: 'Luxor', image: 'https://images.unsplash.com/photo-1539650116574-75c0c6d73f6e?w=400&h=300&fit=crop&auto=format&q=60', rating: 4.4, reason: 'Comfortable temps' },
+      { id: 8, name: 'Vietnam', country: 'Hanoi', image: 'https://images.unsplash.com/photo-1559592413-7cec4d0d2d8f?w=400&h=300&fit=crop&auto=format&q=60', rating: 4.6, reason: 'Perfect climate' },
+      { id: 9, name: 'Cambodia', country: 'Siem Reap', image: 'https://images.unsplash.com/photo-1578662996442-48f60103fc96?w=400&h=300&fit=crop&auto=format&q=60', rating: 4.5, reason: 'Dry season starts' }
+    ]
   }
-]
+  
+  // Default to November if month not defined, or use January as fallback
+  return monthlyDestinations[currentMonth] || monthlyDestinations[10] || monthlyDestinations[0]
+}
+
+const featuredDestinations = getMonthlyDestinations()
 
 const quickDeals = [
   {
@@ -239,6 +321,248 @@ export const OptimizedHomePage: React.FC = () => {
   const { user } = useAuth()
   const [searchQuery, setSearchQuery] = useState('')
   const [isSearching, setIsSearching] = useState(false)
+  const [currentSublineIndex, setCurrentSublineIndex] = useState(0)
+  const [currentScreenIndex, setCurrentScreenIndex] = useState(0)
+
+  // Personalized rotating sublines for authenticated users
+  const personalizedSublines = [
+    "You have a trip draft in progress.",
+    "There are 3 new deals near your location.",
+    "Perfect weather in Ella this weekend!",
+    "2 friends shared new travel photos.",
+    "Your saved places have price drops."
+  ]
+
+  // Mobile app screens for animation with real images
+  const appScreens = [
+    {
+      title: 'Places Discovery',
+      content: (
+        <div className="bg-gray-50 h-full relative overflow-hidden">
+          <div className="bg-white p-3 border-b border-gray-200">
+            <div className="flex items-center justify-between mb-3">
+              <h4 className="text-lg font-bold text-gray-900">Explore Places</h4>
+              <div className="w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center">
+                <MapPin className="w-3 h-3 text-blue-600" />
+              </div>
+            </div>
+            <div className="relative mb-3">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-3 h-3 text-gray-400" />
+              <input className="w-full pl-9 pr-4 py-2 bg-gray-100 rounded-lg text-sm" placeholder="Search places..." readOnly />
+            </div>
+            <div className="flex gap-2 mb-3">
+              <div className="bg-blue-500 text-white px-3 py-1 rounded-full text-xs font-medium">All</div>
+              <div className="bg-gray-200 text-gray-700 px-3 py-1 rounded-full text-xs font-medium">Food</div>
+              <div className="bg-gray-200 text-gray-700 px-3 py-1 rounded-full text-xs font-medium">Culture</div>
+            </div>
+          </div>
+          <div className="p-3 space-y-3">
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200">
+              <div className="h-24 rounded-t-lg relative overflow-hidden">
+                <img 
+                  src="https://images.unsplash.com/photo-1511739001486-6bfe10ce785f?w=300&h=200&fit=crop&auto=format&q=80" 
+                  alt="Eiffel Tower" 
+                  className="w-full h-full object-cover"
+                />
+                <div className="absolute top-2 right-2 w-6 h-6 bg-white/90 rounded-full flex items-center justify-center">
+                  <Heart className="w-3 h-3 text-red-500" />
+                </div>
+              </div>
+              <div className="p-2">
+                <h5 className="font-bold text-xs text-gray-900 mb-1">Eiffel Tower</h5>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1">
+                    <Star className="w-3 h-3 text-yellow-500 fill-current" />
+                    <span className="text-xs font-medium">4.8</span>
+                  </div>
+                  <span className="text-xs text-gray-500">Landmark</span>
+                </div>
+              </div>
+            </div>
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200">
+              <div className="h-24 rounded-t-lg relative overflow-hidden">
+                <img 
+                  src="https://images.unsplash.com/photo-1502602898536-47ad22581b52?w=300&h=200&fit=crop&auto=format&q=80" 
+                  alt="Notre Dame" 
+                  className="w-full h-full object-cover"
+                />
+              </div>
+              <div className="p-2">
+                <h5 className="font-bold text-xs text-gray-900 mb-1">Notre Dame</h5>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1">
+                    <Star className="w-3 h-3 text-yellow-500 fill-current" />
+                    <span className="text-xs font-medium">4.7</span>
+                  </div>
+                  <span className="text-xs text-gray-500">Cathedral</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )
+    },
+    {
+      title: 'Smart Search',
+      content: (
+        <div className="bg-gray-50 h-full relative overflow-hidden">
+          <div className="bg-white p-3 border-b border-gray-200">
+            <h4 className="text-lg font-bold text-gray-900 mb-3">AI Search</h4>
+            <div className="relative mb-3">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-3 h-3 text-blue-600" />
+              <input className="w-full pl-9 pr-4 py-2 bg-blue-100 border-2 border-blue-300 rounded-lg text-sm font-medium" value="Romantic dinner Paris" readOnly />
+            </div>
+          </div>
+          <div className="p-3 space-y-3">
+            <div className="bg-gradient-to-r from-purple-500 to-pink-500 rounded-lg p-3 text-white">
+              <div className="flex items-center mb-2">
+                <Sparkles className="w-4 h-4 mr-2" />
+                <h5 className="font-bold text-sm">AI Suggestion</h5>
+              </div>
+              <p className="text-xs opacity-90">Found 12 romantic restaurants near Eiffel Tower</p>
+            </div>
+            <div className="bg-white rounded-lg p-3 border border-gray-200">
+              <div className="flex items-center">
+                <div className="w-12 h-12 rounded-lg overflow-hidden mr-3">
+                  <img 
+                    src="https://images.unsplash.com/photo-1414235077428-338989a2e8c0?w=100&h=100&fit=crop&auto=format&q=80" 
+                    alt="Restaurant" 
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+                <div className="flex-1">
+                  <h6 className="font-bold text-xs text-gray-900">Le Jules Verne</h6>
+                  <p className="text-xs text-gray-600">Michelin starred • €€€€</p>
+                  <div className="flex items-center gap-1 mt-1">
+                    <Star className="w-3 h-3 text-yellow-500 fill-current" />
+                    <span className="text-xs font-medium">4.9</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )
+    },
+    {
+      title: 'Trip Planning',
+      content: (
+        <div className="bg-gray-50 h-full relative overflow-hidden">
+          <div className="bg-white p-3 border-b border-gray-200">
+            <h4 className="text-lg font-bold text-gray-900 mb-3">My Trip</h4>
+            <div className="bg-gradient-to-r from-green-100 to-blue-100 px-3 py-2 rounded-lg mb-3 border border-green-200">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-green-800 font-bold">Paris Weekend</p>
+                  <p className="text-xs text-green-600">Nov 25-27 • 2 days</p>
+                </div>
+                <Calendar className="w-4 h-4 text-green-600" />
+              </div>
+            </div>
+          </div>
+          <div className="p-3 space-y-3">
+            <div className="bg-white rounded-lg p-3 border border-gray-200">
+              <div className="flex items-center mb-2">
+                <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center mr-3">
+                  <span className="text-xs font-bold text-blue-600">1</span>
+                </div>
+                <div className="flex-1">
+                  <p className="text-xs font-bold text-gray-900">Day 1: Iconic Paris</p>
+                  <p className="text-xs text-gray-600">Eiffel Tower → Louvre Museum</p>
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <div className="w-8 h-8 rounded overflow-hidden">
+                  <img src="https://images.unsplash.com/photo-1511739001486-6bfe10ce785f?w=50&h=50&fit=crop&auto=format&q=80" alt="" className="w-full h-full object-cover" />
+                </div>
+                <div className="w-8 h-8 rounded overflow-hidden">
+                  <img src="https://images.unsplash.com/photo-1566139884669-4b9356b4c040?w=50&h=50&fit=crop&auto=format&q=80" alt="" className="w-full h-full object-cover" />
+                </div>
+              </div>
+            </div>
+            <div className="bg-white rounded-lg p-3 border border-gray-200">
+              <div className="flex items-center mb-2">
+                <div className="w-8 h-8 bg-purple-100 rounded-full flex items-center justify-center mr-3">
+                  <span className="text-xs font-bold text-purple-600">2</span>
+                </div>
+                <div className="flex-1">
+                  <p className="text-xs font-bold text-gray-900">Day 2: Culture & Romance</p>
+                  <p className="text-xs text-gray-600">Montmartre → Seine Cruise</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )
+    },
+    {
+      title: 'Map Navigation',
+      content: (
+        <div className="bg-gray-50 h-full relative overflow-hidden">
+          <div className="bg-white p-3 border-b border-gray-200">
+            <h4 className="text-lg font-bold text-gray-900 mb-3">Navigate</h4>
+            <div className="bg-blue-100 px-3 py-2 rounded-lg mb-3 border border-blue-200">
+              <div className="flex items-center">
+                <MapPin className="w-4 h-4 text-blue-600 mr-2" />
+                <p className="text-xs text-blue-700 font-medium">You are near Eiffel Tower</p>
+              </div>
+            </div>
+          </div>
+          <div className="p-3 bg-gradient-to-br from-green-100 via-blue-100 to-purple-100 h-full relative">
+            {/* Map-like background */}
+            <div className="absolute inset-0 opacity-20">
+              <div className="w-full h-full bg-gradient-to-br from-green-200 to-blue-200"></div>
+            </div>
+            <div className="relative space-y-2">
+              <div className="bg-white rounded-lg p-3 shadow-sm border border-gray-200">
+                <div className="flex items-center">
+                  <div className="w-8 h-8 rounded overflow-hidden mr-3">
+                    <img src="https://images.unsplash.com/photo-1511739001486-6bfe10ce785f?w=50&h=50&fit=crop&auto=format&q=80" alt="" className="w-full h-full object-cover" />
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-xs font-bold text-gray-900">Eiffel Tower</p>
+                    <p className="text-xs text-green-600">5 min walk • Open now</p>
+                  </div>
+                  <div className="w-6 h-6 bg-blue-500 rounded-full flex items-center justify-center">
+                    <span className="text-white text-xs">→</span>
+                  </div>
+                </div>
+              </div>
+              <div className="bg-white rounded-lg p-3 shadow-sm border border-gray-200">
+                <div className="flex items-center">
+                  <div className="w-8 h-8 bg-orange-100 rounded-full flex items-center justify-center mr-3">
+                    <span className="text-orange-600 text-xs">🍽️</span>
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-xs font-bold text-gray-900">Café de Flore</p>
+                    <p className="text-xs text-orange-600">2 min walk • Popular</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )
+    }
+  ]
+
+  // Rotate sublines every 3 seconds
+  useEffect(() => {
+    if (user) {
+      const interval = setInterval(() => {
+        setCurrentSublineIndex((prev) => (prev + 1) % personalizedSublines.length)
+      }, 3000)
+      return () => clearInterval(interval)
+    }
+  }, [user, personalizedSublines.length])
+
+  // Rotate app screens every 4 seconds
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setCurrentScreenIndex((prev) => (prev + 1) % appScreens.length)
+    }, 4000)
+    return () => clearInterval(interval)
+  }, [appScreens.length])
 
   const handleSearch = async () => {
     if (!searchQuery.trim()) return
@@ -271,21 +595,41 @@ export const OptimizedHomePage: React.FC = () => {
             {/* Compact Header */}
             <div className="text-center text-white mb-8">
               <h1 className="text-3xl md:text-5xl lg:text-6xl font-bold mb-4 leading-tight">
-                {user ? `Welcome back, ${user.name || 'Explorer'}!` : 'Discover the World with Travel Buddy'}
+                {user ? `Welcome back, ${user.username?.split(' ')[0] || user.name || 'Explorer'}!` : 'AI-Powered Travel Planner'}
                 <span className="block text-yellow-400">
-                  {user ? 'Ready for your next adventure?' : 'Your AI Travel Planner'}
+                  {user ? 'Your next adventure is waiting.' : 'Discover, Plan & Experience the World Effortlessly'}
                 </span>
               </h1>
               <h2 className="text-lg md:text-xl mb-6 text-white/90 max-w-2xl mx-auto">
-                {user ? 'Plan your next trip with AI-powered recommendations' : 'Join 50,000+ travelers who\'ve planned 125,000+ trips with AI.'}
+                {user ? (
+                  <span className="inline-block transition-all duration-500 ease-in-out transform">
+                    {personalizedSublines[currentSublineIndex]}
+                  </span>
+                ) : (
+                  'Join 50,000+ travelers who\'ve planned 125,000+ trips with AI.'
+                )}
               </h2>
             </div>
             
             {/* Mobile App Promotion - Compact Layout */}
             <div className="grid lg:grid-cols-2 gap-8 items-center">
                   
-                  {/* Left: Compact Phone Mockup */}
+                  {/* Left: Enhanced Phone Mockup with Animation */}
                   <div className="relative flex justify-center lg:justify-end animate-slide-in-left">
+                    {/* Feature Tags Around Phone */}
+                    <div className="absolute -top-8 -left-8 bg-blue-600 text-white px-3 py-1 rounded-full text-xs font-medium animate-pulse">
+                      AI Trip Planner
+                    </div>
+                    <div className="absolute top-20 -right-12 bg-green-600 text-white px-3 py-1 rounded-full text-xs font-medium animate-pulse" style={{animationDelay: '1s'}}>
+                      Offline Mode
+                    </div>
+                    <div className="absolute bottom-32 -left-16 bg-purple-600 text-white px-3 py-1 rounded-full text-xs font-medium animate-pulse" style={{animationDelay: '2s'}}>
+                      Smart Recommendations
+                    </div>
+                    <div className="absolute bottom-8 -right-8 bg-orange-600 text-white px-3 py-1 rounded-full text-xs font-medium animate-pulse" style={{animationDelay: '3s'}}>
+                      Nearby Places
+                    </div>
+                    
                     {/* Gradient Glow Behind Phone */}
                     <div className="absolute inset-0 bg-gradient-to-r from-blue-500/20 to-purple-500/20 rounded-full blur-2xl animate-pulse-glow"></div>
                     
@@ -303,135 +647,49 @@ export const OptimizedHomePage: React.FC = () => {
                             </div>
                           </div>
                           
-                          {/* Places Screen Interface */}
-                          <div className="bg-gray-50 h-full relative overflow-hidden">
-                            {/* Header */}
-                            <div className="bg-white p-3 border-b border-gray-200">
-                              <div className="flex items-center justify-between mb-3">
-                                <h4 className="text-lg font-bold text-gray-900">Explore Places</h4>
-                                <div className="w-6 h-6 bg-gray-200 rounded-full flex items-center justify-center">
-                                  <svg className="w-4 h-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
-                                  </svg>
+                          {/* Animated Screen Content */}
+                          <div className="h-full transition-all duration-1000 ease-in-out">
+                            {appScreens[currentScreenIndex].content}
+                          </div>
+                          
+                          {/* Screen Indicator */}
+                          <div className="absolute bottom-16 left-1/2 transform -translate-x-1/2 flex gap-2">
+                            {appScreens.map((_, index) => (
+                              <div
+                                key={index}
+                                className={`w-2 h-2 rounded-full transition-all duration-300 ${
+                                  index === currentScreenIndex ? 'bg-blue-500' : 'bg-gray-300'
+                                }`}
+                              />
+                            ))}
+                          </div>
+                          
+                          {/* Bottom Navigation */}
+                          <div className="absolute bottom-0 left-0 right-0 bg-white border-t border-gray-200 p-2">
+                            <div className="flex justify-around">
+                              <div className={`text-xs text-center transition-colors duration-300 ${
+                                currentScreenIndex === 0 ? 'text-blue-500' : 'text-gray-400'
+                              }`}>
+                                <div className="w-5 h-5 mx-auto mb-1 bg-blue-100 rounded-full flex items-center justify-center">
+                                  <MapPin className="w-3 h-3" />
                                 </div>
+                                <span className="font-medium">Places</span>
                               </div>
-                              
-                              {/* Personalized Greeting */}
-                              <div className="mb-3">
-                                <p className="text-sm font-medium text-gray-800">Good morning! 👋 Ready to explore?</p>
-                                <div className="mt-2 bg-blue-50 px-3 py-2 rounded-full border border-blue-200 inline-block">
-                                  <p className="text-xs text-blue-700 font-medium">AI suggests: Museums & Parks nearby 🎨</p>
+                              <div className={`text-xs text-center transition-colors duration-300 ${
+                                currentScreenIndex === 2 ? 'text-blue-500' : 'text-gray-400'
+                              }`}>
+                                <div className="w-5 h-5 mx-auto mb-1 bg-gray-100 rounded-full flex items-center justify-center">
+                                  <Calendar className="w-3 h-3" />
                                 </div>
+                                <span>Trips</span>
                               </div>
-                              
-                              {/* Search Bar */}
-                              <div className="relative mb-3">
-                                <div className="absolute left-3 top-1/2 transform -translate-y-1/2">
-                                  <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                                  </svg>
+                              <div className={`text-xs text-center transition-colors duration-300 ${
+                                currentScreenIndex === 3 ? 'text-blue-500' : 'text-gray-400'
+                              }`}>
+                                <div className="w-5 h-5 mx-auto mb-1 bg-gray-100 rounded-full flex items-center justify-center">
+                                  <Search className="w-3 h-3" />
                                 </div>
-                                <input 
-                                  className="w-full pl-10 pr-4 py-2 bg-gray-100 rounded-lg text-sm" 
-                                  placeholder="Search places..."
-                                  readOnly
-                                />
-                              </div>
-                              
-                              {/* Category Filters */}
-                              <div className="flex gap-2 overflow-x-auto">
-                                <div className="bg-blue-500 text-white px-3 py-1 rounded-full text-xs font-medium whitespace-nowrap">All</div>
-                                <div className="bg-gray-200 text-gray-700 px-3 py-1 rounded-full text-xs font-medium whitespace-nowrap">Food</div>
-                                <div className="bg-gray-200 text-gray-700 px-3 py-1 rounded-full text-xs font-medium whitespace-nowrap">Culture</div>
-                                <div className="bg-gray-200 text-gray-700 px-3 py-1 rounded-full text-xs font-medium whitespace-nowrap">Nature</div>
-                              </div>
-                            </div>
-                            
-                            {/* Places Grid - Compact */}
-                            <div className="flex-1 p-3 pb-14 overflow-y-auto">
-                              <div className="space-y-3">
-                                {/* Place Card 1 */}
-                                <div className="bg-white rounded-lg shadow-sm border border-gray-200 animate-message-in" style={{animationDelay: '1s'}}>
-                                  <div className="relative">
-                                    <div className="h-20 rounded-t-lg relative overflow-hidden">
-                                      <img 
-                                        src="https://images.unsplash.com/photo-1511739001486-6bfe10ce785f?w=300&h=200&fit=crop&auto=format&q=80" 
-                                        alt="Eiffel Tower" 
-                                        className="w-full h-full object-cover"
-                                      />
-                                      <div className="absolute inset-0 bg-black/10"></div>
-                                      <div className="absolute top-2 right-2 flex flex-col gap-1">
-                                        <div className="w-5 h-5 bg-white/90 rounded-full flex items-center justify-center">
-                                          <svg className="w-3 h-3 text-red-500" fill="currentColor" viewBox="0 0 24 24">
-                                            <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
-                                          </svg>
-                                        </div>
-                                        <div className="w-5 h-5 bg-blue-500 rounded-full flex items-center justify-center">
-                                          <svg className="w-2 h-2 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M12 4v16m8-8H4" />
-                                          </svg>
-                                        </div>
-                                      </div>
-                                    </div>
-                                    <div className="p-2">
-                                      <h5 className="font-bold text-xs text-gray-900 mb-1">Eiffel Tower</h5>
-                                      <div className="flex items-center gap-2">
-                                        <div className="flex items-center gap-1">
-                                          <svg className="w-2 h-2 text-yellow-500" fill="currentColor" viewBox="0 0 24 24">
-                                            <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
-                                          </svg>
-                                          <span className="text-xs font-medium">4.8</span>
-                                        </div>
-                                        <span className="text-xs text-gray-500">Landmark</span>
-                                      </div>
-                                    </div>
-                                  </div>
-                                </div>
-                                
-                                {/* Discover More Section */}
-                                <div className="bg-gradient-to-r from-blue-500 to-purple-600 rounded-lg p-3 text-white animate-message-in" style={{animationDelay: '1.2s'}}>
-                                  <div className="flex items-center justify-between">
-                                    <div className="flex-1">
-                                      <h5 className="font-bold text-xs mb-1">Discover 50+ Places</h5>
-                                      <p className="text-xs text-white/90">AI-powered recommendations</p>
-                                    </div>
-                                    <div className="w-6 h-6 bg-white/20 rounded-full flex items-center justify-center">
-                                      <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                                      </svg>
-                                    </div>
-                                  </div>
-                                </div>
-                              </div>
-                            </div>
-                            
-                            {/* Bottom Navigation */}
-                            <div className="absolute bottom-0 left-0 right-0 bg-white border-t border-gray-200 p-2 animate-nav-in" style={{animationDelay: '2s'}}>
-                              <div className="flex justify-around">
-                                <div className="text-blue-500 text-xs text-center">
-                                  <div className="w-5 h-5 mx-auto mb-1 bg-blue-100 rounded-full flex items-center justify-center">
-                                    <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
-                                      <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/>
-                                    </svg>
-                                  </div>
-                                  <span className="font-medium">Places</span>
-                                </div>
-                                <div className="text-gray-400 text-xs text-center">
-                                  <div className="w-5 h-5 mx-auto mb-1 bg-gray-100 rounded-full flex items-center justify-center">
-                                    <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
-                                      <path d="M20 6L9 17l-5-5"/>
-                                    </svg>
-                                  </div>
-                                  <span>Trips</span>
-                                </div>
-                                <div className="text-gray-400 text-xs text-center">
-                                  <div className="w-5 h-5 mx-auto mb-1 bg-gray-100 rounded-full flex items-center justify-center">
-                                    <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
-                                      <path d="M12 2C6.48 2 2 6.48 2 12s4.48 2 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
-                                    </svg>
-                                  </div>
-                                  <span>Profile</span>
-                                </div>
+                                <span>Navigate</span>
                               </div>
                             </div>
                           </div>
@@ -550,14 +808,14 @@ export const OptimizedHomePage: React.FC = () => {
         <div className="max-w-7xl mx-auto px-4">
           <div className="text-center mb-12">
             <h2 className="text-4xl font-bold text-gray-900 mb-4">
-              Discover Hidden Gems Worldwide
+              Best Places to Visit This Month
             </h2>
             <p className="text-xl text-gray-600">
-              AI-curated unique destinations loved by 50,000+ travelers
+              AI-curated destinations perfect for {new Date().toLocaleString('default', { month: 'long' })}
             </p>
           </div>
           
-          <div className="grid md:grid-cols-3 gap-8 mb-8">
+          <div className="grid md:grid-cols-3 gap-6 mb-8">
             {featuredDestinations.map((destination) => (
               <Card key={destination.id} className="group overflow-hidden hover:shadow-xl transition-all duration-300 hover:-translate-y-2">
                 <div className="relative">
@@ -578,6 +836,9 @@ export const OptimizedHomePage: React.FC = () => {
                       Trending
                     </div>
                   )}
+                  <div className="absolute top-4 right-4 bg-blue-600 text-white px-3 py-1 rounded-full text-xs font-medium">
+                    {destination.reason}
+                  </div>
                 </div>
                 <CardContent className="p-6">
                   <div className="flex justify-between items-start mb-4">
@@ -591,7 +852,7 @@ export const OptimizedHomePage: React.FC = () => {
                     </div>
                   </div>
                   <div className="flex justify-between items-center">
-                    <span className="text-lg font-bold text-blue-600">{destination.price}</span>
+                    <span className="text-sm text-blue-600 font-medium">{destination.reason}</span>
                     <Link to="/places">
                       <Button className="bg-blue-600 text-white hover:bg-blue-700 px-4 py-2">
                         Explore
@@ -640,8 +901,9 @@ export const OptimizedHomePage: React.FC = () => {
               {
                 step: 1,
                 icon: <Search className="w-10 h-10" />,
-                title: 'Tell Us Your Dreams',
+                title: 'Tell Us Your Travel Style',
                 description: 'Share your interests, budget, and travel style',
+                emotionalBenefit: 'Just 30 seconds to describe the trip you dream about.',
                 color: 'from-blue-500 to-blue-600',
                 bgColor: 'from-blue-50 to-blue-100',
                 time: '30 seconds'
@@ -649,8 +911,9 @@ export const OptimizedHomePage: React.FC = () => {
               {
                 step: 2,
                 icon: <Sparkles className="w-10 h-10" />,
-                title: 'AI Creates Magic',
+                title: 'AI Creates Your Perfect Itinerary',
                 description: 'Get personalized itineraries with hidden gems',
+                emotionalBenefit: 'Hotels, transport, activities — all planned in 2 minutes.',
                 color: 'from-purple-500 to-purple-600',
                 bgColor: 'from-purple-50 to-purple-100',
                 time: '2 minutes'
@@ -658,8 +921,9 @@ export const OptimizedHomePage: React.FC = () => {
               {
                 step: 3,
                 icon: <Plane className="w-10 h-10" />,
-                title: 'Book & Explore',
+                title: 'Download, Share & Book Instantly',
                 description: 'One-click booking for flights, hotels & activities',
+                emotionalBenefit: 'Take your trip anywhere — even offline.',
                 color: 'from-green-500 to-green-600',
                 bgColor: 'from-green-50 to-green-100',
                 time: '5 minutes'
@@ -685,8 +949,11 @@ export const OptimizedHomePage: React.FC = () => {
                     <span className="text-sm text-gray-600 font-medium">{step.time}</span>
                   </div>
                   
-                  <h3 className="text-2xl font-bold text-gray-900 mb-4">{step.title}</h3>
-                  <p className="text-gray-600 text-lg leading-relaxed">{step.description}</p>
+                  <h3 className="text-2xl font-bold text-gray-900 mb-3">{step.title}</h3>
+                  <p className="text-gray-600 text-base leading-relaxed mb-3">{step.description}</p>
+                  <p className="text-gray-800 font-medium text-sm italic border-l-4 border-gray-300 pl-3">
+                    {step.emotionalBenefit}
+                  </p>
                   
                   {/* Hover Effect */}
                   <div className={`absolute inset-0 bg-gradient-to-r ${step.color} opacity-0 group-hover:opacity-5 rounded-2xl transition-opacity duration-300`}></div>
@@ -713,6 +980,91 @@ export const OptimizedHomePage: React.FC = () => {
         </div>
       </section>
 
+      {/* Trust Boosters & Social Proof */}
+      <section className="py-16 bg-gradient-to-b from-white to-gray-50">
+        <div className="max-w-7xl mx-auto px-4">
+          {/* Awards & Recognition */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-12">
+            <div className="group">
+              <div className="bg-white rounded-2xl p-6 shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 border border-yellow-100">
+                <div className="flex items-center mb-4">
+                  <div className="w-16 h-16 bg-gradient-to-br from-yellow-400 via-yellow-500 to-orange-500 rounded-2xl flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform duration-300">
+                    <span className="text-2xl">🏆</span>
+                  </div>
+                  <div className="ml-4">
+                    <div className="text-gray-900 font-bold text-lg leading-tight">2024 Best Travel Companion App</div>
+                    <div className="text-yellow-600 text-sm font-medium">(Community Rated)</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            <div className="group">
+              <div className="bg-white rounded-2xl p-6 shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 border border-blue-100">
+                <div className="flex items-center mb-4">
+                  <div className="w-16 h-16 bg-gradient-to-br from-blue-500 via-blue-600 to-indigo-600 rounded-2xl flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform duration-300">
+                    <span className="text-2xl">📱</span>
+                  </div>
+                  <div className="ml-4">
+                    <div className="text-gray-900 font-bold text-lg leading-tight">Top Trending Travel App</div>
+                    <div className="text-blue-600 text-sm font-medium">App Store Featured</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            <div className="group">
+              <div className="bg-white rounded-2xl p-6 shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 border border-green-100">
+                <div className="flex items-center mb-4">
+                  <div className="w-16 h-16 bg-gradient-to-br from-green-500 via-green-600 to-emerald-600 rounded-2xl flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform duration-300">
+                    <span className="text-2xl">⭐</span>
+                  </div>
+                  <div className="ml-4">
+                    <div className="text-gray-900 font-bold text-lg leading-tight">4.8/5 Star Rating</div>
+                    <div className="text-green-600 text-sm font-medium">50,000+ Reviews</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          {/* Security & Live Stats */}
+          <div className="bg-white rounded-2xl p-8 shadow-xl border border-gray-100">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+              <div className="group flex items-center justify-center md:justify-start">
+                <div className="w-14 h-14 bg-gradient-to-br from-green-500 to-emerald-600 rounded-xl flex items-center justify-center mr-4 shadow-lg group-hover:scale-110 transition-transform duration-300">
+                  <span className="text-xl">🛡️</span>
+                </div>
+                <div>
+                  <div className="text-gray-900 font-bold text-base">Secure & Private</div>
+                  <div className="text-gray-600 text-sm">Firebase Authentication</div>
+                </div>
+              </div>
+              
+              <div className="group flex items-center justify-center md:justify-start">
+                <div className="w-14 h-14 bg-gradient-to-br from-orange-500 to-red-500 rounded-xl flex items-center justify-center mr-4 shadow-lg group-hover:scale-110 transition-transform duration-300">
+                  <span className="text-xl">⏳</span>
+                </div>
+                <div>
+                  <div className="text-gray-900 font-bold text-base">Fresh Deals</div>
+                  <div className="text-gray-600 text-sm">Updated 2 hours ago</div>
+                </div>
+              </div>
+              
+              <div className="group flex items-center justify-center md:justify-start">
+                <div className="w-14 h-14 bg-gradient-to-br from-purple-500 to-pink-500 rounded-xl flex items-center justify-center mr-4 shadow-lg group-hover:scale-110 transition-transform duration-300">
+                  <span className="text-xl">👥</span>
+                </div>
+                <div>
+                  <div className="text-gray-900 font-bold text-base">Active Community</div>
+                  <div className="text-gray-600 text-sm">67 people exploring today</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* 4. Pricing & Social Proof */}
       <section className="py-20 bg-gradient-to-r from-blue-50 to-green-50">
         <div className="max-w-7xl mx-auto px-4">
@@ -720,26 +1072,80 @@ export const OptimizedHomePage: React.FC = () => {
             <h2 className="text-4xl font-bold text-gray-900 mb-4">
               Simple, Transparent Pricing
             </h2>
-            <p className="text-xl text-gray-600">
+            <p className="text-xl text-gray-600 mb-4">
               Start free, upgrade when you need more
             </p>
+            <p className="text-lg text-blue-600 font-semibold">
+              Used by travelers from 120+ countries
+            </p>
+          </div>
+
+          {/* Social Proof Badges */}
+          <div className="flex flex-wrap justify-center gap-6 mb-12">
+            <div className="bg-white rounded-xl px-6 py-4 shadow-lg border border-gray-200">
+              <div className="text-2xl font-bold text-blue-600">50,000+</div>
+              <div className="text-sm text-gray-600">Travelers</div>
+            </div>
+            <div className="bg-white rounded-xl px-6 py-4 shadow-lg border border-gray-200">
+              <div className="text-2xl font-bold text-green-600">125,000+</div>
+              <div className="text-sm text-gray-600">Trips Generated</div>
+            </div>
+            <div className="bg-white rounded-xl px-6 py-4 shadow-lg border border-gray-200">
+              <div className="flex items-center gap-1 text-2xl font-bold text-yellow-500">
+                ★★★★★
+              </div>
+              <div className="text-sm text-gray-600">Play Store Rating</div>
+            </div>
           </div>
           
-          <div className="grid md:grid-cols-2 gap-8 mb-12">
-            {quickDeals.map((deal) => (
-              <Card key={deal.id} className={`p-8 text-center ${deal.urgent ? 'bg-gradient-to-r from-green-500 to-blue-500 text-white' : 'bg-white border-2 border-gray-200'} hover:shadow-xl transition-all duration-300`}>
-                <div className="text-4xl font-bold mb-2">{deal.discount}</div>
-                <h3 className="text-2xl font-bold mb-2">{deal.title}</h3>
-                <p className={`mb-6 ${deal.urgent ? 'text-white/90' : 'text-gray-600'}`}>
-                  {deal.description}
-                </p>
-                <Link to={deal.urgent ? (user ? '/trips' : '/register') : '/subscription'}>
-                  <Button className={`${deal.urgent ? 'bg-white text-green-600 hover:bg-gray-100' : 'bg-blue-600 text-white hover:bg-blue-700'} px-6 py-3 rounded-xl`}>
-                    {deal.urgent ? 'Start Free!' : 'Upgrade Now'}
-                  </Button>
-                </Link>
-              </Card>
-            ))}
+          {/* Comparison Table */}
+          <div className="bg-white rounded-2xl p-8 shadow-xl border border-gray-200 mb-12">
+            <h3 className="text-2xl font-bold text-center mb-8">Choose Your Plan</h3>
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b border-gray-200">
+                    <th className="text-left py-4 px-6 font-semibold text-gray-900">Feature</th>
+                    <th className="text-center py-4 px-6 font-semibold text-gray-900">Free</th>
+                    <th className="text-center py-4 px-6 font-semibold text-blue-600 bg-blue-50 rounded-t-lg">Premium</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr className="border-b border-gray-100">
+                    <td className="py-4 px-6 text-gray-700">AI Trip Planning</td>
+                    <td className="text-center py-4 px-6"><span className="text-green-500 text-xl">✓</span></td>
+                    <td className="text-center py-4 px-6 bg-blue-50"><span className="text-green-500 text-xl">✓</span></td>
+                  </tr>
+                  <tr className="border-b border-gray-100">
+                    <td className="py-4 px-6 text-gray-700">Unlimited Favorites</td>
+                    <td className="text-center py-4 px-6"><span className="text-gray-400 text-xl">–</span></td>
+                    <td className="text-center py-4 px-6 bg-blue-50"><span className="text-green-500 text-xl">✓</span></td>
+                  </tr>
+                  <tr className="border-b border-gray-100">
+                    <td className="py-4 px-6 text-gray-700">Offline Access</td>
+                    <td className="text-center py-4 px-6"><span className="text-gray-400 text-xl">–</span></td>
+                    <td className="text-center py-4 px-6 bg-blue-50"><span className="text-green-500 text-xl">✓</span></td>
+                  </tr>
+                  <tr>
+                    <td className="py-4 px-6 text-gray-700">Advanced Weather AI</td>
+                    <td className="text-center py-4 px-6"><span className="text-gray-400 text-xl">–</span></td>
+                    <td className="text-center py-4 px-6 bg-blue-50 rounded-b-lg"><span className="text-green-500 text-xl">✓</span></td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <div className="flex flex-col sm:flex-row gap-4 justify-center mt-8">
+              <Link to={user ? '/trips' : '/register'}>
+                <Button className="bg-gray-600 text-white hover:bg-gray-700 px-8 py-3 rounded-xl">
+                  Start Free
+                </Button>
+              </Link>
+              <Link to="/subscription">
+                <Button className="bg-blue-600 text-white hover:bg-blue-700 px-8 py-3 rounded-xl">
+                  Upgrade to Premium - $9.99/month
+                </Button>
+              </Link>
+            </div>
           </div>
           
           {/* User Testimonials */}
@@ -788,37 +1194,50 @@ export const OptimizedHomePage: React.FC = () => {
           <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
             {[
               {
-                icon: <Plane className="w-8 h-8" />,
-                title: 'Flights',
-                description: 'Best prices worldwide',
-                link: '/transport'
-              },
-              {
                 icon: <Hotel className="w-8 h-8" />,
                 title: 'Hotels',
-                description: 'From luxury to budget',
-                link: '/services'
+                description: 'Compare the best options in seconds',
+                link: '/services',
+                color: 'from-blue-500 to-blue-600',
+                bgColor: 'from-blue-50 to-blue-100'
+              },
+              {
+                icon: <Car className="w-8 h-8" />,
+                title: 'Transport',
+                description: 'Taxi, bus, tuk-tuk, train — all in one place',
+                link: '/transport',
+                color: 'from-green-500 to-green-600',
+                bgColor: 'from-green-50 to-green-100'
               },
               {
                 icon: <MapPin className="w-8 h-8" />,
                 title: 'Activities',
-                description: 'Local experiences',
-                link: '/discovery'
+                description: 'Local events, top attractions & hidden experiences',
+                link: '/discovery',
+                color: 'from-purple-500 to-purple-600',
+                bgColor: 'from-purple-50 to-purple-100'
               },
               {
                 icon: <Calendar className="w-8 h-8" />,
                 title: 'Trip Planning',
-                description: 'AI-powered itineraries',
-                link: '/trips'
+                description: 'Your smart itinerary, always up to date',
+                link: '/trips',
+                color: 'from-orange-500 to-orange-600',
+                bgColor: 'from-orange-50 to-orange-100'
               }
             ].map((service, index) => (
               <Link key={index} to={service.link}>
-                <Card className="p-6 text-center hover:shadow-xl transition-all duration-300 hover:-translate-y-2 cursor-pointer">
-                  <div className="w-16 h-16 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center mx-auto mb-4">
-                    {service.icon}
+                <Card className="p-6 text-center hover:shadow-xl transition-all duration-300 hover:-translate-y-2 cursor-pointer group">
+                  <div className={`w-16 h-16 bg-gradient-to-r ${service.bgColor} rounded-full flex items-center justify-center mx-auto mb-4 group-hover:scale-110 transition-all duration-300`}>
+                    <div className={`text-transparent bg-gradient-to-r ${service.color} bg-clip-text group-hover:scale-110 transition-transform duration-300`}>
+                      {service.icon}
+                    </div>
                   </div>
-                  <h3 className="text-lg font-bold text-gray-900 mb-2">{service.title}</h3>
-                  <p className="text-gray-600">{service.description}</p>
+                  <h3 className="text-lg font-bold text-gray-900 mb-2 group-hover:text-blue-600 transition-colors duration-300">{service.title}</h3>
+                  <p className="text-gray-600 group-hover:text-gray-700 transition-colors duration-300">{service.description}</p>
+                  <div className="mt-4 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                    <ArrowRight className="w-5 h-5 text-blue-600 mx-auto" />
+                  </div>
                 </Card>
               </Link>
             ))}
@@ -826,14 +1245,82 @@ export const OptimizedHomePage: React.FC = () => {
         </div>
       </section>
 
-      {/* Lazy loaded sections */}
-      <Suspense fallback={<SectionLoader />}>
-        <LazyDestinationGrid />
-      </Suspense>
+      {/* FAQ Section - Interactive Dropdown */}
+      <section className="py-20 bg-gradient-to-b from-gray-50 to-white">
+        <div className="max-w-4xl mx-auto px-4">
+          <div className="text-center mb-16">
+            <div className="inline-flex items-center bg-blue-100 rounded-full px-6 py-2 mb-6">
+              <span className="text-2xl mr-2">❓</span>
+              <span className="text-blue-800 font-semibold">Got Questions?</span>
+            </div>
+            <h2 className="text-4xl md:text-5xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent mb-6">
+              Frequently Asked Questions
+            </h2>
+            <p className="text-xl text-gray-600">
+              Everything you need to know about TravelBuddy
+            </p>
+          </div>
+          
+          <FAQAccordion />
+          
+          <div className="text-center mt-16">
+            <div className="bg-white rounded-2xl p-8 shadow-lg border border-gray-100">
+              <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center mx-auto mb-4">
+                <span className="text-2xl">💬</span>
+              </div>
+              <h3 className="text-xl font-bold text-gray-900 mb-2">Still have questions?</h3>
+              <p className="text-gray-600 mb-6">Our support team is here to help you 24/7</p>
+              <Link to="/contact">
+                <Button className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white px-8 py-3 rounded-xl font-semibold shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105">
+                  Contact Support
+                </Button>
+              </Link>
+            </div>
+          </div>
+        </div>
+      </section>
+
+
       
-      <Suspense fallback={<SectionLoader />}>
-        <LazyDealsSection />
-      </Suspense>
+      {user && (
+        <Suspense fallback={<SectionLoader />}>
+          <section className="py-20 bg-gradient-to-r from-purple-50 to-pink-50">
+            <div className="max-w-7xl mx-auto px-4">
+              <div className="text-center mb-12">
+                <h2 className="text-4xl font-bold text-gray-900 mb-4">
+                  Recommended For Your Travel Style
+                </h2>
+                <p className="text-xl text-gray-600">
+                  AI-powered suggestions based on your preferences and past trips
+                </p>
+              </div>
+              <div className="grid md:grid-cols-3 gap-8">
+                <Card className="p-6 text-center hover:shadow-xl transition-all duration-300">
+                  <div className="w-16 h-16 bg-gradient-to-r from-blue-100 to-purple-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <Sparkles className="w-8 h-8 text-purple-600" />
+                  </div>
+                  <h3 className="text-lg font-bold text-gray-900 mb-2">Adventure Seeker</h3>
+                  <p className="text-gray-600">Hiking trails, extreme sports, and outdoor adventures</p>
+                </Card>
+                <Card className="p-6 text-center hover:shadow-xl transition-all duration-300">
+                  <div className="w-16 h-16 bg-gradient-to-r from-green-100 to-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <Heart className="w-8 h-8 text-green-600" />
+                  </div>
+                  <h3 className="text-lg font-bold text-gray-900 mb-2">Culture Explorer</h3>
+                  <p className="text-gray-600">Museums, local cuisine, and authentic experiences</p>
+                </Card>
+                <Card className="p-6 text-center hover:shadow-xl transition-all duration-300">
+                  <div className="w-16 h-16 bg-gradient-to-r from-yellow-100 to-orange-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <Star className="w-8 h-8 text-orange-600" />
+                  </div>
+                  <h3 className="text-lg font-bold text-gray-900 mb-2">Luxury Traveler</h3>
+                  <p className="text-gray-600">Premium hotels, fine dining, and exclusive experiences</p>
+                </Card>
+              </div>
+            </div>
+          </section>
+        </Suspense>
+      )}
     </div>
   )
 }

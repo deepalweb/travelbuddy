@@ -111,7 +111,7 @@ export const MainHeader: React.FC = () => {
                 <p className={`text-xs font-medium transition-all duration-300 ${
                   isScrolled ? 'text-black/70' : 'text-white/90'
                 }`}>
-                  Your Intelligent Travel Companion
+                  AI-Powered Travel Planner — Discover, Plan & Experience the World Effortlessly
                 </p>
               </div>
             </Link>
