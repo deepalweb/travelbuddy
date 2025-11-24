@@ -145,7 +145,7 @@ Return ONLY this JSON structure:
       model: process.env.AZURE_OPENAI_DEPLOYMENT_NAME,
       messages: [{ role: "user", content: prompt }],
       temperature: 0.7,
-      max_tokens: 3000
+      max_tokens: 8000
     });
 
     const responseText = completion.choices[0].message.content.trim();

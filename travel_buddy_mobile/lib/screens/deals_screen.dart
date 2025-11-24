@@ -1,11 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'dart:convert';
 import '../providers/app_provider.dart';
 import '../constants/app_constants.dart';
 import '../models/place.dart';
 import '../screens/deal_detail_screen.dart';
-import '../services/places_service.dart';
-import '../services/location_service.dart';
 import '../services/deals_service.dart';
 
 class DealsScreen extends StatefulWidget {
@@ -18,147 +17,38 @@ class DealsScreen extends StatefulWidget {
 class _DealsScreenState extends State<DealsScreen> {
   String _selectedFilter = 'all';
   List<Deal> _deals = [];
-  List<Place> _places = [];
-  bool _isLoadingDeals = false;
-  bool _isLoadingPlaces = false;
-  String? _dealsError;
-  String? _placesError;
-  Map<String, int> _categoryLimits = {};
-  int _allDealsLimit = 12;
-  static const int _initialLimit = 4;
-  bool _useRealDeals = true; // Toggle between real deals and place-based deals
+  bool _isLoading = false;
+  String? _error;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _loadDealsData();
+      _loadDeals();
     });
   }
   
-  Future<void> _loadDealsData() async {
-    if (_useRealDeals) {
-      await _loadRealDeals();
-    } else {
-      await _loadRealPlacesData();
-    }
-  }
-  
-  Future<void> _loadRealDeals() async {
+  Future<void> _loadDeals() async {
     setState(() {
-      _isLoadingDeals = true;
-      _dealsError = null;
+      _isLoading = true;
+      _error = null;
     });
     
     try {
-      print('🎯 Loading real deals from API...');
       final deals = await DealsService.getActiveDeals();
-      
       setState(() {
         _deals = deals;
-        _isLoadingDeals = false;
+        _isLoading = false;
       });
-      
-      print('✅ Loaded ${deals.length} real deals');
-      if (deals.isNotEmpty) {
-        print('🎉 Real deals API is working! First deal: ${deals.first.title}');
-      }
-    } catch (e) {
-      print('❌ Error loading real deals: $e');
-      setState(() {
-        _dealsError = e.toString();
-        _isLoadingDeals = false;
-        _useRealDeals = false; // Fallback to places-based deals
-      });
-      
-      // Fallback to places-based deals
-      await _loadRealPlacesData();
-    }
-  }
-  
-  Future<void> _loadRealPlacesData() async {
-    setState(() {
-      _isLoadingPlaces = true;
-      _placesError = null;
-    });
-    
-    try {
-      final locationService = LocationService();
-      final position = await locationService.getCurrentLocation();
-      
-      if (position != null) {
-        final placesService = PlacesService();
-        final query = _getQueryForFilter(_selectedFilter);
-        
-        List<Place> allPlaces = [];
-        
-        if (_selectedFilter == 'all') {
-          // For 'all', fetch multiple categories separately
-          final queries = ['restaurant', 'cafe', 'shopping mall', 'tourist attraction', 'hotel'];
-          
-          for (final q in queries) {
-            try {
-              final places = await placesService.fetchPlacesPipeline(
-                latitude: position.latitude,
-                longitude: position.longitude,
-                query: q,
-                radius: 25000,
-                topN: 20,
-              );
-              allPlaces.addAll(places);
-              print('🎯 Query "$q" returned ${places.length} places');
-            } catch (e) {
-              print('❌ Query "$q" failed: $e');
-            }
-          }
-        } else {
-          // For specific filters, use single query
-          allPlaces = await placesService.fetchPlacesPipeline(
-            latitude: position.latitude,
-            longitude: position.longitude,
-            query: query,
-            radius: 25000,
-            topN: 50,
-          );
-        }
-        
-        // Remove duplicates
-        final uniquePlaces = <String, Place>{};
-        for (final place in allPlaces) {
-          uniquePlaces[place.id] = place;
-        }
-        final places = uniquePlaces.values.toList();
-        
-        print('🎯 Total unique places: ${places.length}');
-        if (places.isNotEmpty) {
-          print('📍 Sample places: ${places.take(3).map((p) => p.name).join(", ")}');
-        }
-        
-        setState(() {
-          _places = places;
-          _isLoadingPlaces = false;
-        });
-      } else {
-        throw Exception('Location not available');
-      }
     } catch (e) {
       setState(() {
-        _placesError = e.toString();
-        _isLoadingPlaces = false;
+        _error = e.toString();
+        _isLoading = false;
       });
     }
   }
   
-  String _getQueryForFilter(String filter) {
-    switch (filter) {
-      case 'restaurant': return 'restaurant';
-      case 'hotel': return 'hotel';
-      case 'cafe': return 'cafe';
-      case 'shop': return 'shopping mall';
-      case 'attraction': return 'tourist attraction';
-      default: return 'restaurant'; // Start with restaurants for 'all'
-    }
-  }
+
 
   @override
   Widget build(BuildContext context) {
@@ -170,23 +60,7 @@ class _DealsScreenState extends State<DealsScreen> {
             actions: [
               IconButton(
                 icon: const Icon(Icons.refresh),
-                onPressed: _loadDealsData,
-              ),
-              PopupMenuButton<String>(
-                onSelected: (value) {
-                  if (value == 'toggle_source') {
-                    setState(() {
-                      _useRealDeals = !_useRealDeals;
-                    });
-                    _loadDealsData();
-                  }
-                },
-                itemBuilder: (context) => [
-                  PopupMenuItem(
-                    value: 'toggle_source',
-                    child: Text(_useRealDeals ? 'Use Places Data' : 'Use Real Deals'),
-                  ),
-                ],
+                onPressed: _loadDeals,
               ),
             ],
           ),
@@ -211,7 +85,7 @@ class _DealsScreenState extends State<DealsScreen> {
                       selected: isSelected,
                       onSelected: (selected) {
                         setState(() => _selectedFilter = filter);
-                        _loadDealsData();
+                        _loadDeals();
                       },
                       backgroundColor: isSelected ? Color(AppConstants.colors['primary']!) : Colors.white,
                       selectedColor: Color(AppConstants.colors['primary']!),
@@ -226,8 +100,8 @@ class _DealsScreenState extends State<DealsScreen> {
               // Deals Content
               Expanded(
                 child: RefreshIndicator(
-                  onRefresh: _loadDealsData,
-                  child: _buildDealsContent(appProvider),
+                  onRefresh: _loadDeals,
+                  child: _buildDealsContent(),
                 ),
               ),
             ],
@@ -237,26 +111,14 @@ class _DealsScreenState extends State<DealsScreen> {
     );
   }
 
-  Widget _buildDealsContent(AppProvider appProvider) {
-    if (_isLoadingDeals || _isLoadingPlaces) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const CircularProgressIndicator(),
-            const SizedBox(height: 16),
-            Text(_useRealDeals ? 'Loading real deals...' : 'Finding the best deals for you...'),
-            if (_useRealDeals) ...[
-              const SizedBox(height: 8),
-              const Text('Using real deals API', style: TextStyle(color: Colors.green, fontSize: 12)),
-            ]
-          ],
-        ),
+  Widget _buildDealsContent() {
+    if (_isLoading) {
+      return const Center(
+        child: CircularProgressIndicator(),
       );
     }
 
-    final error = _useRealDeals ? _dealsError : _placesError;
-    if (error != null) {
+    if (_error != null) {
       return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -265,10 +127,10 @@ class _DealsScreenState extends State<DealsScreen> {
             const SizedBox(height: 16),
             const Text('Failed to load deals', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
             const SizedBox(height: 8),
-            Text(error, textAlign: TextAlign.center),
+            Text(_error!, textAlign: TextAlign.center),
             const SizedBox(height: 16),
             ElevatedButton(
-              onPressed: () => _loadDealsData(),
+              onPressed: _loadDeals,
               child: const Text('Retry'),
             ),
           ],
@@ -276,81 +138,31 @@ class _DealsScreenState extends State<DealsScreen> {
       );
     }
 
-    // Use real deals if available, otherwise use places-based deals
-    if (_useRealDeals && _deals.isNotEmpty) {
-      return _buildRealDealsContent();
-    }
-
-    final filteredPlaces = _getFilteredPlaces(_places);
-    final placesByCategory = _groupPlacesByCategory(filteredPlaces);
+    final filteredDeals = _getFilteredDeals(_deals);
     
-    print('📋 Total places loaded: ${_places.length}');
-    print('🔍 Filtered places for "$_selectedFilter": ${filteredPlaces.length}');
-    print('📁 Categories found: ${placesByCategory.keys.join(", ")}');
-
-    if (filteredPlaces.isNotEmpty) {
+    if (filteredDeals.isNotEmpty) {
+      print('🖼️ First deal images: ${filteredDeals.first.images}');
+      print('🖼️ Images count: ${filteredDeals.first.images.length}');
       return ListView(
         padding: const EdgeInsets.all(16),
         children: [
-            if (_selectedFilter == 'all') ...[
-              // Show all deals in a single grid
-              Text(
-                'All Deals (${filteredPlaces.length} available)',
-                style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 16),
-              GridView.builder(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 2,
-                  childAspectRatio: 0.8,
-                  crossAxisSpacing: 12,
-                  mainAxisSpacing: 12,
-                ),
-                itemCount: _allDealsLimit > filteredPlaces.length ? filteredPlaces.length : _allDealsLimit,
-                itemBuilder: (context, index) => _buildDealCard(filteredPlaces[index]),
-              ),
-              if (_allDealsLimit < filteredPlaces.length) ...[
-                const SizedBox(height: 12),
-                Center(
-                  child: OutlinedButton.icon(
-                    onPressed: _showMoreAllDeals,
-                    icon: const Icon(Icons.expand_more),
-                    label: const Text('Show More Deals'),
-                  ),
-                ),
-              ],
-            ] else ...[
-              // Show filtered places
-              Text(
-                _getDealsCategoryTitle(),
-                style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 16),
-              GridView.builder(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 2,
-                  childAspectRatio: 0.8,
-                  crossAxisSpacing: 12,
-                  mainAxisSpacing: 12,
-                ),
-                itemCount: _getCategoryDisplayCount(_selectedFilter, filteredPlaces.length),
-                itemBuilder: (context, index) => _buildDealCard(filteredPlaces[index]),
-              ),
-              if (_shouldShowMoreButton(_selectedFilter, filteredPlaces.length)) ...[
-                const SizedBox(height: 12),
-                Center(
-                  child: OutlinedButton.icon(
-                    onPressed: () => _showMoreDeals(_selectedFilter),
-                    icon: const Icon(Icons.expand_more),
-                    label: Text('Show More ${_getDealsCategoryTitle()}'),
-                  ),
-                ),
-              ],
-            ],
+          Text(
+            '${_getDealsCategoryTitle()} (${filteredDeals.length})',
+            style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 16),
+          GridView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 2,
+              childAspectRatio: 0.8,
+              crossAxisSpacing: 12,
+              mainAxisSpacing: 12,
+            ),
+            itemCount: filteredDeals.length,
+            itemBuilder: (context, index) => _buildDealCard(filteredDeals[index]),
+          ),
         ],
       );
     }
@@ -376,447 +188,7 @@ class _DealsScreenState extends State<DealsScreen> {
     );
   }
   
-  Widget _buildDealCard(Place place) {
-    final deal = _convertPlaceToDeal(place);
-    
-    return Card(
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: () => _showDealDetails(deal),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Expanded(
-              child: Stack(
-                children: [
-                  Container(
-                    width: double.infinity,
-                    color: Colors.grey[300],
-                    child: place.photoUrl.isNotEmpty
-                        ? Image.network(
-                            place.photoUrl,
-                            fit: BoxFit.cover,
-                            loadingBuilder: (context, child, loadingProgress) {
-                              if (loadingProgress == null) return child;
-                              return const Center(
-                                child: CircularProgressIndicator(strokeWidth: 2),
-                              );
-                            },
-                            errorBuilder: (context, error, stackTrace) => 
-                                _buildPlaceholderImage(place.type),
-                          )
-                        : _buildPlaceholderImage(place.type),
-                  ),
-                  Positioned(
-                    top: 8,
-                    right: 8,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: Colors.red,
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Text(
-                        deal.discount,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 10,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.all(8),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    deal.title,
-                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  Text(
-                    'at ${place.name}',
-                    style: TextStyle(
-                      color: Color(AppConstants.colors['textSecondary']!),
-                      fontSize: 10,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  Row(
-                    children: [
-                      const Icon(Icons.local_offer, color: Colors.green, size: 12),
-                      Text(
-                        ' \$${deal.price?.amount.toInt() ?? 25}',
-                        style: const TextStyle(fontSize: 10, color: Colors.green, fontWeight: FontWeight.bold),
-                      ),
-                      const Spacer(),
-                      const Icon(Icons.star, color: Colors.amber, size: 12),
-                      Text(
-                        ' ${place.rating.toStringAsFixed(1)}',
-                        style: const TextStyle(fontSize: 10),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-  
-  Deal _convertPlaceToDeal(Place place) {
-    final discounts = ['20% OFF', '30% OFF', '25% OFF', 'Buy 1 Get 1', '15% OFF', '40% OFF'];
-    final discount = discounts[place.name.hashCode % discounts.length];
-    
-    String dealTitle = _generateDealTitle(place.type, discount);
-    double price = _generateDealPrice(place.type);
-    
-    return Deal(
-      id: 'deal_${place.id}',
-      title: dealTitle,
-      description: place.description,
-      discount: discount,
-      placeName: place.name,
-      businessType: _getBusinessType(place.type),
-      businessName: place.name,
-      images: place.photoUrl.isNotEmpty ? [place.photoUrl] : [],
-      validUntil: DateTime.now().add(Duration(days: 7 + (place.name.hashCode % 14))),
-      views: 50 + (place.name.hashCode % 200),
-      claims: 5 + (place.name.hashCode % 25),
-      price: PriceInfo(amount: price, currencyCode: 'USD'),
-    );
-  }
-  
-  String _generateDealTitle(String placeType, String discount) {
-    final type = placeType.toLowerCase();
-    
-    if (type.contains('restaurant') || type.contains('food')) {
-      return '$discount Dining Experience';
-    } else if (type.contains('hotel') || type.contains('lodging')) {
-      return '$discount Hotel Stay';
-    } else if (type.contains('cafe') || type.contains('coffee')) {
-      return '$discount Coffee & Pastries';
-    } else if (type.contains('shop') || type.contains('store')) {
-      return '$discount Shopping Deal';
-    } else if (type.contains('museum') || type.contains('attraction')) {
-      return '$discount Admission Ticket';
-    } else {
-      return '$discount Special Offer';
-    }
-  }
-  
-  double _generateDealPrice(String placeType) {
-    final type = placeType.toLowerCase();
-    
-    if (type.contains('restaurant') || type.contains('food')) {
-      return 25.0 + (type.hashCode % 30);
-    } else if (type.contains('hotel') || type.contains('lodging')) {
-      return 80.0 + (type.hashCode % 50);
-    } else if (type.contains('cafe') || type.contains('coffee')) {
-      return 8.0 + (type.hashCode % 12);
-    } else if (type.contains('shop') || type.contains('store')) {
-      return 15.0 + (type.hashCode % 35);
-    } else if (type.contains('museum') || type.contains('attraction')) {
-      return 12.0 + (type.hashCode % 18);
-    } else {
-      return 20.0 + (type.hashCode % 25);
-    }
-  }
-  
-  String _getBusinessType(String placeType) {
-    final type = placeType.toLowerCase();
-    
-    if (type.contains('restaurant') || type.contains('food')) {
-      return 'restaurant';
-    } else if (type.contains('hotel') || type.contains('lodging')) {
-      return 'hotel';
-    } else if (type.contains('cafe') || type.contains('coffee')) {
-      return 'cafe';
-    } else if (type.contains('shop') || type.contains('store')) {
-      return 'shop';
-    } else if (type.contains('museum') || type.contains('attraction')) {
-      return 'attraction';
-    } else {
-      return 'general';
-    }
-  }
-  
-  Widget _buildPlaceholderImage(String placeType) {
-    final type = placeType.toLowerCase();
-    IconData iconData;
-    Color backgroundColor;
-    
-    if (type.contains('restaurant') || type.contains('food')) {
-      iconData = Icons.restaurant;
-      backgroundColor = Colors.orange[100]!;
-    } else if (type.contains('hotel') || type.contains('lodging')) {
-      iconData = Icons.hotel;
-      backgroundColor = Colors.blue[100]!;
-    } else if (type.contains('cafe') || type.contains('coffee')) {
-      iconData = Icons.local_cafe;
-      backgroundColor = Colors.brown[100]!;
-    } else if (type.contains('shop') || type.contains('store')) {
-      iconData = Icons.shopping_bag;
-      backgroundColor = Colors.purple[100]!;
-    } else if (type.contains('museum') || type.contains('attraction')) {
-      iconData = Icons.museum;
-      backgroundColor = Colors.green[100]!;
-    } else {
-      iconData = Icons.place;
-      backgroundColor = Colors.grey[200]!;
-    }
-    
-    return Container(
-      color: backgroundColor,
-      child: Icon(
-        iconData,
-        size: 40,
-        color: Colors.grey[600],
-      ),
-    );
-  }
-  
-  Map<String, List<Place>> _groupPlacesByCategory(List<Place> places) {
-    final grouped = <String, List<Place>>{};
-    
-    for (final place in places) {
-      final category = _getPlaceCategory(place);
-      if (!grouped.containsKey(category)) {
-        grouped[category] = [];
-      }
-      grouped[category]!.add(place);
-    }
-    
-    return grouped;
-  }
-  
-  String _getPlaceCategory(Place place) {
-    final type = place.type.toLowerCase();
-    final name = place.name.toLowerCase();
-    
-    // Restaurants & Food
-    if (type.contains('restaurant') || type.contains('food') || type.contains('dining') || 
-        name.contains('restaurant') || name.contains('grill') || name.contains('bistro')) {
-      return 'Restaurants';
-    }
-    
-    // Hotels & Accommodation
-    if (type.contains('hotel') || type.contains('lodging') || type.contains('motel') || 
-        type.contains('resort') || name.contains('hotel') || name.contains('inn')) {
-      return 'Hotels';
-    }
-    
-    // Cafes & Coffee
-    if (type.contains('cafe') || type.contains('coffee') || type.contains('bakery') || 
-        name.contains('cafe') || name.contains('coffee') || name.contains('starbucks')) {
-      return 'Cafes';
-    }
-    
-    // Shopping & Retail
-    if (type.contains('shop') || type.contains('store') || type.contains('mall') || 
-        type.contains('market') || type.contains('supermarket') || type.contains('pharmacy') ||
-        name.contains('shop') || name.contains('store') || name.contains('mall')) {
-      return 'Shopping';
-    }
-    
-    // Attractions & Entertainment
-    if (type.contains('museum') || type.contains('attraction') || type.contains('park') || 
-        type.contains('theater') || type.contains('cinema') || type.contains('entertainment') ||
-        name.contains('museum') || name.contains('park') || name.contains('theater')) {
-      return 'Attractions';
-    }
-    
-    // Services & Others
-    if (type.contains('bank') || type.contains('gym') || type.contains('spa') || 
-        type.contains('gas') || type.contains('hospital') || type.contains('school')) {
-      return 'Services';
-    }
-    
-    return 'Other Places';
-  }
-  
-  List<Place> _getFilteredPlaces(List<Place> places) {
-    if (_selectedFilter == 'all') return places;
-    
-    final filterMap = {
-      'restaurant': ['restaurant', 'dining', 'food'],
-      'hotel': ['hotel', 'lodging', 'accommodation'],
-      'cafe': ['cafe', 'coffee', 'bakery'],
-      'shop': ['shop', 'store', 'mall', 'boutique'],
-      'attraction': ['museum', 'attraction', 'park', 'landmark'],
-    };
-    
-    final keywords = filterMap[_selectedFilter] ?? [];
-    return places.where((place) {
-      final type = place.type.toLowerCase();
-      final name = place.name.toLowerCase();
-      return keywords.any((keyword) => 
-          type.contains(keyword) || name.contains(keyword));
-    }).toList();
-  }
-  
-  String _getDealsCategoryTitle() {
-    final categoryTitles = {
-      'restaurant': 'Restaurant Deals',
-      'hotel': 'Hotel Deals',
-      'cafe': 'Cafe Deals',
-      'shop': 'Shopping Deals',
-      'attraction': 'Attraction Deals',
-      'all': 'All Deals',
-    };
-    
-    return categoryTitles[_selectedFilter] ?? 'Deals';
-  }
-  
-  String _getDealsCategoryName(String category) {
-    final categoryNames = {
-      'Restaurants': 'Restaurant Deals',
-      'Hotels': 'Hotel Deals',
-      'Cafes': 'Cafe Deals',
-      'Shopping': 'Shopping Deals',
-      'Attractions': 'Attraction Deals',
-      'Services': 'Service Deals',
-      'Other Places': 'Other Deals',
-    };
-    
-    return categoryNames[category] ?? '$category Deals';
-  }
-  
-  int _getCategoryDisplayCount(String category, int totalCount) {
-    final limit = _categoryLimits[category] ?? _initialLimit;
-    return limit > totalCount ? totalCount : limit;
-  }
-  
-  bool _shouldShowMoreButton(String category, int totalCount) {
-    final currentLimit = _categoryLimits[category] ?? _initialLimit;
-    return totalCount > currentLimit;
-  }
-  
-  void _showMoreDeals(String category) {
-    setState(() {
-      final currentLimit = _categoryLimits[category] ?? _initialLimit;
-      _categoryLimits[category] = currentLimit + 4;
-    });
-    
-    // Load more places if we're running low
-    if (_shouldLoadMorePlaces(category)) {
-      _loadMorePlacesFromAPI();
-    }
-  }
-  
-  void _showMoreAllDeals() {
-    setState(() {
-      _allDealsLimit += 8; // Load 8 more deals for "All" view
-    });
-    
-    // Load more places if we're running low
-    if (_allDealsLimit >= _places.length - 4) {
-      _loadMorePlacesFromAPI();
-    }
-  }
-  
-  bool _shouldLoadMorePlaces(String category) {
-    final currentLimit = _categoryLimits[category] ?? _initialLimit;
-    final filteredPlaces = _getFilteredPlaces(_places);
-    return currentLimit >= filteredPlaces.length - 2;
-  }
-  
-  Future<void> _loadMorePlacesFromAPI() async {
-    if (_isLoadingPlaces) return;
-    
-    setState(() {
-      _isLoadingPlaces = true;
-    });
-    
-    try {
-      final locationService = LocationService();
-      final position = await locationService.getCurrentLocation();
-      
-      if (position != null) {
-        final placesService = PlacesService();
-        final query = _getQueryForFilter(_selectedFilter);
-        
-        final newPlaces = await placesService.fetchPlacesPipeline(
-          latitude: position.latitude,
-          longitude: position.longitude,
-          query: query,
-          radius: 30000, // Wider radius for more results
-          topN: 20, // Load 20 more places
-        );
-        
-        setState(() {
-          // Add new places that aren't already in the list
-          final existingIds = _places.map((p) => p.id).toSet();
-          final uniqueNewPlaces = newPlaces.where((p) => !existingIds.contains(p.id)).toList();
-          _places.addAll(uniqueNewPlaces);
-        });
-      }
-    } catch (e) {
-      print('Error loading more places: $e');
-    } finally {
-      setState(() {
-        _isLoadingPlaces = false;
-      });
-    }
-  }
-  
-  Widget _buildRealDealsContent() {
-    final filteredDeals = _getFilteredDeals(_deals);
-    
-    return ListView(
-      padding: const EdgeInsets.all(16),
-      children: [
-        Row(
-          children: [
-            Text(
-              'Real Deals (${filteredDeals.length} available)',
-              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(width: 8),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-              decoration: BoxDecoration(
-                color: Colors.green,
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: const Text(
-                'LIVE',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 10,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 16),
-        GridView.builder(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: 2,
-            childAspectRatio: 0.8,
-            crossAxisSpacing: 12,
-            mainAxisSpacing: 12,
-          ),
-          itemCount: filteredDeals.length,
-          itemBuilder: (context, index) => _buildRealDealCard(filteredDeals[index]),
-        ),
-      ],
-    );
-  }
-  
-  Widget _buildRealDealCard(Deal deal) {
+  Widget _buildDealCard(Deal deal) {
     return Card(
       clipBehavior: Clip.antiAlias,
       child: InkWell(
@@ -831,18 +203,7 @@ class _DealsScreenState extends State<DealsScreen> {
                     width: double.infinity,
                     color: Colors.grey[300],
                     child: deal.images.isNotEmpty
-                        ? Image.network(
-                            deal.images.first,
-                            fit: BoxFit.cover,
-                            loadingBuilder: (context, child, loadingProgress) {
-                              if (loadingProgress == null) return child;
-                              return const Center(
-                                child: CircularProgressIndicator(strokeWidth: 2),
-                              );
-                            },
-                            errorBuilder: (context, error, stackTrace) => 
-                                _buildPlaceholderImage(deal.businessType),
-                          )
+                        ? _buildImage(deal.images.first, deal.businessType)
                         : _buildPlaceholderImage(deal.businessType),
                   ),
                   Positioned(
@@ -929,6 +290,87 @@ class _DealsScreenState extends State<DealsScreen> {
         ),
       ),
     );
+  }
+  
+  Widget _buildImage(String imageData, String businessType) {
+    // Check if image is base64 encoded
+    if (imageData.startsWith('data:image')) {
+      try {
+        final base64String = imageData.split(',')[1];
+        final bytes = base64Decode(base64String);
+        return Image.memory(
+          bytes,
+          fit: BoxFit.cover,
+          errorBuilder: (context, error, stackTrace) => 
+              _buildPlaceholderImage(businessType),
+        );
+      } catch (e) {
+        print('❌ Error decoding base64 image: $e');
+        return _buildPlaceholderImage(businessType);
+      }
+    }
+    
+    // Regular URL image
+    return Image.network(
+      imageData.replaceAll('&amp;', '&'),
+      fit: BoxFit.cover,
+      loadingBuilder: (context, child, loadingProgress) {
+        if (loadingProgress == null) return child;
+        return const Center(
+          child: CircularProgressIndicator(strokeWidth: 2),
+        );
+      },
+      errorBuilder: (context, error, stackTrace) => 
+          _buildPlaceholderImage(businessType),
+    );
+  }
+  
+  Widget _buildPlaceholderImage(String businessType) {
+    final type = businessType.toLowerCase();
+    IconData iconData;
+    Color backgroundColor;
+    
+    if (type.contains('restaurant')) {
+      iconData = Icons.restaurant;
+      backgroundColor = Colors.orange[100]!;
+    } else if (type.contains('hotel')) {
+      iconData = Icons.hotel;
+      backgroundColor = Colors.blue[100]!;
+    } else if (type.contains('cafe')) {
+      iconData = Icons.local_cafe;
+      backgroundColor = Colors.brown[100]!;
+    } else if (type.contains('shop')) {
+      iconData = Icons.shopping_bag;
+      backgroundColor = Colors.purple[100]!;
+    } else if (type.contains('attraction') || type.contains('museum')) {
+      iconData = Icons.museum;
+      backgroundColor = Colors.green[100]!;
+    } else {
+      iconData = Icons.local_offer;
+      backgroundColor = Colors.grey[200]!;
+    }
+    
+    return Container(
+      color: backgroundColor,
+      child: Icon(
+        iconData,
+        size: 40,
+        color: Colors.grey[600],
+      ),
+    );
+  }
+  
+  String _getDealsCategoryTitle() {
+    final categoryTitles = {
+      'restaurant': 'Restaurant Deals',
+      'hotel': 'Hotel Deals',
+      'cafe': 'Cafe Deals',
+      'shop': 'Shopping Deals',
+      'attraction': 'Attraction Deals',
+      'all': 'All Deals',
+    };
+    
+    return categoryTitles[_selectedFilter] ?? 'Deals';
   }
   
   List<Deal> _getFilteredDeals(List<Deal> deals) {

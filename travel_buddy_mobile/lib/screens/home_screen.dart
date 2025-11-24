@@ -16,6 +16,7 @@ import '../screens/language_assistant_screen.dart';
 import '../screens/deal_detail_screen.dart';
 import '../screens/trip_plan_detail_screen.dart';
 import '../screens/transport_screen.dart';
+import '../screens/travel_agent_screen.dart';
 
 
 class HomeScreen extends StatefulWidget {
@@ -2213,88 +2214,10 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _showTravelAgentModal() {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) => Container(
-        height: MediaQuery.of(context).size.height * 0.6,
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-        ),
-        child: Column(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [Colors.orange[400]!, Colors.orange[600]!],
-                ),
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-              ),
-              child: Row(
-                children: [
-                  const Icon(Icons.support_agent, color: Colors.white, size: 28),
-                  const SizedBox(width: 12),
-                  const Text(
-                    'Travel Agents',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const Spacer(),
-                  IconButton(
-                    onPressed: () => Navigator.pop(context),
-                    icon: const Icon(Icons.close, color: Colors.white),
-                  ),
-                ],
-              ),
-            ),
-            Expanded(
-              child: Padding(
-                padding: const EdgeInsets.all(20),
-                child: Column(
-                  children: [
-                    _buildTransportOption(
-                      'Find Agents',
-                      'Discover verified travel experts',
-                      Icons.search,
-                      Colors.blue,
-                      () => _showComingSoon('Agent Discovery'),
-                    ),
-                    const SizedBox(height: 16),
-                    _buildTransportOption(
-                      'Specializations',
-                      'Adventure, luxury, budget trips',
-                      Icons.category,
-                      Colors.green,
-                      () => _showComingSoon('Agent Specializations'),
-                    ),
-                    const SizedBox(height: 16),
-                    _buildTransportOption(
-                      'Direct Chat',
-                      'Message agents instantly',
-                      Icons.chat,
-                      Colors.orange,
-                      () => _showComingSoon('Agent Chat'),
-                    ),
-                    const SizedBox(height: 16),
-                    _buildTransportOption(
-                      'Reviews & Ratings',
-                      'Check agent feedback',
-                      Icons.star_rate,
-                      Colors.purple,
-                      () => _showComingSoon('Agent Reviews'),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ],
-        ),
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => const TravelAgentScreen(),
       ),
     );
   }

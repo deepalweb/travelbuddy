@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'dart:convert';
 import '../models/place.dart';
 import '../constants/app_constants.dart';
 
@@ -26,15 +27,10 @@ class DealDetailScreen extends StatelessWidget {
           children: [
             // Deal Image
             if (deal.images.isNotEmpty)
-              Container(
+              SizedBox(
                 height: 200,
                 width: double.infinity,
-                decoration: BoxDecoration(
-                  image: DecorationImage(
-                    image: NetworkImage(deal.images.first),
-                    fit: BoxFit.cover,
-                  ),
-                ),
+                child: _buildImage(deal.images.first),
               ),
 
             Padding(
@@ -171,6 +167,37 @@ class DealDetailScreen extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildImage(String imageData) {
+    // Check if image is base64 encoded
+    if (imageData.startsWith('data:image')) {
+      try {
+        final base64String = imageData.split(',')[1];
+        final bytes = base64Decode(base64String);
+        return Image.memory(
+          bytes,
+          fit: BoxFit.cover,
+          width: double.infinity,
+        );
+      } catch (e) {
+        return Container(
+          color: Colors.grey[300],
+          child: const Icon(Icons.image, size: 50),
+        );
+      }
+    }
+    
+    // Regular URL image
+    return Image.network(
+      imageData,
+      fit: BoxFit.cover,
+      width: double.infinity,
+      errorBuilder: (context, error, stackTrace) => Container(
+        color: Colors.grey[300],
+        child: const Icon(Icons.image, size: 50),
       ),
     );
   }
