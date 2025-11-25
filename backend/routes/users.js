@@ -705,6 +705,22 @@ router.post('/trip-plans', devFriendlyAuth, async (req, res) => {
     }
 
     console.log('👤 Found user:', user._id);
+    
+    // Check for duplicate trip (same title, destination, and duration within last 5 minutes)
+    const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
+    const existingTrip = await TripPlan.findOne({
+      userId: user._id,
+      tripTitle: req.body.tripTitle,
+      destination: req.body.destination,
+      duration: req.body.duration,
+      createdAt: { $gte: fiveMinutesAgo }
+    });
+    
+    if (existingTrip) {
+      console.log('⚠️ Duplicate trip detected, returning existing trip:', existingTrip._id);
+      return res.status(200).json(existingTrip);
+    }
+    
     const tripData = { ...req.body, userId: user._id };
     console.log('📝 Trip data to save:', tripData);
     
