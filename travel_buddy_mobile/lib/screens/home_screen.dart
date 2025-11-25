@@ -107,16 +107,7 @@ class _HomeScreenState extends State<HomeScreen> {
     return 'Good Evening';
   }
 
-  List<Color> _getDynamicGradient() {
-    final hour = DateTime.now().hour;
-    if (hour >= 6 && hour < 12) {
-      return [Color(0xFFFFDEE9), Color(0xFFB5FFFC)]; // Morning
-    } else if (hour >= 12 && hour < 18) {
-      return [Color(0xFF667eea), Color(0xFF764ba2)]; // Afternoon
-    } else {
-      return [Color(0xFF141E30), Color(0xFF243B55)]; // Evening/Night
-    }
-  }
+
 
   String _getMotivationalQuote() {
     final quotes = [
@@ -603,11 +594,6 @@ class _HomeScreenState extends State<HomeScreen> {
       return Container(
         margin: const EdgeInsets.symmetric(horizontal: 4),
         decoration: BoxDecoration(
-          gradient: LinearGradient(
-            colors: _getDynamicGradient(),
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
           borderRadius: BorderRadius.circular(20),
           boxShadow: [
             BoxShadow(
@@ -617,37 +603,47 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           ],
         ),
-        child: Stack(
-          children: [
-            // Background pattern
-            Positioned(
-              top: -50,
-              right: -50,
-              child: Container(
-                width: 150,
-                height: 150,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: Colors.white.withOpacity(0.1),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(20),
+          child: Stack(
+            children: [
+              // Background image
+              Positioned.fill(
+                child: Image.network(
+                  'https://images.unsplash.com/photo-1488646953014-85cb44e25828?w=800&q=80',
+                  fit: BoxFit.cover,
+                  errorBuilder: (context, error, stackTrace) {
+                    return Container(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [Color(0xFF667eea), Color(0xFF764ba2)],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                      ),
+                    );
+                  },
                 ),
               ),
-            ),
-            Positioned(
-              bottom: -30,
-              left: -30,
-              child: Container(
-                width: 100,
-                height: 100,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: Colors.white.withOpacity(0.05),
+              // Dark overlay for text readability
+              Positioned.fill(
+                child: Container(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [
+                        Colors.black.withOpacity(0.5),
+                        Colors.black.withOpacity(0.7),
+                      ],
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                    ),
+                  ),
                 ),
               ),
-            ),
-            // Content
-            Padding(
-              padding: const EdgeInsets.all(24),
-              child: Column(
+              // Content
+              Padding(
+                padding: const EdgeInsets.all(24),
+                child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   // Header with avatar and greeting
@@ -763,8 +759,9 @@ class _HomeScreenState extends State<HomeScreen> {
 
                 ],
               ),
-            ),
-          ],
+              ),
+            ],
+          ),
         ),
       );
     } catch (e) {
@@ -2418,3 +2415,137 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 }
+
+  // AI-curated deal ranking
+  List<dynamic> _curateDeals(List<dynamic> deals, AppProvider appProvider) {
+    final userStyle = appProvider.userTravelStyle;
+    final sortedDeals = deals.toList();
+    
+    sortedDeals.sort((a, b) {
+      double aScore = _calculateDealScore(a, appProvider, userStyle);
+      double bScore = _calculateDealScore(b, appProvider, userStyle);
+      return bScore.compareTo(aScore);
+    });
+    
+    return sortedDeals;
+  }
+  
+  double _calculateDealScore(dynamic deal, AppProvider appProvider, TravelStyle? userStyle) {
+    double score = 0;
+    
+    // Discount value score
+    final discountValue = _extractDiscountValue(deal.discount);
+    score += discountValue * 2;
+    
+    // Time urgency score
+    final hoursLeft = deal.validUntil.difference(DateTime.now()).inHours;
+    if (hoursLeft < 24) score += 30; // Limited time boost
+    if (hoursLeft < 6) score += 20; // Extra urgency
+    
+    // Distance score (closer = better)
+    if (appProvider.currentLocation != null) {
+      final distance = _calculateDealDistanceKm(deal, appProvider);
+      if (distance != null && distance < 5) score += 25;
+      else if (distance != null && distance < 10) score += 15;
+    }
+    
+    // User behavior score
+    if (userStyle != null) {
+      final businessType = deal.businessType.toLowerCase();
+      if (userStyle == TravelStyle.foodie && (businessType.contains('restaurant') || businessType.contains('food'))) {
+        score += 40;
+      } else if (userStyle == TravelStyle.explorer && businessType.contains('attraction')) {
+        score += 40;
+      } else if (userStyle == TravelStyle.relaxer && businessType.contains('spa')) {
+        score += 40;
+      }
+    }
+    
+    // Popularity score
+    score += deal.claims * 0.5;
+    score += deal.views * 0.1;
+    
+    return score;
+  }
+  
+  double _extractDiscountValue(String discount) {
+    final match = RegExp(r'(\d+)').firstMatch(discount);
+    return match != null ? double.parse(match.group(1)!) : 10;
+  }
+  
+  String _getDealRank(dynamic deal, AppProvider appProvider) {
+    final score = _calculateDealScore(deal, appProvider, appProvider.userTravelStyle);
+    final hoursLeft = deal.validUntil.difference(DateTime.now()).inHours;
+    final discountValue = _extractDiscountValue(deal.discount);
+    
+    if (hoursLeft < 6) return 'Limited Time';
+    if (discountValue >= 40) return 'Best Value';
+    if (score > 80) return 'Trending';
+    if (deal.claims > 50) return 'Popular';
+    return 'Featured';
+  }
+  
+  String? _calculateDealDistance(dynamic deal, AppProvider appProvider) {
+    final distanceKm = _calculateDealDistanceKm(deal, appProvider);
+    if (distanceKm == null) return null;
+    
+    if (distanceKm < 1) {
+      return '${(distanceKm * 1000).toInt()}m away';
+    }
+    return '${distanceKm.toStringAsFixed(1)}km away';
+  }
+  
+  double? _calculateDealDistanceKm(dynamic deal, AppProvider appProvider) {
+    if (appProvider.currentLocation == null) return null;
+    
+    // Mock coordinates - replace with actual deal location from backend
+    final dealLat = 6.9271; // Colombo center
+    final dealLng = 79.8612;
+    
+    final distance = Geolocator.distanceBetween(
+      appProvider.currentLocation!.latitude,
+      appProvider.currentLocation!.longitude,
+      dealLat,
+      dealLng,
+    );
+    
+    return distance / 1000;
+  }
+  
+  Color _getRankColor(String rank) {
+    switch (rank) {
+      case 'Best Value':
+        return Colors.red;
+      case 'Limited Time':
+        return Colors.deepOrange;
+      case 'Trending':
+        return Colors.purple;
+      case 'Popular':
+        return Colors.blue;
+      default:
+        return Colors.green;
+    }
+  }
+  
+  IconData _getRankIcon(String rank) {
+    switch (rank) {
+      case 'Best Value':
+        return Icons.star;
+      case 'Limited Time':
+        return Icons.flash_on;
+      case 'Trending':
+        return Icons.trending_up;
+      case 'Popular':
+        return Icons.favorite;
+      default:
+        return Icons.local_offer;
+    }
+  }
+  
+  int _getNewDealsCount(List<dynamic> deals) {
+    final lastVisit = DateTime.now().subtract(const Duration(hours: 24));
+    return deals.where((deal) {
+      // Mock: assume deals created in last 24h are "new"
+      return deal.validUntil.isAfter(DateTime.now().add(const Duration(days: 6)));
+    }).length;
+  }
