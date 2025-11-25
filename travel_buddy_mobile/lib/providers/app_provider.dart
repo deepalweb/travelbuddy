@@ -2284,34 +2284,15 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
     notifyListeners();
 
     try {
-      // Load from backend first if user is logged in
-      if (_currentUser?.mongoId != null) {
-        final backendPlans = await TripPlansApiService.getUserTripPlans();
-        if (backendPlans.isNotEmpty) {
-          _tripPlans = backendPlans;
-          // Save to cache
-          for (final plan in backendPlans) {
-            await _storageService.saveTripPlan(plan);
-          }
-          print('☁️ Loaded ${backendPlans.length} trip plans from backend');
-        } else {
-          // Fallback to cache
-          final cachedPlans = await _storageService.getTripPlans();
-          _tripPlans = cachedPlans;
-          print('💾 Loaded ${cachedPlans.length} trip plans from cache');
-        }
-      } else {
-        // No user, load from cache only
-        final cachedPlans = await _storageService.getTripPlans();
-        _tripPlans = cachedPlans;
-        print('💾 Loaded ${cachedPlans.length} trip plans from cache');
-      }
-      
-      final cachedItineraries = await _storageService.getItineraries();
-      _itineraries = cachedItineraries ?? [];
-      print('💾 Loaded ${_itineraries.length} itineraries');
+      // Always load from backend only
+      final backendPlans = await TripPlansApiService.getUserTripPlans();
+      _tripPlans = backendPlans;
+      _itineraries = [];
+      print('☁️ Loaded ${backendPlans.length} trip plans from backend');
     } catch (e) {
       print('❌ Error loading trip plans: $e');
+      _tripPlans = [];
+      _itineraries = [];
     } finally {
       _isTripsLoading = false;
       notifyListeners();
@@ -3103,57 +3084,10 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
   }
 
   Future<void> _loadCachedData() async {
-    try {
-      print('🔍 STEP 1: Loading cached data from storage...');
-      
-      // Force load trip plans and itineraries from storage
-      final cachedPlans = await _storageService.getTripPlans();
-      final cachedItineraries = await _storageService.getItineraries();
-      
-      _tripPlans = cachedPlans;
-      _itineraries = cachedItineraries ?? [];
-      
-      print('📱 STEP 2: Loaded ${_tripPlans.length} trip plans and ${_itineraries.length} itineraries');
-      print('🔍 DEBUG: Trip plans: ${_tripPlans.map((t) => t.tripTitle).join(", ")}');
-      print('🔍 DEBUG: Itineraries: ${_itineraries.map((i) => i.title).join(", ")}');
-      
-      // Debug visit status in detail
-      int totalActivities = 0;
-      int visitedActivities = 0;
-      
-      for (final itinerary in _itineraries) {
-        print('📝 Checking itinerary: ${itinerary.title}');
-        for (final activity in itinerary.dailyPlan) {
-          totalActivities++;
-          print('   Activity: ${activity.activityTitle} - isVisited: ${activity.isVisited}');
-          if (activity.isVisited) {
-            visitedActivities++;
-            print('✅ FOUND visited activity: ${activity.activityTitle}');
-          }
-        }
-      }
-      
-      for (final tripPlan in _tripPlans) {
-        print('🗺 Checking trip plan: ${tripPlan.tripTitle}');
-        for (final day in tripPlan.dailyPlans) {
-          for (final activity in day.activities) {
-            totalActivities++;
-            print('   Activity: ${activity.activityTitle} - isVisited: ${activity.isVisited}');
-            if (activity.isVisited) {
-              visitedActivities++;
-              print('✅ FOUND visited activity: ${activity.activityTitle}');
-            }
-          }
-        }
-      }
-      
-      print('📊 STEP 3: Total activities: $totalActivities, Visited: $visitedActivities');
-      
-    } catch (e) {
-      print('❌ Error loading cached data: $e');
-      _tripPlans = [];
-      _itineraries = [];
-    }
+    // Skip loading cached trip plans - will load from backend only
+    _tripPlans = [];
+    _itineraries = [];
+    print('⚠️ Skipping cache - trip plans will load from backend only');
     notifyListeners();
   }
 

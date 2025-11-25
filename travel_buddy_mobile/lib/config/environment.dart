@@ -3,7 +3,7 @@ class Environment {
   static const String backendUrl = 'https://travelbuddy-b2c6hgbbgeh4esdh.eastus2-01.azurewebsites.net';
   static const String baseUrl = backendUrl; // Add baseUrl alias
   static const bool isProduction = true; // Production mode
-  static const bool enableDebugLogging = false; // Disable debug logging in production
+  static const bool enableDebugLogging = true; // Enable debug logging to check API
   
   // PayPal configuration (sandbox values)
   static const String paypalClientId = 'YOUR_SANDBOX_CLIENT_ID';

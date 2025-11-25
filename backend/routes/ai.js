@@ -33,13 +33,11 @@ router.post('/generate-trip-plan', async (req, res) => {
       return res.status(400).json({ error: 'Destination and duration are required' });
     }
 
-    const prompt = `Create a detailed trip plan for ${destination} (${duration}) with rich local insights.
-
-User preferences:
-- Interests: ${interests || 'general sightseeing'}
-- Pace: ${pace || 'Moderate'}
-- Travel styles: ${Array.isArray(travelStyles) ? travelStyles.join(', ') : 'Cultural'}
-- Budget: ${budget || 'Mid-Range'}
+    const interestsPrompt = interests 
+      ? `\nUser preferences:\n- Interests: ${interests}\n- Pace: ${pace || 'Moderate'}\n- Travel styles: ${Array.isArray(travelStyles) ? travelStyles.join(', ') : 'Cultural'}\n- Budget: ${budget || 'Mid-Range'}\n\nCreate a plan that focuses on these interests.`
+      : `\nUser preferences:\n- Pace: ${pace || 'Moderate'}\n- Budget: ${budget || 'Mid-Range'}\n\nNo specific interests provided - use your expertise to create the BEST possible itinerary showcasing the top highlights, hidden gems, and must-see experiences of ${destination}. Include a diverse mix of activities that would appeal to most travelers.`;
+    
+    const prompt = `Create a detailed trip plan for ${destination} (${duration}) with rich local insights.${interestsPrompt}
 
 Return JSON with this structure:
 {

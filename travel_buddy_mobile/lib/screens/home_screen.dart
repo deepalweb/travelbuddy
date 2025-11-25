@@ -17,6 +17,7 @@ import '../screens/deal_detail_screen.dart';
 import '../screens/trip_plan_detail_screen.dart';
 import '../screens/transport_screen.dart';
 import '../screens/travel_agent_screen.dart';
+import '../screens/events_screen.dart';
 
 
 class HomeScreen extends StatefulWidget {
@@ -825,52 +826,45 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _buildQuickActions(AppProvider appProvider) {
     final actions = [
       {
-        'label': 'Weather',
-        'icon': _getWeatherIcon(appProvider.weatherInfo?.condition ?? 'sunny'),
-        'activeIcon': _getWeatherIcon(appProvider.weatherInfo?.condition ?? 'sunny'),
-        'color': const Color(0xFF2196F3),
-        'gradient': [const Color(0xFF2196F3), const Color(0xFF1976D2)],
+        'label': 'Live Weather',
+        'icon': Icons.cloud,
+        'color': const Color(0xFF0A84FF),
+        'gradient': [const Color(0xFF0A84FF), const Color(0xFF0066CC)],
         'action': 'weather',
-        'subtitle': '${appProvider.weatherInfo?.temperature.round() ?? 28}° • ${_getWeatherTip(appProvider.weatherInfo?.temperature.round() ?? 28, appProvider.weatherInfo?.condition ?? 'sunny')}',
       },
       {
         'label': 'Safety Hub',
-        'icon': Icons.security_outlined,
-        'activeIcon': Icons.security,
-        'color': const Color(0xFFF44336),
-        'gradient': [const Color(0xFFF44336), const Color(0xFFD32F2F)],
+        'icon': Icons.emergency_share,
+        'color': const Color(0xFFFF3B30),
+        'gradient': [const Color(0xFFFF3B30), const Color(0xFFD70015)],
         'action': 'safety',
       },
       {
-        'label': 'Translator',
-        'icon': Icons.translate_outlined,
-        'activeIcon': Icons.translate,
-        'color': const Color(0xFF4CAF50),
-        'gradient': [const Color(0xFF4CAF50), const Color(0xFF45A049)],
+        'label': 'Language Assistant',
+        'icon': Icons.translate,
+        'color': const Color(0xFF30B0C7),
+        'gradient': [const Color(0xFF30B0C7), const Color(0xFF2596A8)],
         'action': 'translator',
       },
       {
-        'label': 'Transport',
-        'icon': Icons.directions_car_outlined,
-        'activeIcon': Icons.directions_car,
-        'color': const Color(0xFF9C27B0),
-        'gradient': [const Color(0xFF9C27B0), const Color(0xFF7B1FA2)],
+        'label': 'Transport Hub',
+        'icon': Icons.airport_shuttle,
+        'color': const Color(0xFF8E44AD),
+        'gradient': [const Color(0xFF8E44AD), const Color(0xFF6C3483)],
         'action': 'transport',
       },
       {
-        'label': 'Travel Agent',
-        'icon': Icons.support_agent_outlined,
-        'activeIcon': Icons.support_agent,
-        'color': const Color(0xFFFF9800),
-        'gradient': [const Color(0xFFFF9800), const Color(0xFFF57C00)],
+        'label': 'Travel Assistance',
+        'icon': Icons.support_agent,
+        'color': const Color(0xFFFFB300),
+        'gradient': [const Color(0xFFFFB300), const Color(0xFFFF8F00)],
         'action': 'travel_agent',
       },
       {
-        'label': 'Events',
-        'icon': Icons.event_outlined,
-        'activeIcon': Icons.event,
-        'color': const Color(0xFFE91E63),
-        'gradient': [const Color(0xFFE91E63), const Color(0xFFC2185B)],
+        'label': 'Events & Festivals',
+        'icon': Icons.celebration,
+        'color': const Color(0xFFBF5AF2),
+        'gradient': [const Color(0xFFBF5AF2), const Color(0xFF9D3FD1)],
         'action': 'events',
       },
     ];
@@ -913,70 +907,48 @@ class _HomeScreenState extends State<HomeScreen> {
           itemBuilder: (context, index) {
             final action = actions[index];
             
-            return Card(
-              elevation: 2,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: InkWell(
-                onTap: () => _handleQuickAction(action['label'] as String, appProvider),
-                borderRadius: BorderRadius.circular(16),
-                child: Padding(
-                  padding: const EdgeInsets.all(12),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            colors: action['gradient'] as List<Color>,
-                          ),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Icon(
-                          action['activeIcon'] as IconData,
-                          color: Colors.white,
-                          size: 24,
-                        ),
+            return GestureDetector(
+              onTap: () => _handleQuickAction(action['label'] as String, appProvider),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Container(
+                    width: 60,
+                    height: 60,
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: action['gradient'] as List<Color>,
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
                       ),
-                      const SizedBox(height: 8),
-                      Expanded(
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text(
-                              action['label'] as String,
-                              style: const TextStyle(
-                                fontWeight: FontWeight.w600,
-                                fontSize: 10,
-                                color: Colors.black87,
-                              ),
-                              textAlign: TextAlign.center,
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                            if (action['subtitle'] != null)
-                              Column(
-                                children: [
-                                  const SizedBox(height: 2),
-                                  Text(
-                                    action['subtitle'] as String,
-                                    style: TextStyle(
-                                      fontSize: 8,
-                                      color: Colors.grey[600],
-                                      fontWeight: FontWeight.w500,
-                                    ),
-                                    textAlign: TextAlign.center,
-                                  ),
-                                ],
-                              ),
-                          ],
+                      borderRadius: BorderRadius.circular(16),
+                      boxShadow: [
+                        BoxShadow(
+                          color: (action['color'] as Color).withOpacity(0.3),
+                          blurRadius: 8,
+                          offset: const Offset(0, 4),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
+                    child: Icon(
+                      action['icon'] as IconData,
+                      color: Colors.white,
+                      size: 28,
+                    ),
                   ),
-                ),
+                  const SizedBox(height: 8),
+                  Text(
+                    action['label'] as String,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w600,
+                      fontSize: 12,
+                      color: Colors.black87,
+                    ),
+                    textAlign: TextAlign.center,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
               ),
             );
           },
@@ -1843,7 +1815,12 @@ class _HomeScreenState extends State<HomeScreen> {
         break;
       case 'Events':
       case 'events':
-        _showComingSoon('Events');
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => const EventsScreen(),
+          ),
+        );
         break;
       default:
         appProvider.setCurrentTabIndex(1);

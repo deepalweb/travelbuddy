@@ -10,180 +10,39 @@ class TransportService {
   static const String _bookingsEndpoint = '/api/bookings';
   static const String _providersEndpoint = '/api/transport-providers';
   
-  // Mock data for offline fallback
-  static final List<TransportServiceModel> _mockServices = [
-    TransportServiceModel(
-      id: '1',
-      providerId: 'tp1',
-      companyName: 'Lanka Express Transport',
-      vehicleType: 'Bus',
-      route: 'Colombo - Kandy',
-      fromLocation: 'Colombo',
-      toLocation: 'Kandy',
-      price: 500,
-      duration: '3 hours',
-      departure: '08:00 AM',
-      arrival: '11:00 AM',
-      availableSeats: 25,
-      totalSeats: 45,
-      amenities: ['AC', 'WiFi', 'Charging Ports', 'Refreshments'],
-      rating: 4.5,
-      reviewCount: 89,
-      image: 'https://images.unsplash.com/photo-1544620347-c4fd4a3d5957?w=400&h=250&fit=crop',
-      description: 'Comfortable air-conditioned bus service with modern amenities',
-      phone: '+94 11 234 5678',
-      email: 'info@lankaexpress.lk',
-      isVerified: true,
-      isLive: true,
-      aiRecommended: true,
-      popularRoute: true,
-      instantBooking: true,
-      refundable: true,
-      ecoFriendly: false,
-      driverLanguages: ['English', 'Sinhala'],
-      insuranceIncluded: true,
-      lastUpdated: '2 minutes ago',
-    ),
-    TransportServiceModel(
-      id: '2',
-      providerId: 'tp2',
-      companyName: 'Island Taxi Service',
-      vehicleType: 'Car',
-      route: 'Airport - Colombo City',
-      fromLocation: 'Bandaranaike Airport',
-      toLocation: 'Colombo City',
-      price: 2500,
-      duration: '45 minutes',
-      departure: 'On Demand',
-      arrival: 'On Demand',
-      availableSeats: 3,
-      totalSeats: 4,
-      amenities: ['AC', 'English Speaking Driver', 'Child Seats Available'],
-      rating: 4.8,
-      reviewCount: 156,
-      image: 'https://images.unsplash.com/photo-1449824913935-59a10b8d2000?w=400&h=250&fit=crop',
-      description: 'Professional airport transfer service with experienced drivers',
-      phone: '+94 77 987 6543',
-      email: 'bookings@islandtaxi.lk',
-      isVerified: true,
-      isLive: false,
-      aiRecommended: false,
-      popularRoute: false,
-      instantBooking: true,
-      refundable: false,
-      ecoFriendly: true,
-      driverLanguages: ['English', 'Sinhala', 'Tamil'],
-      insuranceIncluded: true,
-      lastUpdated: '5 minutes ago',
-    ),
-    TransportServiceModel(
-      id: '3',
-      providerId: 'tp3',
-      companyName: 'Coastal Ferry Services',
-      vehicleType: 'Ferry',
-      route: 'Colombo - Galle',
-      fromLocation: 'Colombo Port',
-      toLocation: 'Galle Harbor',
-      price: 1200,
-      duration: '2.5 hours',
-      departure: '09:30 AM',
-      arrival: '12:00 PM',
-      availableSeats: 80,
-      totalSeats: 120,
-      amenities: ['Sea Views', 'Onboard Cafe', 'Deck Access', 'Life Jackets'],
-      rating: 4.3,
-      reviewCount: 67,
-      image: 'https://images.unsplash.com/photo-1578662996442-48f60103fc96?w=400&h=250&fit=crop',
-      description: 'Scenic coastal ferry with beautiful ocean views',
-      phone: '+94 91 456 7890',
-      email: 'ferry@coastal.lk',
-      isVerified: false,
-      isLive: true,
-      aiRecommended: false,
-      popularRoute: true,
-      instantBooking: false,
-      refundable: true,
-      ecoFriendly: true,
-      driverLanguages: ['English', 'Sinhala'],
-      insuranceIncluded: false,
-      lastUpdated: '1 hour ago',
-    ),
-  ];
-
   /// Fetch all transport services with real-time status
   static Future<List<TransportServiceModel>> getTransportServices() async {
     try {
-      DebugLogger.info('🚌 Fetching transport services with real-time status...');
+      DebugLogger.info('🚌 Fetching transport services from API...');
       
       final response = await http.get(
         Uri.parse('${Environment.backendUrl}$_endpoint'),
         headers: {
           'Content-Type': 'application/json',
           'Accept': 'application/json',
-          'X-Request-Time': DateTime.now().toIso8601String(),
         },
       ).timeout(const Duration(seconds: 15));
 
       if (response.statusCode == 200) {
-        final Map<String, dynamic> responseData = json.decode(response.body);
-        final List<dynamic> data = responseData['services'] ?? responseData;
+        final dynamic responseData = json.decode(response.body);
+        final List<dynamic> data = responseData is List ? responseData : (responseData['services'] ?? []);
+        
         final services = data.map((json) => TransportServiceModel.fromJson(json)).toList();
-        
-        // Update real-time status for each service
-        for (var service in services) {
-          await _updateServiceStatus(service);
-        }
-        
-        DebugLogger.info('✅ Fetched ${services.length} transport services with live status');
-        return services.isNotEmpty ? services : _getEnhancedMockServices();
+        DebugLogger.info('✅ Fetched ${services.length} REAL transport services from API');
+        return services;
       } else {
-        DebugLogger.info('⚠️ API returned ${response.statusCode}, using enhanced mock data');
-        return _getEnhancedMockServices();
+        DebugLogger.info('⚠️ API returned ${response.statusCode}');
+        return [];
       }
     } catch (e) {
       DebugLogger.error('❌ Failed to fetch transport services: $e');
-      DebugLogger.info('📱 Using enhanced offline mock data with simulated status');
-      return _getEnhancedMockServices();
+      return [];
     }
   }
 
-  /// Update service status in real-time
-  static Future<void> _updateServiceStatus(TransportServiceModel service) async {
-    try {
-      final statusResponse = await http.get(
-        Uri.parse('${Environment.backendUrl}/api/transport-providers/services/${service.id}/status'),
-        headers: {'Content-Type': 'application/json'},
-      ).timeout(const Duration(seconds: 3));
 
-      if (statusResponse.statusCode == 200) {
-        final statusData = json.decode(statusResponse.body);
-        // Status data would be used to update the service object
-        // This is a placeholder for real-time status updates
-        DebugLogger.info('📊 Updated status for service ${service.id}');
-      }
-    } catch (e) {
-      DebugLogger.info('⚠️ Failed to update status for service ${service.id}: $e');
-    }
-  }
 
-  /// Get enhanced mock services with simulated real-time data
-  static List<TransportServiceModel> _getEnhancedMockServices() {
-    final now = DateTime.now();
-    final random = now.millisecond % 10;
-    
-    return _mockServices.map((service) {
-      // Simulate real-time updates
-      final isLive = random > 2; // 70% chance of being live
-      final availableSeats = service.totalSeats - (random % (service.totalSeats ~/ 2));
-      final lastUpdated = '${random + 1} minutes ago';
-      
-      return service.copyWith(
-        isLive: isLive,
-        availableSeats: availableSeats > 0 ? availableSeats : 0,
-        lastUpdated: lastUpdated,
-      );
-    }).toList();
-  }
+
 
   /// Search transport services with filters
   static Future<List<TransportServiceModel>> searchServices({
@@ -390,13 +249,13 @@ class TransportService {
 
       if (response.statusCode == 200) {
         final List<dynamic> data = json.decode(response.body);
+        DebugLogger.info('✅ Fetched ${data.length} popular routes from API');
         return data.cast<Map<String, dynamic>>();
       }
     } catch (e) {
       DebugLogger.error('❌ Failed to fetch popular routes: $e');
     }
     
-    // Fallback to static data
     return [
       {'from': 'Colombo', 'to': 'Kandy', 'icon': '🏛️', 'bookings': 245, 'avgPrice': 650},
       {'from': 'Colombo', 'to': 'Galle', 'icon': '🏖️', 'bookings': 189, 'avgPrice': 1100},
@@ -619,9 +478,9 @@ class TransportService {
     // Fallback status
     return {
       'status': 'operational',
-      'totalServices': _mockServices.length,
-      'liveServices': _mockServices.where((s) => s.isLive).length,
-      'verifiedProviders': _mockServices.where((s) => s.isVerified).length,
+      'totalServices': 0,
+      'liveServices': 0,
+      'verifiedProviders': 0,
       'lastUpdate': DateTime.now().toIso8601String(),
       'apiHealth': 'healthy',
       'responseTime': '150ms',

@@ -3,6 +3,7 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 import '../services/azure_openai_service.dart';
 import '../services/image_service.dart';
+import '../config/environment.dart';
 
 class PlaceDetailScreen extends StatefulWidget {
   final String placeName;
@@ -52,8 +53,8 @@ class _PlaceDetailScreenState extends State<PlaceDetailScreen> {
     
     try {
       final response = await http.get(
-        Uri.parse('http://localhost:3001/api/places/details?place_id=${widget.googlePlaceId}'),
-      );
+        Uri.parse('${Environment.backendUrl}/api/places/details?place_id=${widget.googlePlaceId}'),
+      ).timeout(const Duration(seconds: 10));
       
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
@@ -65,8 +66,8 @@ class _PlaceDetailScreenState extends State<PlaceDetailScreen> {
         // Load Google Places photos if available
         if (data['photos'] != null) {
           final googlePhotos = (data['photos'] as List)
-              .take(2)
-              .map((photo) => 'http://localhost:3001/api/places/photo?ref=${photo['photo_reference']}&w=800')
+              .take(5)
+              .map((photo) => '${Environment.backendUrl}/api/places/photo?ref=${photo['photo_reference']}&w=800')
               .toList();
           setState(() {
             _images.insertAll(0, googlePhotos);
@@ -74,6 +75,7 @@ class _PlaceDetailScreenState extends State<PlaceDetailScreen> {
         }
       }
     } catch (e) {
+      print('❌ Place details error: $e');
       setState(() => _isLoadingPlace = false);
     }
   }
@@ -111,13 +113,19 @@ Make it engaging and informative like a travel guide.''';
   }
 
   Future<void> _loadImages() async {
+    // Skip if we already have Google Places photos
+    if (_images.isNotEmpty) {
+      setState(() => _isLoadingImages = false);
+      return;
+    }
+    
     setState(() => _isLoadingImages = true);
     
     try {
-      // Try backend image search first
+      // Try backend image search
       final response = await http.get(
-        Uri.parse('http://localhost:3001/api/places/images?place=${Uri.encodeComponent(widget.placeName)}'),
-      );
+        Uri.parse('${Environment.backendUrl}/api/places/images?place=${Uri.encodeComponent(widget.placeName)}'),
+      ).timeout(const Duration(seconds: 10));
       
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
@@ -142,6 +150,7 @@ Make it engaging and informative like a travel guide.''';
         _isLoadingImages = false;
       });
     } catch (e) {
+      print('❌ Image loading error: $e');
       // Use basic fallback if everything fails
       final basicImages = ImageService.getFallbackImages(widget.placeName);
       setState(() {

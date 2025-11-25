@@ -131,13 +131,22 @@ class _TripPlanDetailScreenState extends State<TripPlanDetailScreen> {
       // Refresh the trip plan data
       _refreshTripPlan();
       
+      // Calculate new completion percentage
+      final allActivitiesCount = _currentTripPlan!.dailyPlans
+          .fold<int>(0, (sum, day) => sum + day.activities.length);
+      final newVisitedCount = _currentTripPlan!.dailyPlans
+          .fold<int>(0, (sum, day) => sum + day.activities.where((a) => a.isVisited).length);
+      final completionPercent = ((newVisitedCount / allActivitiesCount) * 100).toInt();
+      
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            newStatus ? '✅ Marked as visited & saved' : '⏳ Marked as pending & saved',
+            newStatus 
+                ? '✅ Marked as visited! Progress: $completionPercent%' 
+                : '⏳ Marked as pending',
           ),
           backgroundColor: newStatus ? Colors.green : Colors.blue,
-          duration: const Duration(seconds: 1),
+          duration: const Duration(seconds: 2),
         ),
       );
     } else {
@@ -199,31 +208,76 @@ class _TripPlanDetailScreenState extends State<TripPlanDetailScreen> {
     }
     
     // Calculate total and pending time
-    int totalHours = 0;
-    int pendingHours = 0;
+    int totalMinutes = 0;
+    int pendingMinutes = 0;
     
     for (final activity in allActivities) {
-      final duration = activity.duration;
-      int hours = 0;
-      if (duration.contains('hr')) {
-        final match = RegExp(r'(\d+)').firstMatch(duration);
-        if (match != null) {
-          hours = int.parse(match.group(1)!);
-        }
+      int minutes = 0;
+      
+      // Try estimatedVisitDurationMin first (most accurate)
+      if (activity.estimatedVisitDurationMin > 0) {
+        minutes = activity.estimatedVisitDurationMin;
       } else {
-        hours = 2; // Default 2 hours per activity
+        // Parse duration string - handles "2hr", "2h", "90min", "1.5h", "2-3h"
+        final duration = activity.duration.toLowerCase();
+        if (duration.contains('hr') || duration.contains('h')) {
+          final match = RegExp(r'(\d+\.?\d*)').firstMatch(duration);
+          if (match != null) {
+            minutes = (double.parse(match.group(1)!) * 60).toInt();
+          }
+        } else if (duration.contains('min')) {
+          final match = RegExp(r'(\d+)').firstMatch(duration);
+          if (match != null) {
+            minutes = int.parse(match.group(1)!);
+          }
+        }
+        
+        // Default to 60 minutes if no valid duration found
+        if (minutes == 0) {
+          minutes = 60;
+        }
       }
       
-      totalHours += hours;
+      totalMinutes += minutes;
       
       if (!activity.isVisited) {
-        pendingHours += hours;
+        pendingMinutes += minutes;
       }
     }
     
-    // Calculate total and pending distance (estimate)
-    final totalKm = totalPlaces * 2; // 2km average per place
-    final pendingKm = pendingCount * 2;
+    final totalHours = (totalMinutes / 60).ceil();
+    final pendingHours = (pendingMinutes / 60).ceil();
+    
+    // Calculate total and pending distance (use real data if available)
+    double totalKm = 0;
+    double pendingKm = 0;
+    
+    for (final activity in allActivities) {
+      // Try to parse estimatedDuration or use travelTimeMin
+      double km = 0;
+      
+      if (activity.estimatedDuration != null && activity.estimatedDuration!.contains('km')) {
+        final match = RegExp(r'(\d+\.?\d*)').firstMatch(activity.estimatedDuration!);
+        if (match != null) {
+          km = double.parse(match.group(1)!);
+        }
+      } else if (activity.travelTimeMin > 0) {
+        // Estimate: walking speed ~5km/h, so km = (minutes / 60) * 5
+        km = (activity.travelTimeMin / 60) * 5;
+      } else {
+        // Fallback: 1km average per place
+        km = 1.0;
+      }
+      
+      totalKm += km;
+      
+      if (!activity.isVisited) {
+        pendingKm += km;
+      }
+    }
+    
+    final totalKmStr = totalKm > 0 ? '${totalKm.toStringAsFixed(1)}km' : '${totalPlaces}km';
+    final pendingKmStr = pendingKm > 0 ? '${pendingKm.toStringAsFixed(1)}km' : '${pendingCount}km';
     
     return Card(
       color: Colors.grey[50],
@@ -243,7 +297,40 @@ class _TripPlanDetailScreenState extends State<TripPlanDetailScreen> {
                     fontWeight: FontWeight.bold,
                   ),
                 ),
+                const Spacer(),
+                Text(
+                  '${((visitedCount / totalPlaces) * 100).toInt()}%',
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                    color: visitedCount == totalPlaces ? Colors.green : Colors.purple,
+                  ),
+                ),
               ],
+            ),
+            const SizedBox(height: 12),
+            // Progress Bar
+            ClipRRect(
+              borderRadius: BorderRadius.circular(8),
+              child: LinearProgressIndicator(
+                value: totalPlaces > 0 ? visitedCount / totalPlaces : 0,
+                minHeight: 8,
+                backgroundColor: Colors.grey[200],
+                valueColor: AlwaysStoppedAnimation<Color>(
+                  visitedCount == totalPlaces ? Colors.green : Colors.purple,
+                ),
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              visitedCount == totalPlaces 
+                  ? '🎉 Trip Complete! Amazing journey!' 
+                  : '$visitedCount of $totalPlaces places visited',
+              style: TextStyle(
+                fontSize: 12,
+                color: visitedCount == totalPlaces ? Colors.green : Colors.grey[600],
+                fontWeight: visitedCount == totalPlaces ? FontWeight.bold : FontWeight.normal,
+              ),
             ),
             const SizedBox(height: 16),
             Row(
@@ -279,7 +366,7 @@ class _TripPlanDetailScreenState extends State<TripPlanDetailScreen> {
               children: [
                 Expanded(
                   child: _buildStatItem(
-                    '${totalKm}km / ${pendingKm}km',
+                    '$totalKmStr / $pendingKmStr',
                     'Total / Pending KM',
                     Icons.directions_walk,
                     Colors.indigo,
@@ -424,46 +511,86 @@ class _TripPlanDetailScreenState extends State<TripPlanDetailScreen> {
             _buildEnhancedIntroduction(),
             const SizedBox(height: 16),
             
-            // Totals Summary
+            // Trip Summary Card
             Card(
-              color: Colors.blue[50],
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'Trip Summary',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
+              elevation: 2,
+              child: Container(
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(12),
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [Colors.blue[50]!, Colors.cyan[50]!],
+                  ),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: const Icon(Icons.assessment, color: Colors.blue, size: 20),
+                          ),
+                          const SizedBox(width: 12),
+                          const Text(
+                            'Trip Summary',
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
                       ),
-                    ),
-                    const SizedBox(height: 12),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceAround,
-                      children: [
-                        _buildSummaryItem(
-                          Icons.directions_walk,
-                          _calculateTotalDistance(),
-                          'Distance',
-                          Colors.blue,
+                      const SizedBox(height: 16),
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(8),
                         ),
-                        _buildSummaryItem(
-                          Icons.schedule,
-                          _calculateTotalTime(),
-                          'Time',
-                          Colors.orange,
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceAround,
+                          children: [
+                            _buildSummaryItem(
+                              Icons.directions_walk,
+                              _calculateTotalDistance(),
+                              'Walking',
+                              Colors.blue,
+                            ),
+                            Container(
+                              width: 1,
+                              height: 50,
+                              color: Colors.grey[300],
+                            ),
+                            _buildSummaryItem(
+                              Icons.schedule,
+                              _calculateTotalTime(),
+                              'Duration',
+                              Colors.orange,
+                            ),
+                            Container(
+                              width: 1,
+                              height: 50,
+                              color: Colors.grey[300],
+                            ),
+                            _buildSummaryItem(
+                              Icons.payments,
+                              _calculateTotalCost(),
+                              'Budget',
+                              Colors.green,
+                            ),
+                          ],
                         ),
-                        _buildSummaryItem(
-                          Icons.euro,
-                          _calculateTotalCost(),
-                          'Cost',
-                          Colors.green,
-                        ),
-                      ],
-                    ),
-                  ],
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -689,18 +816,6 @@ class _TripPlanDetailScreenState extends State<TripPlanDetailScreen> {
               tooltip: 'Place details',
             ),
             const SizedBox(width: 4),
-            // Activity Details Arrow Button
-            IconButton(
-              onPressed: () => _showActivityDetails(activity),
-              icon: const Icon(Icons.arrow_forward_ios, size: 16),
-              style: IconButton.styleFrom(
-                backgroundColor: Colors.blue[50],
-                foregroundColor: Colors.blue,
-                padding: const EdgeInsets.all(8),
-              ),
-              tooltip: 'Activity details',
-            ),
-            const SizedBox(width: 4),
             // Remove Button
             IconButton(
               onPressed: () => _confirmRemoveActivity(activity),
@@ -744,42 +859,128 @@ class _TripPlanDetailScreenState extends State<TripPlanDetailScreen> {
 
   Widget _buildEnhancedIntroduction() {
     return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                const Icon(Icons.auto_stories, color: Colors.blue),
-                const SizedBox(width: 8),
-                const Text(
-                  'Trip Overview',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
+      elevation: 2,
+      child: Container(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(12),
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [Colors.blue[50]!, Colors.purple[50]!],
+          ),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Icon(Icons.auto_awesome, color: Colors.purple, size: 20),
                   ),
-                ),
-                const Spacer(),
-                if (_isLoadingIntroduction)
-                  const SizedBox(
-                    width: 16,
-                    height: 16,
-                    child: CircularProgressIndicator(strokeWidth: 2),
+                  const SizedBox(width: 12),
+                  const Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'AI Trip Overview',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      Text(
+                        'Powered by Azure OpenAI',
+                        style: TextStyle(
+                          fontSize: 10,
+                          color: Colors.purple,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
                   ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            if (_enhancedIntroduction != null)
-              _buildFormattedText(_enhancedIntroduction!)
-            else if (!_isLoadingIntroduction && widget.tripPlan.introduction.isNotEmpty)
-              Text(widget.tripPlan.introduction)
-            else if (!_isLoadingIntroduction)
-              Text(
-                'Discover ${widget.tripPlan.destination} with this carefully crafted ${widget.tripPlan.duration} itinerary.',
-                style: const TextStyle(fontStyle: FontStyle.italic),
+                  const Spacer(),
+                  if (_isLoadingIntroduction)
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          SizedBox(
+                            width: 14,
+                            height: 14,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              valueColor: AlwaysStoppedAnimation<Color>(Colors.purple),
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          const Text(
+                            'Generating...',
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: Colors.purple,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                ],
               ),
-          ],
+              const SizedBox(height: 16),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: _isLoadingIntroduction
+                    ? Column(
+                        children: [
+                          const SizedBox(height: 8),
+                          Icon(Icons.psychology, size: 48, color: Colors.purple[200]),
+                          const SizedBox(height: 12),
+                          Text(
+                            'AI is crafting your personalized trip overview...',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: Colors.grey[600],
+                              fontStyle: FontStyle.italic,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                        ],
+                      )
+                    : _enhancedIntroduction != null
+                        ? _buildFormattedText(_enhancedIntroduction!)
+                        : widget.tripPlan.introduction.isNotEmpty
+                            ? Text(
+                                widget.tripPlan.introduction,
+                                style: const TextStyle(fontSize: 14, height: 1.5),
+                              )
+                            : Text(
+                                'Discover ${widget.tripPlan.destination} with this carefully crafted ${widget.tripPlan.duration} itinerary.',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  fontStyle: FontStyle.italic,
+                                  color: Colors.grey[700],
+                                ),
+                              ),
+              ),
+            ],
+          ),
         ),
       ),
     );

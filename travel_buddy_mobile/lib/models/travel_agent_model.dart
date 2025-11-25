@@ -42,22 +42,28 @@ class TravelAgentModel {
   });
 
   factory TravelAgentModel.fromJson(Map<String, dynamic> json) {
+    // Handle photo URL - use placeholder if invalid
+    String photoUrl = json['photo']?.toString() ?? json['profilePhoto']?.toString() ?? '';
+    if (photoUrl.isEmpty || !photoUrl.startsWith('http')) {
+      photoUrl = 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=150&fit=crop&crop=face';
+    }
+    
     return TravelAgentModel(
       id: json['_id']?.toString() ?? json['id']?.toString() ?? '',
       name: json['name']?.toString() ?? json['ownerName']?.toString() ?? '',
       agency: json['agency']?.toString() ?? json['agencyName']?.toString() ?? '',
-      photo: json['photo']?.toString() ?? json['profilePhoto']?.toString() ?? 'https://via.placeholder.com/150',
+      photo: photoUrl,
       location: json['location']?.toString() ?? json['address']?.toString() ?? '',
       specializations: List<String>.from(json['specializations'] ?? json['specialties'] ?? []),
       rating: (json['rating'] ?? 4.5).toDouble(),
       reviewCount: json['reviewCount'] ?? 0,
       languages: List<String>.from(json['languages'] ?? []),
       verified: json['verified'] ?? true,
-      experience: json['experience'] ?? json['experienceYears'] != null ? int.tryParse(json['experienceYears'].toString()) ?? 0 : 0,
+      experience: json['experience'] ?? (json['experienceYears'] != null ? int.tryParse(json['experienceYears'].toString()) ?? 0 : 0),
       description: json['description']?.toString() ?? json['about']?.toString() ?? '',
       phone: json['phone']?.toString() ?? '',
       email: json['email']?.toString() ?? '',
-      priceRange: json['priceRange']?.toString() ?? '\$50-150/day',
+      priceRange: json['priceRange']?.toString() ?? 'LKR 5,000 - 15,000',
       responseTime: json['responseTime']?.toString() ?? '< 2 hours',
       totalTrips: json['totalTrips'] ?? 0,
       trustBadges: List<String>.from(json['trustBadges'] ?? []),
