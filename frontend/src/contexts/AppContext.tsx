@@ -18,6 +18,8 @@ interface AppContextType {
   setCurrentPage: (page: string) => void
   addNotification: () => void
   clearNotifications: () => void
+  toggleActivityStatus: (tripId: string, dayIndex: number, activityIndex: number) => void
+  getActivityStatus: (tripId: string, dayIndex: number, activityIndex: number) => boolean
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined)
@@ -48,6 +50,17 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const addNotification = () => setNotifications(prev => prev + 1)
   const clearNotifications = () => setNotifications(0)
 
+  const toggleActivityStatus = (tripId: string, dayIndex: number, activityIndex: number) => {
+    const key = `activity-${tripId}-${dayIndex}-${activityIndex}`
+    const current = localStorage.getItem(key) === 'true'
+    localStorage.setItem(key, (!current).toString())
+  }
+
+  const getActivityStatus = (tripId: string, dayIndex: number, activityIndex: number): boolean => {
+    const key = `activity-${tripId}-${dayIndex}-${activityIndex}`
+    return localStorage.getItem(key) === 'true'
+  }
+
   return (
     <AppContext.Provider value={{
       user,
@@ -55,7 +68,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       currentPage,
       setCurrentPage,
       addNotification,
-      clearNotifications
+      clearNotifications,
+      toggleActivityStatus,
+      getActivityStatus
     }}>
       {children}
     </AppContext.Provider>

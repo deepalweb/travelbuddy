@@ -5,6 +5,7 @@ import { Button } from '../components/Button'
 import { MapPin, Clock, Euro, CheckCircle, Circle, Star, Navigation, Save, Calendar, Users, DollarSign, ArrowLeft, Download, Share2, Filter, RotateCcw, List, Map, FileText, BarChart3, Cloud, Edit3, Car } from 'lucide-react'
 import { tripService } from '../services/tripService'
 import { placesService } from '../services/placesService'
+import { useApp } from '../contexts/AppContext'
 
 interface Trip {
   _id: string
@@ -41,6 +42,7 @@ interface Activity {
 export const TripDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
+  const { toggleActivityStatus, getActivityStatus } = useApp()
   const [trip, setTrip] = useState<Trip | null>(null)
   const [loading, setLoading] = useState(true)
   const [loadingImages, setLoadingImages] = useState(false)
@@ -50,6 +52,7 @@ export const TripDetailPage: React.FC = () => {
   const [showAnalytics, setShowAnalytics] = useState(false)
   const [mapLoaded, setMapLoaded] = useState(false)
   const mapRef = useRef<HTMLDivElement>(null)
+  const [, forceUpdate] = useState({})
 
   useEffect(() => {
     if (id) {
@@ -158,7 +161,7 @@ export const TripDetailPage: React.FC = () => {
           icon: {
             url: `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(`
               <svg width="40" height="40" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg">
-                <circle cx="20" cy="20" r="18" fill="${activity.isVisited ? '#10B981' : '#3B82F6'}" stroke="white" stroke-width="2"/>
+                <circle cx="20" cy="20" r="18" fill="${getActivityStatus(id, dayIndex, activityIndex) ? '#10B981' : '#3B82F6'}" stroke="white" stroke-width="2"/>
                 <text x="20" y="26" text-anchor="middle" fill="white" font-size="14" font-weight="bold">${idx + 1}</text>
               </svg>
             `)}`,
@@ -176,8 +179,8 @@ export const TripDetailPage: React.FC = () => {
               <p style="margin: 4px 0; color: #6B7280;"><strong>Cost:</strong> ${activity.estimatedCost}</p>
               <p style="margin: 8px 0 0 0; color: #374151; font-size: 14px;">${activity.description.substring(0, 100)}...</p>
               <div style="margin-top: 8px;">
-                <span style="background: ${activity.isVisited ? '#10B981' : '#6B7280'}; color: white; padding: 2px 8px; border-radius: 12px; font-size: 12px;">
-                  ${activity.isVisited ? '✓ Visited' : 'Pending'}
+                <span style="background: ${getActivityStatus(id, dayIndex, activityIndex) ? '#10B981' : '#3B82F6'}; color: white; padding: 2px 8px; border-radius: 12px; font-size: 12px;">
+                  ${getActivityStatus(id, dayIndex, activityIndex) ? '✓ Visited' : 'Pending'}
                 </span>
               </div>
             </div>
@@ -300,32 +303,22 @@ export const TripDetailPage: React.FC = () => {
     setTrip(updatedTrip)
   }
 
-  const toggleActivityStatus = async (dayIndex: number, activityIndex: number) => {
-    if (!trip || !id) return
-    
-    try {
-      const currentStatus = trip.dailyPlans[dayIndex].activities[activityIndex].isVisited
-      await tripService.updateActivityStatus(id, dayIndex, activityIndex, !currentStatus)
-      
-      // Update local state
-      const updatedTrip = { ...trip }
-      updatedTrip.dailyPlans[dayIndex].activities[activityIndex].isVisited = !currentStatus
-      setTrip(updatedTrip)
-    } catch (error) {
-      console.error('Failed to update activity status:', error)
-    }
+  const handleToggleActivity = (dayIndex: number, activityIndex: number) => {
+    if (!id) return
+    toggleActivityStatus(id, dayIndex, activityIndex)
+    forceUpdate({})
   }
 
   const calculateStats = () => {
-    if (!trip) return { total: 0, visited: 0, pending: 0 }
+    if (!trip || !id) return { total: 0, visited: 0, pending: 0 }
     
     let total = 0
     let visited = 0
     
-    trip.dailyPlans.forEach(day => {
-      day.activities.forEach(activity => {
+    trip.dailyPlans.forEach((day, dayIndex) => {
+      day.activities.forEach((activity, activityIndex) => {
         total++
-        if (activity.isVisited) visited++
+        if (getActivityStatus(id, dayIndex, activityIndex)) visited++
       })
     })
     
@@ -358,11 +351,13 @@ export const TripDetailPage: React.FC = () => {
   }
 
   const calculateAnalytics = () => {
-    if (!trip) return null
+    if (!trip || !id) return null
     
     const totalActivities = trip.dailyPlans.reduce((acc, day) => acc + day.activities.length, 0)
-    const completedActivities = trip.dailyPlans.reduce((acc, day) => 
-      acc + day.activities.filter(activity => activity.isVisited).length, 0
+    const completedActivities = trip.dailyPlans.reduce((acc, dayIndex) => 
+      acc + trip.dailyPlans[dayIndex].activities.filter((_, activityIndex) => 
+        getActivityStatus(id, dayIndex, activityIndex)
+      ).length, 0
     )
     const totalCost = trip.dailyPlans.reduce((acc, day) => 
       acc + day.activities.reduce((dayAcc, activity) => 
@@ -381,8 +376,8 @@ export const TripDetailPage: React.FC = () => {
       completionRate: Math.round((completedActivities / totalActivities) * 100),
       totalCost: totalCost.toFixed(2),
       totalDuration: totalDuration.toFixed(1),
-      daysCompleted: trip.dailyPlans.filter(day => 
-        day.activities.every(activity => activity.isVisited)
+      daysCompleted: trip.dailyPlans.filter((day, dayIndex) => 
+        day.activities.every((_, activityIndex) => getActivityStatus(id, dayIndex, activityIndex))
       ).length
     }
   }
@@ -806,12 +801,12 @@ export const TripDetailPage: React.FC = () => {
                     <div key={activityIndex} className="relative">
                       {/* Timeline dot */}
                       <div className={`absolute -left-2 w-4 h-4 rounded-full border-2 border-white ${
-                        activity.isVisited ? 'bg-green-500' : 'bg-gray-300'
+                        getActivityStatus(id!, dayIndex, activityIndex) ? 'bg-green-500' : 'bg-blue-500'
                       }`}></div>
                       
                       {/* Activity Card */}
                       <Card className={`ml-8 transition-all duration-300 hover:shadow-lg ${
-                        activity.isVisited ? 'bg-green-50 border-green-200' : 'bg-white border-gray-200'
+                        getActivityStatus(id!, dayIndex, activityIndex) ? 'bg-green-50 border-green-200' : 'bg-blue-50 border-blue-200'
                       }`}>
                         <CardContent className="p-6">
                           <div className="flex items-start justify-between">
@@ -897,12 +892,12 @@ export const TripDetailPage: React.FC = () => {
                             
                             <div className="ml-6 flex flex-col space-y-2">
                               <Button
-                                variant={activity.isVisited ? "default" : "outline"}
+                                variant="default"
                                 size="sm"
-                                onClick={() => toggleActivityStatus(dayIndex, activityIndex)}
-                                className={activity.isVisited ? 'bg-green-600 hover:bg-green-700' : ''}
+                                onClick={() => handleToggleActivity(dayIndex, activityIndex)}
+                                className={getActivityStatus(id!, dayIndex, activityIndex) ? 'bg-green-600 hover:bg-green-700' : 'bg-blue-600 hover:bg-blue-700'}
                               >
-                                {activity.isVisited ? (
+                                {getActivityStatus(id!, dayIndex, activityIndex) ? (
                                   <>
                                     <CheckCircle className="w-4 h-4 mr-2" />
                                     Visited
@@ -910,7 +905,7 @@ export const TripDetailPage: React.FC = () => {
                                 ) : (
                                   <>
                                     <Circle className="w-4 h-4 mr-2" />
-                                    Mark Visited
+                                    Pending
                                   </>
                                 )}
                               </Button>
