@@ -418,10 +418,12 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
         if (response.statusCode == 200) {
           final data = json.decode(response.body);
           _weatherInfo = WeatherInfo(
+            displayText: '${(data['temperature'] as num).round()}°C',
             temperature: (data['temperature'] as num).toDouble(),
             condition: data['condition'] ?? 'sunny',
-            humidity: data['humidity'] ?? 65,
+            humidity: (data['humidity'] as num?)?.toDouble() ?? 65.0,
             windSpeed: (data['windSpeed'] as num?)?.toDouble() ?? 12.0,
+            description: data['condition'] ?? 'sunny',
           );
           print('✅ Loaded REAL weather from Google API');
         }
@@ -2282,29 +2284,32 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
     notifyListeners();
 
     try {
-      // Always load from cache first
-      final cachedPlans = await _storageService.getTripPlans();
-      final cachedItineraries = await _storageService.getItineraries();
-      
-      _tripPlans = cachedPlans;
-      _itineraries = cachedItineraries ?? [];
-      
-      print('💾 Loaded ${cachedPlans.length} trip plans from cache');
-      print('💾 Loaded ${_itineraries.length} itineraries from cache');
-      
-      // Debug: Check visit status in loaded data
-      for (final itinerary in _itineraries) {
-        for (final activity in itinerary.dailyPlan) {
-          if (activity.isVisited) {
-            print('✅ Found visited activity: ${activity.activityTitle}');
-          }
-        }
-      }
-      
-      // Sync with backend if user is logged in
+      // Load from backend first if user is logged in
       if (_currentUser?.mongoId != null) {
-        await _syncTripPlansWithBackend();
+        final backendPlans = await TripPlansApiService.getUserTripPlans();
+        if (backendPlans.isNotEmpty) {
+          _tripPlans = backendPlans;
+          // Save to cache
+          for (final plan in backendPlans) {
+            await _storageService.saveTripPlan(plan);
+          }
+          print('☁️ Loaded ${backendPlans.length} trip plans from backend');
+        } else {
+          // Fallback to cache
+          final cachedPlans = await _storageService.getTripPlans();
+          _tripPlans = cachedPlans;
+          print('💾 Loaded ${cachedPlans.length} trip plans from cache');
+        }
+      } else {
+        // No user, load from cache only
+        final cachedPlans = await _storageService.getTripPlans();
+        _tripPlans = cachedPlans;
+        print('💾 Loaded ${cachedPlans.length} trip plans from cache');
       }
+      
+      final cachedItineraries = await _storageService.getItineraries();
+      _itineraries = cachedItineraries ?? [];
+      print('💾 Loaded ${_itineraries.length} itineraries');
     } catch (e) {
       print('❌ Error loading trip plans: $e');
     } finally {
