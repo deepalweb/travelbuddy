@@ -69,7 +69,7 @@ const sampleDeals = [
       lng: -74.0060,
       address: '123 Main Street, Downtown'
     },
-    images: ['https://images.unsplash.com/photo-1565299624946-b28f40a0ca4b?w=400'],
+    images: ['https://images.unsplash.com/photo-1565299624946-b28f40a0ca4b?w=800&auto=format&fit=crop'],
     views: 245,
     claims: 12,
     isPremium: false,
@@ -100,7 +100,7 @@ const sampleDeals = [
       lng: -73.9851,
       address: '456 Coffee Street'
     },
-    images: ['https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?w=400'],
+    images: ['https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?w=800&auto=format&fit=crop'],
     views: 189,
     claims: 8,
     isPremium: false,
@@ -131,7 +131,7 @@ const sampleDeals = [
       lng: -73.9934,
       address: '789 Luxury Avenue'
     },
-    images: ['https://images.unsplash.com/photo-1566073771259-6a8506099945?w=400'],
+    images: ['https://images.unsplash.com/photo-1566073771259-6a8506099945?w=800&auto=format&fit=crop'],
     views: 567,
     claims: 23,
     isPremium: true,

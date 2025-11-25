@@ -53,6 +53,8 @@ export const DealsPage: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('')
   const [sortBy, setSortBy] = useState('trending')
   const [showNearbyOnly, setShowNearbyOnly] = useState(false)
+  const [newDealsCount, setNewDealsCount] = useState(0)
+  const [selectedCategory, setSelectedCategory] = useState<string>('all')
 
   useEffect(() => {
     loadDeals()
@@ -64,11 +66,13 @@ export const DealsPage: React.FC = () => {
 
   const loadDeals = async (forceRefresh = false) => {
     try {
-      console.log('🔄 Loading deals for type:', selectedType, forceRefresh ? '(forced refresh)' : '')
       setLoading(true)
-      const data = await dealsService.getDeals(selectedType)
-      console.log('✅ Deals loaded successfully:', data.length, 'deals')
+      const userLocation = location?.latitude && location?.longitude 
+        ? { lat: location.latitude, lng: location.longitude } 
+        : undefined
+      const { deals: data, newDealsCount: newCount } = await dealsService.getDeals(selectedType, sortBy, userLocation)
       setDeals(data)
+      setNewDealsCount(newCount)
     } catch (error) {
       console.error('❌ Error loading deals:', error)
       setDeals([])
@@ -82,7 +86,6 @@ export const DealsPage: React.FC = () => {
   const filterDeals = () => {
     let filtered = deals
     
-    // Search filter
     if (searchTerm) {
       filtered = filtered.filter(deal => 
         deal.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -91,8 +94,14 @@ export const DealsPage: React.FC = () => {
       )
     }
     
-    // Sort deals
+    if (selectedCategory !== 'all') {
+      filtered = filtered.filter(deal => deal.userCategory === selectedCategory)
+    }
+    
     filtered = filtered.sort((a, b) => {
+      if (sortBy === 'distance' && a.distance && b.distance) {
+        return a.distance - b.distance
+      }
       switch (sortBy) {
         case 'trending':
           return (b.views + b.claims * 2) - (a.views + a.claims * 2)
@@ -101,7 +110,6 @@ export const DealsPage: React.FC = () => {
           const bDiscount = parseFloat(b.discount.replace('%', ''))
           return bDiscount - aDiscount
         case 'newest':
-          // Sort by creation date (most recent first)
           const aCreated = new Date(a.createdAt || a._id).getTime()
           const bCreated = new Date(b.createdAt || b._id).getTime()
           return bCreated - aCreated
@@ -115,11 +123,8 @@ export const DealsPage: React.FC = () => {
       }
     })
     
-
-    
     setFilteredDeals(filtered)
     
-    // Set featured deal (highest trending)
     if (filtered.length > 0 && !featuredDeal) {
       setFeaturedDeal(filtered[0])
     }
@@ -161,8 +166,14 @@ export const DealsPage: React.FC = () => {
           <div className="text-center mb-8">
             <div className="flex items-center justify-between mb-6">
               <div>
-                <h1 className="text-5xl font-bold mb-4">Exclusive Travel Deals</h1>
-                <p className="text-xl text-blue-100 mb-6">Save big on restaurants, hotels, attractions and more!</p>
+                <h1 className="text-5xl font-bold mb-4">🎯 Dynamic Deal Radar</h1>
+                <p className="text-xl text-blue-100 mb-6">AI-curated deals personalized for you!</p>
+                {newDealsCount > 0 && (
+                  <div className="inline-flex items-center bg-orange-500 text-white px-4 py-2 rounded-full animate-pulse">
+                    <Zap className="w-4 h-4 mr-2" />
+                    {newDealsCount} new deals added since your last visit!
+                  </div>
+                )}
               </div>
               <div className="flex gap-2">
                 <Button
@@ -259,9 +270,27 @@ export const DealsPage: React.FC = () => {
                       {option.label}
                     </option>
                   ))}
+                  <option value="distance">Nearest First</option>
                 </select>
               </div>
             </div>
+          </div>
+          
+          {/* User Category Filter */}
+          <div className="mt-4 flex gap-2">
+            {['all', 'foodie', 'adventure', 'budget'].map(cat => (
+              <button
+                key={cat}
+                onClick={() => setSelectedCategory(cat)}
+                className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
+                  selectedCategory === cat
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
+              >
+                {cat === 'all' ? '🌟 All' : cat === 'foodie' ? '🍽️ Foodie' : cat === 'adventure' ? '🎢 Adventure' : '💰 Budget'}
+              </button>
+            ))}
           </div>
           
           {/* Filter Results Count */}
@@ -401,6 +430,7 @@ export const DealsPage: React.FC = () => {
                       onView={handleViewDeal}
                       onClaim={handleClaimDeal}
                       isRecommended={true}
+                      distance={deal.distance ? `${deal.distance.toFixed(1)} km away` : undefined}
                     />
                   ))}
                 </div>
@@ -417,6 +447,7 @@ export const DealsPage: React.FC = () => {
                     deal={deal}
                     onView={handleViewDeal}
                     onClaim={handleClaimDeal}
+                    distance={deal.distance ? `${deal.distance.toFixed(1)} km away` : undefined}
                   />
                 ))}
               </div>

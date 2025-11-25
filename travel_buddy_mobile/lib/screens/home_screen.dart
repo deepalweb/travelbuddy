@@ -259,6 +259,13 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
   
+  String _getWeatherTip(int temp, String condition) {
+    if (condition.toLowerCase().contains('rain')) return 'Indoor spots';
+    if (temp > 32) return 'Beach time!';
+    if (temp > 28) return 'Great outdoors';
+    return 'Perfect day';
+  }
+  
   Widget _buildWeatherForecast(AppProvider appProvider) {
     if (appProvider.currentLocation == null) {
       return const SizedBox.shrink();
@@ -824,7 +831,7 @@ class _HomeScreenState extends State<HomeScreen> {
         'color': const Color(0xFF2196F3),
         'gradient': [const Color(0xFF2196F3), const Color(0xFF1976D2)],
         'action': 'weather',
-        'subtitle': '${appProvider.weatherInfo?.temperature.round() ?? 28}°',
+        'subtitle': '${appProvider.weatherInfo?.temperature.round() ?? 28}° • ${_getWeatherTip(appProvider.weatherInfo?.temperature.round() ?? 28, appProvider.weatherInfo?.condition ?? 'sunny')}',
       },
       {
         'label': 'Safety Hub',
@@ -857,6 +864,14 @@ class _HomeScreenState extends State<HomeScreen> {
         'color': const Color(0xFFFF9800),
         'gradient': [const Color(0xFFFF9800), const Color(0xFFF57C00)],
         'action': 'travel_agent',
+      },
+      {
+        'label': 'Events',
+        'icon': Icons.event_outlined,
+        'activeIcon': Icons.event,
+        'color': const Color(0xFFE91E63),
+        'gradient': [const Color(0xFFE91E63), const Color(0xFFC2185B)],
+        'action': 'events',
       },
     ];
 
@@ -1617,23 +1632,23 @@ class _HomeScreenState extends State<HomeScreen> {
                   borderRadius: BorderRadius.circular(16),
                   child: Stack(
                     children: [
-                      Container(
-                        width: double.infinity,
-                        height: double.infinity,
-                        decoration: BoxDecoration(
-                          image: deal.images.isNotEmpty
-                              ? DecorationImage(
-                                  image: NetworkImage(deal.images.first),
-                                  fit: BoxFit.cover,
-                                  onError: (_, __) {},
-                                )
-                              : null,
-                          color: Colors.grey[300],
-                        ),
-                        child: deal.images.isEmpty
-                            ? Icon(Icons.local_offer, size: 48, color: Colors.grey[600])
-                            : null,
-                      ),
+                      deal.images.isNotEmpty
+                          ? Image.network(
+                              deal.images.first,
+                              width: double.infinity,
+                              height: double.infinity,
+                              fit: BoxFit.cover,
+                              errorBuilder: (context, error, stackTrace) {
+                                return Container(
+                                  color: Colors.grey[300],
+                                  child: Icon(Icons.local_offer, size: 48, color: Colors.grey[600]),
+                                );
+                              },
+                            )
+                          : Container(
+                              color: Colors.grey[300],
+                              child: Icon(Icons.local_offer, size: 48, color: Colors.grey[600]),
+                            ),
                       Container(
                         decoration: BoxDecoration(
                           gradient: LinearGradient(
@@ -1825,6 +1840,10 @@ class _HomeScreenState extends State<HomeScreen> {
       case 'Travel Agent':
       case 'travel_agent':
         _showTravelAgentModal();
+        break;
+      case 'Events':
+      case 'events':
+        _showComingSoon('Events');
         break;
       default:
         appProvider.setCurrentTabIndex(1);
@@ -2089,12 +2108,16 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _showWeatherModal(AppProvider appProvider) {
+    final temp = appProvider.weatherInfo?.temperature.round() ?? 28;
+    final condition = appProvider.weatherInfo?.condition ?? 'sunny';
+    final feelsLike = temp + 2;
+    
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (context) => Container(
-        height: MediaQuery.of(context).size.height * 0.7,
+        height: MediaQuery.of(context).size.height * 0.85,
         decoration: const BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
@@ -2105,7 +2128,7 @@ class _HomeScreenState extends State<HomeScreen> {
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
                 gradient: LinearGradient(
-                  colors: [Colors.blue[400]!, Colors.blue[600]!],
+                  colors: _getWeatherGradient(condition),
                 ),
                 borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
               ),
@@ -2114,82 +2137,78 @@ class _HomeScreenState extends State<HomeScreen> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const Text(
-                        'Weather',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 24,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      IconButton(
-                        onPressed: () => Navigator.pop(context),
-                        icon: const Icon(Icons.close, color: Colors.white),
-                      ),
+                      const Text('Travel Weather', style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold)),
+                      IconButton(onPressed: () => Navigator.pop(context), icon: const Icon(Icons.close, color: Colors.white)),
                     ],
                   ),
                   const SizedBox(height: 20),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Icon(
-                        _getWeatherIcon(appProvider.weatherInfo?.condition ?? 'sunny'),
-                        color: Colors.white,
-                        size: 60,
-                      ),
+                      Icon(_getWeatherIcon(condition), color: Colors.white, size: 60),
                       const SizedBox(width: 20),
                       Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(
-                            '${appProvider.weatherInfo?.temperature.round() ?? 28}°C',
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 48,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          Text(
-                            appProvider.weatherInfo?.condition.toUpperCase() ?? 'SUNNY',
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 16,
-                            ),
-                          ),
+                          Text('${temp}°C', style: const TextStyle(color: Colors.white, fontSize: 48, fontWeight: FontWeight.bold)),
+                          Text('Feels like ${feelsLike}°', style: TextStyle(color: Colors.white.withOpacity(0.9), fontSize: 14)),
                         ],
                       ),
                     ],
+                  ),
+                  const SizedBox(height: 16),
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(color: Colors.white.withOpacity(0.2), borderRadius: BorderRadius.circular(12)),
+                    child: Text(_getAISummary(temp, condition), style: const TextStyle(color: Colors.white, fontSize: 14), textAlign: TextAlign.center),
                   ),
                 ],
               ),
             ),
             Expanded(
-              child: Padding(
+              child: SingleChildScrollView(
                 padding: const EdgeInsets.all(20),
                 child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     if (appProvider.currentLocation != null)
                       FutureBuilder<String>(
-                        future: _getLocationName(
-                          appProvider.currentLocation!.latitude,
-                          appProvider.currentLocation!.longitude,
-                        ),
-                        builder: (context, snapshot) {
-                          return Row(
-                            children: [
-                              const Icon(Icons.location_on, color: Colors.grey),
-                              const SizedBox(width: 8),
-                              Text(
-                                snapshot.data ?? 'Getting location...',
-                                style: const TextStyle(fontSize: 16),
-                              ),
-                            ],
-                          );
-                        },
+                        future: _getLocationName(appProvider.currentLocation!.latitude, appProvider.currentLocation!.longitude),
+                        builder: (context, snapshot) => Row(children: [const Icon(Icons.location_on, color: Colors.grey, size: 16), const SizedBox(width: 4), Text(snapshot.data ?? 'Getting location...', style: const TextStyle(fontSize: 14))]),
                       ),
                     const SizedBox(height: 20),
-                    Expanded(
-                      child: _build9HourForecast(appProvider),
+                    const Text('Weather Metrics', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        Expanded(child: _buildMetricCard('💨 Wind', '12 km/h', Colors.blue)),
+                        const SizedBox(width: 8),
+                        Expanded(child: _buildMetricCard('☁ Humidity', '65%', Colors.cyan)),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        Expanded(child: _buildMetricCard('🔆 UV Index', _getUVIndex(temp).toString(), _getUVColor(_getUVIndex(temp)))),
+                        const SizedBox(width: 8),
+                        Expanded(child: _buildMetricCard('🌧️ Rain', '${_getRainChance(condition)}%', Colors.indigo)),
+                      ],
+                    ),
+                    const SizedBox(height: 20),
+                    const Text('Weather Timeline', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 12),
+                    SizedBox(height: 140, child: _buildWeatherTimeline(temp, condition)),
+                    const SizedBox(height: 20),
+                    const Text('🎯 Best Activities Now', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 12),
+                    ..._getActivityRecommendations(temp, condition).map((activity) => _buildActivityChip(activity)),
+                    const SizedBox(height: 20),
+                    const Text('👕 What to Wear', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 12),
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(color: Colors.blue[50], borderRadius: BorderRadius.circular(12)),
+                      child: Text(_getClothingRecommendation(temp, condition), style: const TextStyle(fontSize: 14)),
                     ),
                   ],
                 ),
@@ -2199,6 +2218,86 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
       ),
     );
+  }
+  
+  List<Color> _getWeatherGradient(String condition) {
+    if (condition.toLowerCase().contains('rain')) return [const Color(0xFF4A5568), const Color(0xFF2D3748)];
+    if (condition.toLowerCase().contains('cloud')) return [const Color(0xFF718096), const Color(0xFF4A5568)];
+    return [const Color(0xFF3B82F6), const Color(0xFF2563EB)];
+  }
+  
+  String _getAISummary(int temp, String condition) {
+    if (condition.toLowerCase().contains('rain')) return 'Light rain expected — great day for museums, cafes, and indoor activities.';
+    if (temp > 32) return 'High UV index — best to explore early morning or after 4 PM.';
+    return 'Perfect outdoor day: Low wind, low chance of rain.';
+  }
+  
+  Widget _buildMetricCard(String label, String value, Color color) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(12), border: Border.all(color: color.withOpacity(0.3))),
+      child: Column(children: [Text(label, style: TextStyle(fontSize: 12, color: color)), const SizedBox(height: 4), Text(value, style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: color))]),
+    );
+  }
+  
+  int _getUVIndex(int temp) => temp > 30 ? 8 : temp > 25 ? 6 : 4;
+  
+  Color _getUVColor(int uv) => uv > 7 ? Colors.red : uv > 5 ? Colors.orange : Colors.green;
+  
+  int _getRainChance(String condition) => condition.toLowerCase().contains('rain') ? 60 : condition.toLowerCase().contains('cloud') ? 30 : 10;
+  
+  Widget _buildWeatherTimeline(int baseTemp, String condition) {
+    return ListView.builder(
+      scrollDirection: Axis.horizontal,
+      itemCount: 3,
+      itemBuilder: (context, index) {
+        final hour = DateTime.now().add(Duration(hours: (index + 1) * 3)).hour;
+        final temp = baseTemp + (index == 1 ? 2 : index == 2 ? -1 : 0);
+        final uv = _getUVIndex(temp);
+        final rain = index == 2 ? 60 : 10;
+        return Container(
+          width: 110,
+          margin: const EdgeInsets.only(right: 12),
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(color: Colors.blue[50], borderRadius: BorderRadius.circular(16), border: Border.all(color: Colors.blue[200]!)),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text('$hour:00', style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+              const SizedBox(height: 8),
+              Icon(_getWeatherIcon(index == 2 ? 'rainy' : condition), color: Colors.blue[600], size: 28),
+              const SizedBox(height: 8),
+              Text('${temp}°', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 4),
+              Text('UV: $uv', style: TextStyle(fontSize: 10, color: _getUVColor(uv))),
+              Text('Rain: $rain%', style: TextStyle(fontSize: 10, color: Colors.grey[600])),
+            ],
+          ),
+        );
+      },
+    );
+  }
+  
+  List<String> _getActivityRecommendations(int temp, String condition) {
+    if (condition.toLowerCase().contains('rain')) return ['☕ Visit cafes', '🏛️ Museums', '🛍️ Shopping malls'];
+    if (temp > 32) return ['🏖️ Beach', '🏊 Swimming', '🌅 Sunset viewing'];
+    return ['🚶 City walking tour', '📸 Photography', '🌳 Parks & gardens'];
+  }
+  
+  Widget _buildActivityChip(String activity) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(color: Colors.green[50], borderRadius: BorderRadius.circular(12), border: Border.all(color: Colors.green[200]!)),
+      child: Row(children: [Text(activity, style: TextStyle(fontSize: 14, color: Colors.green[700]))]),
+    );
+  }
+  
+  String _getClothingRecommendation(int temp, String condition) {
+    if (condition.toLowerCase().contains('rain')) return '🌂 Carry an umbrella. Light jacket recommended.';
+    if (temp > 32) return '👕 Light cotton shirt. Sunglasses and sunscreen essential.';
+    if (temp < 25) return '🧥 Bring a light jacket for evening.';
+    return '👕 Comfortable casual wear. Perfect weather!';
   }
 
   void _showTransportModal() {

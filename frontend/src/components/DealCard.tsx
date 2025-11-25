@@ -12,12 +12,17 @@ interface Deal {
   discountedPrice: string;
   location: {
     address: string;
+    lat?: number;
+    lng?: number;
   };
   images: string[];
   views: number;
   claims: number;
   isActive: boolean;
   validUntil?: Date;
+  aiRank?: 'best-value' | 'trending' | 'limited-time';
+  userCategory?: 'foodie' | 'adventure' | 'budget';
+  distance?: number;
   contactInfo?: {
     website?: string;
     phone?: string;
@@ -133,15 +138,37 @@ export const DealCard: React.FC<DealCardProps> = ({ deal, onView, onClaim, isRec
           </div>
         )}
         
+        {/* AI Rank Badge */}
+        {deal.aiRank && (
+          <div className={`absolute top-3 right-3 text-white text-xs font-bold px-3 py-1 rounded-full shadow-lg ${
+            deal.aiRank === 'best-value' ? 'bg-green-500' :
+            deal.aiRank === 'trending' ? 'bg-orange-500' :
+            'bg-red-500 animate-pulse'
+          }`}>
+            {deal.aiRank === 'best-value' ? '🏆 Best Value' :
+             deal.aiRank === 'trending' ? '🔥 Trending' :
+             '⏰ Limited Time'}
+          </div>
+        )}
+        
         {/* Discount Badge */}
-        <div className="absolute top-3 right-3 bg-red-500 text-white text-sm font-bold px-3 py-1 rounded-full shadow-lg">
+        <div className="absolute top-12 right-3 bg-red-500 text-white text-sm font-bold px-3 py-1 rounded-full shadow-lg">
           {deal.discount}
         </div>
         
-        {/* Business Type Badge */}
-        <div className={`absolute top-3 left-3 text-xs font-medium px-3 py-1 rounded-full flex items-center space-x-1 ${getBusinessTypeColor(deal.businessType)}`}>
-          <span>{getBusinessTypeIcon(deal.businessType)}</span>
-          <span>{deal.businessType.charAt(0).toUpperCase() + deal.businessType.slice(1)}</span>
+        {/* Business Type & Category Badge */}
+        <div className="absolute top-3 left-3 flex flex-col gap-2">
+          <div className={`text-xs font-medium px-3 py-1 rounded-full flex items-center space-x-1 ${getBusinessTypeColor(deal.businessType)}`}>
+            <span>{getBusinessTypeIcon(deal.businessType)}</span>
+            <span>{deal.businessType.charAt(0).toUpperCase() + deal.businessType.slice(1)}</span>
+          </div>
+          {deal.userCategory && (
+            <div className="bg-purple-500 text-white text-xs font-medium px-3 py-1 rounded-full">
+              {deal.userCategory === 'foodie' ? '🍽️ Foodie' :
+               deal.userCategory === 'adventure' ? '🎢 Adventure' :
+               '💰 Budget'}
+            </div>
+          )}
         </div>
         
         {/* Trending Badge */}
@@ -169,12 +196,13 @@ export const DealCard: React.FC<DealCardProps> = ({ deal, onView, onClaim, isRec
               <MapPin className="w-4 h-4 mr-1 flex-shrink-0" />
               <span className="truncate">{deal.businessName}</span>
             </div>
-            {distance && (
-              <span className="text-xs bg-blue-100 text-blue-600 px-2 py-1 rounded-full">
-                {distance}
-              </span>
-            )}
           </div>
+          {distance && (
+            <div className="mt-1 flex items-center text-xs text-blue-600 bg-blue-50 px-2 py-1 rounded-full w-fit">
+              <MapPin className="w-3 h-3 mr-1" />
+              <span className="font-medium">{distance}</span>
+            </div>
+          )}
         </div>
         
         {deal.description && (

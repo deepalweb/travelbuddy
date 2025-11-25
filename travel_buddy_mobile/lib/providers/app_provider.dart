@@ -410,11 +410,29 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
 
   Future<void> _loadWeatherInfo() async {
     if (_currentLocation != null) {
-      final weather = await _weatherService.getCurrentWeather(
-        latitude: _currentLocation!.latitude,
-        longitude: _currentLocation!.longitude,
-      );
-      _weatherInfo = weather.toModelWeatherInfo();
+      try {
+        final response = await http.get(
+          Uri.parse('${Environment.backendUrl}/api/weather/current?lat=${_currentLocation!.latitude}&lng=${_currentLocation!.longitude}'),
+        );
+        
+        if (response.statusCode == 200) {
+          final data = json.decode(response.body);
+          _weatherInfo = WeatherInfo(
+            temperature: (data['temperature'] as num).toDouble(),
+            condition: data['condition'] ?? 'sunny',
+            humidity: data['humidity'] ?? 65,
+            windSpeed: (data['windSpeed'] as num?)?.toDouble() ?? 12.0,
+          );
+          print('✅ Loaded REAL weather from Google API');
+        }
+      } catch (e) {
+        print('❌ Weather API error: $e');
+        final weather = await _weatherService.getCurrentWeather(
+          latitude: _currentLocation!.latitude,
+          longitude: _currentLocation!.longitude,
+        );
+        _weatherInfo = weather.toModelWeatherInfo();
+      }
     }
   }
 

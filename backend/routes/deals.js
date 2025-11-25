@@ -53,9 +53,8 @@ try {
   Deal = mongoose.model('Deal', dealSchema);
 }
 
-// GET /api/deals - Get active deals
+// GET /api/deals - Get active deals with AI ranking
 router.get('/', async (req, res) => {
-  // Prevent caching to ensure recent deals are always shown
   res.set({
     'Cache-Control': 'no-cache, no-store, must-revalidate',
     'Pragma': 'no-cache',
@@ -63,12 +62,11 @@ router.get('/', async (req, res) => {
   });
   
   try {
-    const { isActive = 'true', limit = '20', businessType } = req.query;
+    const { isActive = 'true', limit = '20', businessType, lat, lng, lastVisit } = req.query;
     
     const query = {};
     if (isActive === 'true') {
       query.isActive = true;
-      // Include deals without validUntil (no expiration) or future expiration
       query.$or = [
         { validUntil: { $gte: new Date() } },
         { validUntil: { $exists: false } },
@@ -76,30 +74,53 @@ router.get('/', async (req, res) => {
       ];
     }
     
-    // Add business type filter if specified
     if (businessType && businessType !== 'all') {
       query.businessType = businessType;
     }
     
-    console.log('🔍 Deals query:', JSON.stringify(query, null, 2));
-    
-    const deals = await Deal.find(query)
+    let deals = await Deal.find(query)
       .sort({ createdAt: -1 })
       .limit(parseInt(limit))
       .lean();
     
-    console.log(`✅ Found ${deals.length} deals matching query`);
-    if (deals.length > 0) {
-      console.log('📋 Sample deal:', {
-        title: deals[0].title,
-        businessName: deals[0].businessName,
-        isActive: deals[0].isActive,
-        validUntil: deals[0].validUntil,
-        createdAt: deals[0].createdAt
-      });
+    // AI-curate deals
+    deals = deals.map(deal => {
+      const discount = parseFloat(deal.discount?.replace('%', '') || '0');
+      const daysLeft = deal.validUntil ? Math.ceil((new Date(deal.validUntil) - new Date()) / (1000 * 60 * 60 * 24)) : 999;
+      const trendScore = deal.views + deal.claims * 2;
+      
+      let aiRank = 'best-value';
+      if (daysLeft <= 3) aiRank = 'limited-time';
+      else if (trendScore > 20) aiRank = 'trending';
+      else if (discount >= 30) aiRank = 'best-value';
+      
+      let userCategory = 'budget';
+      if (deal.businessType === 'restaurant' || deal.businessType === 'cafe') userCategory = 'foodie';
+      else if (deal.businessType === 'attraction') userCategory = 'adventure';
+      
+      // Calculate distance if coordinates provided
+      let distance = null;
+      if (lat && lng && deal.location?.lat && deal.location?.lng) {
+        const R = 6371;
+        const dLat = (deal.location.lat - parseFloat(lat)) * Math.PI / 180;
+        const dLng = (deal.location.lng - parseFloat(lng)) * Math.PI / 180;
+        const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                  Math.cos(parseFloat(lat) * Math.PI / 180) * Math.cos(deal.location.lat * Math.PI / 180) *
+                  Math.sin(dLng/2) * Math.sin(dLng/2);
+        distance = R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+      }
+      
+      return { ...deal, aiRank, userCategory, distance };
+    });
+    
+    // Track new deals since last visit
+    let newDealsCount = 0;
+    if (lastVisit) {
+      const lastVisitDate = new Date(parseInt(lastVisit));
+      newDealsCount = deals.filter(d => new Date(d.createdAt) > lastVisitDate).length;
     }
     
-    res.json(deals);
+    res.json({ deals, newDealsCount });
   } catch (error) {
     console.error('❌ Error fetching deals:', error);
     res.status(500).json({ error: error.message });

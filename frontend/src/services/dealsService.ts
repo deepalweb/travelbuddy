@@ -9,21 +9,25 @@ interface Deal {
   discountedPrice: string;
   location: {
     address: string;
+    lat?: number;
+    lng?: number;
   };
   images: string[];
   views: number;
   claims: number;
   isActive: boolean;
   validUntil?: Date;
+  aiRank?: 'best-value' | 'trending' | 'limited-time';
+  userCategory?: 'foodie' | 'adventure' | 'budget';
+  distance?: number;
 }
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || 'https://travelbuddy-b2c6hgbbgeh4esdh.eastus2-01.azurewebsites.net'
 
 export const dealsService = {
-  async getDeals(businessType?: string, sortBy?: string): Promise<Deal[]> {
+  async getDeals(businessType?: string, sortBy?: string, userLocation?: { lat: number; lng: number }): Promise<{ deals: Deal[]; newDealsCount: number }> {
     const params = new URLSearchParams()
     params.append('isActive', 'true')
-    // Add timestamp to prevent caching
     params.append('_t', Date.now().toString())
     if (businessType && businessType !== 'all') {
       params.append('businessType', businessType)
@@ -31,9 +35,18 @@ export const dealsService = {
     if (sortBy) {
       params.append('sort', sortBy)
     }
+    if (userLocation) {
+      params.append('lat', userLocation.lat.toString())
+      params.append('lng', userLocation.lng.toString())
+    }
+    
+    const lastVisit = localStorage.getItem('lastDealsVisit')
+    if (lastVisit) {
+      params.append('lastVisit', lastVisit)
+    }
+    localStorage.setItem('lastDealsVisit', Date.now().toString())
     
     const url = `${API_BASE}/api/deals?${params}`
-    console.log('🔍 Fetching deals from:', url)
     
     const response = await fetch(url, {
       credentials: 'include',
@@ -44,18 +57,11 @@ export const dealsService = {
       }
     })
     
-    console.log('📊 Response status:', response.status)
-    
     if (!response.ok) {
-      const errorText = await response.text()
-      console.error('❌ Deals fetch failed:', response.status, errorText)
       throw new Error(`Failed to fetch deals: ${response.status}`)
     }
     
-    const deals = await response.json()
-    console.log(`✅ Received ${deals.length} deals from API`)
-    
-    return deals
+    return response.json()
   },
 
   async getTrendingDeals(): Promise<Deal[]> {
