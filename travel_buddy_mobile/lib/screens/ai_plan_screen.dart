@@ -366,7 +366,7 @@ class _AIPlanScreenState extends State<AIPlanScreen> {
                       Text('Travel Pace', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
                       SizedBox(height: 8),
                       DropdownButtonFormField<String>(
-                        value: _pace,
+                        initialValue: _pace,
                         decoration: InputDecoration(
                           border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                           filled: true,
@@ -389,7 +389,7 @@ class _AIPlanScreenState extends State<AIPlanScreen> {
                       Text('Budget', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
                       SizedBox(height: 8),
                       DropdownButtonFormField<String>(
-                        value: _budget,
+                        initialValue: _budget,
                         decoration: InputDecoration(
                           border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                           filled: true,

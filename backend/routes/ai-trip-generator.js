@@ -573,4 +573,61 @@ router.post('/generate', async (req, res) => {
   }
 });
 
+// Generate enhanced trip introduction
+router.post('/enhance-introduction', async (req, res) => {
+  try {
+    const { tripPlan } = req.body;
+    
+    if (!tripPlan) {
+      return res.status(400).json({ error: 'Trip plan required' });
+    }
+
+    const azureWorking = openai && await checkAzureOpenAIStatus();
+    
+    if (!azureWorking) {
+      return res.json({ 
+        enhanced: tripPlan.introduction,
+        cached: true 
+      });
+    }
+
+    const prompt = `Create a rich, engaging trip overview for this itinerary:
+
+Destination: ${tripPlan.destination}
+Duration: ${tripPlan.duration}
+Activities: ${tripPlan.dailyPlans?.length || 0} days planned
+
+Generate a personalized introduction with:
+- Welcome message with emojis
+- Key highlights (3-4 points)
+- Cultural insights
+- Travel tips
+- Budget expectations
+
+Format with emojis and make it exciting! Keep it under 300 words.`;
+
+    const completion = await openai.chat.completions.create({
+      model: process.env.AZURE_OPENAI_DEPLOYMENT_NAME,
+      messages: [{ role: "user", content: prompt }],
+      temperature: 0.8,
+      max_tokens: 500
+    });
+
+    const enhanced = completion.choices[0].message.content.trim();
+    
+    res.json({ 
+      enhanced,
+      cached: false 
+    });
+
+  } catch (error) {
+    console.error('AI enhancement failed:', error);
+    res.json({ 
+      enhanced: req.body.tripPlan?.introduction || 'Welcome to your trip!',
+      cached: true,
+      error: error.message 
+    });
+  }
+});
+
 export default router;
