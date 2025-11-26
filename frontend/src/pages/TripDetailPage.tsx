@@ -71,17 +71,30 @@ export const TripDetailPage: React.FC = () => {
 
   const loadEnhancedIntro = async () => {
     if (!trip) return
+    
+    // Skip AI enhancement if no API URL configured
+    const apiUrl = import.meta.env.VITE_API_URL || import.meta.env.VITE_API_BASE_URL
+    if (!apiUrl) {
+      setEnhancedIntro(trip.introduction)
+      return
+    }
+    
     setLoadingIntro(true)
     try {
-      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/ai-trip-generator/enhance-introduction`, {
+      const response = await fetch(`${apiUrl}/api/ai-trip-generator/enhance-introduction`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ tripPlan: trip })
       })
+      
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`)
+      }
+      
       const data = await response.json()
-      setEnhancedIntro(data.enhanced)
+      setEnhancedIntro(data.enhanced || trip.introduction)
     } catch (error) {
-      console.error('Failed to load AI intro:', error)
+      console.warn('AI enhancement unavailable, using static intro:', error)
       setEnhancedIntro(trip.introduction)
     } finally {
       setLoadingIntro(false)
