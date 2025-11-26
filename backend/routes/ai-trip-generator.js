@@ -582,11 +582,19 @@ router.post('/enhance-introduction', async (req, res) => {
       return res.status(400).json({ error: 'Trip plan required' });
     }
 
-    const azureWorking = openai && await checkAzureOpenAIStatus();
+    // Always return fallback if no OpenAI configured
+    if (!openai) {
+      return res.json({ 
+        enhanced: tripPlan.introduction || `Welcome to ${tripPlan.destination || 'your destination'}!`,
+        cached: true 
+      });
+    }
+
+    const azureWorking = await checkAzureOpenAIStatus();
     
     if (!azureWorking) {
       return res.json({ 
-        enhanced: tripPlan.introduction,
+        enhanced: tripPlan.introduction || `Welcome to ${tripPlan.destination || 'your destination'}!`,
         cached: true 
       });
     }
@@ -622,8 +630,9 @@ Format with emojis and make it exciting! Keep it under 300 words.`;
 
   } catch (error) {
     console.error('AI enhancement failed:', error);
+    // Always return 200 with fallback, never 500
     res.json({ 
-      enhanced: req.body.tripPlan?.introduction || 'Welcome to your trip!',
+      enhanced: req.body.tripPlan?.introduction || `Welcome to ${req.body.tripPlan?.destination || 'your destination'}!`,
       cached: true,
       error: error.message 
     });
