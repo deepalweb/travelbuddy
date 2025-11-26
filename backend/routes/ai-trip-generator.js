@@ -15,6 +15,27 @@ const openai = process.env.AZURE_OPENAI_API_KEY ? new OpenAI({
   },
 }) : null;
 
+// Geocode activity to get coordinates
+async function geocodeActivity(activityName, destination) {
+  try {
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    const query = `${activityName}, ${destination}`;
+    const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json&limit=1`;
+    const response = await fetch(url, { headers: { 'User-Agent': 'TravelBuddy' } });
+    const data = await response.json();
+    
+    if (data && data.length > 0) {
+      return {
+        lat: parseFloat(data[0].lat),
+        lng: parseFloat(data[0].lon)
+      };
+    }
+  } catch (error) {
+    console.error(`Geocode error for ${activityName}:`, error.message);
+  }
+  return null;
+}
+
 // Fetch real places from Google Places API
 async function fetchRealPlaces(destination) {
   if (!process.env.GOOGLE_PLACES_API_KEY) {
@@ -43,6 +64,8 @@ async function fetchRealPlaces(destination) {
         name: place.name,
         description: `Visit ${place.name}, a popular attraction in ${destination}`,
         address: place.vicinity || place.formatted_address,
+        googlePlaceId: place.place_id,
+        coordinates: { lat: place.geometry.location.lat, lng: place.geometry.location.lng },
         category: place.types[0] || 'Attraction',
         rating: place.rating || 4.0,
         costLow: '$5-15', costMed: '$15-30', costHigh: '$30-60',
@@ -221,6 +244,20 @@ Return ONLY this JSON structure:
     aiItinerary.id = `ai_trip_${Date.now()}`;
     aiItinerary.createdAt = new Date().toISOString();
     
+    // Enrich activities with coordinates
+    console.log('📍 Geocoding activities...');
+    for (const day of aiItinerary.dailyPlans || []) {
+      for (const activity of day.activities || []) {
+        if (!activity.coordinates) {
+          const coords = await geocodeActivity(activity.activityTitle, destination);
+          if (coords) {
+            activity.coordinates = coords;
+            activity.fullAddress = activity.address || activity.activityTitle;
+          }
+        }
+      }
+    }
+    
     console.log('✅ AI itinerary generated successfully');
     return aiItinerary;
     
@@ -287,6 +324,9 @@ function createRealisticItinerary(destination, days, budget, interests, realPlac
         activityTitle: activity.name,
         description: activity.description,
         address: activity.address || `${activity.name}, ${destination}`,
+        fullAddress: activity.address || `${activity.name}, ${destination}`,
+        googlePlaceId: activity.googlePlaceId || activity.placeId,
+        coordinates: activity.coordinates,
         category: activity.category || 'Attraction',
         estimatedCost: budget === 'low' ? activity.costLow : budget === 'high' ? activity.costHigh : activity.costMed,
         duration: activity.duration,
@@ -301,7 +341,7 @@ function createRealisticItinerary(destination, days, budget, interests, realPlac
     });
   }
   
-  return {
+  const itinerary = {
     id: `trip_${Date.now()}`,
     tripTitle: `${destination} ${actualDays} Day${actualDays > 1 ? 's' : ''} Adventure`,
     destination,
@@ -314,6 +354,20 @@ function createRealisticItinerary(destination, days, budget, interests, realPlac
     travelTips: destinationData.tips,
     createdAt: new Date().toISOString()
   };
+  
+  // Geocode activities without coordinates
+  (async () => {
+    for (const day of itinerary.dailyPlans) {
+      for (const activity of day.activities) {
+        if (!activity.coordinates) {
+          const coords = await geocodeActivity(activity.activityTitle, destination);
+          if (coords) activity.coordinates = coords;
+        }
+      }
+    }
+  })();
+  
+  return itinerary;
 }
 
 // Destination-specific data

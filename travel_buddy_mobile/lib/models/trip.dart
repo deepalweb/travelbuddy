@@ -352,19 +352,29 @@ class ActivityDetail extends HiveObject {
   });
 
   factory ActivityDetail.fromJson(Map<String, dynamic> json) {
+    String? locationStr;
+    if (json['coordinates'] != null) {
+      final coords = json['coordinates'];
+      locationStr = '${coords['lat']},${coords['lng']}';
+    } else {
+      locationStr = json['location'];
+    }
+    
     return ActivityDetail(
       timeOfDay: json['timeOfDay'] ?? json['start_time'] ?? '',
       activityTitle: json['activityTitle'] ?? json['name'] ?? '',
       description: json['description'] ?? '',
-      estimatedDuration: json['estimatedDuration'],
-      location: json['location'],
+      estimatedDuration: json['estimatedDuration'] ?? json['duration'],
+      location: locationStr,
       notes: json['notes'],
       icon: json['icon'],
       category: json['category'],
       startTime: json['start_time'] ?? '09:00',
       endTime: json['end_time'] ?? '10:00',
-      // Google Places fields
-      googlePlaceId: json['google_place_id'],
+      duration: json['duration'] ?? '1h',
+      estimatedCost: json['estimatedCost'] ?? '€0',
+      googlePlaceId: json['google_place_id'] ?? json['googlePlaceId'],
+      fullAddress: json['fullAddress'] ?? json['address'],
       highlight: json['highlight'],
       socialProof: json['social_proof'],
       rating: json['rating']?.toDouble(),
@@ -373,8 +383,8 @@ class ActivityDetail extends HiveObject {
       travelMode: json['travel_mode'] ?? 'walking',
       travelTimeMin: json['travel_time_min'] ?? 0,
       estimatedVisitDurationMin: json['estimated_visit_duration_min'] ?? 60,
-      isVisited: json['is_visited'] ?? false,
-      visitedDate: json['visited_date'],
+      isVisited: json['is_visited'] ?? json['isVisited'] ?? false,
+      visitedDate: json['visited_date'] ?? json['visitedDate'],
     );
   }
 

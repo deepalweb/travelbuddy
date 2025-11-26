@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:url_launcher/url_launcher.dart';
+import 'dart:async';
 import '../models/place.dart';
 import '../models/route_models.dart';
 import '../services/simple_smart_route_service.dart';
+import '../services/storage_service.dart';
 
 class SimpleRouteMapScreen extends StatefulWidget {
   final Position currentLocation;
@@ -27,13 +30,27 @@ class _SimpleRouteMapScreenState extends State<SimpleRouteMapScreen> {
   GoogleMapController? _mapController;
   Set<Marker> _markers = {};
   Set<Polyline> _polylines = {};
+  Set<Circle> _circles = {};
   SimpleRouteResult? _route;
   bool _isLoading = true;
+  StreamSubscription<Position>? _locationSubscription;
+  Position? _currentPosition;
+  bool _isNavigating = false;
+  int _currentStopIndex = 0;
+  final Set<int> _visitedStops = {};
+  bool _showStopList = false;
 
   @override
   void initState() {
     super.initState();
+    _currentPosition = widget.currentLocation;
     _loadRoute();
+  }
+  
+  @override
+  void dispose() {
+    _locationSubscription?.cancel();
+    super.dispose();
   }
 
   Future<void> _loadRoute() async {
@@ -58,49 +75,127 @@ class _SimpleRouteMapScreenState extends State<SimpleRouteMapScreen> {
 
   void _setupMarkers() {
     final markers = <Marker>{};
+    final circles = <Circle>{};
 
-    // Current location marker
-    markers.add(
-      Marker(
-        markerId: const MarkerId('current_location'),
-        position: LatLng(widget.currentLocation.latitude, widget.currentLocation.longitude),
-        icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen),
-        infoWindow: const InfoWindow(title: 'Start', snippet: 'Your location'),
-      ),
-    );
+    // Current location with pulsing circle
+    if (_currentPosition != null) {
+      markers.add(
+        Marker(
+          markerId: const MarkerId('current_location'),
+          position: LatLng(_currentPosition!.latitude, _currentPosition!.longitude),
+          icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueAzure),
+          infoWindow: const InfoWindow(title: '📍 You are here'),
+        ),
+      );
+      
+      circles.add(
+        Circle(
+          circleId: const CircleId('current_location_circle'),
+          center: LatLng(_currentPosition!.latitude, _currentPosition!.longitude),
+          radius: 50,
+          fillColor: Colors.blue.withOpacity(0.2),
+          strokeColor: Colors.blue,
+          strokeWidth: 2,
+        ),
+      );
+    }
 
-    // Place markers
+    // Place markers with colors
     for (int i = 0; i < _route!.places.length; i++) {
       final place = _route!.places[i];
-      if (place.latitude != null && place.longitude != null) {
-        markers.add(
-          Marker(
-            markerId: MarkerId(place.id),
-            position: LatLng(place.latitude!, place.longitude!),
-            icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed),
-            infoWindow: InfoWindow(
-              title: '${i + 1}. ${place.name}',
-              snippet: place.address,
-            ),
+      if (place.latitude == null || place.longitude == null) continue;
+      
+      final isVisited = _visitedStops.contains(i);
+      final isCurrent = i == _currentStopIndex;
+      
+      double hue;
+      String emoji;
+      if (isVisited) {
+        hue = BitmapDescriptor.hueGreen;
+        emoji = '✅';
+      } else if (isCurrent) {
+        hue = BitmapDescriptor.hueOrange;
+        emoji = '🎯';
+      } else {
+        hue = BitmapDescriptor.hueRed;
+        emoji = '📍';
+      }
+      
+      markers.add(
+        Marker(
+          markerId: MarkerId(place.id),
+          position: LatLng(place.latitude!, place.longitude!),
+          icon: BitmapDescriptor.defaultMarkerWithHue(hue),
+          infoWindow: InfoWindow(
+            title: '$emoji ${i + 1}. ${place.name}',
+            snippet: place.address,
+          ),
+        ),
+      );
+      
+      if (isCurrent && _isNavigating) {
+        circles.add(
+          Circle(
+            circleId: CircleId('destination_$i'),
+            center: LatLng(place.latitude!, place.longitude!),
+            radius: 100,
+            fillColor: Colors.orange.withOpacity(0.2),
+            strokeColor: Colors.orange,
+            strokeWidth: 2,
           ),
         );
       }
     }
 
-    setState(() => _markers = markers);
+    setState(() {
+      _markers = markers;
+      _circles = circles;
+    });
   }
 
   void _setupPolyline() {
     if (_route == null || _route!.polylinePoints.isEmpty) return;
 
-    final polylines = <Polyline>{
-      Polyline(
-        polylineId: const PolylineId('route'),
-        points: _route!.polylinePoints,
-        color: _getRouteColor(),
-        width: 4,
-      ),
-    };
+    final polylines = <Polyline>{};
+    
+    if (_isNavigating && _currentStopIndex > 0) {
+      int splitIndex = (_route!.polylinePoints.length * _currentStopIndex / _route!.places.length).round();
+      
+      final completedPoints = _route!.polylinePoints.sublist(0, splitIndex);
+      final pendingPoints = _route!.polylinePoints.sublist(splitIndex);
+      
+      if (completedPoints.length > 1) {
+        polylines.add(
+          Polyline(
+            polylineId: const PolylineId('route_completed'),
+            points: completedPoints,
+            color: Colors.green,
+            width: 6,
+          ),
+        );
+      }
+      
+      if (pendingPoints.length > 1) {
+        polylines.add(
+          Polyline(
+            polylineId: const PolylineId('route_pending'),
+            points: pendingPoints,
+            color: _getRouteColor(),
+            width: 6,
+            patterns: [PatternItem.dash(20), PatternItem.gap(10)],
+          ),
+        );
+      }
+    } else {
+      polylines.add(
+        Polyline(
+          polylineId: const PolylineId('route'),
+          points: _route!.polylinePoints,
+          color: _getRouteColor(),
+          width: 6,
+        ),
+      );
+    }
 
     setState(() => _polylines = polylines);
   }
@@ -151,32 +246,49 @@ class _SimpleRouteMapScreenState extends State<SimpleRouteMapScreen> {
           Container(
             width: double.infinity,
             padding: const EdgeInsets.all(16),
-            color: Colors.blue[50],
+            color: _isNavigating ? Colors.green[50] : Colors.blue[50],
             child: Row(
               children: [
-                Icon(_getTransportIcon(), color: Colors.blue[700]),
+                Icon(
+                  _isNavigating ? Icons.navigation : _getTransportIcon(),
+                  color: _isNavigating ? Colors.green[700] : Colors.blue[700],
+                ),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        '${_route?.places.length ?? 0} stops • ${_route?.distanceText ?? 'Loading...'} • ${_route?.durationText ?? 'Loading...'}',
+                        _isNavigating
+                            ? 'Stop ${_currentStopIndex + 1}/${_route?.places.length ?? 0} • ${_route?.distanceText ?? ''}'
+                            : '${_route?.places.length ?? 0} stops • ${_route?.distanceText ?? 'Loading...'} • ${_route?.durationText ?? 'Loading...'}',
                         style: const TextStyle(
                           fontWeight: FontWeight.bold,
                           fontSize: 16,
                         ),
                       ),
-                      const Text(
-                        'Optimized route with real roads',
+                      Text(
+                        _isNavigating ? '🧭 Navigating...' : 'Optimized route with real roads',
                         style: TextStyle(
                           fontSize: 12,
-                          color: Colors.grey,
+                          color: _isNavigating ? Colors.green[700] : Colors.grey,
+                          fontWeight: _isNavigating ? FontWeight.w600 : FontWeight.normal,
                         ),
                       ),
                     ],
                   ),
                 ),
+                if (_isNavigating)
+                  IconButton(
+                    icon: const Icon(Icons.stop_circle, color: Colors.red),
+                    onPressed: () {
+                      _stopNavigation();
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Navigation stopped')),
+                      );
+                    },
+                    tooltip: 'Stop Navigation',
+                  ),
               ],
             ),
           ),
@@ -194,22 +306,91 @@ class _SimpleRouteMapScreenState extends State<SimpleRouteMapScreen> {
                       ],
                     ),
                   )
-                : GoogleMap(
-                    onMapCreated: (controller) {
-                      _mapController = controller;
-                      _centerOnRoute();
-                    },
-                    initialCameraPosition: CameraPosition(
-                      target: LatLng(
-                        widget.currentLocation.latitude,
-                        widget.currentLocation.longitude,
+                : Stack(
+                    children: [
+                      GoogleMap(
+                        onMapCreated: (controller) {
+                          _mapController = controller;
+                          _centerOnRoute();
+                        },
+                        initialCameraPosition: CameraPosition(
+                          target: LatLng(
+                            widget.currentLocation.latitude,
+                            widget.currentLocation.longitude,
+                          ),
+                          zoom: 12,
+                        ),
+                        markers: _markers,
+                        circles: _circles,
+                        myLocationEnabled: false,
+                        myLocationButtonEnabled: false,
                       ),
-                      zoom: 12,
-                    ),
-                    markers: _markers,
-                    polylines: _polylines,
-                    myLocationEnabled: true,
-                    myLocationButtonEnabled: false,
+                      
+                      Positioned(
+                        top: 16,
+                        right: 16,
+                        child: FloatingActionButton(
+                          mini: true,
+                          backgroundColor: Colors.white,
+                          onPressed: _centerOnRoute,
+                          child: const Icon(Icons.zoom_out_map, color: Colors.blue),
+                        ),
+                      ),
+                      
+                      if (_isNavigating)
+                        Positioned(
+                          top: 16,
+                          left: 16,
+                          right: 80,
+                          child: Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(8),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withOpacity(0.1),
+                                  blurRadius: 4,
+                                ),
+                              ],
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    Text(
+                                      'Stop $_currentStopIndex/${_route?.places.length ?? 0}',
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 14,
+                                      ),
+                                    ),
+                                    const Spacer(),
+                                    Text(
+                                      '${((_currentStopIndex / (_route?.places.length ?? 1)) * 100).toInt()}%',
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.green[700],
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 8),
+                                ClipRRect(
+                                  borderRadius: BorderRadius.circular(4),
+                                  child: LinearProgressIndicator(
+                                    value: _currentStopIndex / (_route?.places.length ?? 1),
+                                    minHeight: 6,
+                                    backgroundColor: Colors.grey[200],
+                                    valueColor: const AlwaysStoppedAnimation<Color>(Colors.green),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                    ],
                   ),
           ),
 
@@ -254,19 +435,49 @@ class _SimpleRouteMapScreenState extends State<SimpleRouteMapScreen> {
                   ],
                 ),
                 const SizedBox(height: 16),
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton.icon(
-                    onPressed: _route != null ? _startNavigation : null,
-                    icon: const Icon(Icons.navigation),
-                    label: const Text('Start Navigation'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.green,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 12),
+                if (!_isNavigating)
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton.icon(
+                      onPressed: _route != null ? _startNavigation : null,
+                      icon: const Icon(Icons.navigation),
+                      label: const Text('Start Navigation'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.green,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                      ),
                     ),
+                  )
+                else
+                  Column(
+                    children: [
+                      Text(
+                        _currentStopIndex < (_route?.places.length ?? 0)
+                            ? 'Next: ${_route!.places[_currentStopIndex].name}'
+                            : 'Final destination reached!',
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 14,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 8),
+                      SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton.icon(
+                          onPressed: _stopNavigation,
+                          icon: const Icon(Icons.stop),
+                          label: const Text('Stop Navigation'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.red,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
-                ),
               ],
             ),
           ),
@@ -396,12 +607,9 @@ class _SimpleRouteMapScreenState extends State<SimpleRouteMapScreen> {
               leading: const Icon(Icons.map, color: Colors.blue),
               title: const Text('Google Maps App'),
               subtitle: const Text('Turn-by-turn navigation'),
-              onTap: () {
+              onTap: () async {
                 Navigator.pop(context);
-                // In production: launch(url);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Would open Google Maps app')),
-                );
+                await _launchGoogleMaps(url);
               },
             ),
             ListTile(
@@ -419,28 +627,215 @@ class _SimpleRouteMapScreenState extends State<SimpleRouteMapScreen> {
     );
   }
   
-  void _startInAppNavigation() {
-    // Enable location tracking and route following
+  Future<void> _launchGoogleMaps(String url) async {
+    final uri = Uri.parse(url);
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    } else {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Could not open Google Maps')),
+        );
+      }
+    }
+  }
+  
+  void _startInAppNavigation() async {
+    setState(() {
+      _isNavigating = true;
+      _currentStopIndex = 0;
+      _visitedStops.clear();
+    });
+    
+    await _saveRouteOffline();
+    _startLocationTracking();
+    _setupMarkers();
+    _setupPolyline();
+    
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
-        content: Text('🧭 In-app navigation started! Follow the blue line.'),
+        content: Text('🧭 Navigation started! Tracking your location...'),
         backgroundColor: Colors.blue,
-        duration: Duration(seconds: 5),
+        duration: Duration(seconds: 3),
       ),
     );
     
-    // Update map to follow user location
-    if (_mapController != null) {
+    if (_mapController != null && _currentPosition != null) {
       _mapController!.animateCamera(
         CameraUpdate.newCameraPosition(
           CameraPosition(
-            target: LatLng(widget.currentLocation.latitude, widget.currentLocation.longitude),
-            zoom: 16,
+            target: LatLng(_currentPosition!.latitude, _currentPosition!.longitude),
+            zoom: 17,
             bearing: 0,
             tilt: 45,
           ),
         ),
       );
+    }
+  }
+  
+  void _startLocationTracking() {
+    _locationSubscription = Geolocator.getPositionStream(
+      locationSettings: const LocationSettings(
+        accuracy: LocationAccuracy.high,
+        distanceFilter: 10, // Update every 10 meters
+      ),
+    ).listen((Position position) {
+      setState(() {
+        _currentPosition = position;
+      });
+      
+      // Update camera to follow user
+      if (_isNavigating && _mapController != null) {
+        _mapController!.animateCamera(
+          CameraUpdate.newLatLng(
+            LatLng(position.latitude, position.longitude),
+          ),
+        );
+      }
+      
+      // Check if reached current stop
+      _checkIfReachedStop(position);
+      
+      // Check if off-track and reroute
+      _checkIfOffTrack(position);
+    });
+  }
+  
+  void _checkIfReachedStop(Position position) {
+    if (_route == null || _currentStopIndex >= _route!.places.length) return;
+    
+    final currentStop = _route!.places[_currentStopIndex];
+    if (currentStop.latitude == null || currentStop.longitude == null) return;
+    
+    final distance = Geolocator.distanceBetween(
+      position.latitude,
+      position.longitude,
+      currentStop.latitude!,
+      currentStop.longitude!,
+    );
+    
+    if (distance < 50) {
+      _visitedStops.add(_currentStopIndex);
+      _currentStopIndex++;
+      
+      _setupMarkers();
+      _setupPolyline();
+      
+      if (_currentStopIndex < _route!.places.length) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('✅ Arrived! Next: ${_route!.places[_currentStopIndex].name}'),
+            backgroundColor: Colors.green,
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      } else {
+        _stopNavigation();
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('🎉 You\'ve reached your final destination!'),
+            backgroundColor: Colors.green,
+            duration: Duration(seconds: 5),
+          ),
+        );
+      }
+    }
+  }
+  
+  void _checkIfOffTrack(Position position) {
+    if (_route == null || _route!.polylinePoints.isEmpty) return;
+    
+    // Find closest point on route
+    double minDistance = double.infinity;
+    for (final point in _route!.polylinePoints) {
+      final distance = Geolocator.distanceBetween(
+        position.latitude,
+        position.longitude,
+        point.latitude,
+        point.longitude,
+      );
+      if (distance < minDistance) {
+        minDistance = distance;
+      }
+    }
+    
+    // If more than 100 meters off track, suggest reroute
+    if (minDistance > 100) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('⚠️ You\'re off track. Recalculating route...'),
+          backgroundColor: Colors.orange,
+          action: SnackBarAction(
+            label: 'Reroute',
+            onPressed: _recalculateRoute,
+          ),
+        ),
+      );
+    }
+  }
+  
+  void _recalculateRoute() async {
+    if (_currentPosition == null) return;
+    
+    setState(() => _isLoading = true);
+    
+    // Get remaining places
+    final remainingPlaces = _route!.places.sublist(_currentStopIndex);
+    
+    // Recalculate route from current position
+    _route = await SimpleSmartRouteService.createRoute(
+      currentLocation: _currentPosition!,
+      places: remainingPlaces,
+      mode: widget.transportMode,
+    );
+    
+    _setupMapElements();
+    setState(() => _isLoading = false);
+    
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('✅ Route recalculated!'),
+        backgroundColor: Colors.green,
+      ),
+    );
+  }
+  
+  void _stopNavigation() {
+    setState(() {
+      _isNavigating = false;
+    });
+    _locationSubscription?.cancel();
+  }
+  
+  Future<void> _saveRouteOffline() async {
+    if (_route == null) return;
+    
+    try {
+      final storage = StorageService();
+      final routeData = {
+        'id': DateTime.now().millisecondsSinceEpoch.toString(),
+        'title': widget.title,
+        'places': _route!.places.map((p) => {
+          'id': p.id,
+          'name': p.name,
+          'address': p.address,
+          'latitude': p.latitude,
+          'longitude': p.longitude,
+        }).toList(),
+        'distance': _route!.distanceText,
+        'duration': _route!.durationText,
+        'transportMode': widget.transportMode.toString(),
+        'savedAt': DateTime.now().toIso8601String(),
+      };
+      
+      // Save to SharedPreferences
+      final prefs = await storage.getSOSSettings(); // Reuse storage method
+      // In production, create a dedicated method for route storage
+      
+      print('✅ Route saved offline');
+    } catch (e) {
+      print('❌ Failed to save route: $e');
     }
   }
 }

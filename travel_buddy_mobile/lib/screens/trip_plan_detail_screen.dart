@@ -1,9 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
 import '../models/trip.dart';
 import '../models/place.dart';
 import '../services/azure_openai_service.dart';
+import '../services/storage_service.dart';
+import '../services/api_service.dart';
 import '../providers/app_provider.dart';
 import '../screens/route_plan_screen.dart';
 import '../screens/enhanced_route_plan_screen.dart';
@@ -25,40 +30,43 @@ class _TripPlanDetailScreenState extends State<TripPlanDetailScreen> {
   String? _enhancedIntroduction;
   bool _isLoadingIntroduction = false;
   TripPlan? _currentTripPlan;
+  final Map<String, bool> _visitStatus = {};
 
   @override
   void initState() {
     super.initState();
     _currentTripPlan = widget.tripPlan;
-    _loadEnhancedIntroduction();
-    
-    // Load updated data after a short delay
-    Future.delayed(Duration(milliseconds: 500), () {
+    _loadVisitStatus();
+    // Load after build completes
+    WidgetsBinding.instance.addPostFrameCallback((_) {
       _refreshTripPlan();
+      _loadEnhancedIntroduction();
     });
   }
+  
+  void _loadVisitStatus() {
+    for (final day in widget.tripPlan.dailyPlans) {
+      for (final activity in day.activities) {
+        _visitStatus[activity.activityTitle] = activity.isVisited;
+      }
+    }
+  }
 
-  void _refreshTripPlan() async {
-    final appProvider = Provider.of<AppProvider>(context, listen: false);
+  Future<void> _refreshTripPlan() async {
+    final tripId = widget.tripPlan.id;
     
-    // Force reload from storage to get updated data
-    await appProvider.loadTripPlans();
+    // Load from LOCAL storage only
+    final storageService = StorageService();
+    final localTrips = await storageService.getTripPlans();
     
-    // Check both trip plans and itineraries
     TripPlan? latestTrip;
     
-    // First check trip plans
     try {
-      latestTrip = appProvider.tripPlans.firstWhere(
-        (trip) => trip.id == widget.tripPlan.id,
-      );
+      latestTrip = localTrips.firstWhere((trip) => trip.id == tripId);
     } catch (e) {
-      // If not found in trip plans, check itineraries
       try {
-        final itinerary = appProvider.itineraries.firstWhere(
-          (itinerary) => itinerary.id == widget.tripPlan.id,
-        );
-        // Convert itinerary back to trip plan format
+        final localItineraries = await storageService.getItineraries();
+        final itinerary = localItineraries.firstWhere((it) => it.id == tripId);
         latestTrip = TripPlan(
           id: itinerary.id,
           tripTitle: itinerary.title,
@@ -75,25 +83,36 @@ class _TripPlanDetailScreenState extends State<TripPlanDetailScreen> {
           conclusion: itinerary.conclusion,
         );
       } catch (e2) {
-        latestTrip = widget.tripPlan;
+        latestTrip = _currentTripPlan ?? widget.tripPlan;
       }
     }
     
-    print('🔄 Refreshing trip plan. Found updated trip: ${latestTrip.id}');
-    
-    setState(() {
-      _currentTripPlan = latestTrip;
-    });
+    if (mounted) {
+      setState(() {
+        _currentTripPlan = latestTrip;
+        // Update visit status map from loaded data
+        _visitStatus.clear();
+        for (final day in latestTrip!.dailyPlans) {
+          for (final activity in day.activities) {
+            _visitStatus[activity.activityTitle] = activity.isVisited;
+          }
+        }
+      });
+    }
   }
 
   void _toggleVisitStatus(String activityTitle) async {
-    print('🔍 Toggle visit status for: $activityTitle');
-    if (_currentTripPlan == null) {
-      print('❌ No current trip plan');
-      return;
-    }
+    if (_currentTripPlan == null) return;
     
-    // Find activity indices
+    final currentStatus = _visitStatus[activityTitle] ?? false;
+    final newStatus = !currentStatus;
+    
+    // Update UI immediately
+    setState(() {
+      _visitStatus[activityTitle] = newStatus;
+    });
+    
+    // Find indices for saving
     int dayIndex = -1;
     int activityIndex = -1;
     
@@ -102,7 +121,6 @@ class _TripPlanDetailScreenState extends State<TripPlanDetailScreen> {
         if (_currentTripPlan!.dailyPlans[d].activities[a].activityTitle == activityTitle) {
           dayIndex = d;
           activityIndex = a;
-          print('📍 Found activity at day $dayIndex, activity $activityIndex');
           break;
         }
       }
@@ -110,47 +128,109 @@ class _TripPlanDetailScreenState extends State<TripPlanDetailScreen> {
     }
     
     if (dayIndex != -1 && activityIndex != -1) {
-      final currentStatus = _currentTripPlan!.dailyPlans[dayIndex].activities[activityIndex].isVisited;
-      final newStatus = !currentStatus;
-      print('🔄 Changing status from $currentStatus to $newStatus');
       
-      // Use AppProvider to save the status
+      // Save to storage
+      final activity = _currentTripPlan!.dailyPlans[dayIndex].activities[activityIndex];
+        final updatedActivity = ActivityDetail(
+          timeOfDay: activity.timeOfDay,
+          activityTitle: activity.activityTitle,
+          description: activity.description,
+          estimatedDuration: activity.estimatedDuration,
+          location: activity.location,
+          notes: activity.notes,
+          icon: activity.icon,
+          category: activity.category,
+          startTime: activity.startTime,
+          endTime: activity.endTime,
+          duration: activity.duration,
+          place: activity.place,
+          type: activity.type,
+          estimatedCost: activity.estimatedCost,
+          costBreakdown: activity.costBreakdown,
+          transportFromPrev: activity.transportFromPrev,
+          tips: activity.tips,
+          weatherBackup: activity.weatherBackup,
+          crowdLevel: activity.crowdLevel,
+          imageURL: activity.imageURL,
+          bookingLinks: activity.bookingLinks,
+          googlePlaceId: activity.googlePlaceId,
+          highlight: activity.highlight,
+          socialProof: activity.socialProof,
+          rating: activity.rating,
+          userRatingsTotal: activity.userRatingsTotal,
+          practicalTip: activity.practicalTip,
+          travelMode: activity.travelMode,
+          travelTimeMin: activity.travelTimeMin,
+          estimatedVisitDurationMin: activity.estimatedVisitDurationMin,
+          photoThumbnail: activity.photoThumbnail,
+          fullAddress: activity.fullAddress,
+          openingHours: activity.openingHours,
+          isOpenNow: activity.isOpenNow,
+          weatherNote: activity.weatherNote,
+          tags: activity.tags,
+          bookingLink: activity.bookingLink,
+          isVisited: newStatus,
+          visitedDate: newStatus ? DateTime.now().toIso8601String() : activity.visitedDate,
+        );
+        
+        final updatedActivities = List<ActivityDetail>.from(_currentTripPlan!.dailyPlans[dayIndex].activities);
+        updatedActivities[activityIndex] = updatedActivity;
+        
+        final updatedDailyPlan = DailyTripPlan(
+          day: _currentTripPlan!.dailyPlans[dayIndex].day,
+          title: _currentTripPlan!.dailyPlans[dayIndex].title,
+          theme: _currentTripPlan!.dailyPlans[dayIndex].theme,
+          activities: updatedActivities,
+          photoUrl: _currentTripPlan!.dailyPlans[dayIndex].photoUrl,
+        );
+        
+        final updatedDailyPlans = List<DailyTripPlan>.from(_currentTripPlan!.dailyPlans);
+        updatedDailyPlans[dayIndex] = updatedDailyPlan;
+        
+      _currentTripPlan = TripPlan(
+        id: _currentTripPlan!.id,
+        tripTitle: _currentTripPlan!.tripTitle,
+        destination: _currentTripPlan!.destination,
+        duration: _currentTripPlan!.duration,
+        introduction: _currentTripPlan!.introduction,
+        dailyPlans: updatedDailyPlans,
+        conclusion: _currentTripPlan!.conclusion,
+        accommodationSuggestions: _currentTripPlan!.accommodationSuggestions,
+        transportationTips: _currentTripPlan!.transportationTips,
+        budgetConsiderations: _currentTripPlan!.budgetConsiderations,
+      );
+      
+      // Save to storage
       final appProvider = Provider.of<AppProvider>(context, listen: false);
-      
-      // Check if this is an itinerary or trip plan
       final isItinerary = appProvider.itineraries.any((itinerary) => itinerary.id == _currentTripPlan!.id);
       
       if (isItinerary) {
         await appProvider.updateItineraryActivityVisitedStatus(_currentTripPlan!.id, activityIndex, newStatus);
-        print('📝 Updated itinerary activity status');
+        print('✅ Saved to itinerary storage');
       } else {
         await appProvider.updateActivityVisitedStatus(_currentTripPlan!.id, dayIndex, activityIndex, newStatus);
-        print('🗺 Updated trip plan activity status');
+        print('✅ Saved to trip plan storage');
       }
       
-      // Refresh the trip plan data
-      _refreshTripPlan();
+      // Verify save worked
+      await Future.delayed(Duration(milliseconds: 100));
+      await appProvider.loadTripPlans();
+      final verified = appProvider.tripPlans.firstWhere((t) => t.id == _currentTripPlan!.id, orElse: () => _currentTripPlan!);
+      final verifiedStatus = verified.dailyPlans[dayIndex].activities[activityIndex].isVisited;
+      print('🔍 Verified in storage: $verifiedStatus (expected: $newStatus)');
       
-      // Calculate new completion percentage
-      final allActivitiesCount = _currentTripPlan!.dailyPlans
-          .fold<int>(0, (sum, day) => sum + day.activities.length);
-      final newVisitedCount = _currentTripPlan!.dailyPlans
-          .fold<int>(0, (sum, day) => sum + day.activities.where((a) => a.isVisited).length);
-      final completionPercent = ((newVisitedCount / allActivitiesCount) * 100).toInt();
+      // Show feedback
+      final allActivitiesCount = _currentTripPlan!.dailyPlans.fold<int>(0, (sum, day) => sum + day.activities.length);
+      final newVisitedCount = _currentTripPlan!.dailyPlans.fold<int>(0, (sum, day) => sum + day.activities.where((a) => a.isVisited).length);
+      final completionPercent = allActivitiesCount > 0 ? ((newVisitedCount / allActivitiesCount) * 100).toInt() : 0;
       
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(
-            newStatus 
-                ? '✅ Marked as visited! Progress: $completionPercent%' 
-                : '⏳ Marked as pending',
-          ),
+          content: Text(newStatus ? '✅ Visited! $completionPercent%' : '⏳ Pending'),
           backgroundColor: newStatus ? Colors.green : Colors.blue,
-          duration: const Duration(seconds: 2),
+          duration: const Duration(seconds: 1),
         ),
       );
-    } else {
-      print('❌ Activity not found: $activityTitle');
     }
   }
 
@@ -718,7 +798,7 @@ class _TripPlanDetailScreenState extends State<TripPlanDetailScreen> {
   }
 
   Widget _buildActivityDetails(ActivityDetail activity) {
-    final isVisited = activity.isVisited;
+    final isVisited = _visitStatus[activity.activityTitle] ?? false;
     
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -783,23 +863,39 @@ class _TripPlanDetailScreenState extends State<TripPlanDetailScreen> {
         // Action Buttons Row
         Row(
           children: [
-            // Visit Status Button
+            // Visit Status Checkbox
             Expanded(
-              child: ElevatedButton.icon(
-                onPressed: () => _toggleVisitStatus(activity.activityTitle),
-                icon: Icon(
-                  isVisited ? Icons.check_circle : Icons.pending,
-                  size: 16,
-                ),
-                label: Text(
-                  isVisited ? 'Visited' : 'Pending Visit',
-                  style: const TextStyle(fontSize: 12),
-                ),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: isVisited ? Colors.green : Colors.blue,
-                  foregroundColor: Colors.white,
+              child: InkWell(
+                onTap: () => _toggleVisitStatus(activity.activityTitle),
+                child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                  minimumSize: const Size(0, 32),
+                  decoration: BoxDecoration(
+                    color: isVisited ? Colors.green[50] : Colors.grey[100],
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color: isVisited ? Colors.green : Colors.grey[300]!,
+                      width: 1.5,
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        isVisited ? Icons.check_box : Icons.check_box_outline_blank,
+                        color: isVisited ? Colors.green : Colors.grey[600],
+                        size: 20,
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        isVisited ? 'Visited' : 'Mark as visited',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w500,
+                          color: isVisited ? Colors.green[700] : Colors.grey[700],
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -1276,36 +1372,78 @@ class _TripPlanDetailScreenState extends State<TripPlanDetailScreen> {
     );
   }
 
-  void _openRouteWithPreferences(RoutePreferences preferences) {
+  void _openRouteWithPreferences(RoutePreferences preferences) async {
     final appProvider = Provider.of<AppProvider>(context, listen: false);
     
-    if (appProvider.currentLocation == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Location not available. Please enable location services.'),
-          backgroundColor: Colors.orange,
+    // Show loading
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const Center(
+        child: Card(
+          child: Padding(
+            padding: EdgeInsets.all(20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                CircularProgressIndicator(),
+                SizedBox(height: 16),
+                Text('Getting real coordinates...'),
+              ],
+            ),
+          ),
         ),
-      );
-      return;
-    }
-
-    // Convert trip activities to places with coordinates
+      ),
+    );
+    
+    // Convert trip activities to places with REAL coordinates
     final places = <Place>[];
     for (final day in (_currentTripPlan ?? widget.tripPlan).dailyPlans) {
       for (final activity in day.activities) {
-        // Generate coordinates if missing
-        final hash = activity.activityTitle.hashCode.abs();
-        const baseLat = 6.9271; // Colombo, Sri Lanka
-        const baseLng = 79.8612;
-        final latOffset = ((hash % 200) - 100) / 1000.0;
-        final lngOffset = (((hash ~/ 200) % 200) - 100) / 1000.0;
+        double? lat;
+        double? lng;
+        
+        // Try backend coordinates first (from activity.location if it contains lat,lng)
+        if (activity.location != null && activity.location!.contains(',')) {
+          final parts = activity.location!.split(',');
+          if (parts.length == 2) {
+            lat = double.tryParse(parts[0].trim());
+            lng = double.tryParse(parts[1].trim());
+          }
+        }
+        
+        if (lat == null && activity.googlePlaceId != null && activity.googlePlaceId!.isNotEmpty) {
+          final coords = await _getCoordinatesFromPlaceId(activity.googlePlaceId!);
+          lat = coords?['lat'];
+          lng = coords?['lng'];
+        }
+        
+        if (lat == null && activity.fullAddress != null && activity.fullAddress!.isNotEmpty) {
+          final coords = await _geocodeAddress(activity.fullAddress!);
+          lat = coords?['lat'];
+          lng = coords?['lng'];
+        }
+        
+        if (lat == null) {
+          final placeName = _extractPlaceName(activity.activityTitle);
+          if (placeName.isNotEmpty) {
+            final coords = await _searchPlaceByName(placeName);
+            lat = coords?['lat'];
+            lng = coords?['lng'];
+          }
+        }
+        
+        if (lat == null || lng == null) {
+          print('! No coords: ${activity.activityTitle}');
+          continue;
+        }
         
         places.add(Place(
           id: activity.googlePlaceId ?? 'activity_${activity.activityTitle.hashCode}',
           name: activity.activityTitle,
           address: activity.fullAddress ?? activity.location ?? '',
-          latitude: baseLat + latOffset,
-          longitude: baseLng + lngOffset,
+          latitude: lat,
+          longitude: lng,
           rating: activity.rating ?? 0.0,
           type: activity.category ?? 'attraction',
           photoUrl: activity.photoThumbnail ?? '',
@@ -1316,7 +1454,10 @@ class _TripPlanDetailScreenState extends State<TripPlanDetailScreen> {
       }
     }
     
-    print('🗺️ Created ${places.length} places for routing');
+    // Close loading
+    if (mounted) Navigator.pop(context);
+    
+    print('🗺️ Created ${places.length} places with real coordinates');
     
     if (places.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -1328,11 +1469,41 @@ class _TripPlanDetailScreenState extends State<TripPlanDetailScreen> {
       return;
     }
 
+    // Determine start location
+    Position startLocation;
+    if (preferences.startFromCurrentLocation) {
+      if (appProvider.currentLocation == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Location not available. Please enable location services.'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+        return;
+      }
+      startLocation = appProvider.currentLocation!;
+    } else {
+      // Use first trip location as start point
+      final firstPlace = places.first;
+      startLocation = Position(
+        latitude: firstPlace.latitude!,
+        longitude: firstPlace.longitude!,
+        timestamp: DateTime.now(),
+        accuracy: 0,
+        altitude: 0,
+        heading: 0,
+        speed: 0,
+        speedAccuracy: 0,
+        altitudeAccuracy: 0,
+        headingAccuracy: 0,
+      );
+    }
+
     Navigator.push(
       context,
       MaterialPageRoute(
         builder: (context) => SmartRouteListScreen(
-          currentLocation: appProvider.currentLocation!,
+          currentLocation: startLocation,
           places: places,
           title: '${widget.tripPlan.tripTitle} Route',
           preferences: preferences,
@@ -1363,6 +1534,82 @@ class _TripPlanDetailScreenState extends State<TripPlanDetailScreen> {
     );
   }
 
+  Future<Map<String, double>?> _getCoordinatesFromPlaceId(String placeId) async {
+    try {
+      // Use your API service to get place details
+      final apiService = ApiService();
+      final place = await apiService.getPlaceDetails(placeId);
+      if (place != null && place.latitude != null && place.longitude != null) {
+        return {'lat': place.latitude!, 'lng': place.longitude!};
+      }
+    } catch (e) {
+      print('❌ Error getting coordinates from place ID: $e');
+    }
+    return null;
+  }
+  
+  Future<Map<String, double>?> _geocodeAddress(String address) async {
+    try {
+      // Simple geocoding using nominatim (free, no API key needed)
+      final uri = Uri.parse('https://nominatim.openstreetmap.org/search?q=${Uri.encodeComponent(address)}&format=json&limit=1');
+      final response = await http.get(uri, headers: {'User-Agent': 'TravelBuddy'});
+      
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        if (data is List && data.isNotEmpty) {
+          return {
+            'lat': double.parse(data[0]['lat']),
+            'lng': double.parse(data[0]['lon']),
+          };
+        }
+      }
+    } catch (e) {
+      print('❌ Error geocoding address: $e');
+    }
+    return null;
+  }
+  
+  String _extractPlaceName(String activityTitle) {
+    String cleaned = activityTitle
+        .replaceAll('&amp;', '&')
+        .replaceAll('&quot;', '"')
+        .replaceAll('&#39;', "'")
+        .replaceAll(RegExp(r'^(Visit|Explore|Walk|Climb|Train to|Chill at|Stroll|Train|Walk the|Scenic)\s+', caseSensitive: false), '')
+        .replaceAll(RegExp(r'\s+(Beach|Town|Fort|Market|Dinner|Lunch|Street Food|Local|Eats|Café|Tasting|Tour|Bike|Hike|Falls|Ride|Walk)\s*$', caseSensitive: false), '')
+        .replaceAll(RegExp(r'[🍽️☕🏛️🌳🛍️🍸🏯🏖️📍]'), '')
+        .trim();
+    
+    final parts = cleaned.split(RegExp(r'\s*(&|and|,)\s*'));
+    if (parts.isNotEmpty && parts[0].trim().isNotEmpty) {
+      cleaned = parts[0].trim();
+    }
+    
+    return cleaned;
+  }
+  
+  Future<Map<String, double>?> _searchPlaceByName(String name) async {
+    try {
+      await Future.delayed(Duration(milliseconds: 1000));
+      final destination = (_currentTripPlan ?? widget.tripPlan).destination;
+      final searchQuery = '$name, $destination';
+      final uri = Uri.parse('https://nominatim.openstreetmap.org/search?q=${Uri.encodeComponent(searchQuery)}&format=json&limit=1');
+      final response = await http.get(uri, headers: {'User-Agent': 'TravelBuddy'});
+      
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        if (data is List && data.isNotEmpty) {
+          return {
+            'lat': double.parse(data[0]['lat']),
+            'lng': double.parse(data[0]['lon']),
+          };
+        }
+      }
+    } catch (e) {
+      print('❌ Geocode error for $name: $e');
+    }
+    return null;
+  }
+  
   void _shareTrip(BuildContext context) {
     final tripText = '''🌍 ${widget.tripPlan.tripTitle}
 
@@ -1414,6 +1661,7 @@ class _RoutePreferencesBottomSheetState extends State<_RoutePreferencesBottomShe
   bool _considerOpeningHours = true;
   bool _optimizeForRating = true;
   bool _includeBreaks = true;
+  bool _startFromCurrentLocation = true;
 
   @override
   Widget build(BuildContext context) {
@@ -1495,6 +1743,25 @@ class _RoutePreferencesBottomSheetState extends State<_RoutePreferencesBottomShe
             (value) => setState(() => _includeBreaks = value),
           ),
           
+          const SizedBox(height: 20),
+          
+          // Start Point
+          const Text(
+            'Start Point',
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 12),
+          
+          _buildToggleOption(
+            'Start from Current Location',
+            'Begin route from where you are now',
+            _startFromCurrentLocation,
+            (value) => setState(() => _startFromCurrentLocation = value),
+          ),
+          
           const SizedBox(height: 24),
           
           // Create Route Button
@@ -1507,6 +1774,7 @@ class _RoutePreferencesBottomSheetState extends State<_RoutePreferencesBottomShe
                   considerOpeningHours: _considerOpeningHours,
                   optimizeForRating: _optimizeForRating,
                   includeBreaks: _includeBreaks,
+                  startFromCurrentLocation: _startFromCurrentLocation,
                 );
                 widget.onPreferencesSelected(preferences);
               },

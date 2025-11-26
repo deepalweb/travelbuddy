@@ -21,6 +21,7 @@ class RoutePreferences {
   final bool avoidHighways;
   final List<String> preferredPlaceTypes;
   final Duration maxWalkingTime;
+  final bool startFromCurrentLocation;
 
   const RoutePreferences({
     required this.transportMode,
@@ -31,6 +32,7 @@ class RoutePreferences {
     this.avoidHighways = false,
     this.preferredPlaceTypes = const [],
     this.maxWalkingTime = const Duration(minutes: 15),
+    this.startFromCurrentLocation = true,
   });
 }
 
