@@ -3,8 +3,8 @@ import 'package:http/http.dart' as http;
 import '../models/enhanced_activity.dart';
 
 class DirectGeminiService {
-  static const String _geminiApiKey = 'AIzaSyBTAYqrMpZYcVjzFTW9V9RH-IWDacEzXRo';
-  static const String _placesApiKey = 'AIzaSyA89E6gkU7-nUMYk9JPt6xxYHVV4Yevtio';
+  // API keys moved to backend for security
+  // Use backend endpoints instead of direct API calls
   
   static Future<List<EnhancedActivity>> generatePremiumDayPlan({
     required String destination,

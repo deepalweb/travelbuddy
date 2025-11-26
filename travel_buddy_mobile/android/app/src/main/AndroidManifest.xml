@@ -62,10 +62,11 @@
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />
-        <!-- Google Maps API key -->
+        <!-- Google Maps API key - Required for map display -->
+        <!-- TODO: Restrict this key in Google Cloud Console to your app's package name -->
         <meta-data
             android:name="com.google.android.geo.API_KEY"
-            android:value="AIzaSyA89E6gkU7-nUMYk9JPt6xxYHVV4Yevtio" />
+            android:value="${GOOGLE_MAPS_API_KEY}" />
         
         <!-- Background Service -->
         <service

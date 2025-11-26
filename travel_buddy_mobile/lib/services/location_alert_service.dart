@@ -6,7 +6,8 @@ import '../models/enhanced_activity.dart' hide ActivityType;
 import '../models/enhanced_activity.dart' as EA;
 
 class LocationAlertService {
-  static const String _placesApiKey = 'AIzaSyA89E6gkU7-nUMYk9JPt6xxYHVV4Yevtio';
+  // API key moved to backend for security
+  // Use backend endpoint: ${Environment.backendUrl}/api/places/nearby
   static StreamSubscription<Position>? _locationSubscription;
   static List<EnhancedActivity> _currentPlan = [];
   static Function(String, List<Map<String, dynamic>>)? _onNearbyPlacesFound;

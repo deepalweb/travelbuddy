@@ -33,6 +33,18 @@ android {
         versionCode = 1
         versionName = "1.0.0"
         multiDexEnabled true
+        
+        // Load API key from local.properties (not committed to git)
+        def localProperties = new Properties()
+        def localPropertiesFile = rootProject.file('local.properties')
+        if (localPropertiesFile.exists()) {
+            localPropertiesFile.withReader('UTF-8') { reader ->
+                localProperties.load(reader)
+            }
+        }
+        manifestPlaceholders = [
+            GOOGLE_MAPS_API_KEY: localProperties.getProperty('GOOGLE_MAPS_API_KEY', 'YOUR_API_KEY_HERE')
+        ]
     }
 
     signingConfigs {

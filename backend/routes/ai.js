@@ -16,9 +16,11 @@ async function geocodeActivity(activityName, destination) {
   // Clean activity name
   let cleanName = activityName
     .replace(/&amp;/g, '&')
-    .replace(/Train to |Walk |Explore |Visit |Sunset at |Hidden |Free /gi, '')
+    .replace(/Train to |Walk |Explore |Visit |Sunset at |Hidden |Free |Climb |Stroll |Swim |Wander |Journey:/gi, '')
     .split(/[&,]/)[0]
     .trim();
+  
+  console.log(`🔍 Geocoding: "${activityName}" → "${cleanName}, ${destination}"`);
   
   // Try Google Places API first
   if (GOOGLE_API_KEY) {
@@ -28,18 +30,25 @@ async function geocodeActivity(activityName, destination) {
       const response = await fetch(url);
       const data = await response.json();
       
+      console.log(`📍 Google response for "${cleanName}": ${data.status}`);
+      
       if (data.status === 'OK' && data.results[0]) {
         const location = data.results[0].geometry.location;
+        console.log(`✅ Found: ${cleanName} at ${location.lat}, ${location.lng}`);
         return {
           lat: location.lat,
           lng: location.lng,
           placeId: data.results[0].place_id,
           address: data.results[0].formatted_address
         };
+      } else {
+        console.log(`❌ Google failed for "${cleanName}": ${data.status}`);
       }
     } catch (error) {
-      console.error(`Google geocode error for ${activityName}:`, error.message);
+      console.error(`❌ Google geocode error for ${activityName}:`, error.message);
     }
+  } else {
+    console.log('⚠️ No Google API key configured');
   }
   
   // Fallback to Nominatim
