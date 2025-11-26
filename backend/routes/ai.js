@@ -13,7 +13,15 @@ const AZURE_API_VERSION = '2024-02-01';
 async function geocodeActivity(activityName, destination) {
   try {
     await new Promise(resolve => setTimeout(resolve, 1000));
-    const query = `${activityName}, ${destination}`;
+    
+    // Clean activity name
+    let cleanName = activityName
+      .replace(/&amp;/g, '&')
+      .replace(/Train to |Walk |Explore |Visit |Sunset at |Hidden |Free /gi, '')
+      .split(/[&,]/)[0]
+      .trim();
+    
+    const query = `${cleanName}, ${destination}`;
     const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json&limit=1`;
     const response = await fetch(url, { headers: { 'User-Agent': 'TravelBuddy' } });
     const data = await response.json();

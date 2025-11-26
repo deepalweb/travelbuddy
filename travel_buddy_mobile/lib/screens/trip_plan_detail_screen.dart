@@ -1409,6 +1409,9 @@ class _TripPlanDetailScreenState extends State<TripPlanDetailScreen> {
           if (parts.length == 2) {
             lat = double.tryParse(parts[0].trim());
             lng = double.tryParse(parts[1].trim());
+            if (lat != null && lng != null) {
+              print('✅ Backend coords: ${activity.activityTitle} = $lat, $lng');
+            }
           }
         }
         
