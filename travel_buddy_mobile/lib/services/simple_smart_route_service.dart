@@ -32,6 +32,7 @@ class SimpleSmartRouteService {
           totalDistance: directions.totalDistance,
           totalDuration: directions.totalDuration,
           transportMode: mode,
+          steps: directions.steps,
         );
       }
     } catch (e) {
@@ -111,12 +112,26 @@ class SimpleSmartRouteService {
             totalDuration += Duration(seconds: leg['duration']['value']);
           }
           
-          print('✅ Azure Directions success: ${polylinePoints.length} points, ${(totalDistance/1000).toStringAsFixed(1)}km');
+          // Extract turn-by-turn steps
+          final steps = <RouteStep>[];
+          for (final leg in route['legs']) {
+            for (final step in leg['steps']) {
+              steps.add(RouteStep(
+                instruction: step['html_instructions'].toString().replaceAll(RegExp(r'<[^>]*>'), ''),
+                distance: step['distance']['text'],
+                duration: step['duration']['text'],
+                maneuver: step['maneuver'] ?? 'straight',
+              ));
+            }
+          }
+          
+          print('✅ Azure Directions success: ${polylinePoints.length} points, ${steps.length} steps, ${(totalDistance/1000).toStringAsFixed(1)}km');
           
           return _DirectionsResult(
             polylinePoints: polylinePoints,
             totalDistance: totalDistance,
             totalDuration: totalDuration,
+            steps: steps,
           );
         } else {
           print('⚠️ Azure Directions error: ${data['status']} - ${data['error_message'] ?? 'Unknown error'}');
@@ -268,6 +283,7 @@ class SimpleRouteResult {
   final double totalDistance;
   final Duration totalDuration;
   final TransportMode transportMode;
+  final List<RouteStep> steps;
 
   const SimpleRouteResult({
     required this.places,
@@ -275,6 +291,7 @@ class SimpleRouteResult {
     required this.totalDistance,
     required this.totalDuration,
     required this.transportMode,
+    this.steps = const [],
   });
   
   String get distanceText => '${(totalDistance / 1000).toStringAsFixed(1)} km';
@@ -297,10 +314,26 @@ class _DirectionsResult {
   final List<LatLng> polylinePoints;
   final double totalDistance;
   final Duration totalDuration;
+  final List<RouteStep> steps;
   
   const _DirectionsResult({
     required this.polylinePoints,
     required this.totalDistance,
     required this.totalDuration,
+    this.steps = const [],
+  });
+}
+
+class RouteStep {
+  final String instruction;
+  final String distance;
+  final String duration;
+  final String maneuver;
+  
+  const RouteStep({
+    required this.instruction,
+    required this.distance,
+    required this.duration,
+    required this.maneuver,
   });
 }

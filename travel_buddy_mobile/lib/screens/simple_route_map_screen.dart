@@ -7,6 +7,7 @@ import '../models/place.dart';
 import '../models/route_models.dart';
 import '../services/simple_smart_route_service.dart';
 import '../services/storage_service.dart';
+import '../services/background_location_service.dart';
 
 class SimpleRouteMapScreen extends StatefulWidget {
   final Position currentLocation;
@@ -26,7 +27,7 @@ class SimpleRouteMapScreen extends StatefulWidget {
   State<SimpleRouteMapScreen> createState() => _SimpleRouteMapScreenState();
 }
 
-class _SimpleRouteMapScreenState extends State<SimpleRouteMapScreen> {
+class _SimpleRouteMapScreenState extends State<SimpleRouteMapScreen> with WidgetsBindingObserver {
   GoogleMapController? _mapController;
   Set<Marker> _markers = {};
   Set<Polyline> _polylines = {};
@@ -39,18 +40,33 @@ class _SimpleRouteMapScreenState extends State<SimpleRouteMapScreen> {
   int _currentStopIndex = 0;
   final Set<int> _visitedStops = {};
   bool _showStopList = false;
+  int _currentStepIndex = 0;
 
   @override
   void initState() {
     super.initState();
     _currentPosition = widget.currentLocation;
     _loadRoute();
+    WidgetsBinding.instance.addObserver(this);
   }
   
   @override
   void dispose() {
     _locationSubscription?.cancel();
+    WidgetsBinding.instance.removeObserver(this);
     super.dispose();
+  }
+  
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed && _isNavigating && !_locationSubscription!.isPaused) {
+      // User returned from Google Maps
+      Future.delayed(Duration(seconds: 1), () {
+        if (mounted && _currentStopIndex < (_route?.places.length ?? 0)) {
+          _showCheckInDialog();
+        }
+      });
+    }
   }
 
   Future<void> _loadRoute() async {
@@ -390,6 +406,59 @@ class _SimpleRouteMapScreenState extends State<SimpleRouteMapScreen> {
                             ),
                           ),
                         ),
+                      
+                      if (_isNavigating && _route != null && _route!.steps.isNotEmpty && _currentStepIndex < _route!.steps.length)
+                        Positioned(
+                          bottom: 200,
+                          left: 16,
+                          right: 16,
+                          child: Container(
+                            padding: const EdgeInsets.all(16),
+                            decoration: BoxDecoration(
+                              color: Colors.blue,
+                              borderRadius: BorderRadius.circular(12),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withOpacity(0.2),
+                                  blurRadius: 8,
+                                ),
+                              ],
+                            ),
+                            child: Row(
+                              children: [
+                                Icon(
+                                  _getManeuverIcon(_route!.steps[_currentStepIndex].maneuver),
+                                  color: Colors.white,
+                                  size: 32,
+                                ),
+                                const SizedBox(width: 16),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        _route!.steps[_currentStepIndex].instruction,
+                                        style: const TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        '${_route!.steps[_currentStepIndex].distance} • ${_route!.steps[_currentStepIndex].duration}',
+                                        style: TextStyle(
+                                          color: Colors.white.withOpacity(0.9),
+                                          fontSize: 12,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
                     ],
                   ),
           ),
@@ -645,9 +714,11 @@ class _SimpleRouteMapScreenState extends State<SimpleRouteMapScreen> {
       _isNavigating = true;
       _currentStopIndex = 0;
       _visitedStops.clear();
+      _currentStepIndex = 0;
     });
     
     await _saveRouteOffline();
+    await _startBackgroundTracking();
     _startLocationTracking();
     _setupMarkers();
     _setupPolyline();
@@ -801,11 +872,118 @@ class _SimpleRouteMapScreenState extends State<SimpleRouteMapScreen> {
     );
   }
   
-  void _stopNavigation() {
+  void _stopNavigation() async {
     setState(() {
       _isNavigating = false;
+      _currentStepIndex = 0;
     });
     _locationSubscription?.cancel();
+    await BackgroundLocationService.stopTracking();
+  }
+  
+  Future<void> _startBackgroundTracking() async {
+    if (_route == null) return;
+    
+    final stops = _route!.places.map((place) => {
+      'name': place.name,
+      'latitude': place.latitude,
+      'longitude': place.longitude,
+    }).toList();
+    
+    await BackgroundLocationService.startTracking(stops);
+    
+    // Listen for background updates
+    BackgroundLocationService.onUpdate.listen((data) {
+      if (data != null && mounted) {
+        final reachedStop = data['reached_stop'] as int?;
+        if (reachedStop != null) {
+          setState(() {
+            _visitedStops.add(reachedStop);
+            _currentStopIndex = reachedStop + 1;
+          });
+          _setupMarkers();
+          _setupPolyline();
+        }
+      }
+    });
+  }
+  
+  void _showCheckInDialog() {
+    if (_route == null || _currentStopIndex >= _route!.places.length) return;
+    
+    final currentPlace = _route!.places[_currentStopIndex];
+    
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('📍 Check-In'),
+        content: Text('Did you visit ${currentPlace.name}?'),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+            },
+            child: Text('Not yet'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(context);
+              setState(() {
+                _visitedStops.add(_currentStopIndex);
+                _currentStopIndex++;
+              });
+              _setupMarkers();
+              _setupPolyline();
+              
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('✅ Marked as visited!'),
+                  backgroundColor: Colors.green,
+                ),
+              );
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.green,
+              foregroundColor: Colors.white,
+            ),
+            child: Text('✅ Yes, visited'),
+          ),
+        ],
+      ),
+    );
+  }
+  
+  IconData _getManeuverIcon(String maneuver) {
+    switch (maneuver.toLowerCase()) {
+      case 'turn-left':
+        return Icons.turn_left;
+      case 'turn-right':
+        return Icons.turn_right;
+      case 'turn-slight-left':
+        return Icons.turn_slight_left;
+      case 'turn-slight-right':
+        return Icons.turn_slight_right;
+      case 'turn-sharp-left':
+        return Icons.turn_sharp_left;
+      case 'turn-sharp-right':
+        return Icons.turn_sharp_right;
+      case 'uturn-left':
+      case 'uturn-right':
+        return Icons.u_turn_left;
+      case 'roundabout-left':
+      case 'roundabout-right':
+        return Icons.roundabout_left;
+      case 'merge':
+        return Icons.merge;
+      case 'fork-left':
+      case 'fork-right':
+        return Icons.fork_left;
+      case 'ramp-left':
+      case 'ramp-right':
+        return Icons.ramp_left;
+      default:
+        return Icons.straight;
+    }
   }
   
   Future<void> _saveRouteOffline() async {
