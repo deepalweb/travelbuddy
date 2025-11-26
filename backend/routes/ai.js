@@ -9,6 +9,27 @@ const AZURE_OPENAI_API_KEY = process.env.AZURE_OPENAI_API_KEY;
 const AZURE_OPENAI_DEPLOYMENT_NAME = process.env.AZURE_OPENAI_DEPLOYMENT_NAME;
 const AZURE_API_VERSION = '2024-02-01';
 
+// Geocode activity to get real coordinates
+async function geocodeActivity(activityName, destination) {
+  try {
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    const query = `${activityName}, ${destination}`;
+    const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json&limit=1`;
+    const response = await fetch(url, { headers: { 'User-Agent': 'TravelBuddy' } });
+    const data = await response.json();
+    
+    if (data && data.length > 0) {
+      return {
+        lat: parseFloat(data[0].lat),
+        lng: parseFloat(data[0].lon)
+      };
+    }
+  } catch (error) {
+    console.error(`Geocode error for ${activityName}:`, error.message);
+  }
+  return null;
+}
+
 // Test Azure OpenAI configuration
 router.get('/test-config', (req, res) => {
   res.json({
@@ -113,19 +134,34 @@ Return JSON with this structure:
       }
     } catch (e) {
       console.warn('⚠️ JSON parsing failed, using fallback');
-      tripPlan = _getFallbackTripPlan(destination, duration);
+      tripPlan = await _getFallbackTripPlan(destination, duration);
     }
 
+    // Geocode activities to add real coordinates
+    console.log('📍 Geocoding activities...');
+    for (const day of tripPlan.dailyPlans || []) {
+      for (const activity of day.activities || []) {
+        if (!activity.coordinates) {
+          const coords = await geocodeActivity(activity.activityTitle, destination);
+          if (coords) {
+            activity.coordinates = coords;
+            activity.location = `${coords.lat},${coords.lng}`;
+          }
+        }
+      }
+    }
+    
     console.log('✅ Trip plan generated:', tripPlan.tripTitle);
     res.json(tripPlan);
 
   } catch (error) {
     console.error('❌ Trip plan generation error:', error);
     
-    res.json(_getFallbackTripPlan(
+    const fallback = await _getFallbackTripPlan(
       req.body.destination || 'Your Destination',
       req.body.duration || '3 days'
-    ));
+    );
+    res.json(fallback);
   }
 });
 
@@ -209,8 +245,8 @@ router.post('/generate-text', async (req, res) => {
   }
 });
 
-function _getFallbackTripPlan(destination, duration) {
-  return {
+async function _getFallbackTripPlan(destination, duration) {
+  const plan = {
     id: `fallback_${Date.now()}`,
     tripTitle: `Essential ${duration} in ${destination}`,
     destination,
@@ -234,6 +270,19 @@ function _getFallbackTripPlan(destination, duration) {
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString()
   };
+  
+  // Geocode fallback activities
+  for (const day of plan.dailyPlans || []) {
+    for (const activity of day.activities || []) {
+      const coords = await geocodeActivity(activity.activityTitle, destination);
+      if (coords) {
+        activity.coordinates = coords;
+        activity.location = `${coords.lat},${coords.lng}`;
+      }
+    }
+  }
+  
+  return plan;
 }
 
 function _getFallbackResponse() {
