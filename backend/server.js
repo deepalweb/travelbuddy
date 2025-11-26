@@ -762,45 +762,41 @@ const corsOptions = {
     // Allow requests with no origin (like mobile apps or curl requests)
     if (!origin) return callback(null, true);
     
-    // In production, allow same-origin requests from Azure App Service
-    if (process.env.NODE_ENV === 'production') {
-      // Allow the exact domains that are causing CORS issues
-      if (origin === 'https://travelbuddy-b2c6hgbbgeh4esdh.eastus2-01.azurewebsites.net' || 
-          origin === 'https://travelbuddylk.com') {
-        return callback(null, true);
-      }
-      
-      // Allow configured domains
-      const allowedOrigins = [
-        process.env.CLIENT_URL, 
-        process.env.WEBSITE_HOSTNAME, 
-        `https://${process.env.WEBSITE_HOSTNAME}`
-      ].filter(Boolean);
-      
-      if (allowedOrigins.includes(origin)) {
-        return callback(null, true);
-      }
-      
-      // Allow Azure domains
-      if (origin.includes('.azurewebsites.net') || origin.includes('.azurestaticapps.net')) {
-        return callback(null, true);
-      }
-    } else {
-      // Development - be very permissive
-      const devOrigins = [
-        'http://localhost:3000', 
-        'http://localhost:5173', 
-        'http://localhost:3001', 
-        'http://127.0.0.1:3000',
-        'http://localhost:4173'
-      ];
-      if (devOrigins.includes(origin) || 
-          origin?.includes('localhost') || 
-          origin?.includes('127.0.0.1') ||
-          origin?.startsWith('http://localhost:') ||
-          origin?.startsWith('http://127.0.0.1:')) {
-        return callback(null, true);
-      }
+    // ALWAYS allow Azure App Service domains
+    if (origin.includes('.azurewebsites.net') || origin.includes('.azurestaticapps.net')) {
+      return callback(null, true);
+    }
+    
+    // Allow production domains
+    if (origin === 'https://travelbuddylk.com') {
+      return callback(null, true);
+    }
+    
+    // Allow configured domains
+    const allowedOrigins = [
+      process.env.CLIENT_URL, 
+      process.env.WEBSITE_HOSTNAME, 
+      `https://${process.env.WEBSITE_HOSTNAME}`
+    ].filter(Boolean);
+    
+    if (allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    }
+    
+    // Development - be very permissive
+    const devOrigins = [
+      'http://localhost:3000', 
+      'http://localhost:5173', 
+      'http://localhost:3001', 
+      'http://127.0.0.1:3000',
+      'http://localhost:4173'
+    ];
+    if (devOrigins.includes(origin) || 
+        origin?.includes('localhost') || 
+        origin?.includes('127.0.0.1') ||
+        origin?.startsWith('http://localhost:') ||
+        origin?.startsWith('http://127.0.0.1:')) {
+      return callback(null, true);
     }
     
     console.log('CORS blocked origin:', origin);
