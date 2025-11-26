@@ -9,18 +9,42 @@ const AZURE_OPENAI_API_KEY = process.env.AZURE_OPENAI_API_KEY;
 const AZURE_OPENAI_DEPLOYMENT_NAME = process.env.AZURE_OPENAI_DEPLOYMENT_NAME;
 const AZURE_API_VERSION = '2024-02-01';
 
-// Geocode activity to get real coordinates
+// Geocode activity using Google Places API
 async function geocodeActivity(activityName, destination) {
+  const GOOGLE_API_KEY = process.env.GOOGLE_PLACES_API_KEY;
+  
+  // Clean activity name
+  let cleanName = activityName
+    .replace(/&amp;/g, '&')
+    .replace(/Train to |Walk |Explore |Visit |Sunset at |Hidden |Free /gi, '')
+    .split(/[&,]/)[0]
+    .trim();
+  
+  // Try Google Places API first
+  if (GOOGLE_API_KEY) {
+    try {
+      const query = `${cleanName}, ${destination}`;
+      const url = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(query)}&key=${GOOGLE_API_KEY}`;
+      const response = await fetch(url);
+      const data = await response.json();
+      
+      if (data.status === 'OK' && data.results[0]) {
+        const location = data.results[0].geometry.location;
+        return {
+          lat: location.lat,
+          lng: location.lng,
+          placeId: data.results[0].place_id,
+          address: data.results[0].formatted_address
+        };
+      }
+    } catch (error) {
+      console.error(`Google geocode error for ${activityName}:`, error.message);
+    }
+  }
+  
+  // Fallback to Nominatim
   try {
     await new Promise(resolve => setTimeout(resolve, 1000));
-    
-    // Clean activity name
-    let cleanName = activityName
-      .replace(/&amp;/g, '&')
-      .replace(/Train to |Walk |Explore |Visit |Sunset at |Hidden |Free /gi, '')
-      .split(/[&,]/)[0]
-      .trim();
-    
     const query = `${cleanName}, ${destination}`;
     const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json&limit=1`;
     const response = await fetch(url, { headers: { 'User-Agent': 'TravelBuddy' } });
@@ -33,8 +57,9 @@ async function geocodeActivity(activityName, destination) {
       };
     }
   } catch (error) {
-    console.error(`Geocode error for ${activityName}:`, error.message);
+    console.error(`Nominatim geocode error for ${activityName}:`, error.message);
   }
+  
   return null;
 }
 
@@ -150,10 +175,12 @@ Return JSON with this structure:
     for (const day of tripPlan.dailyPlans || []) {
       for (const activity of day.activities || []) {
         if (!activity.coordinates) {
-          const coords = await geocodeActivity(activity.activityTitle, destination);
-          if (coords) {
-            activity.coordinates = coords;
-            activity.location = `${coords.lat},${coords.lng}`;
+          const result = await geocodeActivity(activity.activityTitle, destination);
+          if (result) {
+            activity.coordinates = { lat: result.lat, lng: result.lng };
+            activity.location = `${result.lat},${result.lng}`;
+            if (result.placeId) activity.googlePlaceId = result.placeId;
+            if (result.address) activity.fullAddress = result.address;
           }
         }
       }
@@ -282,10 +309,12 @@ async function _getFallbackTripPlan(destination, duration) {
   // Geocode fallback activities
   for (const day of plan.dailyPlans || []) {
     for (const activity of day.activities || []) {
-      const coords = await geocodeActivity(activity.activityTitle, destination);
-      if (coords) {
-        activity.coordinates = coords;
-        activity.location = `${coords.lat},${coords.lng}`;
+      const result = await geocodeActivity(activity.activityTitle, destination);
+      if (result) {
+        activity.coordinates = { lat: result.lat, lng: result.lng };
+        activity.location = `${result.lat},${result.lng}`;
+        if (result.placeId) activity.googlePlaceId = result.placeId;
+        if (result.address) activity.fullAddress = result.address;
       }
     }
   }
