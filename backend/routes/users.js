@@ -642,16 +642,47 @@ router.get('/trip-plans', devFriendlyAuth, async (req, res) => {
     
     // Auto-create user if they don't exist
     if (!user) {
-      console.log('🆕 Creating new user for uid:', uid);
+      console.log('🆕 User not found, checking by email...');
       const { email } = req.user;
-      user = new User({
-        firebaseUid: uid,
-        username: email?.split('@')[0] || `user-${uid.slice(-6)}`,
-        email: email || `${uid}@temp.local`,
-        tier: 'free'
-      });
-      await user.save();
-      console.log('✅ Created new user:', user._id);
+      
+      // Check if user exists by email
+      if (email) {
+        user = await User.findOne({ email });
+      }
+      
+      if (!user) {
+        console.log('🆕 Creating new user for uid:', uid);
+        try {
+          user = new User({
+            firebaseUid: uid,
+            username: email?.split('@')[0] || `user-${uid.slice(-6)}`,
+            email: email || `${uid}@temp.local`,
+            tier: 'free'
+          });
+          await user.save();
+          console.log('✅ Created new user:', user._id);
+        } catch (createError) {
+          // If duplicate email, try to find and update with firebaseUid
+          if (createError.code === 11000) {
+            console.log('⚠️ Duplicate email, updating existing user with firebaseUid');
+            user = await User.findOneAndUpdate(
+              { email },
+              { $set: { firebaseUid: uid } },
+              { new: true }
+            );
+            console.log('✅ Updated existing user:', user._id);
+          } else {
+            throw createError;
+          }
+        }
+      } else {
+        // Update existing user with firebaseUid if missing
+        if (!user.firebaseUid) {
+          user.firebaseUid = uid;
+          await user.save();
+          console.log('✅ Updated user with firebaseUid:', user._id);
+        }
+      }
     }
 
     console.log('👤 Found user:', user._id);
