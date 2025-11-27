@@ -95,9 +95,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     // Check for redirect result
     const checkRedirectResult = async () => {
+      console.log('🔍🔍🔍 REDIRECT CHECK STARTED')
+      console.log('Current URL:', window.location.href)
+      console.log('URL params:', window.location.search)
+      
       try {
         debug.log('🔍 Checking for redirect result...')
+        console.log('Calling getRedirectResult...')
+        
         const result = await getRedirectResult(firebase.auth)
+        
+        console.log('getRedirectResult returned:', result)
+        console.log('Has user?', !!result?.user)
         
         if (result?.user) {
           debug.log('✅ Redirect successful!')
@@ -124,9 +133,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             debug.error('Background sync failed:', err)
           })
         } else {
+          console.log('ℹ️ No redirect result - result was:', result)
           debug.log('ℹ️ No redirect result found (this is normal on first load)')
         }
       } catch (error: any) {
+        console.error('❌❌❌ REDIRECT CHECK ERROR:', error)
         debug.error('❌ Redirect result error:', error)
         console.error('Full redirect error details:', {
           code: error.code,
@@ -145,6 +156,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           alert(`Authentication Error: ${error.message}\n\nCode: ${error.code}`)
         }
       }
+      
+      console.log('🔍🔍🔍 REDIRECT CHECK COMPLETED')
     }
     
     checkRedirectResult()
