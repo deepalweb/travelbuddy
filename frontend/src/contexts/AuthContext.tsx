@@ -377,15 +377,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const loginWithGoogle = async () => {
     if (!firebase) throw new Error('Firebase not initialized')
     
-    // Always use redirect in production (Azure)
-    const isProduction = window.location.hostname !== 'localhost'
-    
-    if (isProduction) {
-      debug.log('🔐 Production: Using redirect method for Azure')
-      return await loginWithGoogleRedirect()
-    }
-    
-    debug.log('🔐 Localhost: Using popup method')
+    debug.log('🔐 Using popup method for all environments')
     
     try {
       const provider = new GoogleAuthProvider()
