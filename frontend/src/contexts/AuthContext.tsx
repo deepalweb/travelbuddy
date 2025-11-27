@@ -323,27 +323,48 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const loginWithGoogle = async () => {
     if (!firebase) throw new Error('Firebase not initialized')
     
-    debug.log('🔐 Starting Google Sign-In...')
+    debug.log('🔐 Starting Google Sign-In with popup...')
     
     try {
       const provider = new GoogleAuthProvider()
       provider.addScope('email')
       provider.addScope('profile')
       
-      debug.log('🔐 Attempting popup sign-in...')
       const result = await signInWithPopup(firebase.auth, provider)
-      debug.log('✅ Google Sign-In successful:', result.user.email)
+      const firebaseUser = result.user
+      
+      debug.log('✅ Google Sign-In popup successful:', firebaseUser.email)
+      
+      // Immediately create user object
+      const userObj = {
+        id: firebaseUser.uid,
+        email: firebaseUser.email || '',
+        username: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'User',
+        tier: 'free',
+        firebaseUid: firebaseUser.uid,
+        role: 'regular',
+        isAdmin: false
+      }
+      
+      // Set user immediately
+      setUser(userObj)
+      localStorage.setItem('cached_user', JSON.stringify(userObj))
+      debug.log('✅ User state set immediately')
+      
+      // Sync with backend in background (don't wait)
+      syncUserProfile(firebaseUser).catch(err => {
+        debug.error('Background sync failed:', err)
+      })
       
       return result
       
     } catch (error: any) {
       debug.error('❌ Google Sign-In Error:', error)
       
-      // Try redirect if popup fails
-      if (error.code === 'auth/popup-closed-by-user' || error.code === 'auth/popup-blocked') {
-        debug.log('🔄 Popup failed, trying redirect...')
-        await loginWithGoogleRedirect()
-        return
+      if (error.code === 'auth/popup-closed-by-user') {
+        throw new Error('Sign-in cancelled')
+      } else if (error.code === 'auth/popup-blocked') {
+        throw new Error('Popup blocked. Please allow popups for this site.')
       } else if (error.code === 'auth/unauthorized-domain') {
         throw new Error('Domain not authorized for Google Sign-in')
       } else {
