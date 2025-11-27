@@ -98,8 +98,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       try {
         const result = await getRedirectResult(firebase.auth)
         if (result?.user) {
-          debug.log('Google Sign-In redirect successful:', result.user.email)
-          await syncUserProfile(result.user)
+          debug.log('✅ Google Sign-In redirect successful:', result.user.email)
+          
+          // Immediately set user
+          const userObj = {
+            id: result.user.uid,
+            email: result.user.email || '',
+            username: result.user.displayName || result.user.email?.split('@')[0] || 'User',
+            tier: 'free',
+            firebaseUid: result.user.uid,
+            role: 'regular',
+            isAdmin: false
+          }
+          setUser(userObj)
+          localStorage.setItem('cached_user', JSON.stringify(userObj))
+          
+          // Sync in background
+          syncUserProfile(result.user).catch(err => {
+            debug.error('Background sync failed:', err)
+          })
           return
         }
       } catch (error: any) {
@@ -359,12 +376,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return result
       
     } catch (error: any) {
-      debug.error('❌ Google Sign-In Error:', error)
+      debug.error('❌ Google Sign-In Popup Error:', error)
       
-      if (error.code === 'auth/popup-closed-by-user') {
-        throw new Error('Sign-in cancelled')
-      } else if (error.code === 'auth/popup-blocked') {
-        throw new Error('Popup blocked. Please allow popups for this site.')
+      // Auto-fallback to redirect for popup issues
+      if (error.code === 'auth/popup-closed-by-user' || error.code === 'auth/popup-blocked') {
+        debug.log('🔄 Popup failed, using redirect method...')
+        await loginWithGoogleRedirect()
+        return
       } else if (error.code === 'auth/unauthorized-domain') {
         throw new Error('Domain not authorized for Google Sign-in')
       } else {
