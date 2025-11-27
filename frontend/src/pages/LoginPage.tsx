@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { Button } from '../components/Button'
 import { Mail, Lock, User, Eye, EyeOff } from 'lucide-react'
+import { logGoogleSignInDebug, testGoogleSignIn } from '../utils/googleSignInDebug'
 
 export const LoginPage: React.FC = () => {
   const [isLogin, setIsLogin] = useState(true)
@@ -15,6 +16,14 @@ export const LoginPage: React.FC = () => {
   
   const { login, register, loginDemo, loginWithGoogle, user, isLoading: authLoading } = useAuth()
   const navigate = useNavigate()
+
+  // Debug on mount
+  useEffect(() => {
+    logGoogleSignInDebug()
+    // Expose test function to console
+    ;(window as any).testGoogleSignIn = testGoogleSignIn
+    console.log('💡 Run testGoogleSignIn() in console to debug')
+  }, [])
 
   // Navigate to home when user is authenticated
   useEffect(() => {
@@ -152,11 +161,17 @@ export const LoginPage: React.FC = () => {
           {/* Google Sign-In */}
           <Button
             onClick={async () => {
+              console.log('🔵 Google Sign-In button clicked')
               setError('')
               try {
+                console.log('🔵 Calling loginWithGoogle()...')
                 await loginWithGoogle()
+                console.log('✅ loginWithGoogle() completed')
                 // User state is set immediately, redirect will happen via useEffect
               } catch (error: any) {
+                console.error('❌ Google Sign-In failed:', error)
+                console.error('Error code:', error.code)
+                console.error('Error message:', error.message)
                 setError(error.message || 'Google sign-in failed')
               }
             }}
