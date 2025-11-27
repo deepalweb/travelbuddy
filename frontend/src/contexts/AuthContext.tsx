@@ -96,11 +96,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // Check for redirect result
     const checkRedirectResult = async () => {
       try {
+        debug.log('🔍 Checking for redirect result...')
         const result = await getRedirectResult(firebase.auth)
+        
         if (result?.user) {
-          debug.log('✅ Google Sign-In redirect successful:', result.user.email)
+          debug.log('✅ Redirect successful!')
+          debug.log('📧 User email:', result.user.email)
+          debug.log('👤 User ID:', result.user.uid)
           
-          // Immediately set user
           const userObj = {
             id: result.user.uid,
             email: result.user.email || '',
@@ -110,17 +113,35 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             role: 'regular',
             isAdmin: false
           }
+          
           setUser(userObj)
           localStorage.setItem('cached_user', JSON.stringify(userObj))
           
-          // Sync in background
+          // Background sync
           syncUserProfile(result.user).catch(err => {
             debug.error('Background sync failed:', err)
           })
-          return
+        } else {
+          debug.log('ℹ️ No redirect result found (this is normal on first load)')
         }
       } catch (error: any) {
-        debug.error('Redirect result error:', error)
+        debug.error('❌ Redirect result error:', error)
+        console.error('Full redirect error details:', {
+          code: error.code,
+          message: error.message,
+          url: window.location.href,
+          details: error
+        })
+        
+        // Show user-friendly error
+        if (error.code === 'auth/unauthorized-domain') {
+          alert(
+            'Authorization Error: Your domain is not authorized.\n\n' +
+            `Add "${window.location.hostname}" to Firebase Console → Authentication → Settings → Authorized domains`
+          )
+        } else if (error.code) {
+          alert(`Authentication Error: ${error.message}\n\nCode: ${error.code}`)
+        }
       }
     }
     
@@ -340,12 +361,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const loginWithGoogle = async () => {
     if (!firebase) throw new Error('Firebase not initialized')
     
+    // Always use redirect in production (Azure)
     const isProduction = window.location.hostname !== 'localhost'
     
     if (isProduction) {
-      debug.log('🔐 Production: Using redirect method')
-      await loginWithGoogleRedirect()
-      return
+      debug.log('🔐 Production: Using redirect method for Azure')
+      return await loginWithGoogleRedirect()
     }
     
     debug.log('🔐 Localhost: Using popup method')
@@ -373,14 +394,30 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setUser(userObj)
       localStorage.setItem('cached_user', JSON.stringify(userObj))
       
+      // Background sync
       syncUserProfile(firebaseUser).catch(err => {
         debug.error('Background sync failed:', err)
       })
       
-      return result
-      
     } catch (error: any) {
-      debug.error('❌ Popup Error:', error)
+      debug.error('❌ Google Sign-In Error:', error)
+      console.error('Full error details:', {
+        code: error.code,
+        message: error.message,
+        details: error
+      })
+      
+      // More specific error messages
+      if (error.code === 'auth/popup-blocked') {
+        throw new Error('Popup was blocked. Please allow popups for this site.')
+      } else if (error.code === 'auth/popup-closed-by-user') {
+        throw new Error('Sign-in cancelled.')
+      } else if (error.code === 'auth/unauthorized-domain') {
+        throw new Error('Domain not authorized in Firebase Console. Add your Azure domain to authorized domains.')
+      } else if (error.code === 'auth/operation-not-allowed') {
+        throw new Error('Google Sign-In not enabled in Firebase Console.')
+      }
+      
       throw new Error(error.message || 'Google sign-in failed')
     }
   }
@@ -388,7 +425,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const loginWithGoogleRedirect = async () => {
     if (!firebase) throw new Error('Firebase not initialized')
     
-    debug.log('Starting Google Sign-In with redirect...')
+    debug.log('🔐 Starting Google Sign-In with redirect...')
+    debug.log('🌐 Current URL:', window.location.href)
     
     try {
       const provider = new GoogleAuthProvider()
@@ -398,19 +436,37 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         prompt: 'select_account'
       })
       
+      debug.log('🚀 Initiating redirect...')
       await signInWithRedirect(firebase.auth, provider)
-      // The page will redirect, so no need to handle result here
+      
     } catch (error: any) {
       debug.error('❌ Google Sign-In Redirect Error:', error)
+      console.error('Full redirect error:', {
+        code: error.code,
+        message: error.message,
+        hostname: window.location.hostname,
+        details: error
+      })
       
-      // Provide helpful error messages
+      // Specific error handling for Azure
       if (error.code === 'auth/unauthorized-domain') {
-        throw new Error('Domain not authorized. Add localhost:3000 to Firebase authorized domains.')
+        throw new Error(
+          `Domain "${window.location.hostname}" not authorized. ` +
+          'Go to Firebase Console → Authentication → Settings → Authorized domains and add: ' +
+          window.location.hostname
+        )
       } else if (error.code === 'auth/operation-not-allowed') {
-        throw new Error('Google Sign-In not enabled in Firebase console.')
-      } else {
-        throw new Error(error.message || 'Google sign-in failed')
+        throw new Error(
+          'Google Sign-In not enabled. ' +
+          'Go to Firebase Console → Authentication → Sign-in method and enable Google.'
+        )
+      } else if (error.code === 'auth/network-request-failed') {
+        throw new Error(
+          'Network error. Check your internet connection and Firebase configuration.'
+        )
       }
+      
+      throw new Error(error.message || 'Google sign-in failed')
     }
   }
 
