@@ -172,6 +172,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const cacheKey = `sync_${firebaseUser.uid}`
     if ((window as any)[cacheKey]) {
       debug.log('⏭️ Skipping duplicate sync request')
+      // Still set user from cache if available
+      const cachedUser = localStorage.getItem('cached_user')
+      if (cachedUser && !user) {
+        try {
+          setUser(JSON.parse(cachedUser))
+        } catch (e) {
+          debug.error('Failed to parse cached user')
+        }
+      }
       return
     }
     (window as any)[cacheKey] = true
@@ -214,7 +223,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (response.ok) {
         const userData = await response.json()
         debug.log('✅ Sync successful:', userData)
-        setUser({
+        const userObj = {
           id: userData._id,
           email: userData.email,
           username: userData.username,
@@ -223,13 +232,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           firebaseUid: firebaseUser.uid,
           role: userData.role || 'regular',
           isAdmin: userData.isAdmin || false
-        })
+        }
+        setUser(userObj)
+        // Cache user for quick restore
+        localStorage.setItem('cached_user', JSON.stringify(userObj))
       } else {
         const errorText = await response.text()
         debug.error('❌ Sync failed:', response.status, errorText)
         debug.log('⚠️ Using fallback - user will still be authenticated')
         // IMPORTANT: Still set user to allow login even if backend sync fails
-        setUser({
+        const fallbackUser = {
           id: firebaseUser.uid,
           email: firebaseUser.email || '',
           username: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'User',
@@ -237,13 +249,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           firebaseUid: firebaseUser.uid,
           role: 'regular',
           isAdmin: false
-        })
+        }
+        setUser(fallbackUser)
+        localStorage.setItem('cached_user', JSON.stringify(fallbackUser))
       }
     } catch (error) {
       debug.error('💥 User sync error:', error)
       debug.log('⚠️ Using fallback user object due to error')
       // Fallback: create basic user object - don't block auth flow
-      setUser({
+      const fallbackUser = {
         id: firebaseUser.uid,
         email: firebaseUser.email || '',
         username: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'User',
@@ -251,7 +265,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         firebaseUid: firebaseUser.uid,
         role: 'regular',
         isAdmin: false
-      })
+      }
+      setUser(fallbackUser)
+      localStorage.setItem('cached_user', JSON.stringify(fallbackUser))
     }
   }
 
@@ -399,6 +415,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const logout = async () => {
     try {
       localStorage.removeItem('demo_token')
+      localStorage.removeItem('cached_user')
       if (firebase) {
         await signOut(firebase.auth)
       }
