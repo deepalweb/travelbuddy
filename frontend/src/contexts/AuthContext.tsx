@@ -4,10 +4,6 @@ import {
   createUserWithEmailAndPassword, 
   signOut, 
   onAuthStateChanged,
-  signInWithPopup,
-  signInWithRedirect,
-  getRedirectResult,
-  GoogleAuthProvider,
   type User as FirebaseUser
 } from 'firebase/auth'
 import { auth } from '../lib/firebase'
@@ -30,8 +26,6 @@ interface AuthContextType {
   user: User | null
   login: (email: string, password: string) => Promise<void>
   register: (username: string, email: string, password: string) => Promise<void>
-  loginWithGoogle: () => Promise<void>
-  loginWithGoogleRedirect: () => Promise<void>
   loginDemo: () => Promise<void>
   logout: () => void
   updateProfile: (data: Partial<User>) => Promise<void>
@@ -93,74 +87,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     })
 
-    // Check for redirect result
-    const checkRedirectResult = async () => {
-      console.log('🔍🔍🔍 REDIRECT CHECK STARTED')
-      console.log('Current URL:', window.location.href)
-      console.log('URL params:', window.location.search)
-      
-      try {
-        debug.log('🔍 Checking for redirect result...')
-        console.log('Calling getRedirectResult...')
-        
-        const result = await getRedirectResult(firebase.auth)
-        
-        console.log('getRedirectResult returned:', result)
-        console.log('Has user?', !!result?.user)
-        
-        if (result?.user) {
-          debug.log('✅ Redirect successful!')
-          debug.log('📧 User email:', result.user.email)
-          debug.log('👤 User ID:', result.user.uid)
-          
-          const userObj = {
-            id: result.user.uid,
-            email: result.user.email || '',
-            username: result.user.displayName || result.user.email?.split('@')[0] || 'User',
-            tier: 'free',
-            firebaseUid: result.user.uid,
-            role: 'regular',
-            isAdmin: false
-          }
-          
-          console.log('👤 Setting user from redirect result:', userObj)
-          setUser(userObj)
-          localStorage.setItem('cached_user', JSON.stringify(userObj))
-          console.log('✅ User state set, localStorage updated')
-          
-          // Background sync
-          syncUserProfile(result.user).catch(err => {
-            debug.error('Background sync failed:', err)
-          })
-        } else {
-          console.log('ℹ️ No redirect result - result was:', result)
-          debug.log('ℹ️ No redirect result found (this is normal on first load)')
-        }
-      } catch (error: any) {
-        console.error('❌❌❌ REDIRECT CHECK ERROR:', error)
-        debug.error('❌ Redirect result error:', error)
-        console.error('Full redirect error details:', {
-          code: error.code,
-          message: error.message,
-          url: window.location.href,
-          details: error
-        })
-        
-        // Show user-friendly error
-        if (error.code === 'auth/unauthorized-domain') {
-          alert(
-            'Authorization Error: Your domain is not authorized.\n\n' +
-            `Add "${window.location.hostname}" to Firebase Console → Authentication → Settings → Authorized domains`
-          )
-        } else if (error.code) {
-          alert(`Authentication Error: ${error.message}\n\nCode: ${error.code}`)
-        }
-      }
-      
-      console.log('🔍🔍🔍 REDIRECT CHECK COMPLETED')
-    }
-    
-    checkRedirectResult()
     
     const unsubscribe = onAuthStateChanged(firebase.auth, async (firebaseUser) => {
       debug.log('🔐 AUTH STEP 4: Auth state changed', {
@@ -374,109 +300,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }
 
-  const loginWithGoogle = async () => {
-    if (!firebase) throw new Error('Firebase not initialized')
-    
-    debug.log('🔐 Using popup method for all environments')
-    
-    try {
-      const provider = new GoogleAuthProvider()
-      provider.addScope('email')
-      provider.addScope('profile')
-      
-      const result = await signInWithPopup(firebase.auth, provider)
-      const firebaseUser = result.user
-      
-      debug.log('✅ Popup successful:', firebaseUser.email)
-      
-      const userObj = {
-        id: firebaseUser.uid,
-        email: firebaseUser.email || '',
-        username: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'User',
-        tier: 'free',
-        firebaseUid: firebaseUser.uid,
-        role: 'regular',
-        isAdmin: false
-      }
-      
-      setUser(userObj)
-      localStorage.setItem('cached_user', JSON.stringify(userObj))
-      
-      // Background sync
-      syncUserProfile(firebaseUser).catch(err => {
-        debug.error('Background sync failed:', err)
-      })
-      
-    } catch (error: any) {
-      debug.error('❌ Google Sign-In Error:', error)
-      console.error('Full error details:', {
-        code: error.code,
-        message: error.message,
-        details: error
-      })
-      
-      // More specific error messages
-      if (error.code === 'auth/popup-blocked') {
-        throw new Error('Popup was blocked. Please allow popups for this site.')
-      } else if (error.code === 'auth/popup-closed-by-user') {
-        throw new Error('Sign-in cancelled.')
-      } else if (error.code === 'auth/unauthorized-domain') {
-        throw new Error('Domain not authorized in Firebase Console. Add your Azure domain to authorized domains.')
-      } else if (error.code === 'auth/operation-not-allowed') {
-        throw new Error('Google Sign-In not enabled in Firebase Console.')
-      }
-      
-      throw new Error(error.message || 'Google sign-in failed')
-    }
-  }
-  
-  const loginWithGoogleRedirect = async () => {
-    if (!firebase) throw new Error('Firebase not initialized')
-    
-    debug.log('🔐 Starting Google Sign-In with redirect...')
-    debug.log('🌐 Current URL:', window.location.href)
-    
-    try {
-      const provider = new GoogleAuthProvider()
-      provider.addScope('email')
-      provider.addScope('profile')
-      provider.setCustomParameters({
-        prompt: 'select_account'
-      })
-      
-      debug.log('🚀 Initiating redirect...')
-      await signInWithRedirect(firebase.auth, provider)
-      
-    } catch (error: any) {
-      debug.error('❌ Google Sign-In Redirect Error:', error)
-      console.error('Full redirect error:', {
-        code: error.code,
-        message: error.message,
-        hostname: window.location.hostname,
-        details: error
-      })
-      
-      // Specific error handling for Azure
-      if (error.code === 'auth/unauthorized-domain') {
-        throw new Error(
-          `Domain "${window.location.hostname}" not authorized. ` +
-          'Go to Firebase Console → Authentication → Settings → Authorized domains and add: ' +
-          window.location.hostname
-        )
-      } else if (error.code === 'auth/operation-not-allowed') {
-        throw new Error(
-          'Google Sign-In not enabled. ' +
-          'Go to Firebase Console → Authentication → Sign-in method and enable Google.'
-        )
-      } else if (error.code === 'auth/network-request-failed') {
-        throw new Error(
-          'Network error. Check your internet connection and Firebase configuration.'
-        )
-      }
-      
-      throw new Error(error.message || 'Google sign-in failed')
-    }
-  }
+
 
   const loginDemo = async () => {
     try {
@@ -523,7 +347,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }
 
   return (
-    <AuthContext.Provider value={{ user, login, register, loginWithGoogle, loginWithGoogleRedirect, loginDemo, logout, updateProfile, isLoading }}>
+    <AuthContext.Provider value={{ user, login, register, loginDemo, logout, updateProfile, isLoading }}>
       {children}
     </AuthContext.Provider>
   )
