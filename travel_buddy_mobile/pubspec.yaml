@@ -26,7 +26,6 @@ dependencies:
   firebase_messaging: ^14.9.0
   
   # Google Services
-  google_sign_in: 6.1.6
   google_maps_flutter: ^2.5.0
   
   # Local Storage
