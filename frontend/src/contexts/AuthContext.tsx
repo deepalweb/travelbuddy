@@ -340,7 +340,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const loginWithGoogle = async () => {
     if (!firebase) throw new Error('Firebase not initialized')
     
-    debug.log('🔐 Starting Google Sign-In with popup...')
+    const isProduction = window.location.hostname !== 'localhost'
+    
+    if (isProduction) {
+      debug.log('🔐 Production: Using redirect method')
+      await loginWithGoogleRedirect()
+      return
+    }
+    
+    debug.log('🔐 Localhost: Using popup method')
     
     try {
       const provider = new GoogleAuthProvider()
@@ -350,9 +358,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const result = await signInWithPopup(firebase.auth, provider)
       const firebaseUser = result.user
       
-      debug.log('✅ Google Sign-In popup successful:', firebaseUser.email)
+      debug.log('✅ Popup successful:', firebaseUser.email)
       
-      // Immediately create user object
       const userObj = {
         id: firebaseUser.uid,
         email: firebaseUser.email || '',
@@ -363,12 +370,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         isAdmin: false
       }
       
-      // Set user immediately
       setUser(userObj)
       localStorage.setItem('cached_user', JSON.stringify(userObj))
-      debug.log('✅ User state set immediately')
       
-      // Sync with backend in background (don't wait)
       syncUserProfile(firebaseUser).catch(err => {
         debug.error('Background sync failed:', err)
       })
@@ -376,18 +380,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return result
       
     } catch (error: any) {
-      debug.error('❌ Google Sign-In Popup Error:', error)
-      
-      // Auto-fallback to redirect for popup issues
-      if (error.code === 'auth/popup-closed-by-user' || error.code === 'auth/popup-blocked') {
-        debug.log('🔄 Popup failed, using redirect method...')
-        await loginWithGoogleRedirect()
-        return
-      } else if (error.code === 'auth/unauthorized-domain') {
-        throw new Error('Domain not authorized for Google Sign-in')
-      } else {
-        throw new Error(error.message || 'Google sign-in failed')
-      }
+      debug.error('❌ Popup Error:', error)
+      throw new Error(error.message || 'Google sign-in failed')
     }
   }
   
