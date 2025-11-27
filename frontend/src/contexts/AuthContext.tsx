@@ -226,9 +226,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         })
       } else {
         const errorText = await response.text()
-        debug.error('❌ Sync failed with response:', errorText)
-        debug.log('⚠️ Using fallback user object')
-        // Fallback: create basic user object
+        debug.error('❌ Sync failed:', response.status, errorText)
+        debug.log('⚠️ Using fallback - user will still be authenticated')
+        // IMPORTANT: Still set user to allow login even if backend sync fails
         setUser({
           id: firebaseUser.uid,
           email: firebaseUser.email || '',
