@@ -114,8 +114,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             isAdmin: false
           }
           
+          console.log('👤 Setting user from redirect result:', userObj)
           setUser(userObj)
           localStorage.setItem('cached_user', JSON.stringify(userObj))
+          console.log('✅ User state set, localStorage updated')
           
           // Background sync
           syncUserProfile(result.user).catch(err => {
@@ -159,6 +161,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         await syncUserProfile(firebaseUser)
       } else {
         debug.log('🔐 AUTH STEP 5: No user, setting null')
+        console.log('⚠️ onAuthStateChanged: Clearing user state')
         setUser(null)
       }
       setIsLoading(false)

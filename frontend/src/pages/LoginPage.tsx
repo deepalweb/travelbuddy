@@ -27,10 +27,20 @@ export const LoginPage: React.FC = () => {
 
   // Navigate to home when user is authenticated
   useEffect(() => {
+    console.log('🔍 LoginPage: User state changed', { 
+      hasUser: !!user, 
+      userId: user?.id,
+      email: user?.email,
+      authLoading 
+    })
+    
     if (user) {
+      console.log('✅ LoginPage: User authenticated, navigating to home')
       navigate('/')
+    } else {
+      console.log('⚠️ LoginPage: No user, staying on login page')
     }
-  }, [user, navigate])
+  }, [user, navigate, authLoading])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
