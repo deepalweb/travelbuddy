@@ -15,7 +15,6 @@ import 'models/place.dart';
 import 'services/storage_service.dart';
 import 'services/firebase_service.dart';
 import 'services/connectivity_test.dart';
-import 'services/background_location_service.dart';
 import 'constants/app_constants.dart';
 import 'config/environment.dart';
 import 'utils/debug_logger.dart';
@@ -33,9 +32,6 @@ void main() async {
     
     // Initialize Firebase
     await FirebaseService.initializeFirebase();
-    
-    // Initialize Background Location Service
-    await BackgroundLocationService.initialize();
     
     // Test backend connectivity in production
     if (Environment.isProduction) {

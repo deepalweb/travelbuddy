@@ -18,10 +18,10 @@ export const LoginPage: React.FC = () => {
 
   // Navigate to home when user is authenticated
   useEffect(() => {
-    if (user && !loading) {
+    if (user) {
       navigate('/')
     }
-  }, [user, loading, navigate])
+  }, [user, navigate])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()

@@ -7,7 +7,6 @@ import '../models/place.dart';
 import '../models/route_models.dart';
 import '../services/simple_smart_route_service.dart';
 import '../services/storage_service.dart';
-import '../services/background_location_service.dart';
 
 class SimpleRouteMapScreen extends StatefulWidget {
   final Position currentLocation;
@@ -718,7 +717,6 @@ class _SimpleRouteMapScreenState extends State<SimpleRouteMapScreen> with Widget
     });
     
     await _saveRouteOffline();
-    await _startBackgroundTracking();
     _startLocationTracking();
     _setupMarkers();
     _setupPolyline();
@@ -878,34 +876,6 @@ class _SimpleRouteMapScreenState extends State<SimpleRouteMapScreen> with Widget
       _currentStepIndex = 0;
     });
     _locationSubscription?.cancel();
-    await BackgroundLocationService.stopTracking();
-  }
-  
-  Future<void> _startBackgroundTracking() async {
-    if (_route == null) return;
-    
-    final stops = _route!.places.map((place) => {
-      'name': place.name,
-      'latitude': place.latitude,
-      'longitude': place.longitude,
-    }).toList();
-    
-    await BackgroundLocationService.startTracking(stops);
-    
-    // Listen for background updates
-    BackgroundLocationService.onUpdate.listen((data) {
-      if (data != null && mounted) {
-        final reachedStop = data['reached_stop'] as int?;
-        if (reachedStop != null) {
-          setState(() {
-            _visitedStops.add(reachedStop);
-            _currentStopIndex = reachedStop + 1;
-          });
-          _setupMarkers();
-          _setupPolyline();
-        }
-      }
-    });
   }
   
   void _showCheckInDialog() {
