@@ -3,7 +3,7 @@ import { Link, useLocation } from 'react-router-dom'
 import { 
   Compass, Home, Globe, MapPin, Hotel, Car, Calendar, 
   Users, Bot, Search, Heart, User, ChevronDown, Menu, X,
-  Bell, Settings, LogOut, BookOpen, Plane, Tag
+  Bell, Settings, LogOut, BookOpen, Plane, Tag, Mail
 } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import { Button } from './Button'
@@ -11,31 +11,21 @@ import { DatabaseStatus } from './DatabaseStatus'
 
 const navigationItems = [
   { id: 'home', label: 'Home', icon: Home, path: '/' },
-  { id: 'discover', label: 'Explore', icon: Globe, path: '/places' },
-  { id: 'planner', label: 'Plan Trip', icon: MapPin, path: '/trips' },
+  { id: 'discover', label: 'Destinations', icon: Globe, path: '/places' },
+  { id: 'planner', label: 'Trip Planner', icon: MapPin, path: '/trips' },
   { id: 'deals', label: 'Deals', icon: Tag, path: '/deals' },
   { id: 'community', label: 'Community', icon: Users, path: '/community' },
   { 
-    id: 'transport', 
-    label: 'Transport', 
-    icon: Car, 
-    path: '/transport'
-  },
-  { 
-    id: 'services', 
-    label: 'Travel Agent', 
-    icon: Users, 
-    path: '/services'
-  },
-  { 
-    id: 'resources', 
-    label: 'Help', 
-    icon: BookOpen, 
-    path: '/resources',
+    id: 'more', 
+    label: 'More', 
+    icon: ChevronDown, 
+    path: '#',
     dropdown: [
-      { label: 'Blog', path: '/blog' },
-      { label: 'Tips', path: '/tips' },
-      { label: 'Support', path: '/help' }
+      { label: 'Transport Hub', path: '/transport', icon: Car },
+      { label: 'Find an Agent', path: '/services', icon: Users },
+      { label: 'About Us', path: '/about', icon: BookOpen },
+      { label: 'Contact Us', path: '/contact', icon: Mail },
+      { label: 'Help Center', path: '/help', icon: BookOpen }
     ]
   }
 ]
@@ -61,6 +51,7 @@ export const MainHeader: React.FC = () => {
   const [isProfileOpen, setIsProfileOpen] = useState(false)
   const [isLanguageOpen, setIsLanguageOpen] = useState(false)
   const [activeDropdown, setActiveDropdown] = useState<string | null>(null)
+  const [showProfileMenu, setShowProfileMenu] = useState(false)
 
   const [currentLanguage, setCurrentLanguage] = useState(languages[0])
 
@@ -103,16 +94,14 @@ export const MainHeader: React.FC = () => {
                 <div className="absolute inset-0 bg-white/20 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
               </div>
               <div className="hidden sm:block">
-                <h1 className={`text-2xl font-bold transition-all duration-300 ${
-                  isScrolled ? 'text-black' : 'text-white drop-shadow-lg'
-                }`}>
-                  TravelBuddy
-                </h1>
-                <p className={`text-xs font-medium transition-all duration-300 ${
-                  isScrolled ? 'text-black/70' : 'text-white/90'
-                }`}>
-                  AI-Powered Travel Planner — Discover, Plan & Experience the World Effortlessly
-                </p>
+                <div className="flex items-center space-x-2">
+                  <h1 className={`text-2xl font-bold transition-all duration-300 ${
+                    isScrolled ? 'text-black' : 'text-white drop-shadow-lg'
+                  }`}>
+                    TravelBuddy
+                  </h1>
+                  <span className="px-2 py-0.5 bg-blue-500 text-white text-xs font-semibold rounded-full">Beta</span>
+                </div>
               </div>
             </Link>
           </div>
@@ -130,40 +119,39 @@ export const MainHeader: React.FC = () => {
                     <button
                       onMouseEnter={() => setActiveDropdown(item.id)}
                       onMouseLeave={() => setActiveDropdown(null)}
-                      className={`flex items-center space-x-2 px-5 py-3 rounded-lg text-sm font-medium transition-all duration-200 relative ${
+                      className={`flex items-center space-x-2 px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 relative ${
                         isActive
                           ? isScrolled 
-                            ? 'bg-blue-100 text-blue-700' 
-                            : 'bg-white/20 text-white'
+                            ? 'text-blue-600 font-semibold' 
+                            : 'text-white font-semibold'
                           : isScrolled
-                            ? 'text-gray-700 hover:bg-gray-100 hover:text-gray-900'
-                            : 'text-white/90 hover:bg-white/10 hover:text-white'
+                            ? 'text-gray-700 hover:text-gray-900'
+                            : 'text-white/90 hover:text-white'
                       }`}
                     >
                       <Icon className="w-4 h-4" />
                       <span>{item.label}</span>
-                      <ChevronDown className="w-3 h-3" />
                       {isActive && (
-                        <div className="absolute bottom-0 left-1/2 transform -translate-x-1/2 w-6 h-0.5 bg-current rounded-full"></div>
+                        <div className="absolute bottom-1 left-1/2 transform -translate-x-1/2 w-1 h-1 bg-blue-600 rounded-full"></div>
                       )}
                     </button>
                   ) : (
                     <Link
                       to={item.path}
-                      className={`flex items-center space-x-2 px-5 py-3 rounded-lg text-sm font-medium transition-all duration-200 relative ${
+                      className={`flex items-center space-x-2 px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 relative ${
                         isActive
                           ? isScrolled 
-                            ? 'bg-blue-100 text-blue-700' 
-                            : 'bg-white/20 text-white'
+                            ? 'text-blue-600 font-semibold' 
+                            : 'text-white font-semibold'
                           : isScrolled
-                            ? 'text-gray-700 hover:bg-gray-100 hover:text-gray-900'
-                            : 'text-white/90 hover:bg-white/10 hover:text-white'
+                            ? 'text-gray-700 hover:text-gray-900'
+                            : 'text-white/90 hover:text-white'
                       }`}
                     >
                       <Icon className="w-4 h-4" />
                       <span>{item.label}</span>
                       {isActive && (
-                        <div className="absolute bottom-0 left-1/2 transform -translate-x-1/2 w-6 h-0.5 bg-current rounded-full"></div>
+                        <div className="absolute bottom-1 left-1/2 transform -translate-x-1/2 w-1 h-1 bg-blue-600 rounded-full"></div>
                       )}
                     </Link>
                   )}
@@ -175,15 +163,19 @@ export const MainHeader: React.FC = () => {
                       onMouseEnter={() => setActiveDropdown(item.id)}
                       onMouseLeave={() => setActiveDropdown(null)}
                     >
-                      {item.dropdown?.map((dropItem) => (
-                        <Link
-                          key={dropItem.path}
-                          to={dropItem.path}
-                          className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors"
-                        >
-                          {dropItem.label}
-                        </Link>
-                      ))}
+                      {item.dropdown?.map((dropItem) => {
+                        const DropIcon = dropItem.icon
+                        return (
+                          <Link
+                            key={dropItem.path}
+                            to={dropItem.path}
+                            className="flex items-center space-x-3 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                          >
+                            {DropIcon && <DropIcon className="w-4 h-4 text-gray-500" />}
+                            <span>{dropItem.label}</span>
+                          </Link>
+                        )
+                      })}
                     </div>
                   )}
                 </div>
@@ -227,13 +219,13 @@ export const MainHeader: React.FC = () => {
             )}
 
             {/* Language Selector */}
-            <div className="relative">
+            <div className="relative hidden md:block">
               <Button
                 variant="ghost"
                 size="sm"
                 onClick={() => setIsLanguageOpen(!isLanguageOpen)}
-                className={`flex items-center space-x-2 px-3 py-2 text-sm ${
-                  isScrolled ? 'text-white hover:bg-white/10' : 'text-white hover:bg-white/10'
+                className={`flex items-center space-x-2 px-3 py-2 text-sm font-medium ${
+                  isScrolled ? 'text-gray-700 hover:bg-gray-100' : 'text-white hover:bg-white/10'
                 }`}
               >
                 <span>{currentLanguage.flag}</span>
@@ -261,33 +253,56 @@ export const MainHeader: React.FC = () => {
 
             {/* User Profile / Login */}
             {user ? (
-              <div className="relative">
-                <Link
-                  to="/profile"
-                  className={`flex items-center space-x-3 px-3 py-2 rounded-xl transition-all duration-200 ${
-                    isScrolled ? 'text-gray-700 hover:bg-gray-100' : 'text-white hover:bg-white/10'
+              <div className="relative"
+                onMouseEnter={() => setShowProfileMenu(true)}
+                onMouseLeave={() => setShowProfileMenu(false)}
+              >
+                <button
+                  className={`flex items-center space-x-2 px-2 py-2 rounded-full transition-all duration-200 ${
+                    isScrolled ? 'hover:bg-gray-100' : 'hover:bg-white/10'
                   }`}
                 >
-                  <div className="w-9 h-9 bg-gradient-to-br from-blue-500 via-purple-500 to-indigo-500 rounded-full flex items-center justify-center ring-2 ring-white/20">
+                  <div className="relative w-9 h-9 bg-gradient-to-br from-blue-500 via-purple-500 to-indigo-500 rounded-full flex items-center justify-center">
                     {user.profilePicture ? (
                       <img src={user.profilePicture} alt="Profile" className="w-full h-full rounded-full object-cover" />
                     ) : (
                       <User className="w-5 h-5 text-white" />
                     )}
+                    <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-green-500 border-2 border-white rounded-full" title="Online" />
                   </div>
-                  <div className="hidden sm:block text-left">
-                    <p className="text-sm font-medium">
-                      Hi, {user.username?.split(' ')[0] || user.email?.split('@')[0] || 'User'}!
-                    </p>
-                    <p className={`text-xs ${
-                      isScrolled ? 'text-gray-500' : 'text-white/70'
-                    }`}>
-                      {user.tier || 'Free'} Plan
-                    </p>
+                  <span className={`hidden lg:block text-sm font-medium ${
+                    isScrolled ? 'text-gray-700' : 'text-white'
+                  }`}>
+                    {user.username?.split(' ')[0] || user.email?.split('@')[0] || 'User'}
+                  </span>
+                </button>
+
+                {/* Profile Quick Menu */}
+                {showProfileMenu && (
+                  <div className="absolute right-0 mt-2 w-56 bg-white rounded-xl shadow-2xl border border-gray-200 py-2 z-50">
+                    <Link to="/profile" className="flex items-center space-x-3 px-4 py-3 hover:bg-gray-50 transition-colors">
+                      <User className="w-4 h-4 text-gray-600" />
+                      <span className="text-sm text-gray-700">My Profile</span>
+                    </Link>
+                    <Link to="/trips" className="flex items-center space-x-3 px-4 py-3 hover:bg-gray-50 transition-colors">
+                      <MapPin className="w-4 h-4 text-gray-600" />
+                      <span className="text-sm text-gray-700">My Trips</span>
+                    </Link>
+                    <Link to="/community" className="flex items-center space-x-3 px-4 py-3 hover:bg-gray-50 transition-colors">
+                      <Heart className="w-4 h-4 text-gray-600" />
+                      <span className="text-sm text-gray-700">Saved Places</span>
+                    </Link>
+                    <Link to="/profile" className="flex items-center space-x-3 px-4 py-3 hover:bg-gray-50 transition-colors">
+                      <Settings className="w-4 h-4 text-gray-600" />
+                      <span className="text-sm text-gray-700">Settings</span>
+                    </Link>
+                    <div className="border-t border-gray-200 my-2" />
+                    <button onClick={handleLogout} className="flex items-center space-x-3 px-4 py-3 hover:bg-red-50 transition-colors w-full text-left">
+                      <LogOut className="w-4 h-4 text-red-600" />
+                      <span className="text-sm text-red-600">Logout</span>
+                    </button>
                   </div>
-                </Link>
-
-
+                )}
               </div>
             ) : (
               <div className="flex items-center space-x-3">
@@ -330,7 +345,22 @@ export const MainHeader: React.FC = () => {
         {/* Enhanced Mobile Menu */}
         {isMobileMenuOpen && (
           <div className="lg:hidden bg-white/95 backdrop-blur-md border-t border-gray-200 py-4">
-
+            
+            {/* Mobile Quick Actions */}
+            {user && (
+              <div className="px-4 pb-4 mb-4 border-b border-gray-200">
+                <div className="grid grid-cols-2 gap-3">
+                  <Link to="/trips" onClick={() => setIsMobileMenuOpen(false)} className="flex items-center justify-center space-x-2 px-4 py-3 bg-blue-50 rounded-xl text-blue-700 font-medium text-sm">
+                    <MapPin className="w-4 h-4" />
+                    <span>Plan Trip</span>
+                  </Link>
+                  <Link to="/community" onClick={() => setIsMobileMenuOpen(false)} className="flex items-center justify-center space-x-2 px-4 py-3 bg-purple-50 rounded-xl text-purple-700 font-medium text-sm">
+                    <Heart className="w-4 h-4" />
+                    <span>Saved</span>
+                  </Link>
+                </div>
+              </div>
+            )}
             
             <nav className="space-y-1 px-4">
               {navigationItems.map((item) => {

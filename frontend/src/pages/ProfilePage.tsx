@@ -36,6 +36,20 @@ export const ProfilePage: React.FC = () => {
     clientSatisfaction: 0,
     ridesCompleted: 0
   })
+  const [showRoleMenu, setShowRoleMenu] = useState(false)
+  const [uploadProgress, setUploadProgress] = useState<number | null>(null)
+  const [uploadError, setUploadError] = useState<string | null>(null)
+
+  const calculateProfileCompletion = () => {
+    let completed = 0
+    const total = 5
+    if (user?.fullName || formData.fullName) completed++
+    if (security.emailVerified) completed++
+    if (user?.phone || formData.phone) completed++
+    if (user?.bio || formData.bio) completed++
+    if (user?.homeCity || formData.homeCity) completed++
+    return Math.round((completed / total) * 100)
+  }
 
   useEffect(() => {
     if (user?.id) {
@@ -131,13 +145,20 @@ export const ProfilePage: React.FC = () => {
 
   const handleProfilePictureSuccess = (url: string) => {
     console.log('Profile picture uploaded successfully:', url)
-    // Refresh user data to show new profile picture
+    setUploadProgress(null)
+    setUploadError(null)
     fetchUserStats()
   }
 
   const handleProfilePictureError = (error: string) => {
     console.error('Profile picture upload failed:', error)
-    // You could show a toast notification here
+    setUploadProgress(null)
+    setUploadError(error)
+    setTimeout(() => setUploadError(null), 5000)
+  }
+
+  const handleUploadProgress = (progress: number) => {
+    setUploadProgress(progress)
   }
 
   if (!user) {
@@ -190,11 +211,24 @@ export const ProfilePage: React.FC = () => {
           <div className="flex flex-col lg:flex-row items-center space-y-8 lg:space-y-0 lg:space-x-12">
             {/* Profile Picture */}
             <div className="flex justify-center">
-              <ProfilePictureUpload
-                currentPicture={user.profilePicture}
-                onUploadSuccess={handleProfilePictureSuccess}
-                onUploadError={handleProfilePictureError}
-              />
+              <div className="relative">
+                <ProfilePictureUpload
+                  currentPicture={user.profilePicture}
+                  onUploadSuccess={handleProfilePictureSuccess}
+                  onUploadError={handleProfilePictureError}
+                  onUploadProgress={handleUploadProgress}
+                />
+                {uploadProgress !== null && (
+                  <div className="absolute bottom-0 left-0 right-0 bg-black/70 text-white text-xs py-1 px-2 rounded-b-full text-center">
+                    Uploading... {uploadProgress}%
+                  </div>
+                )}
+                {uploadError && (
+                  <div className="absolute -bottom-8 left-0 right-0 bg-red-500 text-white text-xs py-2 px-3 rounded-lg text-center shadow-lg">
+                    {uploadError}
+                  </div>
+                )}
+              </div>
             </div>
             
             {/* User Info */}
@@ -298,18 +332,89 @@ export const ProfilePage: React.FC = () => {
       </div>
 
       <div className="max-w-7xl mx-auto px-6 -mt-12 relative z-10">
+        {/* Profile Completion Progress */}
+        <Card className="bg-white shadow-xl mb-8">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between mb-3">
+              <div>
+                <h3 className="font-semibold text-gray-900">Profile Completion</h3>
+                <p className="text-sm text-gray-600">Complete your profile to unlock all features</p>
+              </div>
+              <div className="text-2xl font-bold text-blue-600">{calculateProfileCompletion()}%</div>
+            </div>
+            <div className="w-full bg-gray-200 rounded-full h-3">
+              <div 
+                className="bg-gradient-to-r from-blue-500 to-purple-600 h-3 rounded-full transition-all duration-500"
+                style={{ width: `${calculateProfileCompletion()}%` }}
+              />
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Role Switcher Widget */}
+        <Card className="bg-white shadow-xl mb-8">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-3">
+                <UserCheck className="w-6 h-6 text-blue-600" />
+                <div>
+                  <p className="text-sm text-gray-600">Your Active Role</p>
+                  <p className="font-semibold text-gray-900">
+                    {user.activeRole === 'merchant' ? '🏪 Business Owner' :
+                     user.activeRole === 'transport_provider' ? '🚗 Transport Provider' :
+                     user.activeRole === 'travel_agent' ? '🧳 Travel Agent' : '✈️ Traveler'}
+                  </p>
+                </div>
+              </div>
+              <div className="relative">
+                <Button
+                  variant="outline"
+                  onClick={() => setShowRoleMenu(!showRoleMenu)}
+                  className="border-2"
+                >
+                  Switch Role ▼
+                </Button>
+                {showRoleMenu && (
+                  <div className="absolute right-0 mt-2 w-56 bg-white rounded-xl shadow-2xl border-2 border-gray-100 z-50">
+                    <div className="p-2">
+                      {(user.roles || [user.role || 'user']).map(role => (
+                        <button
+                          key={role}
+                          onClick={() => {
+                            // Handle role switch logic here
+                            setShowRoleMenu(false)
+                            navigate('/role-selection')
+                          }}
+                          className={`w-full text-left px-4 py-3 rounded-lg hover:bg-blue-50 transition-colors ${
+                            role === user.activeRole ? 'bg-blue-100 font-semibold' : ''
+                          }`}
+                        >
+                          {role === 'merchant' ? '🏪 Business Owner' :
+                           role === 'transport_provider' ? '🚗 Transport Provider' :
+                           role === 'travel_agent' ? '🧳 Travel Agent' : '✈️ Traveler'}
+                          {role === user.activeRole && ' ✓'}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
         {/* 2. Dynamic Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
           {getRoleStats().map((stat, index) => {
             const Icon = stat.icon
             return (
-              <Card key={index} className="bg-white/90 backdrop-blur-sm border-0 shadow-2xl hover:shadow-3xl transition-all duration-300 hover:-translate-y-2 group">
+              <Card key={index} className="bg-white border-0 shadow-xl hover:shadow-2xl transition-all duration-300 hover:-translate-y-1 group">
                 <CardContent className="p-8 text-center">
-                  <div className={`w-20 h-20 bg-gradient-to-br ${stat.color} rounded-full flex items-center justify-center mx-auto mb-6 group-hover:scale-110 transition-transform duration-300 shadow-lg`}>
-                    <Icon className="w-10 h-10 text-white" />
+                  <div className={`w-24 h-24 bg-gradient-to-br ${stat.color} rounded-2xl flex items-center justify-center mx-auto mb-6 group-hover:scale-110 transition-transform duration-300 shadow-lg`}>
+                    <Icon className="w-12 h-12 text-white" />
                   </div>
-                  <div className="text-4xl font-bold text-gray-900 mb-2">{stat.value}</div>
-                  <div className="text-gray-600 font-semibold">{stat.label}</div>
+                  <div className="text-5xl font-bold text-gray-900 mb-2">{stat.value}</div>
+                  <div className="text-gray-600 font-semibold text-lg">{stat.label}</div>
                 </CardContent>
               </Card>
             )
@@ -319,7 +424,7 @@ export const ProfilePage: React.FC = () => {
         <div className="grid grid-cols-1 xl:grid-cols-4 gap-8 pb-16">
           {/* 3. Personal Information (Enhanced) */}
           <div className="xl:col-span-2 space-y-8">
-            <Card className="bg-white/90 backdrop-blur-sm border-0 shadow-xl">
+            <Card className="bg-white border-0 shadow-xl">
               <CardHeader className="border-b border-gray-100">
                 <CardTitle className="text-2xl text-gray-900 flex items-center">
                   <User className="w-6 h-6 mr-3 text-blue-600" />
@@ -397,24 +502,24 @@ export const ProfilePage: React.FC = () => {
                 ) : (
                   <div className="space-y-6">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      <div className="p-4 bg-gradient-to-r from-blue-50 to-blue-100 rounded-xl">
+                      <div className="p-4 bg-gray-50 rounded-xl border border-gray-200">
                         <label className="block text-sm font-semibold text-gray-700 mb-1">Username</label>
                         <p className="text-lg text-gray-900 font-medium">{user.username}</p>
                       </div>
-                      <div className="p-4 bg-gradient-to-r from-green-50 to-green-100 rounded-xl">
+                      <div className="p-4 bg-gray-50 rounded-xl border border-gray-200">
                         <label className="block text-sm font-semibold text-gray-700 mb-1">Email</label>
                         <p className="text-lg text-gray-900 font-medium">{user.email}</p>
                       </div>
                     </div>
                     
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      <div className="p-4 bg-gradient-to-r from-purple-50 to-purple-100 rounded-xl">
+                      <div className="p-4 bg-gray-50 rounded-xl border border-gray-200">
                         <label className="block text-sm font-semibold text-gray-700 mb-1">Member Since</label>
                         <p className="text-lg text-gray-900 font-medium">
                           {user.createdAt ? new Date(user.createdAt).toLocaleDateString() : new Date().toLocaleDateString()}
                         </p>
                       </div>
-                      <div className="p-4 bg-gradient-to-r from-yellow-50 to-yellow-100 rounded-xl">
+                      <div className="p-4 bg-gray-50 rounded-xl border border-gray-200">
                         <label className="block text-sm font-semibold text-gray-700 mb-1">Account Status</label>
                         <div className="flex items-center space-x-2">
                           <CheckCircle className="w-5 h-5 text-green-500" />
@@ -428,47 +533,64 @@ export const ProfilePage: React.FC = () => {
             </Card>
             
             {/* 4. Account Status & Security */}
-            <Card className="bg-white/90 backdrop-blur-sm border-0 shadow-xl">
-              <CardHeader className="border-b border-gray-100">
-                <CardTitle className="text-2xl text-gray-900 flex items-center">
-                  <Shield className="w-6 h-6 mr-3 text-green-600" />
-                  Account Security
+            <Card className="bg-white border-0 shadow-xl border-l-4 border-l-green-500">
+              <CardHeader className="border-b border-gray-100 bg-green-50">
+                <CardTitle className="text-2xl text-gray-900 flex items-center justify-between">
+                  <div className="flex items-center">
+                    <Lock className="w-7 h-7 mr-3 text-green-600" />
+                    Account Security
+                  </div>
+                  <div className="flex items-center space-x-2 text-sm font-semibold text-green-700">
+                    <Shield className="w-5 h-5" />
+                    <span>Your account is secure</span>
+                  </div>
                 </CardTitle>
               </CardHeader>
               <CardContent className="p-8">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div className="flex items-center justify-between p-4 bg-green-50 rounded-xl">
-                    <div className="flex items-center space-x-3">
-                      <CheckCircle className="w-6 h-6 text-green-500" />
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between p-5 bg-green-50 rounded-xl border-2 border-green-200">
+                    <div className="flex items-center space-x-4">
+                      <div className="w-12 h-12 bg-green-500 rounded-full flex items-center justify-center">
+                        <CheckCircle className="w-7 h-7 text-white" />
+                      </div>
                       <div>
-                        <p className="font-semibold text-gray-900">Email Verified</p>
-                        <p className="text-sm text-gray-600">Your email is confirmed</p>
+                        <p className="font-bold text-gray-900 text-lg">Email Verified</p>
+                        <p className="text-sm text-gray-600">Your email is confirmed and secure</p>
                       </div>
                     </div>
                   </div>
                   
-                  <div className={`flex items-center justify-between p-4 rounded-xl ${
-                    security.twoFactorEnabled ? 'bg-green-50' : 'bg-yellow-50'
+                  <div className={`flex items-center justify-between p-5 rounded-xl border-2 ${
+                    security.twoFactorEnabled 
+                      ? 'bg-green-50 border-green-200' 
+                      : 'bg-yellow-50 border-yellow-300'
                   }`}>
-                    <div className="flex items-center space-x-3">
-                      {security.twoFactorEnabled ? (
-                        <CheckCircle className="w-6 h-6 text-green-500" />
-                      ) : (
-                        <AlertCircle className="w-6 h-6 text-yellow-500" />
-                      )}
+                    <div className="flex items-center space-x-4">
+                      <div className={`w-12 h-12 rounded-full flex items-center justify-center ${
+                        security.twoFactorEnabled ? 'bg-green-500' : 'bg-yellow-500'
+                      }`}>
+                        {security.twoFactorEnabled ? (
+                          <CheckCircle className="w-7 h-7 text-white" />
+                        ) : (
+                          <AlertCircle className="w-7 h-7 text-white" />
+                        )}
+                      </div>
                       <div>
-                        <p className="font-semibold text-gray-900">2FA Setup</p>
+                        <p className="font-bold text-gray-900 text-lg">Two-Factor Authentication</p>
                         <p className="text-sm text-gray-600">
-                          {security.twoFactorEnabled ? 'Two-factor authentication enabled' : 'Enhance your security'}
+                          {security.twoFactorEnabled 
+                            ? 'Extra layer of protection enabled' 
+                            : 'Add an extra layer of security'}
                         </p>
                       </div>
                     </div>
                     <Button 
-                      size="sm" 
-                      variant="outline"
+                      className={security.twoFactorEnabled 
+                        ? 'bg-red-500 hover:bg-red-600 text-white' 
+                        : 'bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white'}
                       onClick={() => updateSecurity({ twoFactorEnabled: !security.twoFactorEnabled })}
                     >
-                      {security.twoFactorEnabled ? 'Disable' : 'Enable'}
+                      {security.twoFactorEnabled ? 'Disable' : 'Enable Now'}
                     </Button>
                   </div>
                 </div>
@@ -478,7 +600,7 @@ export const ProfilePage: React.FC = () => {
 
           {/* 5. Quick Actions Panel (Enhanced) */}
           <div className="xl:col-span-2 space-y-8">
-            <Card className="bg-white/90 backdrop-blur-sm border-0 shadow-xl">
+            <Card className="bg-white border-0 shadow-xl">
               <CardHeader className="border-b border-gray-100">
                 <CardTitle className="text-2xl text-gray-900 flex items-center">
                   <Zap className="w-6 h-6 mr-3 text-purple-600" />

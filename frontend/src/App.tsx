@@ -18,6 +18,8 @@ import { RoleSelectionPage } from './pages/RoleSelectionPage'
 import { TransportRegistration } from './pages/TransportRegistration'
 import { TransportationPage } from './pages/TransportationPage'
 import { SubscriptionPage } from './pages/SubscriptionPage'
+import { AboutPage } from './pages/AboutPage'
+import { ContactPage } from './pages/ContactPage'
 import { checkFirebaseStatus } from './utils/firebaseStatus'
 
 const AppContent: React.FC = () => {
@@ -59,6 +61,8 @@ const AppContent: React.FC = () => {
             <Route path="/login" element={<LoginPage />} />
             <Route path="/register" element={<RegisterPage />} />
             <Route path="/role-selection" element={<RoleSelectionPage />} />
+            <Route path="/about" element={<AboutPage />} />
+            <Route path="/contact" element={<ContactPage />} />
 
             <Route path="/travel-agent-registration" element={<AgentRegistration />} />
             <Route path="/transport-registration" element={<TransportRegistration />} />

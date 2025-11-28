@@ -5,15 +5,18 @@ interface ProfilePictureUploadProps {
   currentPicture?: string | null;
   onUploadSuccess?: (url: string) => void;
   onUploadError?: (error: string) => void;
+  onUploadProgress?: (progress: number) => void;
 }
 
 export const ProfilePictureUpload: React.FC<ProfilePictureUploadProps> = ({
   currentPicture,
   onUploadSuccess,
-  onUploadError
+  onUploadError,
+  onUploadProgress
 }) => {
   const [uploading, setUploading] = useState(false);
   const [preview, setPreview] = useState<string | null>(null);
+  const [progress, setProgress] = useState(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -46,6 +49,8 @@ export const ProfilePictureUpload: React.FC<ProfilePictureUploadProps> = ({
 
   const uploadFile = async (file: File) => {
     setUploading(true);
+    setProgress(0);
+    onUploadProgress?.(0);
     
     try {
       const formData = new FormData();
@@ -64,11 +69,24 @@ export const ProfilePictureUpload: React.FC<ProfilePictureUploadProps> = ({
         headers['x-user-id'] = userId;
       }
 
+      // Simulate progress for better UX (real progress requires XMLHttpRequest)
+      const progressInterval = setInterval(() => {
+        setProgress(prev => {
+          const next = Math.min(prev + 10, 90);
+          onUploadProgress?.(next);
+          return next;
+        });
+      }, 200);
+
       const response = await fetch('https://travelbuddy-b2c6hgbbgeh4esdh.eastus2-01.azurewebsites.net/api/upload/profile-picture', {
         method: 'POST',
         headers,
         body: formData
       });
+
+      clearInterval(progressInterval);
+      setProgress(100);
+      onUploadProgress?.(100);
 
       if (!response.ok) {
         const errorData = await response.json();
@@ -80,13 +98,17 @@ export const ProfilePictureUpload: React.FC<ProfilePictureUploadProps> = ({
       if (data.success) {
         onUploadSuccess?.(data.profilePicture);
         setPreview(null);
+        setProgress(0);
       } else {
         throw new Error(data.error || 'Upload failed');
       }
     } catch (error) {
       console.error('Upload error:', error);
-      onUploadError?.(error instanceof Error ? error.message : 'Upload failed');
+      const errorMessage = error instanceof Error ? error.message : 'Upload failed. Please try again.';
+      onUploadError?.(errorMessage);
       setPreview(null);
+      setProgress(0);
+      onUploadProgress?.(0);
     } finally {
       setUploading(false);
       if (fileInputRef.current) {
@@ -115,8 +137,11 @@ export const ProfilePictureUpload: React.FC<ProfilePictureUploadProps> = ({
         )}
         
         {uploading && (
-          <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center rounded-full">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
+          <div className="absolute inset-0 bg-black bg-opacity-50 flex flex-col items-center justify-center rounded-full">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white mb-2"></div>
+            {progress > 0 && (
+              <div className="text-white text-xs font-semibold">{progress}%</div>
+            )}
           </div>
         )}
       </div>

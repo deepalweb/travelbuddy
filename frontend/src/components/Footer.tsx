@@ -77,6 +77,16 @@ export const Footer: React.FC = () => {
             <h4 className="text-lg font-semibold mb-4">Support</h4>
             <ul className="space-y-2">
               <li>
+                <Link to="/about" className="text-gray-400 hover:text-white transition-colors">
+                  About Us
+                </Link>
+              </li>
+              <li>
+                <Link to="/contact" className="text-gray-400 hover:text-white transition-colors">
+                  Contact Us
+                </Link>
+              </li>
+              <li>
                 <Link to="/help" className="text-gray-400 hover:text-white transition-colors">
                   Help Center
                 </Link>
@@ -84,16 +94,6 @@ export const Footer: React.FC = () => {
               <li>
                 <Link to="/blog" className="text-gray-400 hover:text-white transition-colors">
                   Travel Blog
-                </Link>
-              </li>
-              <li>
-                <Link to="/tips" className="text-gray-400 hover:text-white transition-colors">
-                  Travel Tips
-                </Link>
-              </li>
-              <li>
-                <Link to="/contact" className="text-gray-400 hover:text-white transition-colors">
-                  Contact Us
                 </Link>
               </li>
             </ul>
