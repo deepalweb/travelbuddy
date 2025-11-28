@@ -738,75 +738,7 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
     }
   }
 
-  Future<bool> signInWithGoogle() async {
-    _isLoading = true;
-    notifyListeners();
 
-    try {
-      // Try silent sign-in first for returning users
-      final silentUserCredential = await AuthService.signInWithGoogleSilent();
-      final silentUser = silentUserCredential?.user;
-      if (silentUser != null) {
-        _currentUser = UserConverter.fromFirebaseUser(silentUser);
-        _isAuthenticated = true;
-        
-        // Sync with backend using Firebase token
-        await _syncFirebaseUserWithBackend(silentUser);
-        await _loadUserData();
-        
-        print('✅ Google Sign-In successful (silent)');
-        return true;
-      }
-      
-      // Check if Google Sign-In is available
-      final isAvailable = await AuthService.isGoogleSignInAvailable();
-      if (!isAvailable) {
-        print('❌ Google Sign-In not available - PigeonUserDetails compatibility issue');
-        throw 'Google Sign-In is currently unavailable. Please use email sign-in instead.';
-      }
-      
-      // Attempt regular Google Sign-In
-      final userCredential = await AuthService.signInWithGoogle();
-      final user = userCredential?.user;
-      if (user != null) {
-        _currentUser = UserConverter.fromFirebaseUser(user);
-        _isAuthenticated = true;
-        
-        // Sync with backend using Firebase token
-        await _syncFirebaseUserWithBackend(user);
-        await _loadUserData();
-        
-        print('✅ Google Sign-In successful');
-        return true;
-      }
-      return false;
-    } catch (e) {
-      print('Google Sign in error: $e');
-      
-      // Handle specific error types
-      final errorString = e.toString().toLowerCase();
-      if (errorString.contains('pigeonuserdetails') || 
-          errorString.contains('list<object?>') ||
-          errorString.contains('type cast') ||
-          errorString.contains('google sign-in service error')) {
-        print('❌ Google Sign-In compatibility error detected');
-        throw 'Google Sign-In is temporarily unavailable. Please use email sign-in instead.';
-      }
-      
-      if (errorString.contains('network') || errorString.contains('timeout')) {
-        throw 'Network error. Please check your connection and try again.';
-      }
-      
-      if (errorString.contains('cancelled') || errorString.contains('aborted')) {
-        throw 'Sign-in was cancelled. Please try again.';
-      }
-      
-      throw e.toString();
-    } finally {
-      _isLoading = false;
-      notifyListeners();
-    }
-  }
 
   Future<void> signOut() async {
     await AuthService.signOut();

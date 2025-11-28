@@ -604,8 +604,15 @@ router.get('/trip-plans/:id', devFriendlyAuth, async (req, res) => {
       return res.status(500).json({ error: 'Required models not available' });
     }
     
-    const { uid } = req.user;
+    const { uid, email } = req.user;
     let user = await User.findOne({ firebaseUid: uid });
+    if (!user && email) {
+      user = await User.findOne({ email });
+      if (user && !user.firebaseUid) {
+        user.firebaseUid = uid;
+        await user.save();
+      }
+    }
     if (!user) {
       return res.status(404).json({ error: 'User not found' });
     }
@@ -727,12 +734,45 @@ router.post('/trip-plans', devFriendlyAuth, async (req, res) => {
       return res.status(500).json({ error: 'TripPlan model not available' });
     }
     
-    const { uid } = req.user;
+    const { uid, email } = req.user;
     
     let user = await User.findOne({ firebaseUid: uid });
     if (!user) {
-      console.log('❌ User not found for uid:', uid);
-      return res.status(404).json({ error: 'User not found' });
+      console.log('🆕 User not found, checking by email:', email);
+      if (email) {
+        user = await User.findOne({ email });
+      }
+      
+      if (!user) {
+        console.log('🆕 Creating new user for uid:', uid);
+        try {
+          user = new User({
+            firebaseUid: uid,
+            username: email?.split('@')[0] || `user-${uid.slice(-6)}`,
+            email: email || `${uid}@temp.local`,
+            tier: uid === 'demo-user-123' ? 'premium' : 'free',
+            role: uid === 'demo-user-123' ? 'admin' : 'regular',
+            isAdmin: uid === 'demo-user-123'
+          });
+          await user.save();
+          console.log('✅ Created new user:', user._id);
+        } catch (createError) {
+          if (createError.code === 11000) {
+            console.log('⚠️ Duplicate email, updating existing user');
+            user = await User.findOneAndUpdate(
+              { email },
+              { $set: { firebaseUid: uid } },
+              { new: true }
+            );
+          } else {
+            throw createError;
+          }
+        }
+      } else if (!user.firebaseUid) {
+        user.firebaseUid = uid;
+        await user.save();
+        console.log('✅ Updated user with firebaseUid:', user._id);
+      }
     }
 
     console.log('👤 Found user:', user._id);

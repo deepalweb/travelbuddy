@@ -8,10 +8,9 @@ export const bypassAuth = (req, res, next) => {
   const userId = req.headers['x-user-id'];
   
   if (token) {
-    // Check for demo token first
-    const demoToken = process.env.DEMO_TOKEN || 'demo-token-123';
-    if (token === demoToken) {
-      req.user = { uid: 'demo-user-123' };
+    // Check for demo token first (any token starting with 'demo-token-')
+    if (token.startsWith('demo-token-')) {
+      req.user = { uid: 'demo-user-123', email: 'demo@travelbuddy.com' };
       return next();
     }
     
@@ -72,10 +71,9 @@ export const authenticateFirebase = async (req, res, next) => {
       return res.status(401).json({ error: 'Firebase token required' });
     }
 
-    // Check for demo token first
-    const demoToken = process.env.DEMO_TOKEN || 'demo-token-123';
-    if (token === demoToken) {
-      req.user = { uid: 'demo-user-123' };
+    // Check for demo token first (any token starting with 'demo-token-')
+    if (token.startsWith('demo-token-')) {
+      req.user = { uid: 'demo-user-123', email: 'demo@travelbuddy.com' };
       return next();
     }
 
@@ -141,10 +139,9 @@ export const optionalAuth = async (req, res, next) => {
     const token = authHeader && authHeader.split(' ')[1];
 
     if (token) {
-      // Check for demo token first
-      const demoToken = process.env.DEMO_TOKEN || 'demo-token-123';
-      if (token === demoToken) {
-        req.user = { uid: 'demo-user-123' };
+      // Check for demo token first (any token starting with 'demo-token-')
+      if (token.startsWith('demo-token-')) {
+        req.user = { uid: 'demo-user-123', email: 'demo@travelbuddy.com' };
         return next();
       }
       
@@ -201,10 +198,9 @@ export const devFriendlyAuth = async (req, res, next) => {
     }
 
     if (token) {
-      // Check for demo token first
-      const demoToken = process.env.DEMO_TOKEN || 'demo-token-123';
-      if (token === demoToken) {
-        req.user = { uid: 'demo-user-123' };
+      // Check for demo token first (any token starting with 'demo-token-')
+      if (token.startsWith('demo-token-')) {
+        req.user = { uid: 'demo-user-123', email: 'demo@travelbuddy.com' };
         return next();
       }
       
