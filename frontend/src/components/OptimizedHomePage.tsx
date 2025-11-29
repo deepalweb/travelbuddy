@@ -595,9 +595,9 @@ export const OptimizedHomePage: React.FC = () => {
             {/* Compact Header */}
             <div className="text-center text-white mb-8">
               <h1 className="text-3xl md:text-5xl lg:text-6xl font-bold mb-4 leading-tight">
-                {user ? `Welcome back, ${user.username?.split(' ')[0] || user.name || 'Explorer'}!` : 'AI-Powered Travel Planner'}
+                {user ? `Welcome back, ${user.username?.split(' ')[0] || user.name || 'Explorer'}!` : 'Your Perfect Trip in'}
                 <span className="block text-yellow-400">
-                  {user ? 'Your next adventure is waiting.' : 'Discover, Plan & Experience the World Effortlessly'}
+                  {user ? 'Your next adventure is waiting.' : '2 Minutes'}
                 </span>
               </h1>
               <h2 className="text-lg md:text-xl mb-6 text-white/90 max-w-2xl mx-auto">
@@ -606,166 +606,12 @@ export const OptimizedHomePage: React.FC = () => {
                     {personalizedSublines[currentSublineIndex]}
                   </span>
                 ) : (
-                  'Join 50,000+ travelers who\'ve planned 125,000+ trips with AI.'
+                  'AI plans everything. You just pack and go.'
                 )}
               </h2>
             </div>
             
-            {/* Mobile App Promotion - Compact Layout */}
-            <div className="grid lg:grid-cols-2 gap-8 items-center">
-                  
-                  {/* Left: Enhanced Phone Mockup with Animation */}
-                  <div className="relative flex justify-center lg:justify-end animate-slide-in-left">
-                    {/* Feature Tags Around Phone */}
-                    <div className="absolute -top-8 -left-8 bg-blue-600 text-white px-3 py-1 rounded-full text-xs font-medium animate-pulse">
-                      AI Trip Planner
-                    </div>
-                    <div className="absolute top-20 -right-12 bg-green-600 text-white px-3 py-1 rounded-full text-xs font-medium animate-pulse" style={{animationDelay: '1s'}}>
-                      Offline Mode
-                    </div>
-                    <div className="absolute bottom-32 -left-16 bg-purple-600 text-white px-3 py-1 rounded-full text-xs font-medium animate-pulse" style={{animationDelay: '2s'}}>
-                      Smart Recommendations
-                    </div>
-                    <div className="absolute bottom-8 -right-8 bg-orange-600 text-white px-3 py-1 rounded-full text-xs font-medium animate-pulse" style={{animationDelay: '3s'}}>
-                      Nearby Places
-                    </div>
-                    
-                    {/* Gradient Glow Behind Phone */}
-                    <div className="absolute inset-0 bg-gradient-to-r from-blue-500/20 to-purple-500/20 rounded-full blur-2xl animate-pulse-glow"></div>
-                    
-                    {/* Phone Mockup */}
-                    <div className="relative phone-tilt-container">
-                      <div className="relative w-64 h-[520px] bg-gradient-to-b from-gray-900 to-black rounded-[3rem] p-2 shadow-xl transform hover:scale-105 transition-all duration-500">
-                        {/* Phone Frame */}
-                        <div className="w-full h-full bg-white rounded-[2.5rem] overflow-hidden relative">
-                          {/* Status Bar */}
-                          <div className="bg-gray-900 h-8 flex items-center justify-between px-6 text-white text-xs">
-                            <span className="font-medium">9:41</span>
-                            <div className="flex gap-1">
-                              <div className="w-4 h-2 bg-white rounded-sm"></div>
-                              <div className="w-1 h-2 bg-white rounded-sm"></div>
-                            </div>
-                          </div>
-                          
-                          {/* Animated Screen Content */}
-                          <div className="h-full transition-all duration-1000 ease-in-out">
-                            {appScreens[currentScreenIndex].content}
-                          </div>
-                          
-                          {/* Screen Indicator */}
-                          <div className="absolute bottom-16 left-1/2 transform -translate-x-1/2 flex gap-2">
-                            {appScreens.map((_, index) => (
-                              <div
-                                key={index}
-                                className={`w-2 h-2 rounded-full transition-all duration-300 ${
-                                  index === currentScreenIndex ? 'bg-blue-500' : 'bg-gray-300'
-                                }`}
-                              />
-                            ))}
-                          </div>
-                          
-                          {/* Bottom Navigation */}
-                          <div className="absolute bottom-0 left-0 right-0 bg-white border-t border-gray-200 p-2">
-                            <div className="flex justify-around">
-                              <div className={`text-xs text-center transition-colors duration-300 ${
-                                currentScreenIndex === 0 ? 'text-blue-500' : 'text-gray-400'
-                              }`}>
-                                <div className="w-5 h-5 mx-auto mb-1 bg-blue-100 rounded-full flex items-center justify-center">
-                                  <MapPin className="w-3 h-3" />
-                                </div>
-                                <span className="font-medium">Places</span>
-                              </div>
-                              <div className={`text-xs text-center transition-colors duration-300 ${
-                                currentScreenIndex === 2 ? 'text-blue-500' : 'text-gray-400'
-                              }`}>
-                                <div className="w-5 h-5 mx-auto mb-1 bg-gray-100 rounded-full flex items-center justify-center">
-                                  <Calendar className="w-3 h-3" />
-                                </div>
-                                <span>Trips</span>
-                              </div>
-                              <div className={`text-xs text-center transition-colors duration-300 ${
-                                currentScreenIndex === 3 ? 'text-blue-500' : 'text-gray-400'
-                              }`}>
-                                <div className="w-5 h-5 mx-auto mb-1 bg-gray-100 rounded-full flex items-center justify-center">
-                                  <Search className="w-3 h-3" />
-                                </div>
-                                <span>Navigate</span>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                        
-                        {/* Enhanced Phone Reflection */}
-                        <div className="absolute -bottom-4 left-3 right-3 h-12 bg-gradient-to-b from-black/30 to-transparent rounded-[3rem] blur-2xl"></div>
-                      </div>
-                    </div>
-                  </div>
-                  
-                  {/* Right: Compact Content */}
-                  <div className="space-y-4 animate-slide-in-right">
-                    {/* Main Headline */}
-                    <div className="animate-fade-in-up" style={{animationDelay: '0.5s'}}>
-                      <h3 className="text-3xl lg:text-4xl font-bold text-white leading-tight mb-2">
-                        Get the
-                        <span className="block text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 to-orange-500">
-                          TravelBuddy App
-                        </span>
-                      </h3>
-                      <p className="text-lg text-white/90">
-                        Your AI travel assistant in your pocket
-                      </p>
-                    </div>
-                    
-                    {/* Compact Features */}
-                    <div className="space-y-3">
-                      <div className="flex items-center gap-3 text-white/90 hover:text-white transition-all duration-300 group/feature animate-feature-in" style={{animationDelay: '1s'}}>
-                        <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-blue-600 rounded-xl flex items-center justify-center flex-shrink-0 group-hover/feature:scale-110 transition-all duration-300">
-                          <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
-                          </svg>
-                        </div>
-                        <div>
-                          <div className="font-semibold">Smart AI Trip Planning</div>
-                          <div className="text-sm text-white/70">Saves 3+ hours by analyzing your preferences instantly</div>
-                        </div>
-                      </div>
-                      
-                      <div className="flex items-center gap-3 text-white/90 hover:text-white transition-all duration-300 group/feature animate-feature-in" style={{animationDelay: '1.2s'}}>
-                        <div className="w-8 h-8 bg-gradient-to-r from-green-500 to-green-600 rounded-xl flex items-center justify-center flex-shrink-0 group-hover/feature:scale-110 transition-all duration-300">
-                          <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                          </svg>
-                        </div>
-                        <div>
-                          <div className="font-semibold">Hidden Gem Discovery</div>
-                          <div className="text-sm text-white/70">AI finds local spots 90% of tourists miss</div>
-                        </div>
-                      </div>
-                      
-                      <div className="flex items-center gap-3 text-white/90 hover:text-white transition-all duration-300 group/feature animate-feature-in" style={{animationDelay: '1.4s'}}>
-                        <div className="w-8 h-8 bg-gradient-to-r from-purple-500 to-purple-600 rounded-xl flex items-center justify-center flex-shrink-0 group-hover/feature:scale-110 transition-all duration-300">
-                          <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-                          </svg>
-                        </div>
-                        <div>
-                          <div className="font-semibold">Real-time Budget Optimization</div>
-                          <div className="text-sm text-white/70">Automatically finds deals saving average $200/trip</div>
-                        </div>
-                      </div>
-                    </div>
-                    
-                    {/* Web App CTA */}
-                    <div className="animate-buttons-in" style={{animationDelay: '1.8s'}}>
-                      <p className="text-white/90 text-sm mb-3">Available as web app - no download needed!</p>
-                      <Link to={user ? "/trips" : "/register"}>
-                        <Button className="bg-gradient-to-r from-green-600 to-blue-600 hover:from-green-700 hover:to-blue-700 text-white px-6 py-3 rounded-xl font-semibold transition-all duration-300 hover:scale-105">
-                          {user ? "Start Planning" : "Try It Free"}
-                        </Button>
-                      </Link>
-                    </div>
-                  </div>
-                </div>
+
             
             {/* Secondary CTAs */}
             <div className="flex flex-col sm:flex-row gap-4 justify-center mt-6">
@@ -803,7 +649,188 @@ export const OptimizedHomePage: React.FC = () => {
         </div>
       </section>
 
-      {/* 2. Featured Destinations */}
+      {/* 2. Mobile App Showcase */}
+      <section className="py-20 bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50 relative overflow-hidden">
+        <div className="absolute inset-0 bg-gradient-to-r from-blue-600/5 to-purple-600/5"></div>
+        <div className="max-w-7xl mx-auto px-4 relative">
+          <div className="grid lg:grid-cols-2 gap-12 items-center">
+            {/* Left: Phone Mockup with Animation */}
+            <div className="relative flex justify-center lg:justify-start order-2 lg:order-1">
+              {/* Feature Tags Around Phone */}
+              <div className="absolute -top-8 -left-8 bg-blue-600 text-white px-4 py-2 rounded-full text-sm font-medium shadow-lg animate-pulse">
+                🗺️ Nearby Places
+              </div>
+              <div className="absolute top-32 -right-12 bg-green-600 text-white px-4 py-2 rounded-full text-sm font-medium shadow-lg animate-pulse" style={{animationDelay: '1s'}}>
+                📴 Offline Mode
+              </div>
+              <div className="absolute bottom-32 -left-16 bg-purple-600 text-white px-4 py-2 rounded-full text-sm font-medium shadow-lg animate-pulse" style={{animationDelay: '2s'}}>
+                🤖 AI Recommendations
+              </div>
+              <div className="absolute bottom-16 -right-8 bg-orange-600 text-white px-4 py-2 rounded-full text-sm font-medium shadow-lg animate-pulse" style={{animationDelay: '3s'}}>
+                🧭 Live Navigation
+              </div>
+              
+              {/* Gradient Glow Behind Phone */}
+              <div className="absolute inset-0 bg-gradient-to-r from-blue-500/20 to-purple-500/20 rounded-full blur-3xl animate-pulse-slow"></div>
+              
+              {/* Phone Mockup */}
+              <div className="relative phone-tilt-container z-10">
+                <div className="relative w-72 h-[580px] bg-gradient-to-b from-gray-900 to-black rounded-[3rem] p-2 shadow-2xl">
+                  {/* Phone Frame */}
+                  <div className="w-full h-full bg-white rounded-[2.5rem] overflow-hidden relative">
+                    {/* Status Bar */}
+                    <div className="bg-gray-900 h-8 flex items-center justify-between px-6 text-white text-xs">
+                      <span className="font-medium">9:41</span>
+                      <div className="flex gap-1">
+                        <div className="w-4 h-2 bg-white rounded-sm"></div>
+                        <div className="w-1 h-2 bg-white rounded-sm"></div>
+                      </div>
+                    </div>
+                    
+                    {/* Animated Screen Content */}
+                    <div className="h-full transition-all duration-1000 ease-in-out">
+                      {appScreens[currentScreenIndex].content}
+                    </div>
+                    
+                    {/* Screen Indicator */}
+                    <div className="absolute bottom-16 left-1/2 transform -translate-x-1/2 flex gap-2">
+                      {appScreens.map((_, index) => (
+                        <div
+                          key={index}
+                          className={`w-2 h-2 rounded-full transition-all duration-300 ${
+                            index === currentScreenIndex ? 'bg-blue-500 w-6' : 'bg-gray-300'
+                          }`}
+                        />
+                      ))}
+                    </div>
+                    
+                    {/* Bottom Navigation */}
+                    <div className="absolute bottom-0 left-0 right-0 bg-white border-t border-gray-200 p-2">
+                      <div className="flex justify-around">
+                        <div className={`text-xs text-center transition-colors duration-300 ${
+                          currentScreenIndex === 0 ? 'text-blue-500' : 'text-gray-400'
+                        }`}>
+                          <div className="w-5 h-5 mx-auto mb-1 bg-blue-100 rounded-full flex items-center justify-center">
+                            <MapPin className="w-3 h-3" />
+                          </div>
+                          <span className="font-medium">Places</span>
+                        </div>
+                        <div className={`text-xs text-center transition-colors duration-300 ${
+                          currentScreenIndex === 2 ? 'text-blue-500' : 'text-gray-400'
+                        }`}>
+                          <div className="w-5 h-5 mx-auto mb-1 bg-gray-100 rounded-full flex items-center justify-center">
+                            <Calendar className="w-3 h-3" />
+                          </div>
+                          <span>Trips</span>
+                        </div>
+                        <div className={`text-xs text-center transition-colors duration-300 ${
+                          currentScreenIndex === 3 ? 'text-blue-500' : 'text-gray-400'
+                        }`}>
+                          <div className="w-5 h-5 mx-auto mb-1 bg-gray-100 rounded-full flex items-center justify-center">
+                            <Search className="w-3 h-3" />
+                          </div>
+                          <span>Navigate</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  {/* Enhanced Phone Reflection */}
+                  <div className="absolute -bottom-4 left-3 right-3 h-12 bg-gradient-to-b from-black/30 to-transparent rounded-[3rem] blur-2xl"></div>
+                </div>
+              </div>
+            </div>
+            
+            {/* Right: Content */}
+            <div className="space-y-6 order-1 lg:order-2">
+              <div>
+                <div className="inline-flex items-center bg-gradient-to-r from-blue-100 to-purple-100 rounded-full px-4 py-2 mb-4">
+                  <span className="text-2xl mr-2">📱</span>
+                  <span className="text-blue-800 font-semibold">Mobile App</span>
+                </div>
+                <h2 className="text-4xl lg:text-5xl font-bold text-gray-900 mb-4 leading-tight">
+                  Your Travel Companion
+                  <span className="block text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-purple-600">
+                    In Your Pocket
+                  </span>
+                </h2>
+                <p className="text-xl text-gray-600">
+                  Unique mobile features that make travel planning effortless
+                </p>
+              </div>
+              
+              {/* Mobile-Specific Features */}
+              <div className="space-y-4">
+                <div className="flex items-start gap-4 bg-white rounded-xl p-4 shadow-md hover:shadow-lg transition-all duration-300 group">
+                  <div className="w-12 h-12 bg-gradient-to-r from-blue-500 to-blue-600 rounded-xl flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-all duration-300">
+                    <MapPin className="w-6 h-6 text-white" />
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-gray-900 mb-1">Nearby Places Discovery</h3>
+                    <p className="text-gray-600 text-sm">Find restaurants, attractions & hidden gems within walking distance using GPS</p>
+                  </div>
+                </div>
+                
+                <div className="flex items-start gap-4 bg-white rounded-xl p-4 shadow-md hover:shadow-lg transition-all duration-300 group">
+                  <div className="w-12 h-12 bg-gradient-to-r from-green-500 to-green-600 rounded-xl flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-all duration-300">
+                    <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
+                    </svg>
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-gray-900 mb-1">Offline Access</h3>
+                    <p className="text-gray-600 text-sm">Download maps, itineraries & place details - travel without internet or roaming</p>
+                  </div>
+                </div>
+                
+                <div className="flex items-start gap-4 bg-white rounded-xl p-4 shadow-md hover:shadow-lg transition-all duration-300 group">
+                  <div className="w-12 h-12 bg-gradient-to-r from-purple-500 to-purple-600 rounded-xl flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-all duration-300">
+                    <Sparkles className="w-6 h-6 text-white" />
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-gray-900 mb-1">Smart AI Recommendations</h3>
+                    <p className="text-gray-600 text-sm">Get personalized suggestions based on time, weather, crowds & your preferences</p>
+                  </div>
+                </div>
+                
+                <div className="flex items-start gap-4 bg-white rounded-xl p-4 shadow-md hover:shadow-lg transition-all duration-300 group">
+                  <div className="w-12 h-12 bg-gradient-to-r from-orange-500 to-orange-600 rounded-xl flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-all duration-300">
+                    <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
+                    </svg>
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-gray-900 mb-1">Live Navigation</h3>
+                    <p className="text-gray-600 text-sm">Turn-by-turn directions to your next destination with real-time traffic updates</p>
+                  </div>
+                </div>
+              </div>
+              
+              {/* CTA */}
+              <div className="pt-4">
+                <p className="text-gray-600 mb-4 font-semibold">Download the mobile app:</p>
+                <div className="flex flex-col sm:flex-row gap-4">
+                  <a href="#" className="inline-flex items-center justify-center bg-black text-white px-6 py-3 rounded-xl font-semibold shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105">
+                    <svg className="w-6 h-6 mr-3" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.81-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/>
+                    </svg>
+                    App Store
+                  </a>
+                  <a href="#" className="inline-flex items-center justify-center bg-black text-white px-6 py-3 rounded-xl font-semibold shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105">
+                    <svg className="w-6 h-6 mr-3" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M3,20.5V3.5C3,2.91 3.34,2.39 3.84,2.15L13.69,12L3.84,21.85C3.34,21.6 3,21.09 3,20.5M16.81,15.12L6.05,21.34L14.54,12.85L16.81,15.12M20.16,10.81C20.5,11.08 20.75,11.5 20.75,12C20.75,12.5 20.53,12.9 20.18,13.18L17.89,14.5L15.39,12L17.89,9.5L20.16,10.81M6.05,2.66L16.81,8.88L14.54,11.15L6.05,2.66Z"/>
+                    </svg>
+                    Google Play
+                  </a>
+                </div>
+                <p className="text-sm text-gray-500 mt-3">Or use the web app - no download needed!</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* 3. Featured Destinations */}
       <section className="py-20 bg-gray-50">
         <div className="max-w-7xl mx-auto px-4">
           <div className="text-center mb-12">
@@ -876,7 +903,7 @@ export const OptimizedHomePage: React.FC = () => {
         </div>
       </section>
 
-      {/* 3. How It Works */}
+      {/* 4. How It Works */}
       <section className="py-20 bg-gradient-to-br from-gray-50 via-blue-50 to-purple-50 relative overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-r from-blue-600/5 to-purple-600/5"></div>
         <div className="max-w-7xl mx-auto px-4 relative">
@@ -980,7 +1007,7 @@ export const OptimizedHomePage: React.FC = () => {
         </div>
       </section>
 
-      {/* Trust Boosters & Social Proof */}
+      {/* 5. Trust Boosters & Social Proof */}
       <section className="py-16 bg-gradient-to-b from-white to-gray-50">
         <div className="max-w-7xl mx-auto px-4">
           {/* Awards & Recognition */}
@@ -1065,7 +1092,7 @@ export const OptimizedHomePage: React.FC = () => {
         </div>
       </section>
 
-      {/* 4. Pricing & Social Proof */}
+      {/* 6. Pricing & Social Proof */}
       <section className="py-20 bg-gradient-to-r from-blue-50 to-green-50">
         <div className="max-w-7xl mx-auto px-4">
           <div className="text-center mb-12">
@@ -1179,7 +1206,7 @@ export const OptimizedHomePage: React.FC = () => {
         </div>
       </section>
 
-      {/* 5. Services Overview */}
+      {/* 7. Services Overview */}
       <section className="py-20 bg-white">
         <div className="max-w-7xl mx-auto px-4">
           <div className="text-center mb-16">
@@ -1245,7 +1272,7 @@ export const OptimizedHomePage: React.FC = () => {
         </div>
       </section>
 
-      {/* FAQ Section - Interactive Dropdown */}
+      {/* 8. FAQ Section - Interactive Dropdown */}
       <section className="py-20 bg-gradient-to-b from-gray-50 to-white">
         <div className="max-w-4xl mx-auto px-4">
           <div className="text-center mb-16">
