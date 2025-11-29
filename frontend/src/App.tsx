@@ -17,6 +17,8 @@ import { LoadingScreen } from './components/LoadingScreen'
 import { RoleSelectionPage } from './pages/RoleSelectionPage'
 import { TransportRegistration } from './pages/TransportRegistration'
 import { TransportationPage } from './pages/TransportationPage'
+import { TravelAgentRegistration } from './pages/TravelAgentRegistration'
+import { TravelAgentsPage } from './pages/TravelAgentsPage'
 import { SubscriptionPage } from './pages/SubscriptionPage'
 import { AboutPage } from './pages/AboutPage'
 import { ContactPage } from './pages/ContactPage'
@@ -64,7 +66,8 @@ const AppContent: React.FC = () => {
             <Route path="/about" element={<AboutPage />} />
             <Route path="/contact" element={<ContactPage />} />
 
-            <Route path="/travel-agent-registration" element={<AgentRegistration />} />
+            <Route path="/travel-agent-registration" element={<TravelAgentRegistration />} />
+            <Route path="/travel-agents" element={<TravelAgentsPage />} />
             <Route path="/transport-registration" element={<TransportRegistration />} />
             <Route path="/transportation" element={<TransportationPage />} />
             <Route path="/subscription" element={<SubscriptionPage />} />

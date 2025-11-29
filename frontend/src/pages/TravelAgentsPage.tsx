@@ -2,10 +2,12 @@ import React, { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { Card, CardContent } from '../components/Card'
 import { Button } from '../components/Button'
+import { configService } from '../services/configService'
 import { 
   Search, MapPin, Filter, Star, Users, Phone, Mail, 
   MessageCircle, Heart, Map, Grid, List, ChevronDown,
-  Globe, Award, Clock, Languages, X, Calendar, DollarSign
+  Globe, Award, Clock, Languages, X, Calendar, DollarSign,
+  Zap, Shield, TrendingUp
 } from 'lucide-react'
 
 interface TravelAgent {
@@ -100,15 +102,22 @@ const specializations = [
   'Adventure & Hiking', 'Cultural Tours', 'Family Travel', 'Honeymoon & Romance', 
   'Luxury & VIP', 'Wildlife & Safari', 'Beach & Coastal', 'Photography Tours',
   'Budget Backpacking', 'Pilgrimage Tours', 'Eco-Tourism', 'Road Trip Specialists',
-  'Digital Nomad Support', 'Educational Tours', 'Solo Travel', 'Business Travel'
+  'Digital Nomad Support', 'Educational Tours', 'Solo Travel', 'Business Travel',
+  'Food & Culinary', 'Scuba & Diving', 'Shopping Tours', 'Skiing & Snow',
+  'Historical Tours', 'Religious Tours', 'LGBTQ+ Friendly', 'Accessible Travel'
 ]
 const locations = ['Colombo', 'Kandy', 'Galle', 'Negombo', 'Ella', 'Sigiriya', 'Anuradhapura', 'Mirissa', 'Bentota', 'Nuwara Eliya']
 const regions = ['Western Province', 'Central Province', 'Southern Province', 'Hill Country', 'Cultural Triangle']
 const languages = ['English', 'Sinhala', 'Tamil', 'Hindi', 'German', 'French', 'Japanese', 'Chinese']
 const experienceLevels = ['1-3 years', '3-7 years', '7-10 years', '10+ years']
-const verificationTypes = ['TravelBuddy Verified', 'Government Licensed', 'Tour Guide License', 'Insurance Covered', 'Award Winner']
+const verificationTypes = [
+  'TravelBuddy Verified', 'Government Licensed', 'Tour Guide License', 
+  'Insurance Covered', 'Award Winner', 'Tourism Board Approved',
+  'First Aid Certified', 'Background Checked', 'National Park License'
+]
 
 export const TravelAgentsPage: React.FC = () => {
+  const [apiBaseUrl, setApiBaseUrl] = useState('')
   const [agents, setAgents] = useState<TravelAgent[]>([])
   const [filteredAgents, setFilteredAgents] = useState<TravelAgent[]>([])
   const [searchTerm, setSearchTerm] = useState('')
@@ -126,8 +135,12 @@ export const TravelAgentsPage: React.FC = () => {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    fetchAgents()
+    configService.getConfig().then(config => setApiBaseUrl(config.apiBaseUrl))
   }, [])
+
+  useEffect(() => {
+    if (apiBaseUrl) fetchAgents()
+  }, [apiBaseUrl])
 
   useEffect(() => {
     filterAgents()
@@ -136,7 +149,7 @@ export const TravelAgentsPage: React.FC = () => {
   const fetchAgents = async () => {
     try {
       setLoading(true)
-      const response = await fetch('https://travelbuddy-b2c6hgbbgeh4esdh.eastus2-01.azurewebsites.net/api/travel-agents')
+      const response = await fetch(`${apiBaseUrl}/api/travel-agents`)
       if (response.ok) {
         const data = await response.json()
         setAgents(data)
@@ -195,20 +208,24 @@ export const TravelAgentsPage: React.FC = () => {
         <div className="max-w-7xl mx-auto px-4 relative">
           <div className="text-center mb-8">
             <h1 className="text-5xl lg:text-6xl font-bold mb-6 bg-gradient-to-r from-white to-blue-100 bg-clip-text text-transparent">
-              Find Expert Travel Agents
+              Find Expert Travel Agents Worldwide
             </h1>
             <p className="text-xl text-blue-100 max-w-3xl mx-auto mb-6">
-              Connect with 230+ verified local travel experts for personalized Sri Lankan experiences
+              Trusted by travelers in 42+ countries • Connect with verified local experts globally
             </p>
             
             {/* Stats */}
             <div className="flex justify-center space-x-8 mb-8">
               <div className="text-center">
-                <div className="text-2xl font-bold">230+</div>
+                <div className="text-2xl font-bold">42+</div>
+                <div className="text-sm text-blue-200">Countries</div>
+              </div>
+              <div className="text-center">
+                <div className="text-2xl font-bold">500+</div>
                 <div className="text-sm text-blue-200">Verified Agents</div>
               </div>
               <div className="text-center">
-                <div className="text-2xl font-bold">5,000+</div>
+                <div className="text-2xl font-bold">10,000+</div>
                 <div className="text-sm text-blue-200">Successful Trips</div>
               </div>
               <div className="text-center">
@@ -226,7 +243,7 @@ export const TravelAgentsPage: React.FC = () => {
                   <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-white/70" />
                   <input
                     type="text"
-                    placeholder="Try 'Honeymoon planners', 'Safari experts', or agent names..."
+                    placeholder="Try 'Tokyo guide', 'Paris food tour', 'Dubai luxury', or agent names..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                     className="w-full pl-12 pr-4 py-4 bg-white/20 border border-white/30 rounded-xl text-white placeholder-white/70 focus:outline-none focus:ring-2 focus:ring-white/50 text-lg"
@@ -256,8 +273,8 @@ export const TravelAgentsPage: React.FC = () => {
               
               {/* Popular Searches */}
               <div className="mt-4 flex flex-wrap gap-2">
-                <span className="text-white/70 text-sm mr-2">Popular:</span>
-                {['Adventure specialists', 'Cultural tours', 'Family-friendly', 'Luxury experiences'].map(tag => (
+                <span className="text-white/70 text-sm mr-2">🔥 Trending:</span>
+                {['Tokyo guides', 'Paris food tours', 'Dubai luxury', 'Bali adventures', 'Safari experts'].map(tag => (
                   <button key={tag} onClick={() => setSearchTerm(tag)}
                           className="px-3 py-1 bg-white/20 hover:bg-white/30 rounded-full text-sm text-white/90 transition-colors">
                     {tag}

@@ -1,68 +1,121 @@
 import mongoose from 'mongoose';
 
 const travelAgentSchema = new mongoose.Schema({
-  // Basic Information
-  agencyName: { type: String, required: true },
-  ownerName: { type: String, required: true },
-  email: { type: String, required: true },
-  phone: { type: String, required: true },
-  whatsapp: String,
-  website: String,
-  address: String,
-  location: String,
-  
-  // Professional Details
-  licenseNumber: String,
-  experienceYears: String,
-  about: String,
-  priceRange: String,
-  
-  // Service Details
-  operatingRegions: [String],
-  specialties: [String],
-  languages: [String],
-  
-  // Media
-  profilePhoto: String,
-  portfolioImages: [String],
-  documents: mongoose.Schema.Types.Mixed,
-  
-  // Frontend Display Fields
-  name: String,
-  agency: String,
-  photo: String,
-  specializations: [String],
-  rating: { type: Number, default: 4.5 },
-  reviewCount: { type: Number, default: 0 },
-  verified: { type: Boolean, default: true },
-  experience: Number,
-  description: String,
-  responseTime: { type: String, default: '< 2 hours' },
-  totalTrips: { type: Number, default: 0 },
-  trustBadges: [String],
-  profileCompletion: { type: Number, default: 85 },
-  
-  // Status
-  status: { 
-    type: String, 
-    enum: ['pending', 'approved', 'rejected'], 
-    default: 'approved' 
+  fullName: {
+    type: String,
+    required: true,
+    trim: true
   },
-  submittedDate: String,
-  
-  // Timestamps
-  createdAt: { type: Date, default: Date.now },
-  updatedAt: { type: Date, default: Date.now }
+  email: {
+    type: String,
+    required: true,
+    unique: true,
+    lowercase: true,
+    trim: true
+  },
+  phone: {
+    type: String,
+    required: true
+  },
+  country: {
+    type: String,
+    required: true
+  },
+  city: {
+    type: String,
+    required: true
+  },
+  languages: [{
+    type: String,
+    required: true
+  }],
+  experience: {
+    type: String,
+    required: true
+  },
+  specializations: [{
+    type: String,
+    required: true
+  }],
+  agencyName: {
+    type: String,
+    default: ''
+  },
+  agencyType: {
+    type: String,
+    required: true
+  },
+  licenseNumber: {
+    type: String,
+    default: ''
+  },
+  consultationFee: {
+    type: Number,
+    default: 0
+  },
+  dayRate: {
+    type: Number,
+    required: true
+  },
+  description: {
+    type: String,
+    required: true
+  },
+  profilePhoto: {
+    type: String,
+    default: ''
+  },
+  coverPhoto: {
+    type: String,
+    default: ''
+  },
+  documents: [{
+    type: String
+  }],
+  verificationStatus: {
+    type: String,
+    enum: ['pending', 'approved', 'rejected'],
+    default: 'approved'
+  },
+  isActive: {
+    type: Boolean,
+    default: true
+  },
+  rating: {
+    type: Number,
+    default: 5.0
+  },
+  reviewCount: {
+    type: Number,
+    default: 0
+  },
+  totalTrips: {
+    type: Number,
+    default: 0
+  },
+  responseTime: {
+    type: String,
+    default: '< 24 hours'
+  },
+  verified: {
+    type: Boolean,
+    default: true
+  },
+  trustBadges: [{
+    type: String
+  }],
+  createdAt: {
+    type: Date,
+    default: Date.now
+  },
+  approvedAt: {
+    type: Date
+  },
+  adminNotes: {
+    type: String,
+    default: ''
+  }
 });
-
-travelAgentSchema.pre('save', function(next) {
-  this.updatedAt = new Date();
-  next();
-});
-
-travelAgentSchema.index({ email: 1 });
-travelAgentSchema.index({ status: 1 });
-travelAgentSchema.index({ agencyName: 1 });
 
 const TravelAgent = mongoose.model('TravelAgent', travelAgentSchema);
 
