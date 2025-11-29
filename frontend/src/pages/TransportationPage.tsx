@@ -129,7 +129,9 @@ const mockServices: TransportService[] = [
   }
 ]
 
-const vehicleTypes = ['All', 'Car', 'Bus', 'Ferry', 'Train', 'Plane']
+const vehicleTypes = ['All', 'Car', 'Bus', 'Ferry', 'Train', 'Plane', 'Bike Rental', 'Helicopter']
+const popularCountries = ['All Countries', 'Sri Lanka', 'Thailand', 'India', 'Japan', 'USA', 'UK', 'France', 'Spain', 'Italy', 'Greece']
+const currencies = { 'Sri Lanka': 'LKR', 'Thailand': 'THB', 'India': 'INR', 'Japan': 'JPY', 'USA': 'USD', 'UK': 'GBP', 'France': 'EUR', 'Spain': 'EUR', 'Italy': 'EUR', 'Greece': 'EUR' }
 const amenityIcons: { [key: string]: React.ReactNode } = {
   'AC': <Zap className="w-4 h-4" />,
   'WiFi': <Wifi className="w-4 h-4" />,
@@ -164,6 +166,9 @@ export const TransportationPage: React.FC = () => {
   const [instantBookingOnly, setInstantBookingOnly] = useState(false)
   const [ecoFriendlyOnly, setEcoFriendlyOnly] = useState(false)
   const [loading, setLoading] = useState(true)
+  const [searchMode, setSearchMode] = useState<'ai' | 'manual'>('ai')
+  const [selectedCountry, setSelectedCountry] = useState('All Countries')
+  const [selectedCity, setSelectedCity] = useState('')
 
   useEffect(() => {
     fetchServices()
@@ -261,107 +266,199 @@ export const TransportationPage: React.FC = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-green-50 pt-20">
       {/* Hero Section */}
-      <div className="bg-gradient-to-r from-blue-600 to-green-600 text-white py-16">
-        <div className="max-w-7xl mx-auto px-4">
+      <div className="relative bg-gradient-to-r from-blue-600 to-green-600 text-white py-16 overflow-hidden">
+        {/* Subtle Background Texture */}
+        <div className="absolute inset-0 opacity-10">
+          <div className="absolute inset-0" style={{
+            backgroundImage: 'url("https://images.unsplash.com/photo-1544620347-c4fd4a3d5957?w=1920&h=400&fit=crop&q=80")',
+            backgroundSize: 'cover',
+            backgroundPosition: 'center'
+          }}></div>
+        </div>
+        
+        <div className="max-w-7xl mx-auto px-4 relative z-10">
           <div className="text-center mb-8">
-            <h1 className="text-4xl lg:text-5xl font-bold mb-4">Transportation Services</h1>
+            <h1 className="text-4xl lg:text-5xl font-bold mb-4">Find Transport Anywhere in the World</h1>
             <p className="text-xl text-blue-100 max-w-2xl mx-auto">
-              Find reliable transportation for your Sri Lankan adventure
+              Discover reliable transportation for your next adventure - from local taxis to international trains
             </p>
           </div>
 
-          {/* AI Search */}
-          <div className="max-w-4xl mx-auto mb-6">
-            <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-4">
-              <div className="flex gap-3">
-                <div className="relative flex-1">
-                  <Bot className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-white/70" />
-                  <input
-                    type="text"
-                    placeholder="Try: 'Comfortable AC van for 7 people to Kandy tomorrow morning'"
-                    value={aiSearch}
-                    onChange={(e) => setAiSearch(e.target.value)}
-                    className="w-full pl-10 pr-4 py-3 bg-white/20 border border-white/30 rounded-xl text-white placeholder-white/70 focus:outline-none focus:ring-2 focus:ring-white/50"
-                  />
-                </div>
-                <Button 
-                  onClick={handleAiSearch}
-                  className="bg-gradient-to-r from-purple-500 to-blue-500 hover:from-purple-600 hover:to-blue-600 px-6 py-3 rounded-xl font-semibold"
-                  disabled={showAiSuggestions}
+          {/* Tabbed Search Container */}
+          <div className="max-w-4xl mx-auto">
+            <div className="bg-white/10 backdrop-blur-md rounded-2xl overflow-hidden shadow-2xl">
+              {/* Tabs */}
+              <div className="flex border-b border-white/20">
+                <button
+                  onClick={() => setSearchMode('ai')}
+                  className={`flex-1 px-6 py-4 font-semibold transition-all duration-300 ${
+                    searchMode === 'ai'
+                      ? 'bg-white/20 text-white border-b-2 border-white'
+                      : 'text-white/70 hover:text-white hover:bg-white/5'
+                  }`}
                 >
-                  {showAiSuggestions ? (
-                    <div className="flex items-center">
-                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                      AI Processing...
-                    </div>
-                  ) : (
-                    <>
-                      <Bot className="w-5 h-5 mr-2" />
-                      AI Search
-                    </>
-                  )}
-                </Button>
+                  <div className="flex items-center justify-center">
+                    <Bot className="w-5 h-5 mr-2" />
+                    Ask AI Assistant
+                  </div>
+                </button>
+                <button
+                  onClick={() => setSearchMode('manual')}
+                  className={`flex-1 px-6 py-4 font-semibold transition-all duration-300 ${
+                    searchMode === 'manual'
+                      ? 'bg-white/20 text-white border-b-2 border-white'
+                      : 'text-white/70 hover:text-white hover:bg-white/5'
+                  }`}
+                >
+                  <div className="flex items-center justify-center">
+                    <MapPin className="w-5 h-5 mr-2" />
+                    Manual Search
+                  </div>
+                </button>
               </div>
-            </div>
-          </div>
 
-          {/* Search Form */}
-          <div className="max-w-6xl mx-auto">
-            <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-6">
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
-                <div className="relative">
-                  <MapPin className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-white/70" />
-                  <input
-                    type="text"
-                    placeholder="From location..."
-                    value={fromLocation}
-                    onChange={(e) => setFromLocation(e.target.value)}
-                    className="w-full pl-10 pr-4 py-3 bg-white/20 border border-white/30 rounded-xl text-white placeholder-white/70 focus:outline-none focus:ring-2 focus:ring-white/50"
-                  />
+              {/* AI Search Content */}
+              {searchMode === 'ai' && (
+                <div className="p-6">
+                  <div className="flex gap-3">
+                    <div className="relative flex-1">
+                      <Bot className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+                      <input
+                        type="text"
+                        placeholder="Try: 'Fast train from Tokyo to Osaka' or 'Ferry from Athens to Santorini' or 'Van for 7 to Kandy'"
+                        value={aiSearch}
+                        onChange={(e) => setAiSearch(e.target.value)}
+                        onKeyPress={(e) => e.key === 'Enter' && handleAiSearch()}
+                        className="w-full pl-12 pr-4 py-4 bg-white border-2 border-transparent rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:border-purple-400 shadow-lg"
+                      />
+                    </div>
+                    <Button 
+                      onClick={handleAiSearch}
+                      className="bg-gradient-to-r from-purple-500 to-blue-500 hover:from-purple-600 hover:to-blue-600 px-8 py-4 rounded-xl font-semibold shadow-lg border-2 border-white/30"
+                      disabled={showAiSuggestions}
+                    >
+                      {showAiSuggestions ? (
+                        <div className="flex items-center">
+                          <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
+                          Processing...
+                        </div>
+                      ) : (
+                        <>
+                          <Bot className="w-5 h-5 mr-2" />
+                          Search
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                  <p className="text-white/80 text-sm mt-3 text-center">
+                    💡 Works worldwide: Paris→London, Bangkok→Phuket, NYC→Boston, Colombo→Kandy
+                  </p>
                 </div>
-                <div className="relative">
-                  <MapPin className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-white/70" />
-                  <input
-                    type="text"
-                    placeholder="To location..."
-                    value={toLocation}
-                    onChange={(e) => setToLocation(e.target.value)}
-                    className="w-full pl-10 pr-4 py-3 bg-white/20 border border-white/30 rounded-xl text-white placeholder-white/70 focus:outline-none focus:ring-2 focus:ring-white/50"
-                  />
-                </div>
-                <div className="relative">
-                  <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-white/70" />
-                  <input
-                    type="date"
-                    value={selectedDate}
-                    onChange={(e) => setSelectedDate(e.target.value)}
-                    className="w-full pl-10 pr-4 py-3 bg-white/20 border border-white/30 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-white/50"
-                  />
-                </div>
-                <Button 
-                  onClick={filterServices}
-                  className="bg-white text-blue-600 hover:bg-blue-50 py-3 rounded-xl font-semibold"
-                >
-                  <Search className="w-5 h-5 mr-2" />
-                  Search
-                </Button>
-              </div>
-              
-              <div className="flex flex-wrap gap-2">
-                {vehicleTypes.map(type => (
-                  <button
-                    key={type}
-                    onClick={() => setSelectedVehicleType(type)}
-                    className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                      selectedVehicleType === type
-                        ? 'bg-white text-blue-600'
-                        : 'bg-white/20 text-white hover:bg-white/30'
-                    }`}
+              )}
+
+              {/* Manual Search Content */}
+              {searchMode === 'manual' && (
+                <div className="p-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                    <div className="relative">
+                      <svg className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
+                        <path d="M10 0C6.14 0 3 3.14 3 7c0 5.25 7 13 7 13s7-7.75 7-13c0-3.86-3.14-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
+                      </svg>
+                      <select
+                        value={selectedCountry}
+                        onChange={(e) => setSelectedCountry(e.target.value)}
+                        className="w-full pl-12 pr-4 py-3 bg-white border-2 border-transparent rounded-xl text-gray-900 focus:outline-none focus:border-blue-400 shadow-lg appearance-none cursor-pointer"
+                      >
+                        {popularCountries.map(country => (
+                          <option key={country} value={country}>{country}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="relative">
+                      <MapPin className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+                      <input
+                        type="text"
+                        placeholder="City or region..."
+                        value={selectedCity}
+                        onChange={(e) => setSelectedCity(e.target.value)}
+                        className="w-full pl-12 pr-4 py-3 bg-white border-2 border-transparent rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:border-blue-400 shadow-lg"
+                      />
+                    </div>
+                  </div>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                    <div className="relative">
+                      <MapPin className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+                      <input
+                        type="text"
+                        placeholder="From location..."
+                        value={fromLocation}
+                        onChange={(e) => setFromLocation(e.target.value)}
+                        className="w-full pl-12 pr-4 py-3 bg-white border-2 border-transparent rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:border-blue-400 shadow-lg"
+                      />
+                    </div>
+                    <div className="relative">
+                      <Navigation className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+                      <input
+                        type="text"
+                        placeholder="To location..."
+                        value={toLocation}
+                        onChange={(e) => setToLocation(e.target.value)}
+                        className="w-full pl-12 pr-4 py-3 bg-white border-2 border-transparent rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:border-blue-400 shadow-lg"
+                      />
+                    </div>
+                    <div className="relative">
+                      <Calendar className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+                      <input
+                        type="date"
+                        value={selectedDate}
+                        onChange={(e) => setSelectedDate(e.target.value)}
+                        className="w-full pl-12 pr-4 py-3 bg-white border-2 border-transparent rounded-xl text-gray-900 focus:outline-none focus:border-blue-400 shadow-lg"
+                      />
+                    </div>
+                  </div>
+                  
+                  <div className="mb-4">
+                    <p className="text-white/90 text-sm mb-2 font-medium">🚗 Transport Type:</p>
+                    <div className="flex flex-wrap gap-2">
+                      {vehicleTypes.map(type => {
+                        const icons: { [key: string]: string } = {
+                          'All': '🌐',
+                          'Car': '🚗',
+                          'Bus': '🚌',
+                          'Ferry': '⛴️',
+                          'Train': '🚆',
+                          'Plane': '✈️',
+                          'Bike Rental': '🚴',
+                          'Helicopter': '🚁'
+                        }
+                        return (
+                          <button
+                            key={type}
+                            onClick={() => setSelectedVehicleType(type)}
+                            className={`px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
+                              selectedVehicleType === type
+                                ? 'bg-white text-blue-600 shadow-lg scale-105'
+                                : 'bg-white/20 text-white hover:bg-white/30'
+                            }`}
+                          >
+                            <span className="mr-1">{icons[type]}</span>
+                            {type}
+                          </button>
+                        )
+                      })}
+                    </div>
+                  </div>
+                  
+                  <Button 
+                    onClick={filterServices}
+                    className="w-full bg-white text-blue-600 hover:bg-blue-50 py-4 rounded-xl font-semibold shadow-lg"
                   >
-                    {type}
-                  </button>
-                ))}
-              </div>
+                    <Search className="w-5 h-5 mr-2" />
+                    Search Transportation
+                  </Button>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -589,7 +686,8 @@ export const TransportationPage: React.FC = () => {
                   
                   <div className="absolute top-4 right-4 flex flex-col gap-2">
                     <div className="bg-green-500 text-white rounded-lg px-3 py-1">
-                      <span className="text-sm font-bold">LKR {service.price}</span>
+                      <span className="text-xs text-green-100">LKR</span>
+                      <span className="text-sm font-bold ml-1">{service.price}</span>
                     </div>
                     {service.isLive && (
                       <div className="bg-red-500 text-white rounded-lg px-2 py-1 flex items-center">
@@ -702,7 +800,7 @@ export const TransportationPage: React.FC = () => {
         <div className="mt-16 text-center bg-gradient-to-r from-blue-50 to-green-50 rounded-2xl p-8">
           <h3 className="text-2xl font-bold text-gray-900 mb-4">Are you a Transport Provider?</h3>
           <p className="text-gray-600 mb-6 max-w-2xl mx-auto">
-            Join our network of transport providers and connect with thousands of travelers looking for reliable transportation services.
+            Join our global network of transport providers from 50+ countries. Connect with travelers worldwide looking for reliable transportation.
           </p>
           <div className="flex gap-4 justify-center">
             <Link to="/transport-registration">
@@ -747,7 +845,9 @@ export const TransportationPage: React.FC = () => {
                           <div className="space-y-2 text-sm">
                             <div className="flex justify-between">
                               <span>Price:</span>
-                              <span className="font-semibold text-green-600">LKR {service.price}</span>
+                              <span className="font-semibold text-green-600">
+                                <span className="text-xs text-gray-500">LKR</span> {service.price}
+                              </span>
                             </div>
                             <div className="flex justify-between">
                               <span>Rating:</span>
@@ -839,7 +939,7 @@ export const TransportationPage: React.FC = () => {
                       <CardContent className="p-6">
                         <div className="text-center mb-4">
                           <div className="text-3xl font-bold text-green-600 mb-2">
-                            LKR {selectedService.price}
+                            <span className="text-lg text-gray-500">LKR</span> {selectedService.price}
                           </div>
                           <div className="flex items-center justify-center mb-2">
                             <Star className="w-5 h-5 text-yellow-500 fill-current mr-1" />

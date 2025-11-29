@@ -135,6 +135,19 @@ const customStyles = `
     animation: pulse-slow 6s ease-in-out infinite;
   }
   
+  @keyframes float {
+    0%, 100% {
+      transform: translateY(0px);
+    }
+    50% {
+      transform: translateY(-10px);
+    }
+  }
+  
+  .animate-float {
+    animation: float 3s ease-in-out infinite;
+  }
+  
   .phone-tilt-container {
     perspective: 1000px;
   }
@@ -922,15 +935,14 @@ export const OptimizedHomePage: React.FC = () => {
           
           <div className="grid md:grid-cols-3 gap-8 relative">
             {/* Connecting Lines */}
-            <div className="hidden md:block absolute top-24 left-1/4 right-1/4 h-0.5 bg-gradient-to-r from-blue-300 via-purple-300 to-green-300"></div>
+            <div className="hidden md:block absolute top-24 left-1/4 right-1/4 h-1 bg-gradient-to-r from-blue-400 via-purple-400 to-green-400 rounded-full"></div>
             
             {[
               {
                 step: 1,
                 icon: <Search className="w-10 h-10" />,
                 title: 'Tell Us Your Travel Style',
-                description: 'Share your interests, budget, and travel style',
-                emotionalBenefit: 'Just 30 seconds to describe the trip you dream about.',
+                description: 'Share your interests and budget in just 30 seconds. No lengthy forms!',
                 color: 'from-blue-500 to-blue-600',
                 bgColor: 'from-blue-50 to-blue-100',
                 time: '30 seconds'
@@ -939,8 +951,7 @@ export const OptimizedHomePage: React.FC = () => {
                 step: 2,
                 icon: <Sparkles className="w-10 h-10" />,
                 title: 'AI Creates Your Perfect Itinerary',
-                description: 'Get personalized itineraries with hidden gems',
-                emotionalBenefit: 'Hotels, transport, activities — all planned in 2 minutes.',
+                description: 'Get personalized itineraries with hidden gems, hotels, transport & activities — all in 2 minutes.',
                 color: 'from-purple-500 to-purple-600',
                 bgColor: 'from-purple-50 to-purple-100',
                 time: '2 minutes'
@@ -949,8 +960,7 @@ export const OptimizedHomePage: React.FC = () => {
                 step: 3,
                 icon: <Plane className="w-10 h-10" />,
                 title: 'Download, Share & Book Instantly',
-                description: 'One-click booking for flights, hotels & activities',
-                emotionalBenefit: 'Take your trip anywhere — even offline.',
+                description: 'One-click booking and offline access. Take your trip anywhere, even without internet.',
                 color: 'from-green-500 to-green-600',
                 bgColor: 'from-green-50 to-green-100',
                 time: '5 minutes'
@@ -964,7 +974,7 @@ export const OptimizedHomePage: React.FC = () => {
                   </div>
                   
                   {/* Icon */}
-                  <div className={`w-20 h-20 bg-gradient-to-r ${step.bgColor} rounded-2xl flex items-center justify-center mx-auto mb-6 mt-4 group-hover:scale-110 transition-transform duration-300`}>
+                  <div className={`w-20 h-20 bg-gradient-to-r ${step.bgColor} rounded-2xl flex items-center justify-center mx-auto mb-6 mt-4 group-hover:scale-110 transition-transform duration-300 animate-float`}>
                     <div className={`text-transparent bg-gradient-to-r ${step.color} bg-clip-text`}>
                       {step.icon}
                     </div>
@@ -977,10 +987,7 @@ export const OptimizedHomePage: React.FC = () => {
                   </div>
                   
                   <h3 className="text-2xl font-bold text-gray-900 mb-3">{step.title}</h3>
-                  <p className="text-gray-600 text-base leading-relaxed mb-3">{step.description}</p>
-                  <p className="text-gray-800 font-medium text-sm italic border-l-4 border-gray-300 pl-3">
-                    {step.emotionalBenefit}
-                  </p>
+                  <p className="text-gray-600 text-base leading-relaxed">{step.description}</p>
                   
                   {/* Hover Effect */}
                   <div className={`absolute inset-0 bg-gradient-to-r ${step.color} opacity-0 group-hover:opacity-5 rounded-2xl transition-opacity duration-300`}></div>
@@ -991,18 +998,16 @@ export const OptimizedHomePage: React.FC = () => {
           
           {/* Enhanced CTA */}
           <div className="text-center mt-16">
-            <div className="bg-white rounded-2xl p-8 shadow-xl border border-gray-100 max-w-2xl mx-auto">
-              <h3 className="text-2xl font-bold text-gray-900 mb-4">Ready to Start Your Adventure?</h3>
-              <p className="text-gray-600 mb-6">Join 50,000+ travelers who saved 3+ hours with AI planning</p>
-              <Link to="/trips">
-                <Button className="bg-gradient-to-r from-green-600 to-teal-600 hover:from-green-700 hover:to-teal-700 text-white px-10 py-4 text-lg rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105">
-                  <Sparkles className="w-6 h-6 mr-3" />
-                  Start Planning Free
-                  <ArrowRight className="w-5 h-5 ml-3" />
-                </Button>
-              </Link>
-              <p className="text-sm text-gray-500 mt-3">No credit card required • Free forever</p>
-            </div>
+            <h3 className="text-3xl font-bold text-gray-900 mb-4">Ready to Start Your Adventure?</h3>
+            <p className="text-xl text-gray-600 mb-6">Join 50,000+ travelers who saved 3+ hours with AI planning</p>
+            <Link to="/trips">
+              <Button className="bg-gradient-to-r from-green-600 to-teal-600 hover:from-green-700 hover:to-teal-700 text-white px-10 py-4 text-lg rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105">
+                <Sparkles className="w-6 h-6 mr-3" />
+                Start Planning Free
+                <ArrowRight className="w-5 h-5 ml-3" />
+              </Button>
+            </Link>
+            <p className="text-sm text-gray-500 mt-4">No credit card required • Free forever</p>
           </div>
         </div>
       </section>
@@ -1010,81 +1015,93 @@ export const OptimizedHomePage: React.FC = () => {
       {/* 5. Trust Boosters & Social Proof */}
       <section className="py-16 bg-gradient-to-b from-white to-gray-50">
         <div className="max-w-7xl mx-auto px-4">
-          {/* Awards & Recognition */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-12">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            {/* Card 1 */}
             <div className="group">
               <div className="bg-white rounded-2xl p-6 shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 border border-yellow-100">
-                <div className="flex items-center mb-4">
+                <div className="flex items-center">
                   <div className="w-16 h-16 bg-gradient-to-br from-yellow-400 via-yellow-500 to-orange-500 rounded-2xl flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform duration-300">
                     <span className="text-2xl">🏆</span>
                   </div>
                   <div className="ml-4">
-                    <div className="text-gray-900 font-bold text-lg leading-tight">2024 Best Travel Companion App</div>
-                    <div className="text-yellow-600 text-sm font-medium">(Community Rated)</div>
+                    <div className="text-gray-900 font-bold text-lg leading-tight">2024 Award Winner</div>
+                    <div className="text-gray-600 text-sm font-medium">Best Travel Companion</div>
                   </div>
                 </div>
               </div>
             </div>
             
+            {/* Card 2 */}
             <div className="group">
               <div className="bg-white rounded-2xl p-6 shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 border border-blue-100">
-                <div className="flex items-center mb-4">
+                <div className="flex items-center">
                   <div className="w-16 h-16 bg-gradient-to-br from-blue-500 via-blue-600 to-indigo-600 rounded-2xl flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform duration-300">
                     <span className="text-2xl">📱</span>
                   </div>
                   <div className="ml-4">
-                    <div className="text-gray-900 font-bold text-lg leading-tight">Top Trending Travel App</div>
-                    <div className="text-blue-600 text-sm font-medium">App Store Featured</div>
+                    <div className="text-gray-900 font-bold text-lg leading-tight">#1 Trending App</div>
+                    <div className="text-blue-600 text-sm font-medium">Featured on App Store</div>
                   </div>
                 </div>
               </div>
             </div>
             
+            {/* Card 3 */}
             <div className="group">
               <div className="bg-white rounded-2xl p-6 shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 border border-green-100">
-                <div className="flex items-center mb-4">
+                <div className="flex items-center">
                   <div className="w-16 h-16 bg-gradient-to-br from-green-500 via-green-600 to-emerald-600 rounded-2xl flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform duration-300">
                     <span className="text-2xl">⭐</span>
                   </div>
                   <div className="ml-4">
-                    <div className="text-gray-900 font-bold text-lg leading-tight">4.8/5 Star Rating</div>
-                    <div className="text-green-600 text-sm font-medium">50,000+ Reviews</div>
+                    <div className="text-gray-900 font-bold text-lg leading-tight">4.8/5 Rating</div>
+                    <div className="text-gray-600 text-sm font-medium">Based on 50k+ Reviews</div>
                   </div>
                 </div>
               </div>
             </div>
-          </div>
-          
-          {/* Security & Live Stats */}
-          <div className="bg-white rounded-2xl p-8 shadow-xl border border-gray-100">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-              <div className="group flex items-center justify-center md:justify-start">
-                <div className="w-14 h-14 bg-gradient-to-br from-green-500 to-emerald-600 rounded-xl flex items-center justify-center mr-4 shadow-lg group-hover:scale-110 transition-transform duration-300">
-                  <span className="text-xl">🛡️</span>
-                </div>
-                <div>
-                  <div className="text-gray-900 font-bold text-base">Secure & Private</div>
-                  <div className="text-gray-600 text-sm">Firebase Authentication</div>
-                </div>
-              </div>
-              
-              <div className="group flex items-center justify-center md:justify-start">
-                <div className="w-14 h-14 bg-gradient-to-br from-orange-500 to-red-500 rounded-xl flex items-center justify-center mr-4 shadow-lg group-hover:scale-110 transition-transform duration-300">
-                  <span className="text-xl">⏳</span>
-                </div>
-                <div>
-                  <div className="text-gray-900 font-bold text-base">Fresh Deals</div>
-                  <div className="text-gray-600 text-sm">Updated 2 hours ago</div>
+            
+            {/* Card 4 */}
+            <div className="group">
+              <div className="bg-white rounded-2xl p-6 shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 border border-teal-100">
+                <div className="flex items-center">
+                  <div className="w-16 h-16 bg-gradient-to-br from-teal-500 via-green-500 to-emerald-600 rounded-2xl flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform duration-300">
+                    <span className="text-2xl">🛡️</span>
+                  </div>
+                  <div className="ml-4">
+                    <div className="text-gray-900 font-bold text-lg leading-tight">Secure & Private</div>
+                    <div className="text-gray-600 text-sm font-medium">Bank-grade encryption</div>
+                  </div>
                 </div>
               </div>
-              
-              <div className="group flex items-center justify-center md:justify-start">
-                <div className="w-14 h-14 bg-gradient-to-br from-purple-500 to-pink-500 rounded-xl flex items-center justify-center mr-4 shadow-lg group-hover:scale-110 transition-transform duration-300">
-                  <span className="text-xl">👥</span>
+            </div>
+            
+            {/* Card 5 */}
+            <div className="group">
+              <div className="bg-white rounded-2xl p-6 shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 border border-orange-100">
+                <div className="flex items-center">
+                  <div className="w-16 h-16 bg-gradient-to-br from-orange-500 via-orange-600 to-red-500 rounded-2xl flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform duration-300">
+                    <span className="text-2xl">⏳</span>
+                  </div>
+                  <div className="ml-4">
+                    <div className="text-gray-900 font-bold text-lg leading-tight">Fresh Deals</div>
+                    <div className="text-gray-600 text-sm font-medium">Updated every hour</div>
+                  </div>
                 </div>
-                <div>
-                  <div className="text-gray-900 font-bold text-base">Active Community</div>
-                  <div className="text-gray-600 text-sm">67 people exploring today</div>
+              </div>
+            </div>
+            
+            {/* Card 6 */}
+            <div className="group">
+              <div className="bg-white rounded-2xl p-6 shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 border border-purple-100">
+                <div className="flex items-center">
+                  <div className="w-16 h-16 bg-gradient-to-br from-purple-500 via-purple-600 to-pink-500 rounded-2xl flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform duration-300">
+                    <span className="text-2xl">👥</span>
+                  </div>
+                  <div className="ml-4">
+                    <div className="text-gray-900 font-bold text-lg leading-tight">Active Community</div>
+                    <div className="text-gray-600 text-sm font-medium">67 travelers online now</div>
+                  </div>
                 </div>
               </div>
             </div>
