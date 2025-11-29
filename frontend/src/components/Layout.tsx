@@ -16,6 +16,9 @@ import { SettingsPage } from '../pages/SettingsPage'
 import { DealsPage } from '../pages/DealsPage'
 import CreateDealPage from '../pages/CreateDealPage'
 import { CommunityPage } from '../pages/CommunityPage'
+import { EventsPage } from '../pages/EventsPage'
+import { AboutPage } from '../pages/AboutPage'
+import { ContactPage } from '../pages/ContactPage'
 import { useApp } from '../contexts/AppContext'
 import { useAuth } from '../contexts/AuthContext'
 
@@ -84,6 +87,12 @@ export const Layout: React.FC = () => {
         return <CreateDealPage />
       case '/community':
         return <CommunityPage />
+      case '/events':
+        return <EventsPage />
+      case '/about':
+        return <AboutPage />
+      case '/contact':
+        return <ContactPage />
       case '/profile':
         return <ProfilePage />
       case '/preferences':

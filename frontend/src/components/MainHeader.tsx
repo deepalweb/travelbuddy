@@ -21,6 +21,7 @@ const navigationItems = [
     icon: ChevronDown, 
     path: '#',
     dropdown: [
+      { label: 'Events', path: '/events', icon: Calendar },
       { label: 'Transport Hub', path: '/transport', icon: Car },
       { label: 'Find an Agent', path: '/services', icon: Users },
       { label: 'About Us', path: '/about', icon: BookOpen },

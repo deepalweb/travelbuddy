@@ -20,8 +20,8 @@ import { TransportationPage } from './pages/TransportationPage'
 import { TravelAgentRegistration } from './pages/TravelAgentRegistration'
 import { TravelAgentsPage } from './pages/TravelAgentsPage'
 import { SubscriptionPage } from './pages/SubscriptionPage'
-import { AboutPage } from './pages/AboutPage'
-import { ContactPage } from './pages/ContactPage'
+import { EventOrganizerRegistration } from './pages/EventOrganizerRegistration'
+import { CreateEventPage } from './pages/CreateEventPage'
 import { checkFirebaseStatus } from './utils/firebaseStatus'
 
 const AppContent: React.FC = () => {
@@ -63,11 +63,10 @@ const AppContent: React.FC = () => {
             <Route path="/login" element={<LoginPage />} />
             <Route path="/register" element={<RegisterPage />} />
             <Route path="/role-selection" element={<RoleSelectionPage />} />
-            <Route path="/about" element={<AboutPage />} />
-            <Route path="/contact" element={<ContactPage />} />
-
             <Route path="/travel-agent-registration" element={<TravelAgentRegistration />} />
             <Route path="/travel-agents" element={<TravelAgentsPage />} />
+            <Route path="/event-organizer-registration" element={<EventOrganizerRegistration />} />
+            <Route path="/events/create" element={<CreateEventPage />} />
             <Route path="/transport-registration" element={<TransportRegistration />} />
             <Route path="/transportation" element={<TransportationPage />} />
             <Route path="/subscription" element={<SubscriptionPage />} />
