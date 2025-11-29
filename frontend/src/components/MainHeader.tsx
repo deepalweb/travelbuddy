@@ -52,7 +52,6 @@ export const MainHeader: React.FC = () => {
   const [isLanguageOpen, setIsLanguageOpen] = useState(false)
   const [activeDropdown, setActiveDropdown] = useState<string | null>(null)
   const [showProfileMenu, setShowProfileMenu] = useState(false)
-
   const [currentLanguage, setCurrentLanguage] = useState(languages[0])
 
   useEffect(() => {
@@ -61,6 +60,19 @@ export const MainHeader: React.FC = () => {
     }
     window.addEventListener('scroll', handleScroll)
     return () => window.removeEventListener('scroll', handleScroll)
+  }, [])
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      const target = e.target as HTMLElement
+      if (!target.closest('.dropdown-container')) {
+        setActiveDropdown(null)
+        setShowProfileMenu(false)
+        setIsLanguageOpen(false)
+      }
+    }
+    document.addEventListener('click', handleClickOutside)
+    return () => document.removeEventListener('click', handleClickOutside)
   }, [])
 
 
@@ -114,11 +126,10 @@ export const MainHeader: React.FC = () => {
               const hasDropdown = item.dropdown && item.dropdown.length > 0
               
               return (
-                <div key={item.id} className="relative">
+                <div key={item.id} className="relative dropdown-container">
                   {hasDropdown ? (
                     <button
-                      onMouseEnter={() => setActiveDropdown(item.id)}
-                      onMouseLeave={() => setActiveDropdown(null)}
+                      onClick={() => setActiveDropdown(activeDropdown === item.id ? null : item.id)}
                       className={`flex items-center space-x-2 px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 relative ${
                         isActive
                           ? isScrolled 
@@ -158,18 +169,15 @@ export const MainHeader: React.FC = () => {
                   
                   {/* Dropdown Menu */}
                   {hasDropdown && activeDropdown === item.id && (
-                    <div 
-                      className="absolute top-full left-0 mt-2 w-48 bg-white rounded-xl shadow-xl border border-gray-200 py-2 z-50"
-                      onMouseEnter={() => setActiveDropdown(item.id)}
-                      onMouseLeave={() => setActiveDropdown(null)}
-                    >
+                    <div className="absolute top-full left-0 mt-1 w-48 bg-white rounded-xl shadow-xl border border-gray-200 py-2 z-50">
                       {item.dropdown?.map((dropItem) => {
                         const DropIcon = dropItem.icon
                         return (
                           <Link
                             key={dropItem.path}
                             to={dropItem.path}
-                            className="flex items-center space-x-3 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                            onClick={() => setActiveDropdown(null)}
+                            className="flex items-center space-x-3 px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
                           >
                             {DropIcon && <DropIcon className="w-4 h-4 text-gray-500" />}
                             <span>{dropItem.label}</span>
@@ -196,7 +204,7 @@ export const MainHeader: React.FC = () => {
                   variant="ghost"
                   size="sm"
                   className={`relative p-2 ${
-                    isScrolled ? 'text-white hover:bg-white/10' : 'text-white hover:bg-white/10'
+                    isScrolled ? 'text-gray-700 hover:bg-gray-100' : 'text-white hover:bg-white/10'
                   }`}
                   title="Notifications"
                 >
@@ -209,7 +217,7 @@ export const MainHeader: React.FC = () => {
                   variant="ghost"
                   size="sm"
                   className={`p-2 ${
-                    isScrolled ? 'text-white hover:bg-white/10' : 'text-white hover:bg-white/10'
+                    isScrolled ? 'text-gray-700 hover:bg-gray-100' : 'text-white hover:bg-white/10'
                   }`}
                   title="Saved Trips & Favorites"
                 >
@@ -219,7 +227,7 @@ export const MainHeader: React.FC = () => {
             )}
 
             {/* Language Selector */}
-            <div className="relative hidden md:block">
+            <div className="relative hidden md:block dropdown-container">
               <Button
                 variant="ghost"
                 size="sm"
@@ -234,7 +242,7 @@ export const MainHeader: React.FC = () => {
               </Button>
               
               {isLanguageOpen && (
-                <div className="absolute right-0 mt-2 w-40 bg-white rounded-lg shadow-lg border border-gray-200 py-2 z-50">
+                <div className="absolute right-0 mt-1 w-40 bg-white rounded-lg shadow-lg border border-gray-200 py-2 z-50">
                   {languages.map((lang) => (
                     <button
                       key={lang.code}
@@ -253,11 +261,9 @@ export const MainHeader: React.FC = () => {
 
             {/* User Profile / Login */}
             {user ? (
-              <div className="relative"
-                onMouseEnter={() => setShowProfileMenu(true)}
-                onMouseLeave={() => setShowProfileMenu(false)}
-              >
+              <div className="relative dropdown-container">
                 <button
+                  onClick={() => setShowProfileMenu(!showProfileMenu)}
                   className={`flex items-center space-x-2 px-2 py-2 rounded-full transition-all duration-200 ${
                     isScrolled ? 'hover:bg-gray-100' : 'hover:bg-white/10'
                   }`}
@@ -279,20 +285,36 @@ export const MainHeader: React.FC = () => {
 
                 {/* Profile Quick Menu */}
                 {showProfileMenu && (
-                  <div className="absolute right-0 mt-2 w-56 bg-white rounded-xl shadow-2xl border border-gray-200 py-2 z-50">
-                    <Link to="/profile" className="flex items-center space-x-3 px-4 py-3 hover:bg-gray-50 transition-colors">
+                  <div className="absolute right-0 mt-1 w-56 bg-white rounded-xl shadow-2xl border border-gray-200 py-2 z-50">
+                    <Link 
+                      to="/profile" 
+                      onClick={() => setShowProfileMenu(false)}
+                      className="flex items-center space-x-3 px-4 py-3 hover:bg-gray-50 transition-colors"
+                    >
                       <User className="w-4 h-4 text-gray-600" />
                       <span className="text-sm text-gray-700">My Profile</span>
                     </Link>
-                    <Link to="/trips" className="flex items-center space-x-3 px-4 py-3 hover:bg-gray-50 transition-colors">
+                    <Link 
+                      to="/trips" 
+                      onClick={() => setShowProfileMenu(false)}
+                      className="flex items-center space-x-3 px-4 py-3 hover:bg-gray-50 transition-colors"
+                    >
                       <MapPin className="w-4 h-4 text-gray-600" />
                       <span className="text-sm text-gray-700">My Trips</span>
                     </Link>
-                    <Link to="/community" className="flex items-center space-x-3 px-4 py-3 hover:bg-gray-50 transition-colors">
+                    <Link 
+                      to="/community" 
+                      onClick={() => setShowProfileMenu(false)}
+                      className="flex items-center space-x-3 px-4 py-3 hover:bg-gray-50 transition-colors"
+                    >
                       <Heart className="w-4 h-4 text-gray-600" />
                       <span className="text-sm text-gray-700">Saved Places</span>
                     </Link>
-                    <Link to="/profile" className="flex items-center space-x-3 px-4 py-3 hover:bg-gray-50 transition-colors">
+                    <Link 
+                      to="/profile" 
+                      onClick={() => setShowProfileMenu(false)}
+                      className="flex items-center space-x-3 px-4 py-3 hover:bg-gray-50 transition-colors"
+                    >
                       <Settings className="w-4 h-4 text-gray-600" />
                       <span className="text-sm text-gray-700">Settings</span>
                     </Link>

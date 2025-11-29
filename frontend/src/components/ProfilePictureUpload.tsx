@@ -1,5 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { Camera, Upload, X, Check, User } from 'lucide-react';
+import { configService } from '../services/configService';
 
 interface ProfilePictureUploadProps {
   currentPicture?: string | null;
@@ -71,14 +72,11 @@ export const ProfilePictureUpload: React.FC<ProfilePictureUploadProps> = ({
 
       // Simulate progress for better UX (real progress requires XMLHttpRequest)
       const progressInterval = setInterval(() => {
-        setProgress(prev => {
-          const next = Math.min(prev + 10, 90);
-          onUploadProgress?.(next);
-          return next;
-        });
+        setProgress(prev => Math.min(prev + 10, 90));
       }, 200);
 
-      const response = await fetch('https://travelbuddy-b2c6hgbbgeh4esdh.eastus2-01.azurewebsites.net/api/upload/profile-picture', {
+      const config = await configService.getConfig();
+      const response = await fetch(`${config.apiBaseUrl}/api/upload/profile-picture`, {
         method: 'POST',
         headers,
         body: formData
@@ -86,7 +84,6 @@ export const ProfilePictureUpload: React.FC<ProfilePictureUploadProps> = ({
 
       clearInterval(progressInterval);
       setProgress(100);
-      onUploadProgress?.(100);
 
       if (!response.ok) {
         const errorData = await response.json();
@@ -108,7 +105,6 @@ export const ProfilePictureUpload: React.FC<ProfilePictureUploadProps> = ({
       onUploadError?.(errorMessage);
       setPreview(null);
       setProgress(0);
-      onUploadProgress?.(0);
     } finally {
       setUploading(false);
       if (fileInputRef.current) {

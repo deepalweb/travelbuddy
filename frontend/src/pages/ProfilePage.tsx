@@ -7,8 +7,9 @@ import { Avatar } from '../components/Avatar'
 import { Badge } from '../components/Badge'
 import { SubscriptionModal } from '../components/SubscriptionModal'
 import { useUserSecurity } from '../hooks/useUserSecurity'
-import { User, Mail, Edit3, Save, X, MapPin, Calendar, Star, Shield, UserCheck, Crown, Zap, Bell, LogOut, Phone, Globe, Camera, Eye, Lock, Settings, MessageCircle, Heart, FileText, TrendingUp, Users, Car, Briefcase, Award, CheckCircle, AlertCircle } from 'lucide-react'
+import { User, Mail, Edit3, Save, X, MapPin, Calendar, Star, Shield, UserCheck, Crown, Zap, Bell, LogOut, Phone, Globe, Camera, Eye, Lock, Settings, MessageCircle, Heart, FileText, TrendingUp, Users, Car, Briefcase, Award, CheckCircle, AlertCircle, Sparkles, Target, DollarSign, Compass, Trophy, Medal, Flag, Clock, Bookmark, ThumbsUp, Instagram, Linkedin, Twitter, Facebook, Link as LinkIcon, Plane, Wallet, Coffee, Mountain } from 'lucide-react'
 import ProfilePictureUpload from '../components/ProfilePictureUpload'
+import { configService } from '../services/configService'
 
 export const ProfilePage: React.FC = () => {
   const { user, updateProfile, logout } = useAuth()
@@ -39,6 +40,19 @@ export const ProfilePage: React.FC = () => {
   const [showRoleMenu, setShowRoleMenu] = useState(false)
   const [uploadProgress, setUploadProgress] = useState<number | null>(null)
   const [uploadError, setUploadError] = useState<string | null>(null)
+  const [apiBaseUrl, setApiBaseUrl] = useState('')
+  const [socialLinks, setSocialLinks] = useState({
+    instagram: '',
+    linkedin: '',
+    twitter: '',
+    facebook: ''
+  })
+  const [preferences, setPreferences] = useState({
+    budgetRange: 'moderate',
+    travelPace: 'moderate',
+    interests: [] as string[],
+    accessibility: false
+  })
 
   const calculateProfileCompletion = () => {
     let completed = 0
@@ -52,13 +66,29 @@ export const ProfilePage: React.FC = () => {
   }
 
   useEffect(() => {
+    configService.getConfig().then(config => setApiBaseUrl(config.apiBaseUrl))
+  }, [])
+
+  useEffect(() => {
     if (user?.id) {
       fetchUserStats()
     }
   }, [user?.id])
 
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      const target = e.target as HTMLElement
+      if (!target.closest('.role-menu-container')) {
+        setShowRoleMenu(false)
+      }
+    }
+    document.addEventListener('click', handleClickOutside)
+    return () => document.removeEventListener('click', handleClickOutside)
+  }, [])
+
   const fetchUserStats = async () => {
     try {
+      const config = await configService.getConfig()
       const token = localStorage.getItem('demo_token')
       const headers: Record<string, string> = {}
       
@@ -69,7 +99,7 @@ export const ProfilePage: React.FC = () => {
         headers['x-user-id'] = user.id
       }
       
-      const response = await fetch(`https://travelbuddy-b2c6hgbbgeh4esdh.eastus2-01.azurewebsites.net/api/users/${user?.id}/stats`, { headers })
+      const response = await fetch(`${config.apiBaseUrl}/api/users/${user?.id}/stats`, { headers })
       if (response.ok) {
         const data = await response.json()
         setStats({
@@ -102,6 +132,7 @@ export const ProfilePage: React.FC = () => {
   const handleSave = async () => {
     setLoading(true)
     try {
+      const config = await configService.getConfig()
       // Use direct API call for extended fields
       const token = localStorage.getItem('demo_token')
       const headers: Record<string, string> = {
@@ -115,7 +146,7 @@ export const ProfilePage: React.FC = () => {
         headers['x-user-id'] = user.id
       }
       
-      const response = await fetch('https://travelbuddy-b2c6hgbbgeh4esdh.eastus2-01.azurewebsites.net/api/users/profile', {
+      const response = await fetch(`${config.apiBaseUrl}/api/users/profile`, {
         method: 'PUT',
         headers,
         body: JSON.stringify(formData)
@@ -158,7 +189,8 @@ export const ProfilePage: React.FC = () => {
   }
 
   const handleUploadProgress = (progress: number) => {
-    setUploadProgress(progress)
+    // Progress updates are now handled internally by ProfilePictureUpload
+    // This callback is kept for future use if needed
   }
 
   if (!user) {
@@ -176,34 +208,66 @@ export const ProfilePage: React.FC = () => {
     const role = user.activeRole || user.role
     if (role === 'merchant') {
       return [
-        { icon: TrendingUp, label: 'Deals Created', value: stats.dealsCreated, color: 'from-purple-500 to-purple-600' },
-        { icon: Eye, label: 'Profile Views', value: stats.profileViews, color: 'from-blue-500 to-blue-600' },
-        { icon: Star, label: 'Rating', value: '4.8', color: 'from-yellow-500 to-yellow-600' }
+        { icon: TrendingUp, label: 'Deals Created', value: stats.dealsCreated, bgColor: 'bg-purple-100', iconColor: 'text-purple-600' },
+        { icon: Eye, label: 'Profile Views', value: stats.profileViews, bgColor: 'bg-blue-100', iconColor: 'text-blue-600' },
+        { icon: Star, label: 'Rating', value: '4.8', bgColor: 'bg-yellow-100', iconColor: 'text-yellow-600' }
       ]
     }
     if (role === 'travel_agent') {
       return [
-        { icon: Users, label: 'Clients Served', value: stats.ridesCompleted, color: 'from-green-500 to-green-600' },
-        { icon: Award, label: 'Satisfaction', value: `${stats.clientSatisfaction}%`, color: 'from-blue-500 to-blue-600' },
-        { icon: Star, label: 'Rating', value: '4.9', color: 'from-yellow-500 to-yellow-600' }
+        { icon: Users, label: 'Clients Served', value: stats.ridesCompleted, bgColor: 'bg-green-100', iconColor: 'text-green-600' },
+        { icon: Award, label: 'Satisfaction', value: `${stats.clientSatisfaction}%`, bgColor: 'bg-blue-100', iconColor: 'text-blue-600' },
+        { icon: Star, label: 'Rating', value: '4.9', bgColor: 'bg-yellow-100', iconColor: 'text-yellow-600' }
       ]
     }
     if (role === 'transport_provider') {
       return [
-        { icon: Car, label: 'Rides Completed', value: stats.ridesCompleted, color: 'from-indigo-500 to-indigo-600' },
-        { icon: TrendingUp, label: 'Fleet Usage', value: '85%', color: 'from-green-500 to-green-600' },
-        { icon: Star, label: 'Driver Rating', value: '4.7', color: 'from-yellow-500 to-yellow-600' }
+        { icon: Car, label: 'Rides Completed', value: stats.ridesCompleted, bgColor: 'bg-indigo-100', iconColor: 'text-indigo-600' },
+        { icon: TrendingUp, label: 'Fleet Usage', value: '85%', bgColor: 'bg-green-100', iconColor: 'text-green-600' },
+        { icon: Star, label: 'Driver Rating', value: '4.7', bgColor: 'bg-yellow-100', iconColor: 'text-yellow-600' }
       ]
     }
     return [
-      { icon: MapPin, label: 'Trips Planned', value: stats.tripsPlanned, color: 'from-blue-500 to-blue-600' },
-      { icon: Heart, label: 'Places Saved', value: stats.placesVisited, color: 'from-green-500 to-green-600' },
-      { icon: FileText, label: 'Posts Shared', value: stats.reviewsWritten, color: 'from-yellow-500 to-yellow-600' }
+      { icon: MapPin, label: 'Trips Planned', value: stats.tripsPlanned, bgColor: 'bg-blue-100', iconColor: 'text-blue-600' },
+      { icon: Heart, label: 'Places Saved', value: stats.placesVisited, bgColor: 'bg-green-100', iconColor: 'text-green-600' },
+      { icon: FileText, label: 'Posts Shared', value: stats.reviewsWritten, bgColor: 'bg-yellow-100', iconColor: 'text-yellow-600' }
     ]
   }
 
+  const getTravelPersonality = () => {
+    const trips = stats.tripsPlanned
+    const places = stats.placesVisited
+    if (trips >= 10) return { type: 'Adventure Seeker', icon: Compass, desc: 'Always exploring new horizons' }
+    if (places >= 20) return { type: 'Culture Explorer', icon: Globe, desc: 'Passionate about diverse experiences' }
+    if (trips >= 5) return { type: 'Weekend Wanderer', icon: MapPin, desc: 'Regular traveler building memories' }
+    return { type: 'Journey Starter', icon: Sparkles, desc: 'Beginning your travel adventure' }
+  }
+
+  const getMilestones = () => {
+    const milestones = []
+    if (stats.tripsPlanned >= 1) milestones.push({ icon: Flag, label: 'First Trip', color: 'text-blue-600' })
+    if (stats.tripsPlanned >= 5) milestones.push({ icon: Trophy, label: '5 Trips', color: 'text-purple-600' })
+    if (stats.placesVisited >= 10) milestones.push({ icon: Medal, label: '10 Places', color: 'text-green-600' })
+    if (stats.reviewsWritten >= 5) milestones.push({ icon: Star, label: '5 Reviews', color: 'text-yellow-600' })
+    return milestones
+  }
+
+  const getRecentActivity = () => [
+    { icon: MapPin, action: 'Planned a trip to', target: 'Paris, France', time: '2 days ago', color: 'text-blue-600' },
+    { icon: Heart, action: 'Saved', target: 'Eiffel Tower', time: '5 days ago', color: 'text-red-600' },
+    { icon: Star, action: 'Reviewed', target: 'Hotel Luxe', time: '1 week ago', color: 'text-yellow-600' },
+    { icon: ThumbsUp, action: 'Recommended', target: 'Tokyo Guide', time: '2 weeks ago', color: 'text-green-600' }
+  ]
+
+  const interestOptions = [
+    { id: 'culture', label: 'Culture & History', icon: Globe },
+    { id: 'adventure', label: 'Adventure', icon: Mountain },
+    { id: 'food', label: 'Food & Dining', icon: Coffee },
+    { id: 'beach', label: 'Beach & Relaxation', icon: Plane }
+  ]
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
+    <div className="min-h-screen bg-gray-50">
       {/* 1. Hero Header with Profile */}
       <div className="bg-gradient-to-r from-blue-600 via-purple-600 to-indigo-600 text-white relative overflow-hidden">
         <div className="absolute inset-0 bg-black/10"></div>
@@ -216,7 +280,6 @@ export const ProfilePage: React.FC = () => {
                   currentPicture={user.profilePicture}
                   onUploadSuccess={handleProfilePictureSuccess}
                   onUploadError={handleProfilePictureError}
-                  onUploadProgress={handleUploadProgress}
                 />
                 {uploadProgress !== null && (
                   <div className="absolute bottom-0 left-0 right-0 bg-black/70 text-white text-xs py-1 px-2 rounded-b-full text-center">
@@ -352,7 +415,7 @@ export const ProfilePage: React.FC = () => {
         </Card>
 
         {/* Role Switcher Widget */}
-        <Card className="bg-white shadow-xl mb-8">
+        <Card className="bg-white shadow-lg mb-8">
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-3">
@@ -366,7 +429,7 @@ export const ProfilePage: React.FC = () => {
                   </p>
                 </div>
               </div>
-              <div className="relative">
+              <div className="relative role-menu-container">
                 <Button
                   variant="outline"
                   onClick={() => setShowRoleMenu(!showRoleMenu)}
@@ -404,14 +467,14 @@ export const ProfilePage: React.FC = () => {
         </Card>
 
         {/* 2. Dynamic Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
           {getRoleStats().map((stat, index) => {
             const Icon = stat.icon
             return (
-              <Card key={index} className="bg-white border-0 shadow-xl hover:shadow-2xl transition-all duration-300 hover:-translate-y-1 group">
+              <Card key={index} className="bg-white shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1">
                 <CardContent className="p-8 text-center">
-                  <div className={`w-24 h-24 bg-gradient-to-br ${stat.color} rounded-2xl flex items-center justify-center mx-auto mb-6 group-hover:scale-110 transition-transform duration-300 shadow-lg`}>
-                    <Icon className="w-12 h-12 text-white" />
+                  <div className={`w-24 h-24 ${stat.bgColor} rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-md`}>
+                    <Icon className={`w-14 h-14 ${stat.iconColor}`} />
                   </div>
                   <div className="text-5xl font-bold text-gray-900 mb-2">{stat.value}</div>
                   <div className="text-gray-600 font-semibold text-lg">{stat.label}</div>
@@ -421,10 +484,320 @@ export const ProfilePage: React.FC = () => {
           })}
         </div>
 
+        {/* Travel Personality & Milestones */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-12">
+          {/* Travel Personality Widget */}
+          <Card className="bg-white shadow-lg">
+            <CardContent className="p-6">
+              <div className="flex items-center space-x-4">
+                <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl flex items-center justify-center shadow-lg">
+                  {(() => {
+                    const PersonalityIcon = getTravelPersonality().icon
+                    return <PersonalityIcon className="w-9 h-9 text-white" />
+                  })()}
+                </div>
+                <div className="flex-1">
+                  <p className="text-sm text-gray-600 mb-1">Your Travel Personality</p>
+                  <h3 className="text-2xl font-bold text-gray-900">{getTravelPersonality().type}</h3>
+                  <p className="text-sm text-gray-600 mt-1">{getTravelPersonality().desc}</p>
+                </div>
+              </div>
+              <div className="mt-6 pt-6 border-t border-gray-200 grid grid-cols-2 gap-4 text-center">
+                <div>
+                  <div className="text-2xl font-bold text-blue-600">${stats.tripsPlanned * 450}</div>
+                  <div className="text-xs text-gray-600">Est. Travel Spend</div>
+                </div>
+                <div>
+                  <div className="text-2xl font-bold text-green-600">{stats.placesVisited}</div>
+                  <div className="text-xs text-gray-600">Places Explored</div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Gamification Badges */}
+          <Card className="bg-white shadow-lg">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center space-x-3">
+                  <Trophy className="w-6 h-6 text-yellow-600" />
+                  <h3 className="text-xl font-bold text-gray-900">Achievements</h3>
+                </div>
+                <span className="text-sm font-semibold text-gray-600">{getMilestones().length} Unlocked</span>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                {getMilestones().map((milestone, idx) => {
+                  const MilestoneIcon = milestone.icon
+                  return (
+                    <div key={idx} className="flex items-center space-x-3 p-3 bg-gray-50 rounded-xl border border-gray-200">
+                      <div className="w-10 h-10 bg-white rounded-lg flex items-center justify-center shadow-sm">
+                        <MilestoneIcon className={`w-6 h-6 ${milestone.color}`} />
+                      </div>
+                      <div>
+                        <p className="text-sm font-semibold text-gray-900">{milestone.label}</p>
+                        <p className="text-xs text-gray-500">Unlocked</p>
+                      </div>
+                    </div>
+                  )
+                })}
+                {getMilestones().length === 0 && (
+                  <div className="col-span-2 text-center py-6 text-gray-500">
+                    <Trophy className="w-12 h-12 mx-auto mb-2 text-gray-300" />
+                    <p className="text-sm">Start your journey to unlock badges!</p>
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Mini Activity Feed & Travel Preferences */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-12">
+          {/* Mini Activity Feed */}
+          <Card className="bg-white shadow-lg lg:col-span-2">
+            <CardHeader className="border-b border-gray-100">
+              <CardTitle className="text-xl text-gray-900 flex items-center">
+                <Clock className="w-5 h-5 mr-2 text-blue-600" />
+                Recent Activity
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-6">
+              <div className="space-y-4">
+                {getRecentActivity().map((activity, idx) => {
+                  const ActivityIcon = activity.icon
+                  return (
+                    <div key={idx} className="flex items-start space-x-3 p-3 hover:bg-gray-50 rounded-lg transition-colors">
+                      <div className="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                        <ActivityIcon className={`w-5 h-5 ${activity.color}`} />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm text-gray-900">
+                          <span className="font-medium">{activity.action}</span>{' '}
+                          <span className="font-semibold text-blue-600">{activity.target}</span>
+                        </p>
+                        <p className="text-xs text-gray-500 mt-1">{activity.time}</p>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Social Profile Links */}
+          <Card className="bg-white shadow-lg">
+            <CardHeader className="border-b border-gray-100">
+              <CardTitle className="text-xl text-gray-900 flex items-center">
+                <LinkIcon className="w-5 h-5 mr-2 text-purple-600" />
+                Social Links
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-6">
+              <div className="space-y-3">
+                {isEditing ? (
+                  <>
+                    <div>
+                      <label className="text-xs text-gray-600 mb-1 block">Instagram</label>
+                      <div className="flex items-center space-x-2">
+                        <Instagram className="w-4 h-4 text-pink-600" />
+                        <input
+                          type="text"
+                          value={socialLinks.instagram}
+                          onChange={(e) => setSocialLinks({ ...socialLinks, instagram: e.target.value })}
+                          className="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-sm"
+                          placeholder="@username"
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="text-xs text-gray-600 mb-1 block">LinkedIn</label>
+                      <div className="flex items-center space-x-2">
+                        <Linkedin className="w-4 h-4 text-blue-700" />
+                        <input
+                          type="text"
+                          value={socialLinks.linkedin}
+                          onChange={(e) => setSocialLinks({ ...socialLinks, linkedin: e.target.value })}
+                          className="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-sm"
+                          placeholder="/in/username"
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="text-xs text-gray-600 mb-1 block">Twitter</label>
+                      <div className="flex items-center space-x-2">
+                        <Twitter className="w-4 h-4 text-blue-400" />
+                        <input
+                          type="text"
+                          value={socialLinks.twitter}
+                          onChange={(e) => setSocialLinks({ ...socialLinks, twitter: e.target.value })}
+                          className="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-sm"
+                          placeholder="@username"
+                        />
+                      </div>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    {!socialLinks.instagram && !socialLinks.linkedin && !socialLinks.twitter ? (
+                      <div className="text-center py-6">
+                        <LinkIcon className="w-12 h-12 mx-auto mb-2 text-gray-300" />
+                        <p className="text-sm text-gray-500">No social links added</p>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => setIsEditing(true)}
+                          className="mt-3"
+                        >
+                          Add Links
+                        </Button>
+                      </div>
+                    ) : (
+                      <div className="space-y-2">
+                        {socialLinks.instagram && (
+                          <a href={`https://instagram.com/${socialLinks.instagram}`} target="_blank" rel="noopener noreferrer" className="flex items-center space-x-3 p-2 hover:bg-gray-50 rounded-lg">
+                            <Instagram className="w-5 h-5 text-pink-600" />
+                            <span className="text-sm text-gray-900">{socialLinks.instagram}</span>
+                          </a>
+                        )}
+                        {socialLinks.linkedin && (
+                          <a href={`https://linkedin.com${socialLinks.linkedin}`} target="_blank" rel="noopener noreferrer" className="flex items-center space-x-3 p-2 hover:bg-gray-50 rounded-lg">
+                            <Linkedin className="w-5 h-5 text-blue-700" />
+                            <span className="text-sm text-gray-900">{socialLinks.linkedin}</span>
+                          </a>
+                        )}
+                        {socialLinks.twitter && (
+                          <a href={`https://twitter.com/${socialLinks.twitter}`} target="_blank" rel="noopener noreferrer" className="flex items-center space-x-3 p-2 hover:bg-gray-50 rounded-lg">
+                            <Twitter className="w-5 h-5 text-blue-400" />
+                            <span className="text-sm text-gray-900">{socialLinks.twitter}</span>
+                          </a>
+                        )}
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Travel Preferences Section */}
+        <Card className="bg-white shadow-lg mb-12">
+          <CardHeader className="border-b border-gray-100">
+            <CardTitle className="text-xl text-gray-900 flex items-center justify-between">
+              <div className="flex items-center">
+                <Target className="w-5 h-5 mr-2 text-purple-600" />
+                Travel Preferences
+              </div>
+              {!isEditing && (
+                <Button size="sm" variant="outline" onClick={() => setIsEditing(true)}>
+                  <Edit3 className="w-4 h-4 mr-2" />
+                  Edit
+                </Button>
+              )}
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-6">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-3">Budget Range</label>
+                {isEditing ? (
+                  <select
+                    value={preferences.budgetRange}
+                    onChange={(e) => setPreferences({ ...preferences, budgetRange: e.target.value })}
+                    className="w-full px-4 py-2 border border-gray-200 rounded-lg"
+                  >
+                    <option value="budget">Budget ($)</option>
+                    <option value="moderate">Moderate ($$)</option>
+                    <option value="luxury">Luxury ($$$)</option>
+                  </select>
+                ) : (
+                  <div className="flex items-center space-x-2 p-3 bg-gray-50 rounded-lg">
+                    <Wallet className="w-5 h-5 text-green-600" />
+                    <span className="font-medium capitalize">{preferences.budgetRange}</span>
+                  </div>
+                )}
+              </div>
+              
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-3">Travel Pace</label>
+                {isEditing ? (
+                  <select
+                    value={preferences.travelPace}
+                    onChange={(e) => setPreferences({ ...preferences, travelPace: e.target.value })}
+                    className="w-full px-4 py-2 border border-gray-200 rounded-lg"
+                  >
+                    <option value="relaxed">Relaxed</option>
+                    <option value="moderate">Moderate</option>
+                    <option value="fast">Fast-Paced</option>
+                  </select>
+                ) : (
+                  <div className="flex items-center space-x-2 p-3 bg-gray-50 rounded-lg">
+                    <Zap className="w-5 h-5 text-blue-600" />
+                    <span className="font-medium capitalize">{preferences.travelPace}</span>
+                  </div>
+                )}
+              </div>
+              
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-3">Accessibility</label>
+                <div className="flex items-center space-x-3 p-3 bg-gray-50 rounded-lg">
+                  {isEditing ? (
+                    <input
+                      type="checkbox"
+                      checked={preferences.accessibility}
+                      onChange={(e) => setPreferences({ ...preferences, accessibility: e.target.checked })}
+                      className="w-5 h-5 text-blue-600 rounded"
+                    />
+                  ) : (
+                    <CheckCircle className={`w-5 h-5 ${preferences.accessibility ? 'text-green-600' : 'text-gray-300'}`} />
+                  )}
+                  <span className="font-medium">{preferences.accessibility ? 'Required' : 'Not Required'}</span>
+                </div>
+              </div>
+            </div>
+            
+            <div className="mt-6">
+              <label className="block text-sm font-semibold text-gray-700 mb-3">Travel Interests</label>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                {interestOptions.map((interest) => {
+                  const InterestIcon = interest.icon
+                  const isSelected = preferences.interests.includes(interest.id)
+                  return (
+                    <button
+                      key={interest.id}
+                      onClick={() => {
+                        if (isEditing) {
+                          setPreferences({
+                            ...preferences,
+                            interests: isSelected
+                              ? preferences.interests.filter(i => i !== interest.id)
+                              : [...preferences.interests, interest.id]
+                          })
+                        }
+                      }}
+                      disabled={!isEditing}
+                      className={`flex items-center space-x-2 p-3 rounded-lg border-2 transition-all ${
+                        isSelected
+                          ? 'border-blue-500 bg-blue-50'
+                          : 'border-gray-200 bg-white hover:border-gray-300'
+                      } ${isEditing ? 'cursor-pointer' : 'cursor-default'}`}
+                    >
+                      <InterestIcon className={`w-5 h-5 ${isSelected ? 'text-blue-600' : 'text-gray-400'}`} />
+                      <span className={`text-sm font-medium ${isSelected ? 'text-blue-900' : 'text-gray-600'}`}>
+                        {interest.label}
+                      </span>
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
         <div className="grid grid-cols-1 xl:grid-cols-4 gap-8 pb-16">
           {/* 3. Personal Information (Enhanced) */}
           <div className="xl:col-span-2 space-y-8">
-            <Card className="bg-white border-0 shadow-xl">
+            <Card className="bg-white shadow-lg">
               <CardHeader className="border-b border-gray-100">
                 <CardTitle className="text-2xl text-gray-900 flex items-center">
                   <User className="w-6 h-6 mr-3 text-blue-600" />
@@ -533,41 +906,46 @@ export const ProfilePage: React.FC = () => {
             </Card>
             
             {/* 4. Account Status & Security */}
-            <Card className="bg-white border-0 shadow-xl border-l-4 border-l-green-500">
-              <CardHeader className="border-b border-gray-100 bg-green-50">
-                <CardTitle className="text-2xl text-gray-900 flex items-center justify-between">
-                  <div className="flex items-center">
-                    <Lock className="w-7 h-7 mr-3 text-green-600" />
-                    Account Security
+            <Card className="bg-white shadow-lg overflow-hidden">
+              <div className="bg-gradient-to-r from-green-500 to-emerald-600 p-6">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-3">
+                    <div className="w-12 h-12 bg-white/20 backdrop-blur-sm rounded-xl flex items-center justify-center">
+                      <Shield className="w-7 h-7 text-white" />
+                    </div>
+                    <div>
+                      <h3 className="text-2xl font-bold text-white">Account Security</h3>
+                      <p className="text-green-100 text-sm">Your account is protected</p>
+                    </div>
                   </div>
-                  <div className="flex items-center space-x-2 text-sm font-semibold text-green-700">
-                    <Shield className="w-5 h-5" />
-                    <span>Your account is secure</span>
+                  <div className="w-16 h-16 bg-white/10 backdrop-blur-sm rounded-full flex items-center justify-center">
+                    <Lock className="w-8 h-8 text-white" />
                   </div>
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="p-8">
+                </div>
+              </div>
+              <CardContent className="p-6">
                 <div className="space-y-4">
-                  <div className="flex items-center justify-between p-5 bg-green-50 rounded-xl border-2 border-green-200">
+                  <div className="flex items-center justify-between p-4 bg-green-50 rounded-xl border border-green-200">
                     <div className="flex items-center space-x-4">
-                      <div className="w-12 h-12 bg-green-500 rounded-full flex items-center justify-center">
+                      <div className="w-12 h-12 bg-green-500 rounded-xl flex items-center justify-center shadow-sm">
                         <CheckCircle className="w-7 h-7 text-white" />
                       </div>
                       <div>
-                        <p className="font-bold text-gray-900 text-lg">Email Verified</p>
-                        <p className="text-sm text-gray-600">Your email is confirmed and secure</p>
+                        <p className="font-bold text-gray-900">Email Verified</p>
+                        <p className="text-sm text-gray-600">Confirmed and secure</p>
                       </div>
                     </div>
+                    <CheckCircle className="w-6 h-6 text-green-600" />
                   </div>
                   
-                  <div className={`flex items-center justify-between p-5 rounded-xl border-2 ${
+                  <div className={`flex items-center justify-between p-4 rounded-xl border ${
                     security.twoFactorEnabled 
                       ? 'bg-green-50 border-green-200' 
-                      : 'bg-yellow-50 border-yellow-300'
+                      : 'bg-amber-50 border-amber-300'
                   }`}>
                     <div className="flex items-center space-x-4">
-                      <div className={`w-12 h-12 rounded-full flex items-center justify-center ${
-                        security.twoFactorEnabled ? 'bg-green-500' : 'bg-yellow-500'
+                      <div className={`w-12 h-12 rounded-xl flex items-center justify-center shadow-sm ${
+                        security.twoFactorEnabled ? 'bg-green-500' : 'bg-amber-500'
                       }`}>
                         {security.twoFactorEnabled ? (
                           <CheckCircle className="w-7 h-7 text-white" />
@@ -575,22 +953,21 @@ export const ProfilePage: React.FC = () => {
                           <AlertCircle className="w-7 h-7 text-white" />
                         )}
                       </div>
-                      <div>
-                        <p className="font-bold text-gray-900 text-lg">Two-Factor Authentication</p>
+                      <div className="flex-1">
+                        <p className="font-bold text-gray-900">Two-Factor Auth</p>
                         <p className="text-sm text-gray-600">
-                          {security.twoFactorEnabled 
-                            ? 'Extra layer of protection enabled' 
-                            : 'Add an extra layer of security'}
+                          {security.twoFactorEnabled ? 'Extra protection active' : 'Recommended for security'}
                         </p>
                       </div>
                     </div>
                     <Button 
+                      size="sm"
                       className={security.twoFactorEnabled 
                         ? 'bg-red-500 hover:bg-red-600 text-white' 
-                        : 'bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white'}
+                        : 'bg-green-600 hover:bg-green-700 text-white'}
                       onClick={() => updateSecurity({ twoFactorEnabled: !security.twoFactorEnabled })}
                     >
-                      {security.twoFactorEnabled ? 'Disable' : 'Enable Now'}
+                      {security.twoFactorEnabled ? 'Disable' : 'Enable'}
                     </Button>
                   </div>
                 </div>
@@ -600,7 +977,7 @@ export const ProfilePage: React.FC = () => {
 
           {/* 5. Quick Actions Panel (Enhanced) */}
           <div className="xl:col-span-2 space-y-8">
-            <Card className="bg-white border-0 shadow-xl">
+            <Card className="bg-white shadow-lg">
               <CardHeader className="border-b border-gray-100">
                 <CardTitle className="text-2xl text-gray-900 flex items-center">
                   <Zap className="w-6 h-6 mr-3 text-purple-600" />
@@ -611,7 +988,7 @@ export const ProfilePage: React.FC = () => {
                 {/* Primary Actions */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <Button
-                    className="justify-start bg-gradient-to-r from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700 text-white border-0 shadow-lg h-14"
+                    className="justify-start bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white h-14 shadow-md"
                     onClick={() => setShowSubscriptionModal(true)}
                   >
                     <Crown className="w-6 h-6 mr-3" />

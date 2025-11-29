@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useAuth } from '../contexts/AuthContext'
+import { configService } from '../services/configService'
 
 interface SecuritySettings {
   emailVerified: boolean
@@ -24,6 +25,7 @@ export const useUserSecurity = () => {
     if (!user?.id) return
     
     try {
+      const config = await configService.getConfig()
       const token = localStorage.getItem('demo_token')
       const headers: Record<string, string> = {}
       
@@ -34,10 +36,7 @@ export const useUserSecurity = () => {
         headers['x-user-id'] = user.id
       }
       
-      const apiUrl = import.meta.env.PROD 
-        ? window.location.origin 
-        : 'https://travelbuddy-b2c6hgbbgeh4esdh.eastus2-01.azurewebsites.net'
-      const response = await fetch(`${apiUrl}/api/users/security`, { headers })
+      const response = await fetch(`${config.apiBaseUrl}/api/users/security`, { headers })
       if (response.ok) {
         const data = await response.json()
         setSecurity(data)
@@ -50,6 +49,7 @@ export const useUserSecurity = () => {
   const updateSecurity = async (updates: Partial<SecuritySettings>) => {
     setLoading(true)
     try {
+      const config = await configService.getConfig()
       const token = localStorage.getItem('demo_token')
       const headers: Record<string, string> = {
         'Content-Type': 'application/json'
@@ -62,10 +62,7 @@ export const useUserSecurity = () => {
         headers['x-user-id'] = user.id
       }
       
-      const apiUrl = import.meta.env.PROD 
-        ? window.location.origin 
-        : 'https://travelbuddy-b2c6hgbbgeh4esdh.eastus2-01.azurewebsites.net'
-      const response = await fetch(`${apiUrl}/api/users/security`, {
+      const response = await fetch(`${config.apiBaseUrl}/api/users/security`, {
         method: 'PUT',
         headers,
         body: JSON.stringify(updates)
