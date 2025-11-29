@@ -174,10 +174,16 @@ export const ProfilePage: React.FC = () => {
     setIsEditing(false)
   }
 
-  const handleProfilePictureSuccess = (url: string) => {
+  const handleProfilePictureSuccess = async (url: string) => {
     console.log('Profile picture uploaded successfully:', url)
     setUploadProgress(null)
     setUploadError(null)
+    
+    // Update user context with new profile picture
+    if (user) {
+      await updateProfile({ profilePicture: url })
+    }
+    
     fetchUserStats()
   }
 
@@ -688,12 +694,7 @@ export const ProfilePage: React.FC = () => {
                 <Target className="w-5 h-5 mr-2 text-purple-600" />
                 Travel Preferences
               </div>
-              {!isEditing && (
-                <Button size="sm" variant="outline" onClick={() => setIsEditing(true)}>
-                  <Edit3 className="w-4 h-4 mr-2" />
-                  Edit
-                </Button>
-              )}
+              {/* Edit button temporarily disabled */}
             </CardTitle>
           </CardHeader>
           <CardContent className="p-6">

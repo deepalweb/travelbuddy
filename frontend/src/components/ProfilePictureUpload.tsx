@@ -1,6 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { Camera, Upload, X, Check, User } from 'lucide-react';
 import { configService } from '../services/configService';
+import { useAuth } from '../contexts/AuthContext';
 
 interface ProfilePictureUploadProps {
   currentPicture?: string | null;
@@ -15,6 +16,7 @@ export const ProfilePictureUpload: React.FC<ProfilePictureUploadProps> = ({
   onUploadError,
   onUploadProgress
 }) => {
+  const { user } = useAuth();
   const [uploading, setUploading] = useState(false);
   const [preview, setPreview] = useState<string | null>(null);
   const [progress, setProgress] = useState(0);
@@ -57,17 +59,16 @@ export const ProfilePictureUpload: React.FC<ProfilePictureUploadProps> = ({
       const formData = new FormData();
       formData.append('profilePicture', file);
 
-      const token = localStorage.getItem('demo_token');
+      const token = localStorage.getItem('demo_token') || localStorage.getItem('token');
       const headers: Record<string, string> = {};
       
       if (token) {
         headers['Authorization'] = `Bearer ${token}`;
       }
       
-      // Get user ID from localStorage or context
-      const userId = localStorage.getItem('userId');
-      if (userId) {
-        headers['x-user-id'] = userId;
+      // Get user ID from context or localStorage
+      if (user?.id) {
+        headers['x-user-id'] = user.id;
       }
 
       // Simulate progress for better UX (real progress requires XMLHttpRequest)
@@ -76,11 +77,16 @@ export const ProfilePictureUpload: React.FC<ProfilePictureUploadProps> = ({
       }, 200);
 
       const config = await configService.getConfig();
-      const response = await fetch(`${config.apiBaseUrl}/api/upload/profile-picture`, {
+      const uploadUrl = `${config.apiBaseUrl}/api/upload/profile-picture`;
+      console.log('📤 Uploading to:', uploadUrl, { userId: user?.id, hasToken: !!token });
+      
+      const response = await fetch(uploadUrl, {
         method: 'POST',
         headers,
         body: formData
       });
+      
+      console.log('📥 Upload response:', response.status, response.statusText);
 
       clearInterval(progressInterval);
       setProgress(100);

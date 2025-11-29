@@ -51,11 +51,16 @@ router.post('/profile-picture', bypassAuth, upload.single('profilePicture'), asy
   try {
     console.log('📸 Profile picture upload request:', {
       user: req.user?.uid,
+      userId: req.headers['x-user-id'],
       file: req.file ? { name: req.file.filename, size: req.file.size } : 'none'
     });
 
     if (!req.file) {
       return res.status(400).json({ error: 'No file uploaded' });
+    }
+
+    if (!req.user || !req.user.uid) {
+      return res.status(401).json({ error: 'Authentication required' });
     }
 
     const User = global.User;
@@ -65,15 +70,23 @@ router.post('/profile-picture', bypassAuth, upload.single('profilePicture'), asy
 
     const profilePictureUrl = `/uploads/profiles/${req.file.filename}`;
     
+    // Determine search criteria - use MongoDB _id if provided, otherwise firebaseUid
+    const userId = req.headers['x-user-id'];
+    const searchCriteria = userId && userId !== 'none' 
+      ? { _id: userId } 
+      : { firebaseUid: req.user.uid };
+    
+    console.log('🔍 Searching for user with:', searchCriteria);
+    
     // Update user profile with new picture URL
     const user = await User.findOneAndUpdate(
-      { firebaseUid: req.user.uid },
+      searchCriteria,
       { profilePicture: profilePictureUrl },
       { new: true }
     );
 
     if (!user) {
-      console.log('❌ User not found for uid:', req.user.uid);
+      console.log('❌ User not found for criteria:', searchCriteria);
       return res.status(404).json({ error: 'User not found' });
     }
 

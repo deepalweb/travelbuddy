@@ -242,8 +242,16 @@ router.put('/profile', bypassAuth, async (req, res) => {
       }
     });
 
+    // Determine search criteria - use MongoDB _id if provided, otherwise firebaseUid
+    const userId = req.headers['x-user-id'];
+    const searchCriteria = userId && userId !== 'none' 
+      ? { _id: userId } 
+      : { firebaseUid: uid };
+    
+    console.log('🔍 Searching for user with:', searchCriteria);
+
     const user = await User.findOneAndUpdate(
-      { firebaseUid: uid },
+      searchCriteria,
       { $set: filteredUpdates },
       { new: true }
     );
