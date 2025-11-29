@@ -1,6 +1,7 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Check } from 'lucide-react'
+import { configService } from '../services/configService'
 
 interface FormData {
   companyName: string
@@ -24,6 +25,7 @@ interface FormData {
 
 export const TransportRegistration: React.FC = () => {
   const navigate = useNavigate()
+  const [apiBaseUrl, setApiBaseUrl] = useState('')
   const [formData, setFormData] = useState<FormData>({
     companyName: '',
     businessType: '',
@@ -47,6 +49,10 @@ export const TransportRegistration: React.FC = () => {
   const [submitted, setSubmitted] = useState(false)
   const [error, setError] = useState('')
 
+  useEffect(() => {
+    configService.getConfig().then(config => setApiBaseUrl(config.apiBaseUrl))
+  }, [])
+
   const businessTypes = ['Individual Driver', 'Transport Company', 'Car Rental Agency', 'Shuttle/Bus Operator', 'Ferry/Boat Operator', 'Train Operator', 'Airline/Air Charter']
   const countries = ['Sri Lanka', 'Thailand', 'India', 'Japan', 'USA', 'UK', 'France', 'Spain', 'Italy', 'Greece', 'UAE', 'Singapore', 'Malaysia']
   const vehicleTypes = ['Car', 'Van', 'Minibus', 'Bus', 'SUV', 'Motorbike', 'Tuk-tuk', 'Rickshaw', 'Electric Vehicle', 'Ferry/Boat', 'Yacht', 'Train/Railcar', 'Helicopter', 'Small Aircraft']
@@ -61,28 +67,38 @@ export const TransportRegistration: React.FC = () => {
       return
     }
 
-    if (!formData.businessType) {
-      setError('Please select a business type')
-      return
-    }
-
-    if (!formData.country) {
-      setError('Please select a country')
-      return
-    }
-
     if (formData.vehicleTypes.length === 0) {
       setError('Please select at least one vehicle type')
+      return
+    }
+
+    if (formData.serviceCities.length === 0) {
+      setError('Please add at least one service city')
       return
     }
 
     setIsSubmitting(true)
 
     try {
-      const response = await fetch('https://travelbuddy-b2c6hgbbgeh4esdh.eastus2-01.azurewebsites.net/api/transport-providers/register', {
+      // Map new form fields to backend expected fields
+      const backendData = {
+        companyName: formData.companyName,
+        ownerName: formData.ownerName,
+        email: formData.email,
+        phone: formData.phone,
+        address: formData.address,
+        licenseNumber: 'GLOBAL-' + Date.now(), // Generate temp license number
+        vehicleTypes: formData.vehicleTypes,
+        serviceAreas: formData.serviceCities, // Backend expects serviceAreas
+        fleetSize: formData.fleetSize,
+        country: formData.country,
+        description: `${formData.businessType} operating in ${formData.city}, ${formData.country}`
+      }
+
+      const response = await fetch(`${apiBaseUrl}/api/transport-providers/register`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData)
+        body: JSON.stringify(backendData)
       })
 
       const data = await response.json()

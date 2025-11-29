@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { Card, CardContent } from '../components/Card'
 import { Button } from '../components/Button'
+import { configService } from '../services/configService'
 import { 
   Search, MapPin, Filter, Star, Clock, 
   Car, Bus, Plane, Ship, Calendar, Users,
@@ -146,6 +147,7 @@ const amenityIcons: { [key: string]: React.ReactNode } = {
 }
 
 export const TransportationPage: React.FC = () => {
+  const [apiBaseUrl, setApiBaseUrl] = useState('')
   const [services, setServices] = useState<TransportService[]>([])
   const [filteredServices, setFilteredServices] = useState<TransportService[]>([])
   const [searchTerm, setSearchTerm] = useState('')
@@ -171,8 +173,14 @@ export const TransportationPage: React.FC = () => {
   const [selectedCity, setSelectedCity] = useState('')
 
   useEffect(() => {
-    fetchServices()
+    configService.getConfig().then(config => {
+      setApiBaseUrl(config.apiBaseUrl)
+    })
   }, [])
+
+  useEffect(() => {
+    if (apiBaseUrl) fetchServices()
+  }, [apiBaseUrl])
 
   useEffect(() => {
     filterServices()
@@ -181,7 +189,7 @@ export const TransportationPage: React.FC = () => {
   const fetchServices = async () => {
     try {
       setLoading(true)
-      const response = await fetch('https://travelbuddy-b2c6hgbbgeh4esdh.eastus2-01.azurewebsites.net/api/transport-providers/services')
+      const response = await fetch(`${apiBaseUrl}/api/transport-providers/services`)
       if (response.ok) {
         const data = await response.json()
         console.log('API Response:', data)
@@ -732,7 +740,7 @@ export const TransportationPage: React.FC = () => {
                     </div>
                     <div className="flex items-center">
                       <Star className="w-4 h-4 text-yellow-500 fill-current mr-1" />
-                      <span className="text-sm font-medium">{service.rating}</span>
+                      <span className="text-sm font-medium">{service.rating.toFixed(1)}</span>
                       <span className="text-xs text-gray-500 ml-1">({service.reviewCount})</span>
                     </div>
                   </div>
@@ -853,7 +861,7 @@ export const TransportationPage: React.FC = () => {
                               <span>Rating:</span>
                               <span className="flex items-center">
                                 <Star className="w-3 h-3 text-yellow-500 fill-current mr-1" />
-                                {service.rating}
+                                {service.rating.toFixed(1)}
                               </span>
                             </div>
                             <div className="flex justify-between">
@@ -943,7 +951,7 @@ export const TransportationPage: React.FC = () => {
                           </div>
                           <div className="flex items-center justify-center mb-2">
                             <Star className="w-5 h-5 text-yellow-500 fill-current mr-1" />
-                            <span className="font-medium">{selectedService.rating}</span>
+                            <span className="font-medium">{selectedService.rating.toFixed(1)}</span>
                             <span className="text-gray-500 ml-1">({selectedService.reviewCount} reviews)</span>
                           </div>
                           {selectedService.isVerified && (

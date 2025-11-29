@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { Badge } from '../Badge'
+import { configService } from '../../services/configService'
 
 interface TransportProviderDetails {
   _id: string
@@ -46,18 +47,23 @@ interface Props {
 }
 
 export default function TransportProviderDetails({ providerId, onClose }: Props) {
+  const [apiBaseUrl, setApiBaseUrl] = useState('')
   const [provider, setProvider] = useState<TransportProviderDetails | null>(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    if (providerId) {
+    configService.getConfig().then(config => setApiBaseUrl(config.apiBaseUrl))
+  }, [])
+
+  useEffect(() => {
+    if (providerId && apiBaseUrl) {
       fetchProviderDetails(providerId)
     }
-  }, [providerId])
+  }, [providerId, apiBaseUrl])
 
   const fetchProviderDetails = async (providerId: string) => {
     try {
-      const response = await fetch(`https://travelbuddy-b2c6hgbbgeh4esdh.eastus2-01.azurewebsites.net/api/transport-providers/admin/details/${providerId}`)
+      const response = await fetch(`${apiBaseUrl}/api/transport-providers/admin/details/${providerId}`)
       if (response.ok) {
         const data = await response.json()
         setProvider(data)
@@ -72,7 +78,7 @@ export default function TransportProviderDetails({ providerId, onClose }: Props)
   const handleApprove = async () => {
     if (!provider) return
     try {
-      const response = await fetch(`https://travelbuddy-b2c6hgbbgeh4esdh.eastus2-01.azurewebsites.net/api/transport-providers/admin/approve/${provider._id}`, {
+      const response = await fetch(`${apiBaseUrl}/api/transport-providers/admin/approve/${provider._id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'approve', notes: 'Approved after detailed review' })
@@ -91,7 +97,7 @@ export default function TransportProviderDetails({ providerId, onClose }: Props)
     if (!reason) return
     
     try {
-      const response = await fetch(`https://travelbuddy-b2c6hgbbgeh4esdh.eastus2-01.azurewebsites.net/api/transport-providers/admin/approve/${provider._id}`, {
+      const response = await fetch(`${apiBaseUrl}/api/transport-providers/admin/approve/${provider._id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'reject', notes: reason })

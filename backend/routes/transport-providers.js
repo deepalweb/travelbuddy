@@ -10,22 +10,32 @@ router.get('/test', (req, res) => {
   res.json({ message: 'Transport providers route is working', timestamp: new Date().toISOString() });
 });
 
-// Handle preflight OPTIONS requests
-router.options('/register', (req, res) => {
-  res.header('Access-Control-Allow-Origin', req.headers.origin || '*');
-  res.header('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+// CORS middleware for all routes in this router
+router.use((req, res, next) => {
+  const origin = req.headers.origin;
+  const allowedOrigins = [
+    'http://localhost:3000',
+    'http://localhost:5173',
+    'https://travelbuddylk.com',
+    'https://travelbuddy-b2c6hgbbgeh4esdh.eastus2-01.azurewebsites.net'
+  ];
+  
+  if (!origin || allowedOrigins.includes(origin)) {
+    res.header('Access-Control-Allow-Origin', origin || '*');
+  }
+  
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, Accept, Origin, X-Requested-With');
   res.header('Access-Control-Allow-Credentials', 'true');
-  res.sendStatus(200);
+  
+  if (req.method === 'OPTIONS') {
+    return res.sendStatus(200);
+  }
+  next();
 });
 
 // Transport provider registration
 router.post('/register', async (req, res) => {
-  // Add CORS headers
-  res.header('Access-Control-Allow-Origin', req.headers.origin || '*');
-  res.header('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-  res.header('Access-Control-Allow-Credentials', 'true');
   
   try {
     console.log('Registration request received');
@@ -160,11 +170,11 @@ router.get('/services', async (req, res) => {
       duration: '2-4 hours',
       departure: 'On Demand',
       arrival: 'On Demand',
-      availableSeats: Math.floor(Math.random() * 20) + 5,
-      totalSeats: Math.floor(Math.random() * 30) + 20,
+      availableSeats: 10,
+      totalSeats: parseInt(provider.fleetSize) || 10,
       amenities: provider.amenities && provider.amenities.length > 0 ? provider.amenities : ['AC', 'Professional Driver'],
-      rating: 4.0 + Math.random(),
-      reviewCount: Math.floor(Math.random() * 50) + 10,
+      rating: 5.0,
+      reviewCount: 0,
       image: provider.vehiclePhotos && provider.vehiclePhotos.length > 0 ? provider.vehiclePhotos[0] : 'https://images.unsplash.com/photo-1544620347-c4fd4a3d5957?w=400&h=250&fit=crop',
       description: provider.description || `Professional ${provider.vehicleTypes[0]} service by ${provider.companyName}`,
       phone: provider.phone,
