@@ -873,9 +873,22 @@ router.delete('/trip-plans/:id', devFriendlyAuth, async (req, res) => {
       return res.status(400).json({ error: 'Invalid trip plan ID format' });
     }
     
-    let user = await User.findOne({ firebaseUid: uid });
+    // Use MongoDB _id from header if available, fallback to firebaseUid
+    const userId = req.headers['x-user-id'];
+    let user;
+    
+    if (userId && userId !== 'none') {
+      console.log('🔍 Searching by MongoDB _id:', userId);
+      user = await User.findById(userId);
+    }
+    
     if (!user) {
-      console.error('❌ User not found for UID:', uid);
+      console.log('🔍 Searching by firebaseUid:', uid);
+      user = await User.findOne({ firebaseUid: uid });
+    }
+    
+    if (!user) {
+      console.error('❌ User not found');
       return res.status(404).json({ error: 'User not found' });
     }
     
