@@ -1,6 +1,9 @@
 import mongoose from 'mongoose';
+import dotenv from 'dotenv';
 
-const MONGO_URI = 'mongodb+srv://techzdr_db_user:ufTD4zMi1g1LaHdR@travelbuddy.xmaur8g.mongodb.net/?retryWrites=true&w=majority&appName=travelbuddy';
+dotenv.config();
+
+const MONGO_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/travelbuddy';
 
 const tripPlanSchema = new mongoose.Schema({}, { strict: false, collection: 'tripplans' });
 const TripPlan = mongoose.model('TripPlan', tripPlanSchema);
