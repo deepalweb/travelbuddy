@@ -2,9 +2,13 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Calendar, MapPin, DollarSign, Upload, Users, Clock, FileText, Image as ImageIcon, CheckCircle } from 'lucide-react';
 import { Card, CardContent } from '../components/Card';
+import { useConfig } from '../contexts/ConfigContext';
+import { useAuth } from '../contexts/AuthContext';
 
 export const CreateEventPage: React.FC = () => {
   const navigate = useNavigate();
+  const { config } = useConfig();
+  const { user } = useAuth();
   const [formData, setFormData] = useState({
     name: '',
     category: 'music',
@@ -39,11 +43,51 @@ export const CreateEventPage: React.FC = () => {
     e.preventDefault();
     setIsSubmitting(true);
     
-    setTimeout(() => {
-      setIsSubmitting(false);
+    try {
+      const apiUrl = config?.apiBaseUrl || 'http://localhost:3001';
+      
+      const eventData = {
+        name: formData.name,
+        category: formData.category,
+        description: formData.description,
+        location: {
+          city: formData.city,
+          country: formData.country,
+          address: formData.venue
+        },
+        date: formData.date,
+        endDate: formData.endDate || formData.date,
+        time: formData.time,
+        price: formData.isFree ? 0 : Number(formData.price),
+        currency: formData.currency,
+        capacity: formData.capacity ? Number(formData.capacity) : undefined,
+        image: imagePreview || 'https://images.unsplash.com/photo-1492684223066-81342ee5ff30?w=800',
+        isFree: formData.isFree
+      };
+      
+      const response = await fetch(`${apiUrl}/api/events`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-user-id': user?.id || 'anonymous'
+        },
+        body: JSON.stringify(eventData)
+      });
+      
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({ error: 'Unknown error' }));
+        console.error('Backend error:', error);
+        throw new Error(error.error || 'Failed to create event');
+      }
+      
       setSuccess(true);
       setTimeout(() => navigate('/events'), 2000);
-    }, 1500);
+    } catch (error) {
+      console.error('Error creating event:', error);
+      alert('Failed to create event. Please try again.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   if (success) {

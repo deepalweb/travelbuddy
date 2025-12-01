@@ -84,19 +84,28 @@ router.post('/', bypassAuth, async (req, res) => {
   try {
     const Event = getEvent();
     const User = getUser();
-    if (!Event || !User) return res.status(500).json({ error: 'Models not available' });
+    if (!Event) return res.status(500).json({ error: 'Event model not available' });
 
     const userId = req.headers['x-user-id'];
-    if (!userId) return res.status(401).json({ error: 'Authentication required' });
+    let organizerId = userId;
+    let organizerName = 'Anonymous Organizer';
 
-    const user = await User.findById(userId);
-    if (!user) return res.status(404).json({ error: 'User not found' });
+    if (userId && userId !== 'anonymous' && User) {
+      const user = await User.findById(userId).catch(() => null);
+      if (user) {
+        organizerId = user._id;
+        organizerName = user.fullName || user.username;
+      }
+    }
 
     const eventData = {
       ...req.body,
-      organizerId: user._id,
-      organizerName: user.fullName || user.username,
-      isFree: req.body.price === 0
+      organizerId,
+      organizerName,
+      isFree: req.body.price === 0,
+      status: 'published',
+      attendees: 0,
+      rating: 0
     };
 
     const event = new Event(eventData);
@@ -104,7 +113,8 @@ router.post('/', bypassAuth, async (req, res) => {
     
     res.status(201).json(event);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error('Event creation error:', error);
+    res.status(400).json({ error: error.message });
   }
 });
 
