@@ -53,6 +53,7 @@ export const TripDetailPage: React.FC = () => {
   const [, forceUpdate] = useState({})
   const [enhancedIntro, setEnhancedIntro] = useState<string | null>(null)
   const [loadingIntro, setLoadingIntro] = useState(false)
+  const [stats, setStats] = useState<any>(null)
 
   useEffect(() => {
     if (id) {
@@ -66,8 +67,15 @@ export const TripDetailPage: React.FC = () => {
     if (trip) {
       loadPlaceImages()
       loadEnhancedIntro()
+      setStats(calculateAdvancedStats())
     }
-  }, [trip])
+  }, [trip, id])
+
+  useEffect(() => {
+    if (trip && id) {
+      setStats(calculateAdvancedStats())
+    }
+  }, [forceUpdate])
 
   const loadEnhancedIntro = async () => {
     if (!trip) return
@@ -230,7 +238,7 @@ export const TripDetailPage: React.FC = () => {
     )
   }
 
-  const stats = calculateAdvancedStats()
+
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
