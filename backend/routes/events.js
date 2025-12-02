@@ -96,6 +96,17 @@ router.post('/', requireAuth, async (req, res) => {
       if (user) {
         organizerId = user._id;
         organizerName = user.username || user.fullName || organizerName;
+      } else {
+        // Create user if doesn't exist
+        const newUser = new User({
+          firebaseUid: req.user.uid,
+          username: req.user.email?.split('@')[0] || 'user-' + Date.now(),
+          email: req.user.email || `${req.user.uid}@temp.local`,
+          tier: 'free'
+        });
+        const savedUser = await newUser.save();
+        organizerId = savedUser._id;
+        organizerName = savedUser.username;
       }
     }
 
@@ -115,7 +126,7 @@ router.post('/', requireAuth, async (req, res) => {
     res.status(201).json(event);
   } catch (error) {
     console.error('Event creation error:', error);
-    res.status(400).json({ error: error.message });
+    res.status(500).json({ error: error.message, timestamp: new Date().toISOString(), requestId: 'unknown' });
   }
 });
 
