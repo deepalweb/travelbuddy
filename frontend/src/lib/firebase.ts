@@ -1,5 +1,5 @@
 import { initializeApp } from 'firebase/app'
-import { getAuth } from 'firebase/auth'
+import { getAuth, setPersistence, browserLocalPersistence } from 'firebase/auth'
 
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
@@ -17,7 +17,11 @@ try {
   if (firebaseConfig.apiKey && firebaseConfig.apiKey !== 'undefined') {
     app = initializeApp(firebaseConfig)
     auth = getAuth(app)
-    console.log('✅ Firebase initialized successfully')
+    // Set persistence to LOCAL to keep user logged in
+    setPersistence(auth, browserLocalPersistence).catch((error) => {
+      console.warn('⚠️ Failed to set auth persistence:', error)
+    })
+    console.log('✅ Firebase initialized successfully with LOCAL persistence')
   } else {
     console.log('⚠️ Firebase config missing, running without Firebase')
   }

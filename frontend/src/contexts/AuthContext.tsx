@@ -79,29 +79,44 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     debug.log('🔐 AUTH STEP 3: Setting up Firebase auth listener')
     
     // Check for existing session
+    const currentUser = firebase.auth.currentUser
     debug.log('🔐 AUTH STEP 3.1: Checking existing session', {
-      currentUser: firebase.auth.currentUser,
+      currentUser: currentUser,
+      currentUserEmail: currentUser?.email,
       localStorage: {
         demoToken: !!localStorage.getItem('demo_token'),
-        firebaseUser: !!localStorage.getItem('firebase:authUser:' + config.firebase.apiKey + ':[DEFAULT]')
+        cachedUser: !!localStorage.getItem('cached_user')
       }
     })
 
+    // If we have a cached user and Firebase has a current user, restore immediately
+    if (currentUser) {
+      debug.log('🔐 AUTH STEP 3.2: Current user exists, syncing immediately')
+      syncUserProfile(currentUser).then(() => setIsLoading(false))
+    }
     
     const unsubscribe = onAuthStateChanged(firebase.auth, async (firebaseUser) => {
       debug.log('🔐 AUTH STEP 4: Auth state changed', {
         hasUser: !!firebaseUser,
         uid: firebaseUser?.uid,
-        email: firebaseUser?.email
+        email: firebaseUser?.email,
+        hasDemoToken: !!localStorage.getItem('demo_token')
       })
       
       if (firebaseUser) {
         debug.log('🔐 AUTH STEP 5: User found, syncing profile')
         await syncUserProfile(firebaseUser)
       } else {
-        debug.log('🔐 AUTH STEP 5: No user, setting null')
-        console.log('⚠️ onAuthStateChanged: Clearing user state')
-        setUser(null)
+        // Don't clear user if demo token exists
+        const demoToken = localStorage.getItem('demo_token')
+        if (demoToken) {
+          debug.log('🔐 AUTH STEP 5: No Firebase user but demo token exists, keeping demo user')
+          // Don't clear user state
+        } else {
+          debug.log('🔐 AUTH STEP 5: No user, setting null')
+          console.log('⚠️ onAuthStateChanged: Clearing user state')
+          setUser(null)
+        }
       }
       setIsLoading(false)
       debug.log('✅ AUTH: Loading complete')
@@ -254,9 +269,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const login = async (email: string, password: string) => {
     if (!firebase) throw new Error('Firebase not initialized')
     try {
+      debug.log('🔐 Starting login for:', email)
       const userCredential = await signInWithEmailAndPassword(firebase.auth, email, password)
+      debug.log('✅ Login successful, waiting for auth state change')
       // User state will be updated by onAuthStateChanged
     } catch (error: any) {
+      debug.error('❌ Login failed:', error)
       throw new Error(error.message || 'Login failed')
     }
   }

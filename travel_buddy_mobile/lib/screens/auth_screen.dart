@@ -29,53 +29,7 @@ class _AuthScreenState extends State<AuthScreen> {
     super.dispose();
   }
 
-  Future<void> _signInWithGoogle() async {
-    setState(() => _isLoading = true);
 
-    final appProvider = Provider.of<AppProvider>(context, listen: false);
-    
-    try {
-      final success = await appProvider.signInWithGoogle();
-      if (success && mounted) {
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (context) => const MainNavigationScreen()),
-        );
-      } else if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Text('Google Sign-In failed'),
-            backgroundColor: Color(AppConstants.colors['error']!),
-          ),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        String errorMessage = e.toString();
-        
-        // Handle specific PigeonUserDetails error
-        if (errorMessage.contains('PigeonUserDetails') || errorMessage.contains('type cast')) {
-          errorMessage = 'Google Sign-In is temporarily unavailable. Please use email sign-in instead.';
-        }
-        
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(errorMessage),
-            backgroundColor: Color(AppConstants.colors['error']!),
-            duration: const Duration(seconds: 4),
-            action: SnackBarAction(
-              label: 'OK',
-              textColor: Colors.white,
-              onPressed: () {},
-            ),
-          ),
-        );
-      }
-    } finally {
-      if (mounted) {
-        setState(() => _isLoading = false);
-      }
-    }
-  }
 
   Future<void> _submitForm() async {
     if (!_formKey.currentState!.validate()) return;
@@ -177,43 +131,6 @@ class _AuthScreenState extends State<AuthScreen> {
               ),
               
               const SizedBox(height: 48),
-              
-              // Google Sign-In Button
-              SizedBox(
-                width: double.infinity,
-                height: 50,
-                child: OutlinedButton.icon(
-                  onPressed: _isLoading ? null : _signInWithGoogle,
-                  icon: const Icon(Icons.login, color: Colors.red),
-                  label: const Text(
-                    'Continue with Google',
-                    style: TextStyle(fontSize: 16, color: Colors.black87),
-                  ),
-                  style: OutlinedButton.styleFrom(
-                    backgroundColor: Colors.white,
-                    side: const BorderSide(color: Colors.grey),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                ),
-              ),
-              
-              const SizedBox(height: 16),
-              
-              // Divider
-              const Row(
-                children: [
-                  Expanded(child: Divider()),
-                  Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 16),
-                    child: Text('OR'),
-                  ),
-                  Expanded(child: Divider()),
-                ],
-              ),
-              
-              const SizedBox(height: 16),
               
               // Form
               Form(

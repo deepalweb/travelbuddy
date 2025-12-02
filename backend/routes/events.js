@@ -1,6 +1,6 @@
 import express from 'express';
 import mongoose from 'mongoose';
-import { bypassAuth } from '../middleware/auth.js';
+import { requireAuth, optionalAuth, requireOwnership } from '../middleware/auth.js';
 
 const router = express.Router();
 
@@ -20,7 +20,7 @@ const getUser = () => {
   }
 };
 
-// Get all events with filters
+// Get all events with filters (public)
 router.get('/', async (req, res) => {
   try {
     const Event = getEvent();
@@ -64,7 +64,7 @@ router.get('/', async (req, res) => {
   }
 });
 
-// Get single event
+// Get single event (public)
 router.get('/:id', async (req, res) => {
   try {
     const Event = getEvent();
@@ -79,22 +79,23 @@ router.get('/:id', async (req, res) => {
   }
 });
 
-// Create event
-router.post('/', bypassAuth, async (req, res) => {
+// Create event (requires auth)
+router.post('/', requireAuth, async (req, res) => {
   try {
     const Event = getEvent();
     const User = getUser();
     if (!Event) return res.status(500).json({ error: 'Event model not available' });
 
-    const userId = req.headers['x-user-id'];
-    let organizerId = userId;
-    let organizerName = 'Anonymous Organizer';
+    // Get user from Firebase auth
+    let organizerId = req.user.uid;
+    let organizerName = req.user.email?.split('@')[0] || 'User';
 
-    if (userId && userId !== 'anonymous' && User) {
-      const user = await User.findById(userId).catch(() => null);
+    // Try to get full user details from database
+    if (User) {
+      const user = await User.findOne({ firebaseUid: req.user.uid }).catch(() => null);
       if (user) {
         organizerId = user._id;
-        organizerName = user.fullName || user.username;
+        organizerName = user.username || user.fullName || organizerName;
       }
     }
 
@@ -118,17 +119,19 @@ router.post('/', bypassAuth, async (req, res) => {
   }
 });
 
-// Update event
-router.put('/:id', bypassAuth, async (req, res) => {
+// Update event (requires auth + ownership)
+router.put('/:id', requireAuth, async (req, res) => {
   try {
     const Event = getEvent();
     if (!Event) return res.status(500).json({ error: 'Event model not available' });
 
-    const userId = req.headers['x-user-id'];
-    if (!userId) return res.status(401).json({ error: 'Authentication required' });
+    const event = await Event.findById(req.params.id);
+    if (!event) return res.status(404).json({ error: 'Event not found' });
 
-    const event = await Event.findOne({ _id: req.params.id, organizerId: userId });
-    if (!event) return res.status(404).json({ error: 'Event not found or unauthorized' });
+    // Check ownership
+    if (event.organizerId.toString() !== req.user.uid) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
 
     Object.assign(event, req.body);
     event.isFree = event.price === 0;
@@ -140,41 +143,41 @@ router.put('/:id', bypassAuth, async (req, res) => {
   }
 });
 
-// Delete event
-router.delete('/:id', bypassAuth, async (req, res) => {
+// Delete event (requires auth + ownership)
+router.delete('/:id', requireAuth, async (req, res) => {
   try {
     const Event = getEvent();
     if (!Event) return res.status(500).json({ error: 'Event model not available' });
 
-    const userId = req.headers['x-user-id'];
-    if (!userId) return res.status(401).json({ error: 'Authentication required' });
+    const event = await Event.findById(req.params.id);
+    if (!event) return res.status(404).json({ error: 'Event not found' });
 
-    const event = await Event.findOneAndDelete({ _id: req.params.id, organizerId: userId });
-    if (!event) return res.status(404).json({ error: 'Event not found or unauthorized' });
-    
+    // Check ownership
+    if (event.organizerId.toString() !== req.user.uid) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+
+    await event.deleteOne();
     res.json({ success: true });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 });
 
-// Toggle favorite
-router.post('/:id/favorite', bypassAuth, async (req, res) => {
+// Toggle favorite (requires auth)
+router.post('/:id/favorite', requireAuth, async (req, res) => {
   try {
     const Event = getEvent();
     if (!Event) return res.status(500).json({ error: 'Event model not available' });
 
-    const userId = req.headers['x-user-id'];
-    if (!userId) return res.status(401).json({ error: 'Authentication required' });
-
     const event = await Event.findById(req.params.id);
     if (!event) return res.status(404).json({ error: 'Event not found' });
 
-    const isFavorited = event.favorites.includes(userId);
+    const isFavorited = event.favorites.includes(req.user.uid);
     if (isFavorited) {
-      event.favorites = event.favorites.filter(id => id.toString() !== userId);
+      event.favorites = event.favorites.filter(id => id.toString() !== req.user.uid);
     } else {
-      event.favorites.push(userId);
+      event.favorites.push(req.user.uid);
     }
     
     await event.save();
@@ -184,14 +187,11 @@ router.post('/:id/favorite', bypassAuth, async (req, res) => {
   }
 });
 
-// Book event
-router.post('/:id/book', bypassAuth, async (req, res) => {
+// Book event (requires auth)
+router.post('/:id/book', requireAuth, async (req, res) => {
   try {
     const Event = getEvent();
     if (!Event) return res.status(500).json({ error: 'Event model not available' });
-
-    const userId = req.headers['x-user-id'];
-    if (!userId) return res.status(401).json({ error: 'Authentication required' });
 
     const event = await Event.findById(req.params.id);
     if (!event) return res.status(404).json({ error: 'Event not found' });
@@ -203,7 +203,7 @@ router.post('/:id/book', bypassAuth, async (req, res) => {
     event.attendees += 1;
     await event.save();
     
-    res.json({ success: true, booking: { eventId: event._id, userId, bookedAt: new Date() } });
+    res.json({ success: true, booking: { eventId: event._id, userId: req.user.uid, bookedAt: new Date() } });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }

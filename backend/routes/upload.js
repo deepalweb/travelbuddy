@@ -3,7 +3,7 @@ import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
-import { bypassAuth } from '../middleware/auth.js';
+import { requireAuth } from '../middleware/auth.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -47,7 +47,7 @@ const upload = multer({
 });
 
 // Upload profile picture
-router.post('/profile-picture', bypassAuth, upload.single('profilePicture'), async (req, res) => {
+router.post('/profile-picture', requireAuth, upload.single('profilePicture'), async (req, res) => {
   try {
     console.log('📸 Profile picture upload request:', {
       user: req.user?.uid,
@@ -70,11 +70,8 @@ router.post('/profile-picture', bypassAuth, upload.single('profilePicture'), asy
 
     const profilePictureUrl = `/uploads/profiles/${req.file.filename}`;
     
-    // Determine search criteria - use MongoDB _id if provided, otherwise firebaseUid
-    const userId = req.headers['x-user-id'];
-    const searchCriteria = userId && userId !== 'none' 
-      ? { _id: userId } 
-      : { firebaseUid: req.user.uid };
+    // Use authenticated user's Firebase UID
+    const searchCriteria = { firebaseUid: req.user.uid };
     
     console.log('🔍 Searching for user with:', searchCriteria);
     
@@ -122,7 +119,7 @@ router.get('/profiles/:filename', (req, res) => {
 });
 
 // Delete profile picture
-router.delete('/profile-picture', bypassAuth, async (req, res) => {
+router.delete('/profile-picture', requireAuth, async (req, res) => {
   try {
     const User = global.User;
     if (!User) {

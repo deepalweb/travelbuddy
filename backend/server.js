@@ -6,9 +6,9 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { existsSync } from 'fs';
 import dotenv from 'dotenv';
-import { securityHeaders, apiRateLimit, sanitizeInput, requireAuth, requireRole as securityRequireRole, requireAdmin as securityRequireAdmin } from './middleware/security.js';
+import { securityHeaders, apiRateLimit, sanitizeInput, requireAuth as securityRequireAuth, requireRole as securityRequireRole, requireAdmin as securityRequireAdmin } from './middleware/security.js';
 import { validateUser, validatePost, validateTrip, validateReview, validateCoordinates } from './middleware/validation.js';
-import { authenticateJWT, requireAdmin } from './middleware/auth.js';
+import { requireAuth, optionalAuth, requireOwnership, requireAdmin, devBypass } from './middleware/auth.js';
 import { errorHandler, asyncHandler, notFoundHandler } from './middleware/errorHandler.js';
 import { requireRole, requireFeature } from './middleware/roleAccess.js';
 import validator from 'validator';
@@ -1882,25 +1882,9 @@ try {
 }
 global.Deal = Deal;
 
-// Event Schema
-const eventSchema = new mongoose.Schema({
-  title: String,
-  description: String,
-  location: String,
-  date: String,
-  time: String,
-  isFeatured: { type: Boolean, default: false },
-  isActive: { type: Boolean, default: true },
-  createdAt: { type: Date, default: Date.now }
-});
-
-let Event;
-try {
-  Event = mongoose.model('Event');
-} catch {
-  Event = mongoose.model('Event', eventSchema);
-}
-console.log('✅ Event model registered successfully');
+// Event model imported from models/Event.js
+import Event from './models/Event.js';
+console.log('✅ Event model imported successfully');
 
 // One-Day Itinerary Schema
 const itinerarySchema = new mongoose.Schema({
@@ -3182,7 +3166,7 @@ app.get('/api/users/:id/invoices', async (req, res) => {
   }
 });
 
-app.put('/api/users/:id', authenticateJWT, asyncHandler(async (req, res) => {
+app.put('/api/users/:id', requireAuth, asyncHandler(async (req, res) => {
   try {
     // Diagnostic logging: show incoming body for debugging subscription persistence
     console.log('[PUT /api/users/:id] incoming body:', { id: req.params.id, body: req.body, ip: req.ip || req.headers['x-forwarded-for'] || req.connection?.remoteAddress });
@@ -4933,43 +4917,7 @@ app.get('/api/weather/google', async (req, res) => {
   }
 });
 
-// Events
-app.get('/api/events', async (req, res) => {
-  try {
-    const events = await Event.find().sort({ createdAt: -1 });
-    res.json(events);
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-app.post('/api/events', async (req, res) => {
-  try {
-    const event = new Event(req.body);
-    await event.save();
-    res.json(event);
-  } catch (error) {
-    res.status(400).json({ error: error.message });
-  }
-});
-
-app.put('/api/events/:id', async (req, res) => {
-  try {
-    const event = await Event.findByIdAndUpdate(req.params.id, req.body, { new: true });
-    res.json(event);
-  } catch (error) {
-    res.status(400).json({ error: error.message });
-  }
-});
-
-app.delete('/api/events/:id', async (req, res) => {
-  try {
-    await Event.findByIdAndDelete(req.params.id);
-    res.json({ success: true });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
+// Events endpoints moved to routes/events.js
 
 // Admin moderation endpoints
 app.get('/api/admin/reports', requireAdminAuth, async (req, res) => {
