@@ -33,6 +33,7 @@ export const CommunityPage: React.FC = () => {
   const [stories, setStories] = useState<Story[]>([])
   const [topTravelers, setTopTravelers] = useState<TopTraveler[]>([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [filter, setFilter] = useState('recent')
   const [selectedTag, setSelectedTag] = useState<string | null>(null)
@@ -46,6 +47,7 @@ export const CommunityPage: React.FC = () => {
   const loadCommunityData = async () => {
     try {
       setLoading(true)
+      setError(null)
       const [storiesData, travelersData] = await Promise.all([
         communityService.getStories(filter),
         communityService.getTopTravelers()
@@ -54,6 +56,7 @@ export const CommunityPage: React.FC = () => {
       setTopTravelers(travelersData)
     } catch (error) {
       console.error('Failed to load community data:', error)
+      setError('Unable to load stories. Please check your connection and try again.')
     } finally {
       setLoading(false)
     }
@@ -296,13 +299,42 @@ export const CommunityPage: React.FC = () => {
             </div>
 
             {/* Stories Content */}
-            {loading ? (
-              <div className="flex flex-col justify-center items-center h-64">
-                <div className="relative">
-                  <div className="animate-spin rounded-full h-16 w-16 border-4 border-purple-200"></div>
-                  <div className="animate-spin rounded-full h-16 w-16 border-4 border-purple-600 border-t-transparent absolute top-0 left-0"></div>
+            {error ? (
+              <div className="text-center py-20 bg-white rounded-xl shadow-lg border border-red-100">
+                <div className="text-red-500 mb-4">
+                  <svg className="w-16 h-16 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
                 </div>
-                <p className="text-purple-600 font-medium mt-4 animate-pulse">Loading amazing stories...</p>
+                <h3 className="text-xl font-bold text-gray-900 mb-2">Oops! Something went wrong</h3>
+                <p className="text-gray-600 mb-6 max-w-md mx-auto">{error}</p>
+                <button
+                  onClick={loadCommunityData}
+                  className="bg-purple-600 text-white px-6 py-3 rounded-xl hover:bg-purple-700 transition-all duration-200 font-semibold shadow-lg"
+                >
+                  Try Again
+                </button>
+              </div>
+            ) : loading ? (
+              <div className="space-y-6">
+                {[1, 2, 3].map((i) => (
+                  <div key={i} className="bg-white rounded-xl shadow-lg p-6 animate-pulse">
+                    <div className="flex items-center space-x-3 mb-4">
+                      <div className="w-12 h-12 bg-gray-200 rounded-full"></div>
+                      <div className="flex-1">
+                        <div className="h-4 bg-gray-200 rounded w-1/4 mb-2"></div>
+                        <div className="h-3 bg-gray-200 rounded w-1/6"></div>
+                      </div>
+                    </div>
+                    <div className="h-4 bg-gray-200 rounded w-3/4 mb-2"></div>
+                    <div className="h-4 bg-gray-200 rounded w-full mb-4"></div>
+                    <div className="h-48 bg-gray-200 rounded-lg mb-4"></div>
+                    <div className="flex space-x-4">
+                      <div className="h-8 bg-gray-200 rounded w-20"></div>
+                      <div className="h-8 bg-gray-200 rounded w-20"></div>
+                    </div>
+                  </div>
+                ))}
               </div>
             ) : stories.length === 0 ? (
               <div className="text-center py-20 bg-gradient-to-br from-white to-purple-50 rounded-xl shadow-lg border border-purple-100">

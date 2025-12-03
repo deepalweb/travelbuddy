@@ -42,7 +42,7 @@ interface CreateStoryData {
   tags?: string[];
 }
 
-const API_BASE = import.meta.env.VITE_API_URL || 'https://travelbuddy-b2c6hgbbgeh4esdh.eastus2-01.azurewebsites.net/api'
+const API_BASE = import.meta.env.VITE_API_URL || 'https://travelbuddylk.com/api'
 
 // Transform backend post to frontend story format
 const transformPost = (post: any): Story => {
@@ -68,9 +68,12 @@ const transformPost = (post: any): Story => {
 export const communityService = {
   async getStories(filter: string = 'recent'): Promise<Story[]> {
     try {
+      console.log('🔍 Fetching stories from:', `${API_BASE}/posts/community`)
       const response = await fetch(`${API_BASE}/posts/community?limit=20`)
+      console.log('📡 Response status:', response.status)
       if (!response.ok) throw new Error('Failed to fetch stories')
       const posts = await response.json()
+      console.log('✅ Fetched posts:', posts.length)
       
       let stories = posts.map(transformPost)
       
