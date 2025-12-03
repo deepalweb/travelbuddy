@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { Filter, X, MapPin, Star, DollarSign } from 'lucide-react'
+import { Filter, X, MapPin, Star, DollarSign, Clock, Navigation } from 'lucide-react'
 import { Button } from './Button'
 
 interface FilterOptions {
@@ -7,6 +7,8 @@ interface FilterOptions {
   priceRange: string[]
   rating: number
   location: string
+  openNow: boolean
+  radius: number
 }
 
 interface SearchFiltersProps {
@@ -39,7 +41,9 @@ export const SearchFilters: React.FC<SearchFiltersProps> = ({
     category: [],
     priceRange: [],
     rating: 0,
-    location: ''
+    location: '',
+    openNow: false,
+    radius: 5000
   })
 
   const handleCategoryToggle = (categoryId: string) => {
@@ -63,9 +67,27 @@ export const SearchFilters: React.FC<SearchFiltersProps> = ({
   }
 
   const clearFilters = () => {
-    const emptyFilters = { category: [], priceRange: [], rating: 0, location: '' }
+    const emptyFilters = { category: [], priceRange: [], rating: 0, location: '', openNow: false, radius: 5000 }
     setFilters(emptyFilters)
     onFiltersChange(emptyFilters)
+  }
+
+  const handleRatingChange = (rating: number) => {
+    const newFilters = { ...filters, rating }
+    setFilters(newFilters)
+    onFiltersChange(newFilters)
+  }
+
+  const handleOpenNowToggle = () => {
+    const newFilters = { ...filters, openNow: !filters.openNow }
+    setFilters(newFilters)
+    onFiltersChange(newFilters)
+  }
+
+  const handleRadiusChange = (radius: number) => {
+    const newFilters = { ...filters, radius }
+    setFilters(newFilters)
+    onFiltersChange(newFilters)
   }
 
   if (!isOpen) return null
@@ -134,7 +156,7 @@ export const SearchFilters: React.FC<SearchFiltersProps> = ({
             {[3, 4, 4.5].map(rating => (
               <button
                 key={rating}
-                onClick={() => setFilters(prev => ({ ...prev, rating }))}
+                onClick={() => handleRatingChange(rating)}
                 className={`px-3 py-2 rounded-lg border text-sm flex items-center transition-colors ${
                   filters.rating === rating
                     ? 'bg-yellow-50 border-yellow-200 text-yellow-700'
@@ -148,12 +170,70 @@ export const SearchFilters: React.FC<SearchFiltersProps> = ({
           </div>
         </div>
 
+        {/* Open Now */}
+        <div className="mb-6">
+          <button
+            onClick={handleOpenNowToggle}
+            className={`w-full p-4 rounded-lg border text-left transition-colors ${
+              filters.openNow
+                ? 'bg-green-50 border-green-200'
+                : 'border-gray-200 hover:bg-gray-50'
+            }`}
+          >
+            <div className="flex items-center justify-between">
+              <div className="flex items-center">
+                <Clock className={`w-5 h-5 mr-3 ${
+                  filters.openNow ? 'text-green-600' : 'text-gray-400'
+                }`} />
+                <div>
+                  <h4 className="font-medium">Open Now</h4>
+                  <p className="text-xs text-gray-500">Show only places currently open</p>
+                </div>
+              </div>
+              <div className={`w-12 h-6 rounded-full transition-colors ${
+                filters.openNow ? 'bg-green-500' : 'bg-gray-300'
+              }`}>
+                <div className={`w-5 h-5 bg-white rounded-full shadow-md transform transition-transform ${
+                  filters.openNow ? 'translate-x-6' : 'translate-x-0.5'
+                } mt-0.5`} />
+              </div>
+            </div>
+          </button>
+        </div>
+
+        {/* Distance Radius */}
+        <div className="mb-6">
+          <div className="flex items-center justify-between mb-3">
+            <h4 className="font-medium flex items-center">
+              <Navigation className="w-4 h-4 mr-2" />
+              Search Radius
+            </h4>
+            <span className="text-sm font-semibold text-blue-600">
+              {filters.radius >= 1000 ? `${(filters.radius / 1000).toFixed(0)} km` : `${filters.radius} m`}
+            </span>
+          </div>
+          <input
+            type="range"
+            min="1000"
+            max="50000"
+            step="1000"
+            value={filters.radius}
+            onChange={(e) => handleRadiusChange(Number(e.target.value))}
+            className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-blue-600"
+          />
+          <div className="flex justify-between text-xs text-gray-500 mt-1">
+            <span>1 km</span>
+            <span>25 km</span>
+            <span>50 km</span>
+          </div>
+        </div>
+
         {/* Actions */}
         <div className="flex space-x-3">
           <Button onClick={clearFilters} variant="outline" className="flex-1">
             Clear All
           </Button>
-          <Button onClick={onClose} className="flex-1">
+          <Button onClick={onClose} className="flex-1 bg-blue-600 hover:bg-blue-700">
             Apply Filters
           </Button>
         </div>

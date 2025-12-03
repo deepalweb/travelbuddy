@@ -78,8 +78,42 @@ const DiscoveryPage: React.FC = () => {
   const [hasMore, setHasMore] = useState(globalSearchState.places.length > 0)
   const [selectedPlaces, setSelectedPlaces] = useState<Place[]>([])
   const [showFilters, setShowFilters] = useState(false)
-  const [activeFilters, setActiveFilters] = useState({ category: [], priceRange: [], rating: 0, location: '' })
+  const [activeFilters, setActiveFilters] = useState({ category: [], priceRange: [], rating: 0, location: '', openNow: false, radius: 5000 })
   const [showMap, setShowMap] = useState(false)
+  const [filteredPlaces, setFilteredPlaces] = useState<Place[]>([])
+
+  const applyFilters = (placesToFilter: Place[]) => {
+    let filtered = [...placesToFilter]
+
+    // Category filter
+    if (activeFilters.category.length > 0) {
+      filtered = filtered.filter(place => 
+        activeFilters.category.includes(place.category.toLowerCase())
+      )
+    }
+
+    // Price range filter
+    if (activeFilters.priceRange.length > 0) {
+      filtered = filtered.filter(place => 
+        activeFilters.priceRange.includes(place.priceLevel)
+      )
+    }
+
+    // Rating filter
+    if (activeFilters.rating > 0) {
+      filtered = filtered.filter(place => place.rating >= activeFilters.rating)
+    }
+
+    // Open now filter (simplified - would need real opening hours data)
+    if (activeFilters.openNow) {
+      filtered = filtered.filter(place => {
+        const hour = new Date().getHours()
+        return hour >= 9 && hour <= 22 // Assume most places open 9am-10pm
+      })
+    }
+
+    return filtered
+  }
 
   const handleSearch = async (query: string, isNewSearch = true) => {
     if (!query.trim()) return
@@ -94,14 +128,16 @@ const DiscoveryPage: React.FC = () => {
       const cached = searchCache.get(cacheKey)
       if (cached && (Date.now() - cached.timestamp) < CACHE_TTL) {
         console.log('🎯 Using cached results for:', query)
-        setPlaces(cached.data)
+        const allPlaces = cached.data
+        setPlaces(allPlaces)
+        setFilteredPlaces(applyFilters(allPlaces))
         setSearchContext(cached.context)
         setHasMore(true)
         setLoading(false)
         
         // Update global state
         globalSearchState = {
-          places: cached.data,
+          places: allPlaces,
           query: query,
           context: cached.context
         }
@@ -109,6 +145,7 @@ const DiscoveryPage: React.FC = () => {
       }
       
       setPlaces([])
+      setFilteredPlaces([])
     } else {
       setLoadingMore(true)
     }
@@ -122,6 +159,7 @@ const DiscoveryPage: React.FC = () => {
         const context = `AI-powered results for "${query}"`
         
         setPlaces(newPlaces)
+        setFilteredPlaces(applyFilters(newPlaces))
         setSearchContext(context)
         
         // Cache the results
@@ -138,13 +176,16 @@ const DiscoveryPage: React.FC = () => {
           context: context
         }
       } else {
-        setPlaces(prev => [...prev, ...(results || [])])
+        const updatedPlaces = [...places, ...(results || [])]
+        setPlaces(updatedPlaces)
+        setFilteredPlaces(applyFilters(updatedPlaces))
       }
       setHasMore(true)
     } catch (error) {
       console.error('Search failed:', error)
       if (isNewSearch) {
         setPlaces([])
+        setFilteredPlaces([])
         setSearchContext('Search failed. Please try again.')
       }
     } finally {
@@ -326,9 +367,9 @@ const DiscoveryPage: React.FC = () => {
                 >
                   <Navigation className="h-4 w-4 mr-2" />
                   Filters
-                  {(activeFilters.category.length > 0 || activeFilters.priceRange.length > 0) && (
+                  {(activeFilters.category.length > 0 || activeFilters.priceRange.length > 0 || activeFilters.rating > 0 || activeFilters.openNow) && (
                     <span className="ml-2 bg-blue-600 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
-                      {activeFilters.category.length + activeFilters.priceRange.length}
+                      {activeFilters.category.length + activeFilters.priceRange.length + (activeFilters.rating > 0 ? 1 : 0) + (activeFilters.openNow ? 1 : 0)}
                     </span>
                   )}
                 </Button>
@@ -354,7 +395,7 @@ const DiscoveryPage: React.FC = () => {
             </div>
             <p className="text-gray-600">{searchContext}</p>
             <p className="text-sm text-gray-500 mt-1">
-              Found {places.length} places • Semantic AI Search
+              Found {places.length} places{filteredPlaces.length < places.length && ` • Showing ${filteredPlaces.length} after filters`} • Semantic AI Search
               {searchCache.has(searchQuery.toLowerCase().trim()) && ' • Cached'}
               {selectedPlaces.length > 0 && ` • ${selectedPlaces.length} selected for trip`}
             </p>
@@ -366,7 +407,7 @@ const DiscoveryPage: React.FC = () => {
 
             
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-              {places.map((place) => (
+              {(filteredPlaces.length > 0 ? filteredPlaces : places).map((place) => (
                 <Card key={place.id} className="overflow-hidden hover:shadow-xl transition-all duration-300 hover:scale-105 hover:-translate-y-1 group">
                   <div className="relative">
                     <div className="relative w-full h-48 bg-gray-200 overflow-hidden">
@@ -607,8 +648,14 @@ const DiscoveryPage: React.FC = () => {
       {/* Search Filters */}
       <SearchFilters
         isOpen={showFilters}
-        onClose={() => setShowFilters(false)}
-        onFiltersChange={setActiveFilters}
+        onClose={() => {
+          setShowFilters(false)
+          setFilteredPlaces(applyFilters(places))
+        }}
+        onFiltersChange={(newFilters) => {
+          setActiveFilters(newFilters)
+          setFilteredPlaces(applyFilters(places))
+        }}
       />
 
 
