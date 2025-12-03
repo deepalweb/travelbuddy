@@ -402,7 +402,7 @@ export const ProfilePage: React.FC = () => {
 
       <div className="max-w-7xl mx-auto px-6 -mt-12 relative z-10">
         {/* Profile Completion Progress */}
-        <Card className="bg-white shadow-xl mb-8">
+        <Card className="bg-white shadow-lg mb-8 border border-gray-100">
           <CardContent className="p-6">
             <div className="flex items-center justify-between mb-3">
               <div>
@@ -421,11 +421,13 @@ export const ProfilePage: React.FC = () => {
         </Card>
 
         {/* Role Switcher Widget */}
-        <Card className="bg-white shadow-lg mb-8">
+        <Card className="bg-white shadow-lg mb-8 border border-gray-100">
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-3">
-                <UserCheck className="w-6 h-6 text-blue-600" />
+                <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center">
+                  <UserCheck className="w-6 h-6 text-blue-600" />
+                </div>
                 <div>
                   <p className="text-sm text-gray-600">Your Active Role</p>
                   <p className="font-semibold text-gray-900">
@@ -477,13 +479,13 @@ export const ProfilePage: React.FC = () => {
           {getRoleStats().map((stat, index) => {
             const Icon = stat.icon
             return (
-              <Card key={index} className="bg-white shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1">
+              <Card key={index} className="bg-white shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1 border border-gray-100">
                 <CardContent className="p-8 text-center">
-                  <div className={`w-24 h-24 ${stat.bgColor} rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-md`}>
+                  <div className={`w-24 h-24 ${stat.bgColor} rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-sm`}>
                     <Icon className={`w-14 h-14 ${stat.iconColor}`} />
                   </div>
                   <div className="text-5xl font-bold text-gray-900 mb-2">{stat.value}</div>
-                  <div className="text-gray-600 font-semibold text-lg">{stat.label}</div>
+                  <div className="text-gray-600 font-medium text-lg">{stat.label}</div>
                 </CardContent>
               </Card>
             )
@@ -493,10 +495,10 @@ export const ProfilePage: React.FC = () => {
         {/* Travel Personality & Milestones */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-12">
           {/* Travel Personality Widget */}
-          <Card className="bg-white shadow-lg">
+          <Card className="bg-white shadow-lg border border-gray-100">
             <CardContent className="p-6">
               <div className="flex items-center space-x-4">
-                <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl flex items-center justify-center shadow-lg">
+                <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl flex items-center justify-center shadow-md">
                   {(() => {
                     const PersonalityIcon = getTravelPersonality().icon
                     return <PersonalityIcon className="w-9 h-9 text-white" />
@@ -522,7 +524,7 @@ export const ProfilePage: React.FC = () => {
           </Card>
 
           {/* Gamification Badges */}
-          <Card className="bg-white shadow-lg">
+          <Card className="bg-white shadow-lg border border-gray-100">
             <CardContent className="p-6">
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center space-x-3">
@@ -560,7 +562,7 @@ export const ProfilePage: React.FC = () => {
         {/* Mini Activity Feed & Travel Preferences */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-12">
           {/* Mini Activity Feed */}
-          <Card className="bg-white shadow-lg lg:col-span-2">
+          <Card className="bg-white shadow-lg lg:col-span-2 border border-gray-100">
             <CardHeader className="border-b border-gray-100">
               <CardTitle className="text-xl text-gray-900 flex items-center">
                 <Clock className="w-5 h-5 mr-2 text-blue-600" />
@@ -591,7 +593,7 @@ export const ProfilePage: React.FC = () => {
           </Card>
 
           {/* Social Profile Links */}
-          <Card className="bg-white shadow-lg">
+          <Card className="bg-white shadow-lg border border-gray-100">
             <CardHeader className="border-b border-gray-100">
               <CardTitle className="text-xl text-gray-900 flex items-center">
                 <LinkIcon className="w-5 h-5 mr-2 text-purple-600" />
@@ -687,7 +689,7 @@ export const ProfilePage: React.FC = () => {
         </div>
 
         {/* Travel Preferences Section */}
-        <Card className="bg-white shadow-lg mb-12">
+        <Card className="bg-white shadow-lg mb-12 border border-gray-100">
           <CardHeader className="border-b border-gray-100">
             <CardTitle className="text-xl text-gray-900 flex items-center justify-between">
               <div className="flex items-center">
@@ -798,7 +800,7 @@ export const ProfilePage: React.FC = () => {
         <div className="grid grid-cols-1 xl:grid-cols-4 gap-8 pb-16">
           {/* 3. Personal Information (Enhanced) */}
           <div className="xl:col-span-2 space-y-8">
-            <Card className="bg-white shadow-lg">
+            <Card className="bg-white shadow-lg border border-gray-100">
               <CardHeader className="border-b border-gray-100">
                 <CardTitle className="text-2xl text-gray-900 flex items-center">
                   <User className="w-6 h-6 mr-3 text-blue-600" />
@@ -815,7 +817,7 @@ export const ProfilePage: React.FC = () => {
                           type="text"
                           value={formData.fullName}
                           onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
-                          className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                          className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                           placeholder="Enter your full name"
                         />
                       </div>
@@ -825,7 +827,7 @@ export const ProfilePage: React.FC = () => {
                           type="text"
                           value={formData.username}
                           onChange={(e) => setFormData({ ...formData, username: e.target.value })}
-                          className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                          className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                         />
                       </div>
                     </div>
@@ -837,7 +839,7 @@ export const ProfilePage: React.FC = () => {
                           type="email"
                           value={formData.email}
                           onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                          className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                          className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                         />
                       </div>
                       <div>
@@ -846,7 +848,7 @@ export const ProfilePage: React.FC = () => {
                           type="tel"
                           value={formData.phone}
                           onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                          className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                          className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                           placeholder="+1 (555) 123-4567"
                         />
                       </div>
@@ -857,7 +859,7 @@ export const ProfilePage: React.FC = () => {
                       <textarea
                         value={formData.bio}
                         onChange={(e) => setFormData({ ...formData, bio: e.target.value })}
-                        className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 h-24 resize-none"
+                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 h-24 resize-none"
                         placeholder="Tell us about yourself..."
                       />
                     </div>
@@ -868,7 +870,7 @@ export const ProfilePage: React.FC = () => {
                         type="text"
                         value={formData.homeCity}
                         onChange={(e) => setFormData({ ...formData, homeCity: e.target.value })}
-                        className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                         placeholder="New York, NY"
                       />
                     </div>
@@ -876,24 +878,24 @@ export const ProfilePage: React.FC = () => {
                 ) : (
                   <div className="space-y-6">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      <div className="p-4 bg-gray-50 rounded-xl border border-gray-200">
+                      <div className="p-4 bg-gray-50 rounded-lg border border-gray-200">
                         <label className="block text-sm font-semibold text-gray-700 mb-1">Username</label>
                         <p className="text-lg text-gray-900 font-medium">{user.username}</p>
                       </div>
-                      <div className="p-4 bg-gray-50 rounded-xl border border-gray-200">
+                      <div className="p-4 bg-gray-50 rounded-lg border border-gray-200">
                         <label className="block text-sm font-semibold text-gray-700 mb-1">Email</label>
                         <p className="text-lg text-gray-900 font-medium">{user.email}</p>
                       </div>
                     </div>
                     
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      <div className="p-4 bg-gray-50 rounded-xl border border-gray-200">
+                      <div className="p-4 bg-gray-50 rounded-lg border border-gray-200">
                         <label className="block text-sm font-semibold text-gray-700 mb-1">Member Since</label>
                         <p className="text-lg text-gray-900 font-medium">
                           {user.createdAt ? new Date(user.createdAt).toLocaleDateString() : new Date().toLocaleDateString()}
                         </p>
                       </div>
-                      <div className="p-4 bg-gray-50 rounded-xl border border-gray-200">
+                      <div className="p-4 bg-gray-50 rounded-lg border border-gray-200">
                         <label className="block text-sm font-semibold text-gray-700 mb-1">Account Status</label>
                         <div className="flex items-center space-x-2">
                           <CheckCircle className="w-5 h-5 text-green-500" />
@@ -907,7 +909,7 @@ export const ProfilePage: React.FC = () => {
             </Card>
             
             {/* 4. Account Status & Security */}
-            <Card className="bg-white shadow-lg overflow-hidden">
+            <Card className="bg-white shadow-lg overflow-hidden border border-gray-100">
               <div className="bg-gradient-to-r from-green-500 to-emerald-600 p-6">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center space-x-3">
@@ -916,11 +918,11 @@ export const ProfilePage: React.FC = () => {
                     </div>
                     <div>
                       <h3 className="text-2xl font-bold text-white">Account Security</h3>
-                      <p className="text-green-100 text-sm">Your account is protected</p>
+                      <p className="text-green-100 text-sm">✓ Your account is secure</p>
                     </div>
                   </div>
                   <div className="w-16 h-16 bg-white/10 backdrop-blur-sm rounded-full flex items-center justify-center">
-                    <Lock className="w-8 h-8 text-white" />
+                    <CheckCircle className="w-8 h-8 text-white" />
                   </div>
                 </div>
               </div>
@@ -978,7 +980,7 @@ export const ProfilePage: React.FC = () => {
 
           {/* 5. Quick Actions Panel (Enhanced) */}
           <div className="xl:col-span-2 space-y-8">
-            <Card className="bg-white shadow-lg">
+            <Card className="bg-white shadow-lg border border-gray-100">
               <CardHeader className="border-b border-gray-100">
                 <CardTitle className="text-2xl text-gray-900 flex items-center">
                   <Zap className="w-6 h-6 mr-3 text-purple-600" />
