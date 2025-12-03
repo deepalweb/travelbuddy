@@ -2,7 +2,6 @@ import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import path from 'path'
 
-// https://vite.dev/config/
 export default defineConfig({
   plugins: [react()],
   resolve: {
@@ -14,8 +13,9 @@ export default defineConfig({
     port: 3000,
     proxy: {
       '/api': {
-        target: 'https://travelbuddy-b2c6hgbbgeh4esdh.eastus2-01.azurewebsites.net',
+        target: 'https://travelbuddylk.com',
         changeOrigin: true,
+        secure: false,
       },
     },
   },
