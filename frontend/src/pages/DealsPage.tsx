@@ -152,6 +152,17 @@ export const DealsPage: React.FC = () => {
     }
   }
 
+  const handleDeleteDeal = async (dealId: string) => {
+    if (!confirm('Are you sure you want to delete this deal?')) return
+    try {
+      await dealsService.deleteDeal(dealId)
+      setDeals(deals.filter(deal => deal._id !== dealId))
+    } catch (error) {
+      console.error('Failed to delete deal:', error)
+      alert('Failed to delete deal')
+    }
+  }
+
   const totalSavings = filteredDeals.reduce((sum, deal) => {
     const original = parseFloat(deal.originalPrice) || 0
     const discounted = parseFloat(deal.discountedPrice) || 0
@@ -429,7 +440,9 @@ export const DealsPage: React.FC = () => {
                       deal={deal}
                       onView={handleViewDeal}
                       onClaim={handleClaimDeal}
+                      onDelete={handleDeleteDeal}
                       isRecommended={true}
+                      showDelete={true}
                       distance={deal.distance ? `${deal.distance.toFixed(1)} km away` : undefined}
                     />
                   ))}
@@ -447,6 +460,8 @@ export const DealsPage: React.FC = () => {
                     deal={deal}
                     onView={handleViewDeal}
                     onClaim={handleClaimDeal}
+                    onDelete={handleDeleteDeal}
+                    showDelete={true}
                     distance={deal.distance ? `${deal.distance.toFixed(1)} km away` : undefined}
                   />
                 ))}

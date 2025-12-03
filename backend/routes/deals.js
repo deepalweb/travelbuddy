@@ -191,4 +191,29 @@ router.post('/', async (req, res) => {
   }
 });
 
+// DELETE /api/deals/:dealId - Delete deal
+router.delete('/:dealId', async (req, res) => {
+  try {
+    const { dealId } = req.params;
+    const userId = req.headers['x-user-id'];
+    
+    const deal = await Deal.findById(dealId);
+    if (!deal) {
+      return res.status(404).json({ error: 'Deal not found' });
+    }
+    
+    // Check ownership
+    if (deal.merchantId && deal.merchantId.toString() !== userId) {
+      return res.status(403).json({ error: 'Not authorized to delete this deal' });
+    }
+    
+    await Deal.findByIdAndDelete(dealId);
+    console.log(`✅ Deal deleted: ${deal.title}`);
+    res.json({ success: true, message: 'Deal deleted successfully' });
+  } catch (error) {
+    console.error('❌ Error deleting deal:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 export default router;

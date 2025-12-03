@@ -114,6 +114,17 @@ export const CommunityPage: React.FC = () => {
     }
   }
 
+  const handleDelete = async (storyId: string) => {
+    if (!confirm('Delete this story?')) return
+    try {
+      await communityService.deleteStory(storyId)
+      setStories(stories.filter(s => s._id !== storyId))
+    } catch (error) {
+      console.error('Failed to delete story:', error)
+      alert('Failed to delete story')
+    }
+  }
+
   const handleStoryCreated = (newStory: Story) => {
     setStories([newStory, ...stories])
     setShowCreateModal(false)
@@ -411,6 +422,7 @@ export const CommunityPage: React.FC = () => {
                       <StoryCard
                         story={story}
                         onLike={handleLike}
+                        onDelete={handleDelete}
                       />
                     </div>
                   ))

@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { MapPin, Eye, Users, Clock, Star, ExternalLink, Heart, Share2, Zap } from 'lucide-react'
+import { MapPin, Eye, Users, Clock, Star, ExternalLink, Heart, Share2, Zap, Trash2 } from 'lucide-react'
 
 interface Deal {
   _id: string;
@@ -37,11 +37,13 @@ interface DealCardProps {
   deal: Deal
   onView: (dealId: string) => void
   onClaim: (dealId: string) => void
+  onDelete?: (dealId: string) => void
   isRecommended?: boolean
   distance?: string
+  showDelete?: boolean
 }
 
-export const DealCard: React.FC<DealCardProps> = ({ deal, onView, onClaim, isRecommended = false, distance }) => {
+export const DealCard: React.FC<DealCardProps> = ({ deal, onView, onClaim, onDelete, isRecommended = false, distance, showDelete = false }) => {
   const [isSaved, setIsSaved] = useState(false)
   const [isSharing, setIsSharing] = useState(false)
   const [showContactModal, setShowContactModal] = useState(false)
@@ -266,7 +268,7 @@ export const DealCard: React.FC<DealCardProps> = ({ deal, onView, onClaim, isRec
           </div>
           
           {/* Secondary Actions */}
-          <div className="flex items-center justify-center pt-2 border-t border-gray-100">
+          <div className="flex items-center justify-between pt-2 border-t border-gray-100">
             <button
               onClick={handleShare}
               disabled={isSharing}
@@ -275,6 +277,15 @@ export const DealCard: React.FC<DealCardProps> = ({ deal, onView, onClaim, isRec
               <Share2 className="w-4 h-4" />
               <span>Share</span>
             </button>
+            {showDelete && onDelete && (
+              <button
+                onClick={() => onDelete(deal._id)}
+                className="flex items-center space-x-1 text-sm text-red-500 hover:text-red-700 transition-colors"
+              >
+                <Trash2 className="w-4 h-4" />
+                <span>Delete</span>
+              </button>
+            )}
           </div>
         </div>
       </div>

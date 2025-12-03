@@ -133,5 +133,13 @@ export const dealsService = {
     }
     
     return response.json()
+  },
+
+  async deleteDeal(dealId: string): Promise<void> {
+    const response = await fetch(`${API_BASE}/api/deals/${dealId}`, {
+      method: 'DELETE',
+      credentials: 'include'
+    })
+    if (!response.ok) throw new Error('Failed to delete deal')
   }
 }
