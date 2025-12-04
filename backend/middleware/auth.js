@@ -24,6 +24,16 @@ export const requireAuth = async (req, res, next) => {
 
     const token = authHeader.substring(7);
     
+    // Handle demo tokens
+    if (token.startsWith('demo-token-')) {
+      req.user = {
+        uid: 'demo-user-123',
+        email: 'demo@travelbuddy.com',
+        emailVerified: true
+      };
+      return next();
+    }
+    
     // Verify Firebase token
     const decodedToken = await admin.auth().verifyIdToken(token);
     req.user = {
