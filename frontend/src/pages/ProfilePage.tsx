@@ -53,6 +53,21 @@ export const ProfilePage: React.FC = () => {
     interests: [] as string[],
     accessibility: false
   })
+  const [privacySettings, setPrivacySettings] = useState({
+    profileVisibility: 'public',
+    hideTravel: false,
+    hideActivity: false
+  })
+  const [notifications, setNotifications] = useState({
+    email: true,
+    push: true,
+    trips: true,
+    deals: true,
+    community: true
+  })
+  const [showDeleteModal, setShowDeleteModal] = useState(false)
+  const [showPrivacyModal, setShowPrivacyModal] = useState(false)
+  const [showNotificationsModal, setShowNotificationsModal] = useState(false)
 
   const calculateProfileCompletion = () => {
     let completed = 0
@@ -1071,10 +1086,45 @@ export const ProfilePage: React.FC = () => {
                   <Button
                     variant="outline"
                     className="w-full justify-start border-2 hover:bg-gray-50"
-                    onClick={() => navigate('/settings')}
+                    onClick={() => setShowPrivacyModal(true)}
                   >
-                    <Settings className="w-5 h-5 mr-3" />
-                    Settings & Privacy
+                    <Shield className="w-5 h-5 mr-3" />
+                    Privacy Settings
+                  </Button>
+                  
+                  <Button
+                    variant="outline"
+                    className="w-full justify-start border-2 hover:bg-gray-50"
+                    onClick={() => setShowNotificationsModal(true)}
+                  >
+                    <Bell className="w-5 h-5 mr-3" />
+                    Notifications
+                  </Button>
+                  
+                  <Button
+                    variant="outline"
+                    className="w-full justify-start border-2 hover:bg-blue-50"
+                    onClick={async () => {
+                      const data = { user, stats, preferences, socialLinks }
+                      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
+                      const url = URL.createObjectURL(blob)
+                      const a = document.createElement('a')
+                      a.href = url
+                      a.download = `travelbuddy-data-${user.username}.json`
+                      a.click()
+                    }}
+                  >
+                    <FileText className="w-5 h-5 mr-3" />
+                    Export My Data
+                  </Button>
+                  
+                  <Button
+                    variant="outline"
+                    className="w-full justify-start border-2 border-red-200 text-red-600 hover:bg-red-50"
+                    onClick={() => setShowDeleteModal(true)}
+                  >
+                    <AlertCircle className="w-5 h-5 mr-3" />
+                    Delete Account
                   </Button>
                   
                   {user.isAdmin && (
@@ -1107,6 +1157,134 @@ export const ProfilePage: React.FC = () => {
         isOpen={showSubscriptionModal} 
         onClose={() => setShowSubscriptionModal(false)} 
       />
+
+      {/* Delete Account Modal */}
+      {showDeleteModal && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl max-w-md w-full p-6">
+            <h3 className="text-xl font-bold text-red-600 mb-4">Delete Account?</h3>
+            <p className="text-gray-600 mb-6">This action cannot be undone. All your data will be permanently deleted.</p>
+            <div className="flex space-x-3">
+              <Button variant="outline" onClick={() => setShowDeleteModal(false)} className="flex-1">Cancel</Button>
+              <Button 
+                className="flex-1 bg-red-600 hover:bg-red-700 text-white"
+                onClick={async () => {
+                  if (confirm('Type DELETE to confirm')) {
+                    await fetch(`${apiBaseUrl}/api/users/profile`, { method: 'DELETE', headers: { 'x-user-id': user.id } })
+                    logout()
+                  }
+                }}
+              >
+                Delete Forever
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Privacy Settings Modal */}
+      {showPrivacyModal && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl max-w-md w-full p-6">
+            <h3 className="text-xl font-bold mb-4">Privacy Settings</h3>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-semibold mb-2">Profile Visibility</label>
+                <select 
+                  value={privacySettings.profileVisibility}
+                  onChange={(e) => setPrivacySettings({...privacySettings, profileVisibility: e.target.value})}
+                  className="w-full border rounded-lg px-3 py-2"
+                >
+                  <option value="public">Public</option>
+                  <option value="private">Private</option>
+                  <option value="friends">Friends Only</option>
+                </select>
+              </div>
+              <label className="flex items-center space-x-3">
+                <input 
+                  type="checkbox" 
+                  checked={privacySettings.hideTravel}
+                  onChange={(e) => setPrivacySettings({...privacySettings, hideTravel: e.target.checked})}
+                  className="w-5 h-5"
+                />
+                <span>Hide Travel History</span>
+              </label>
+              <label className="flex items-center space-x-3">
+                <input 
+                  type="checkbox" 
+                  checked={privacySettings.hideActivity}
+                  onChange={(e) => setPrivacySettings({...privacySettings, hideActivity: e.target.checked})}
+                  className="w-5 h-5"
+                />
+                <span>Hide Activity</span>
+              </label>
+            </div>
+            <div className="flex space-x-3 mt-6">
+              <Button variant="outline" onClick={() => setShowPrivacyModal(false)} className="flex-1">Cancel</Button>
+              <Button 
+                className="flex-1"
+                onClick={async () => {
+                  await fetch(`${apiBaseUrl}/api/users/privacy`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json', 'x-user-id': user.id },
+                    body: JSON.stringify(privacySettings)
+                  })
+                  setShowPrivacyModal(false)
+                }}
+              >
+                Save
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Notifications Modal */}
+      {showNotificationsModal && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl max-w-md w-full p-6">
+            <h3 className="text-xl font-bold mb-4">Notification Preferences</h3>
+            <div className="space-y-3">
+              <label className="flex items-center justify-between">
+                <span>Email Notifications</span>
+                <input type="checkbox" checked={notifications.email} onChange={(e) => setNotifications({...notifications, email: e.target.checked})} className="w-5 h-5" />
+              </label>
+              <label className="flex items-center justify-between">
+                <span>Push Notifications</span>
+                <input type="checkbox" checked={notifications.push} onChange={(e) => setNotifications({...notifications, push: e.target.checked})} className="w-5 h-5" />
+              </label>
+              <label className="flex items-center justify-between">
+                <span>Trip Updates</span>
+                <input type="checkbox" checked={notifications.trips} onChange={(e) => setNotifications({...notifications, trips: e.target.checked})} className="w-5 h-5" />
+              </label>
+              <label className="flex items-center justify-between">
+                <span>Deals & Offers</span>
+                <input type="checkbox" checked={notifications.deals} onChange={(e) => setNotifications({...notifications, deals: e.target.checked})} className="w-5 h-5" />
+              </label>
+              <label className="flex items-center justify-between">
+                <span>Community Alerts</span>
+                <input type="checkbox" checked={notifications.community} onChange={(e) => setNotifications({...notifications, community: e.target.checked})} className="w-5 h-5" />
+              </label>
+            </div>
+            <div className="flex space-x-3 mt-6">
+              <Button variant="outline" onClick={() => setShowNotificationsModal(false)} className="flex-1">Cancel</Button>
+              <Button 
+                className="flex-1"
+                onClick={async () => {
+                  await fetch(`${apiBaseUrl}/api/users/notifications`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json', 'x-user-id': user.id },
+                    body: JSON.stringify(notifications)
+                  })
+                  setShowNotificationsModal(false)
+                }}
+              >
+                Save
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

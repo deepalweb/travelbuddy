@@ -292,4 +292,36 @@ router.delete('/trip-plans/:id', async (req, res) => {
   }
 });
 
+// Privacy settings
+router.put('/privacy', requireAuth, async (req, res) => {
+  try {
+    const User = getUser();
+    const user = await User.findOneAndUpdate(
+      { firebaseUid: req.user.uid },
+      { $set: { privacySettings: req.body } },
+      { new: true }
+    );
+    if (!user) return res.status(404).json({ error: 'User not found' });
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Notification preferences
+router.put('/notifications', requireAuth, async (req, res) => {
+  try {
+    const User = getUser();
+    const user = await User.findOneAndUpdate(
+      { firebaseUid: req.user.uid },
+      { $set: { notificationPreferences: req.body } },
+      { new: true }
+    );
+    if (!user) return res.status(404).json({ error: 'User not found' });
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 export default router;
