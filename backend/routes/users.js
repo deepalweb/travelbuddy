@@ -78,7 +78,7 @@ router.get('/profile', requireAuth, async (req, res) => {
 router.put('/profile', requireAuth, async (req, res) => {
   try {
     const User = getUser();
-    const allowed = ['username', 'email', 'fullName', 'phone', 'bio', 'profilePicture'];
+    const allowed = ['username', 'fullName', 'phone', 'bio', 'profilePicture', 'homeCity', 'socialLinks', 'travelPreferences'];
     const updates = {};
     allowed.forEach(key => {
       if (req.body[key] !== undefined) updates[key] = req.body[key];
@@ -139,7 +139,13 @@ router.get('/:id/stats', async (req, res) => {
       totalTrips: tripCount,
       totalFavorites: user.favoritePlaces?.length || 0,
       memberSince: user.createdAt,
-      tier: user.tier || 'free'
+      tier: user.tier || 'free',
+      fullName: user.fullName,
+      phone: user.phone,
+      bio: user.bio,
+      homeCity: user.homeCity,
+      socialLinks: user.socialLinks,
+      travelPreferences: user.travelPreferences
     });
   } catch (error) {
     res.status(500).json({ error: error.message });

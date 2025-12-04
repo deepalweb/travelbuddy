@@ -138,6 +138,9 @@ export const ProfilePage: React.FC = () => {
           homeCity: data.homeCity || user?.homeCity || '',
           languages: data.languages || user?.languages || []
         })
+        
+        if (data.socialLinks) setSocialLinks(data.socialLinks)
+        if (data.travelPreferences) setPreferences(data.travelPreferences)
       }
     } catch (error) {
       console.error('Failed to fetch user stats:', error)
@@ -148,7 +151,6 @@ export const ProfilePage: React.FC = () => {
     setLoading(true)
     try {
       const config = await configService.getConfig()
-      // Use direct API call for extended fields
       const token = localStorage.getItem('demo_token')
       const headers: Record<string, string> = {
         'Content-Type': 'application/json'
@@ -164,18 +166,21 @@ export const ProfilePage: React.FC = () => {
       const response = await fetch(`${config.apiBaseUrl}/api/users/profile`, {
         method: 'PUT',
         headers,
-        body: JSON.stringify(formData)
+        body: JSON.stringify({ ...formData, socialLinks, travelPreferences: preferences })
       })
       
       if (response.ok) {
+        const updatedUser = await response.json()
+        await updateProfile(updatedUser)
         setIsEditing(false)
-        // Refresh stats to get updated data
+        alert('Profile updated successfully!')
         fetchUserStats()
       } else {
         throw new Error('Failed to update profile')
       }
     } catch (error) {
       console.error('Failed to update profile:', error)
+      alert('Failed to update profile. Please try again.')
     } finally {
       setLoading(false)
     }
@@ -184,7 +189,12 @@ export const ProfilePage: React.FC = () => {
   const handleCancel = () => {
     setFormData({
       username: user?.username || '',
-      email: user?.email || ''
+      email: user?.email || '',
+      fullName: user?.fullName || '',
+      phone: user?.phone || '',
+      bio: user?.bio || '',
+      homeCity: user?.homeCity || '',
+      languages: user?.languages || []
     })
     setIsEditing(false)
   }
