@@ -115,12 +115,22 @@ router.delete('/profile', requireAuth, async (req, res) => {
 });
 
 // Get user stats
-router.get('/:id/stats', requireAuth, async (req, res) => {
+router.get('/:id/stats', async (req, res) => {
   try {
     const User = getUser();
     const TripPlan = getTripPlan();
     
-    const user = await User.findOne({ firebaseUid: req.params.id });
+    const authHeader = req.headers.authorization;
+    if (!authHeader?.startsWith('Bearer ')) {
+      return res.status(401).json({ error: 'Authentication required' });
+    }
+
+    const token = authHeader.substring(7);
+    const uid = await extractUid(token);
+    
+    if (!uid) return res.status(401).json({ error: 'Invalid token' });
+    
+    const user = await User.findOne({ firebaseUid: uid });
     if (!user) return res.status(404).json({ error: 'User not found' });
 
     const tripCount = TripPlan ? await TripPlan.countDocuments({ userId: user._id }) : 0;
@@ -287,6 +297,44 @@ router.delete('/trip-plans/:id', async (req, res) => {
 
     await trip.deleteOne();
     res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Security settings
+router.get('/security', requireAuth, async (req, res) => {
+  try {
+    const User = getUser();
+    const user = await User.findOne({ firebaseUid: req.user.uid });
+    if (!user) return res.status(404).json({ error: 'User not found' });
+    
+    res.json({
+      emailVerified: user.emailVerified || true,
+      phoneVerified: user.phoneVerified || false,
+      twoFactorEnabled: user.twoFactorEnabled || false,
+      lastLogin: user.lastLogin || new Date(),
+      loginHistory: user.loginHistory || []
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+router.put('/security', requireAuth, async (req, res) => {
+  try {
+    const User = getUser();
+    const user = await User.findOneAndUpdate(
+      { firebaseUid: req.user.uid },
+      { $set: req.body },
+      { new: true }
+    );
+    if (!user) return res.status(404).json({ error: 'User not found' });
+    res.json({
+      emailVerified: user.emailVerified,
+      phoneVerified: user.phoneVerified,
+      twoFactorEnabled: user.twoFactorEnabled
+    });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
