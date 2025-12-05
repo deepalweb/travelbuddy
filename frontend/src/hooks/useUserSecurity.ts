@@ -36,7 +36,7 @@ export const useUserSecurity = () => {
         headers['x-user-id'] = user.id
       }
       
-      const response = await fetch(`${config.apiBaseUrl}/api/users/security`, { headers })
+      const response = await fetch(`${config.apiBaseUrl || ''}/api/users/security`, { headers })
       if (response.ok) {
         const data = await response.json()
         setSecurity(data)
@@ -78,7 +78,7 @@ export const useUserSecurity = () => {
         headers['x-user-id'] = user.id
       }
       
-      const response = await fetch(`${config.apiBaseUrl}/api/users/security`, {
+      const response = await fetch(`${config.apiBaseUrl || ''}/api/users/security`, {
         method: 'PUT',
         headers,
         body: JSON.stringify(updates)
