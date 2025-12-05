@@ -60,7 +60,7 @@ class ConfigService {
     return {
       apiBaseUrl: import.meta.env.PROD 
         ? window.location.origin 
-        : (import.meta.env.VITE_API_BASE_URL || 'https://travelbuddy-b2c6hgbbgeh4esdh.eastus2-01.azurewebsites.net'),
+        : '',
       firebase: {
         apiKey: firebaseApiKey,
         authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || 'travelbuddy-2d1c5.firebaseapp.com',
