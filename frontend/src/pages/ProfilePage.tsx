@@ -128,7 +128,6 @@ export const ProfilePage: React.FC = () => {
           ridesCompleted: data.ridesCompleted || 0
         })
         
-        // Update form data with extended fields from API
         setFormData({
           username: user?.username || '',
           email: user?.email || '',

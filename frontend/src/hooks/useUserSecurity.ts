@@ -40,9 +40,25 @@ export const useUserSecurity = () => {
       if (response.ok) {
         const data = await response.json()
         setSecurity(data)
+      } else {
+        // Use defaults if endpoint fails
+        setSecurity({
+          emailVerified: true,
+          phoneVerified: false,
+          twoFactorEnabled: false,
+          lastLogin: new Date(),
+          loginHistory: []
+        })
       }
     } catch (error) {
       console.error('Failed to fetch security settings:', error)
+      setSecurity({
+        emailVerified: true,
+        phoneVerified: false,
+        twoFactorEnabled: false,
+        lastLogin: new Date(),
+        loginHistory: []
+      })
     }
   }
 
