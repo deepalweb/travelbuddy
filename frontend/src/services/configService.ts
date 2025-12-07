@@ -60,7 +60,7 @@ class ConfigService {
     return {
       apiBaseUrl: import.meta.env.PROD 
         ? window.location.origin 
-        : '',
+        : 'http://localhost:3001',
       firebase: {
         apiKey: firebaseApiKey,
         authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || 'travelbuddy-2d1c5.firebaseapp.com',

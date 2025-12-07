@@ -77,7 +77,7 @@ export const ProfilePictureUpload: React.FC<ProfilePictureUploadProps> = ({
       }, 200);
 
       const config = await configService.getConfig();
-      const uploadUrl = `${config.apiBaseUrl || ''}/api/upload/profile-picture`;
+      const uploadUrl = `${config.apiBaseUrl}/api/upload/profile-picture`;
       console.log('📤 Uploading to:', uploadUrl, { userId: user?.id, hasToken: !!token });
       
       const response = await fetch(uploadUrl, {

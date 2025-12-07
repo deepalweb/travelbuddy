@@ -133,7 +133,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return
       }
 
-      const response = await fetch(`${config?.apiBaseUrl || ''}/api/demo-auth/verify-token`, {
+      const response = await fetch(`${config?.apiBaseUrl || window.location.origin}/api/demo-auth/verify-token`, {
         headers: {
           'Authorization': `Bearer ${demoToken}`
         }
@@ -199,7 +199,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
       debug.log('📤 Sync data:', syncData)
       
-      const apiUrl = `${config?.apiBaseUrl || ''}/api/users/sync`
+      const apiUrl = `${config?.apiBaseUrl || window.location.origin}/api/users/sync`
       debug.log('🌐 API URL:', apiUrl)
       
       // Try to sync user with backend
