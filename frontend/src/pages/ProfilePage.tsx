@@ -189,7 +189,7 @@ export const ProfilePage: React.FC = () => {
         })
         setIsEditing(false)
         alert('Profile updated successfully!')
-        fetchUserStats()
+        // Don't refetch - formData already has the correct values
       } else {
         throw new Error('Failed to update profile')
       }
