@@ -343,7 +343,7 @@ export const ProfilePage: React.FC = () => {
             {/* User Info */}
             <div className="text-center lg:text-left flex-1">
               <div className="flex items-center justify-center lg:justify-start space-x-3 mb-2">
-                <h1 className="text-5xl font-bold">{(user as any).fullName || user.username}</h1>
+                <h1 className="text-5xl font-bold">{(user as any).fullName || user.email?.split('@')[0]}</h1>
                 <CheckCircle className="w-6 h-6 text-green-400" title="Verified Account" />
               </div>
               
@@ -956,7 +956,7 @@ export const ProfilePage: React.FC = () => {
                       </div>
                       <div className="p-4 bg-gray-50 rounded-lg border border-gray-200">
                         <label className="block text-sm font-semibold text-gray-700 mb-1">Username</label>
-                        <p className="text-lg text-gray-900 font-medium">{user.username}</p>
+                        <p className="text-lg text-gray-900 font-medium">{(user as any).fullName || user.email?.split('@')[0]}</p>
                       </div>
                     </div>
                     

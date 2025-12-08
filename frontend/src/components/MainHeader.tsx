@@ -280,7 +280,7 @@ export const MainHeader: React.FC = () => {
                   <span className={`hidden lg:block text-sm font-medium ${
                     isScrolled ? 'text-gray-700' : 'text-white'
                   }`}>
-                    {user.username?.split(' ')[0] || user.email?.split('@')[0] || 'User'}
+                    {(user as any).fullName?.split(' ')[0] || user.email?.split('@')[0] || 'User'}
                   </span>
                 </button>
 
