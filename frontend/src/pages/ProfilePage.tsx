@@ -112,7 +112,7 @@ export const ProfilePage: React.FC = () => {
   const fetchUserStats = async () => {
     try {
       const config = await configService.getConfig()
-      const token = localStorage.getItem('demo_token')
+      const token = localStorage.getItem('token') || localStorage.getItem('demo_token')
       const headers: Record<string, string> = {}
       
       if (token) {
@@ -158,7 +158,7 @@ export const ProfilePage: React.FC = () => {
     setLoading(true)
     try {
       const config = await configService.getConfig()
-      const token = localStorage.getItem('demo_token')
+      const token = localStorage.getItem('token') || localStorage.getItem('demo_token')
       const headers: Record<string, string> = {
         'Content-Type': 'application/json'
       }
@@ -1195,7 +1195,7 @@ export const ProfilePage: React.FC = () => {
                 className="flex-1 bg-red-600 hover:bg-red-700 text-white"
                 onClick={async () => {
                   if (confirm('Type DELETE to confirm')) {
-                    const token = localStorage.getItem('demo_token')
+                    const token = localStorage.getItem('token') || localStorage.getItem('demo_token')
                     const headers: Record<string, string> = {}
                     if (token) headers['Authorization'] = `Bearer ${token}`
                     await fetch(`${apiBaseUrl}/api/users/profile`, { method: 'DELETE', headers })

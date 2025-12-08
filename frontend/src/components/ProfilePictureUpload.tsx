@@ -59,7 +59,7 @@ export const ProfilePictureUpload: React.FC<ProfilePictureUploadProps> = ({
       const formData = new FormData();
       formData.append('profilePicture', file);
 
-      const token = localStorage.getItem('demo_token') || localStorage.getItem('token');
+      const token = localStorage.getItem('token') || localStorage.getItem('demo_token');
       const headers: Record<string, string> = {};
       
       if (token) {

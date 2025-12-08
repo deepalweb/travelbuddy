@@ -26,7 +26,7 @@ export const useUserSecurity = () => {
     
     try {
       const config = await configService.getConfig()
-      const token = localStorage.getItem('demo_token')
+      const token = localStorage.getItem('token') || localStorage.getItem('demo_token')
       const headers: Record<string, string> = {}
       
       if (token) {
@@ -66,7 +66,7 @@ export const useUserSecurity = () => {
     setLoading(true)
     try {
       const config = await configService.getConfig()
-      const token = localStorage.getItem('demo_token')
+      const token = localStorage.getItem('token') || localStorage.getItem('demo_token')
       const headers: Record<string, string> = {
         'Content-Type': 'application/json'
       }
