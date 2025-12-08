@@ -291,6 +291,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const updateProfile = async (data: Partial<User>) => {
     try {
+      // For demo users, just update local state
+      const demoToken = localStorage.getItem('demo_token')
+      if (demoToken) {
+        setUser(prev => prev ? { ...prev, ...data } : null)
+        return
+      }
+      
       if (!firebase?.auth.currentUser) throw new Error('Not authenticated')
       
       const token = await firebase.auth.currentUser.getIdToken()
@@ -305,11 +312,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       if (response.ok) {
         const userData = await response.json()
-        setUser(prev => prev ? { 
-          ...prev, 
-          username: userData.username || data.username,
-          email: userData.email || data.email 
-        } : null)
+        setUser(prev => prev ? { ...prev, ...userData, ...data } : null)
       } else {
         throw new Error('Profile update failed')
       }

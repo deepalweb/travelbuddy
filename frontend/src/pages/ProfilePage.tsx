@@ -91,6 +91,14 @@ export const ProfilePage: React.FC = () => {
   }, [user?.id])
 
   useEffect(() => {
+    // Load social links and preferences from user object
+    if (user) {
+      if ((user as any).socialLinks) setSocialLinks((user as any).socialLinks)
+      if ((user as any).travelPreferences) setPreferences((user as any).travelPreferences)
+    }
+  }, [user])
+
+  useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       const target = e.target as HTMLElement
       if (!target.closest('.role-menu-container')) {
@@ -170,7 +178,15 @@ export const ProfilePage: React.FC = () => {
       
       if (response.ok) {
         const updatedUser = await response.json()
-        await updateProfile(updatedUser)
+        await updateProfile({ 
+          username: formData.username,
+          fullName: formData.fullName,
+          phone: formData.phone,
+          bio: formData.bio,
+          homeCity: formData.homeCity,
+          socialLinks: socialLinks as any,
+          travelPreferences: preferences as any
+        })
         setIsEditing(false)
         alert('Profile updated successfully!')
         fetchUserStats()
@@ -862,8 +878,8 @@ export const ProfilePage: React.FC = () => {
                         <input
                           type="email"
                           value={formData.email}
-                          onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                          className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                          disabled
+                          className="w-full px-4 py-3 border border-gray-300 rounded-lg bg-gray-100 cursor-not-allowed"
                         />
                       </div>
                       <div>
@@ -1179,7 +1195,10 @@ export const ProfilePage: React.FC = () => {
                 className="flex-1 bg-red-600 hover:bg-red-700 text-white"
                 onClick={async () => {
                   if (confirm('Type DELETE to confirm')) {
-                    await fetch(`${apiBaseUrl}/api/users/profile`, { method: 'DELETE', headers: { 'x-user-id': user.id } })
+                    const token = localStorage.getItem('demo_token')
+                    const headers: Record<string, string> = {}
+                    if (token) headers['Authorization'] = `Bearer ${token}`
+                    await fetch(`${apiBaseUrl}/api/users/profile`, { method: 'DELETE', headers })
                     logout()
                   }
                 }}
