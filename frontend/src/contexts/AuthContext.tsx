@@ -316,6 +316,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (response.ok) {
         const userData = await response.json()
         setUser(prev => prev ? { ...prev, ...userData, ...data } : null)
+        // Update cached user
+        const updatedUser = { ...user, ...userData, ...data }
+        localStorage.setItem('cached_user', JSON.stringify(updatedUser))
       } else {
         throw new Error('Profile update failed')
       }
