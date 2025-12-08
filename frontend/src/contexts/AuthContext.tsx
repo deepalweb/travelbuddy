@@ -192,6 +192,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const token = await firebaseUser.getIdToken()
       debug.log('🔑 Firebase token obtained:', token ? 'Yes' : 'No')
       
+      // Store token in localStorage for API calls
+      localStorage.setItem('token', token)
+      
       const syncData = {
         email: firebaseUser.email,
         username: firebaseUser.displayName || firebaseUser.email?.split('@')[0],
@@ -358,6 +361,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       localStorage.removeItem('demo_token')
       localStorage.removeItem('cached_user')
+      localStorage.removeItem('token')
       if (firebase) {
         await signOut(firebase.auth)
       }
