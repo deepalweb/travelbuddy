@@ -842,10 +842,42 @@ export const ProfilePage: React.FC = () => {
           <div className="xl:col-span-2 space-y-8">
             <Card className="bg-white shadow-lg border border-gray-100">
               <CardHeader className="border-b border-gray-100">
-                <CardTitle className="text-2xl text-gray-900 flex items-center">
-                  <User className="w-6 h-6 mr-3 text-blue-600" />
-                  Personal Information
-                </CardTitle>
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-2xl text-gray-900 flex items-center">
+                    <User className="w-6 h-6 mr-3 text-blue-600" />
+                    Personal Information
+                  </CardTitle>
+                  {!isEditing ? (
+                    <Button
+                      onClick={() => setIsEditing(true)}
+                      variant="outline"
+                      size="sm"
+                    >
+                      <Edit3 className="w-4 h-4 mr-2" />
+                      Edit
+                    </Button>
+                  ) : (
+                    <div className="flex space-x-3">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handleCancel}
+                      >
+                        <X className="w-4 h-4 mr-2" />
+                        Cancel
+                      </Button>
+                      <Button
+                        size="sm"
+                        onClick={handleSave}
+                        disabled={loading}
+                        className="bg-blue-600 hover:bg-blue-700 text-white"
+                      >
+                        <Save className="w-4 h-4 mr-2" />
+                        {loading ? 'Saving...' : 'Save'}
+                      </Button>
+                    </div>
+                  )}
+                </div>
               </CardHeader>
               <CardContent className="p-8 space-y-6">
                 {isEditing ? (
@@ -919,30 +951,37 @@ export const ProfilePage: React.FC = () => {
                   <div className="space-y-6">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                       <div className="p-4 bg-gray-50 rounded-lg border border-gray-200">
-                        <label className="block text-sm font-semibold text-gray-700 mb-1">Username</label>
-                        <p className="text-lg text-gray-900 font-medium">{user.username}</p>
+                        <label className="block text-sm font-semibold text-gray-700 mb-1">Full Name</label>
+                        <p className="text-lg text-gray-900 font-medium">{(user as any).fullName || formData.fullName || 'Not set'}</p>
                       </div>
                       <div className="p-4 bg-gray-50 rounded-lg border border-gray-200">
-                        <label className="block text-sm font-semibold text-gray-700 mb-1">Email</label>
-                        <p className="text-lg text-gray-900 font-medium">{user.email}</p>
+                        <label className="block text-sm font-semibold text-gray-700 mb-1">Username</label>
+                        <p className="text-lg text-gray-900 font-medium">{user.username}</p>
                       </div>
                     </div>
                     
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                       <div className="p-4 bg-gray-50 rounded-lg border border-gray-200">
-                        <label className="block text-sm font-semibold text-gray-700 mb-1">Member Since</label>
-                        <p className="text-lg text-gray-900 font-medium">
-                          {user.createdAt ? new Date(user.createdAt).toLocaleDateString() : new Date().toLocaleDateString()}
-                        </p>
+                        <label className="block text-sm font-semibold text-gray-700 mb-1">Email</label>
+                        <p className="text-lg text-gray-900 font-medium">{user.email}</p>
                       </div>
                       <div className="p-4 bg-gray-50 rounded-lg border border-gray-200">
-                        <label className="block text-sm font-semibold text-gray-700 mb-1">Account Status</label>
-                        <div className="flex items-center space-x-2">
-                          <CheckCircle className="w-5 h-5 text-green-500" />
-                          <span className="text-lg text-gray-900 font-medium">Verified</span>
-                        </div>
+                        <label className="block text-sm font-semibold text-gray-700 mb-1">Phone</label>
+                        <p className="text-lg text-gray-900 font-medium">{(user as any).phone || formData.phone || 'Not set'}</p>
                       </div>
                     </div>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div className="p-4 bg-gray-50 rounded-lg border border-gray-200">
+                        <label className="block text-sm font-semibold text-gray-700 mb-1">Bio</label>
+                        <p className="text-lg text-gray-900 font-medium">{(user as any).bio || formData.bio || 'Not set'}</p>
+                      </div>
+                      <div className="p-4 bg-gray-50 rounded-lg border border-gray-200">
+                        <label className="block text-sm font-semibold text-gray-700 mb-1">Home City</label>
+                        <p className="text-lg text-gray-900 font-medium">{(user as any).homeCity || formData.homeCity || 'Not set'}</p>
+                      </div>
+                    </div>
+
                   </div>
                 )}
               </CardContent>
