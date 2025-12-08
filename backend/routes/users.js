@@ -9,6 +9,12 @@ const getTripPlan = () => mongoose.model('TripPlan');
 
 // Helper to extract uid from token
 async function extractUid(token) {
+  // Handle demo tokens
+  if (token.startsWith('demo-token-')) {
+    console.log('✅ Demo token detected');
+    return 'demo-user-123';
+  }
+  
   // Try JWT decode first
   try {
     const parts = token.split('.');
