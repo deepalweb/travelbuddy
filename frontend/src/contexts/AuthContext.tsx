@@ -15,6 +15,10 @@ interface User {
   id: string
   email: string
   username: string
+  fullName?: string
+  phone?: string
+  bio?: string
+  homeCity?: string
   tier?: string
   profilePicture?: string
   firebaseUid?: string
