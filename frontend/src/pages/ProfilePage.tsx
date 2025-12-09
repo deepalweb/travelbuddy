@@ -450,11 +450,94 @@ export const ProfilePage: React.FC = () => {
               </div>
               <div className="text-2xl font-bold text-blue-600">{calculateProfileCompletion()}%</div>
             </div>
-            <div className="w-full bg-gray-200 rounded-full h-3">
+            <div className="w-full bg-gray-200 rounded-full h-3 mb-4">
               <div 
                 className="bg-gradient-to-r from-blue-500 to-purple-600 h-3 rounded-full transition-all duration-500"
                 style={{ width: `${calculateProfileCompletion()}%` }}
               />
+            </div>
+            
+            {/* Step-by-step checklist */}
+            <div className="space-y-2">
+              <div className={`flex items-center justify-between p-2 rounded-lg ${(user?.fullName || formData.fullName) ? 'bg-green-50' : 'bg-gray-50'}`}>
+                <div className="flex items-center space-x-2">
+                  {(user?.fullName || formData.fullName) ? (
+                    <CheckCircle className="w-4 h-4 text-green-600" />
+                  ) : (
+                    <div className="w-4 h-4 rounded-full border-2 border-gray-400" />
+                  )}
+                  <span className="text-sm font-medium text-gray-700">Add your full name</span>
+                </div>
+                {!(user?.fullName || formData.fullName) && (
+                  <Button size="sm" variant="outline" onClick={() => setIsEditing(true)} className="text-xs">
+                    Add
+                  </Button>
+                )}
+              </div>
+              
+              <div className={`flex items-center justify-between p-2 rounded-lg ${security.emailVerified ? 'bg-green-50' : 'bg-gray-50'}`}>
+                <div className="flex items-center space-x-2">
+                  {security.emailVerified ? (
+                    <CheckCircle className="w-4 h-4 text-green-600" />
+                  ) : (
+                    <div className="w-4 h-4 rounded-full border-2 border-gray-400" />
+                  )}
+                  <span className="text-sm font-medium text-gray-700">Verify your email</span>
+                </div>
+                {!security.emailVerified && (
+                  <Button size="sm" variant="outline" className="text-xs">
+                    Verify
+                  </Button>
+                )}
+              </div>
+              
+              <div className={`flex items-center justify-between p-2 rounded-lg ${(user?.phone || formData.phone) ? 'bg-green-50' : 'bg-gray-50'}`}>
+                <div className="flex items-center space-x-2">
+                  {(user?.phone || formData.phone) ? (
+                    <CheckCircle className="w-4 h-4 text-green-600" />
+                  ) : (
+                    <div className="w-4 h-4 rounded-full border-2 border-gray-400" />
+                  )}
+                  <span className="text-sm font-medium text-gray-700">Add phone number</span>
+                </div>
+                {!(user?.phone || formData.phone) && (
+                  <Button size="sm" variant="outline" onClick={() => setIsEditing(true)} className="text-xs">
+                    Add
+                  </Button>
+                )}
+              </div>
+              
+              <div className={`flex items-center justify-between p-2 rounded-lg ${(user?.bio || formData.bio) ? 'bg-green-50' : 'bg-gray-50'}`}>
+                <div className="flex items-center space-x-2">
+                  {(user?.bio || formData.bio) ? (
+                    <CheckCircle className="w-4 h-4 text-green-600" />
+                  ) : (
+                    <div className="w-4 h-4 rounded-full border-2 border-gray-400" />
+                  )}
+                  <span className="text-sm font-medium text-gray-700">Write a bio</span>
+                </div>
+                {!(user?.bio || formData.bio) && (
+                  <Button size="sm" variant="outline" onClick={() => setIsEditing(true)} className="text-xs">
+                    Add
+                  </Button>
+                )}
+              </div>
+              
+              <div className={`flex items-center justify-between p-2 rounded-lg ${(user?.homeCity || formData.homeCity) ? 'bg-green-50' : 'bg-gray-50'}`}>
+                <div className="flex items-center space-x-2">
+                  {(user?.homeCity || formData.homeCity) ? (
+                    <CheckCircle className="w-4 h-4 text-green-600" />
+                  ) : (
+                    <div className="w-4 h-4 rounded-full border-2 border-gray-400" />
+                  )}
+                  <span className="text-sm font-medium text-gray-700">Add home city</span>
+                </div>
+                {!(user?.homeCity || formData.homeCity) && (
+                  <Button size="sm" variant="outline" onClick={() => setIsEditing(true)} className="text-xs">
+                    Add
+                  </Button>
+                )}
+              </div>
             </div>
           </CardContent>
         </Card>
