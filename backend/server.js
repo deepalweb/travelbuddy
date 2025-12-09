@@ -1207,6 +1207,22 @@ const userSchema = new mongoose.Schema({
   firebaseUid: { type: String, index: true, sparse: true },
   username: { type: String, required: true, unique: true },
   email: { type: String, required: true, unique: true },
+  fullName: String,
+  phone: String,
+  bio: String,
+  homeCity: String,
+  socialLinks: {
+    instagram: String,
+    linkedin: String,
+    tiktok: String,
+    website: String
+  },
+  travelPreferences: {
+    budgetRange: String,
+    travelPace: String,
+    interests: [String],
+    accessibility: [String]
+  },
   
   // Social Features
   followers: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
