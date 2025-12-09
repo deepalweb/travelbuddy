@@ -41,12 +41,8 @@ export const ProfilePage: React.FC = () => {
   const [uploadProgress, setUploadProgress] = useState<number | null>(null)
   const [uploadError, setUploadError] = useState<string | null>(null)
   const [apiBaseUrl, setApiBaseUrl] = useState('')
-  const [socialLinks, setSocialLinks] = useState({
-    instagram: '',
-    linkedin: '',
-    twitter: '',
-    facebook: ''
-  })
+  const [socialLinks, setSocialLinks] = useState<Array<{platform: string, url: string}>>([])
+  const [newPlatform, setNewPlatform] = useState('')
   const [preferences, setPreferences] = useState({
     budgetRange: 'moderate',
     travelPace: 'moderate',
@@ -93,7 +89,16 @@ export const ProfilePage: React.FC = () => {
   useEffect(() => {
     // Load social links and preferences from user object
     if (user) {
-      if ((user as any).socialLinks) setSocialLinks((user as any).socialLinks)
+      if ((user as any).socialLinks) {
+        const links = (user as any).socialLinks
+        if (Array.isArray(links)) {
+          setSocialLinks(links)
+        } else {
+          // Convert old format to new
+          const converted = Object.entries(links).filter(([k, v]) => v).map(([platform, url]) => ({ platform, url: url as string }))
+          setSocialLinks(converted)
+        }
+      }
       if ((user as any).travelPreferences) setPreferences((user as any).travelPreferences)
     }
   }, [user])
@@ -129,11 +134,11 @@ export const ProfilePage: React.FC = () => {
           tripsPlanned: data.totalTrips || 0,
           placesVisited: data.totalFavorites || 0,
           reviewsWritten: data.totalPosts || 0,
-          aiGenerations: data.aiGenerations || 0,
-          profileViews: data.profileViews || 0,
-          dealsCreated: data.dealsCreated || 0,
-          clientSatisfaction: data.clientSatisfaction || 0,
-          ridesCompleted: data.ridesCompleted || 0
+          aiGenerations: 0,
+          profileViews: 0,
+          dealsCreated: 0,
+          clientSatisfaction: 0,
+          ridesCompleted: 0
         })
         
         setFormData({
@@ -146,7 +151,14 @@ export const ProfilePage: React.FC = () => {
           languages: data.languages || user?.languages || []
         })
         
-        if (data.socialLinks) setSocialLinks(data.socialLinks)
+        if (data.socialLinks) {
+          if (Array.isArray(data.socialLinks)) {
+            setSocialLinks(data.socialLinks)
+          } else {
+            const converted = Object.entries(data.socialLinks).filter(([k, v]) => v).map(([platform, url]) => ({ platform, url: url as string }))
+            setSocialLinks(converted)
+          }
+        }
         if (data.travelPreferences) setPreferences(data.travelPreferences)
       }
     } catch (error) {
@@ -290,25 +302,28 @@ export const ProfilePage: React.FC = () => {
 
   const getMilestones = () => {
     const milestones = []
-    if (stats.tripsPlanned >= 1) milestones.push({ icon: Flag, label: 'First Trip', color: 'text-blue-600' })
+    if (stats.tripsPlanned > 0) milestones.push({ icon: Flag, label: 'First Trip', color: 'text-blue-600' })
     if (stats.tripsPlanned >= 5) milestones.push({ icon: Trophy, label: '5 Trips', color: 'text-purple-600' })
     if (stats.placesVisited >= 10) milestones.push({ icon: Medal, label: '10 Places', color: 'text-green-600' })
     if (stats.reviewsWritten >= 5) milestones.push({ icon: Star, label: '5 Reviews', color: 'text-yellow-600' })
     return milestones
   }
 
-  const getRecentActivity = () => [
-    { icon: MapPin, action: 'Planned a trip to', target: 'Paris, France', time: '2 days ago', color: 'text-blue-600' },
-    { icon: Heart, action: 'Saved', target: 'Eiffel Tower', time: '5 days ago', color: 'text-red-600' },
-    { icon: Star, action: 'Reviewed', target: 'Hotel Luxe', time: '1 week ago', color: 'text-yellow-600' },
-    { icon: ThumbsUp, action: 'Recommended', target: 'Tokyo Guide', time: '2 weeks ago', color: 'text-green-600' }
-  ]
+  const getRecentActivity = () => []
 
   const interestOptions = [
     { id: 'culture', label: 'Culture & History', icon: Globe },
     { id: 'adventure', label: 'Adventure', icon: Mountain },
     { id: 'food', label: 'Food & Dining', icon: Coffee },
-    { id: 'beach', label: 'Beach & Relaxation', icon: Plane }
+    { id: 'beach', label: 'Beach & Relaxation', icon: Plane },
+    { id: 'nature', label: 'Nature & Wildlife', icon: Mountain },
+    { id: 'shopping', label: 'Shopping', icon: Wallet },
+    { id: 'nightlife', label: 'Nightlife', icon: Star },
+    { id: 'photography', label: 'Photography', icon: Camera },
+    { id: 'wellness', label: 'Wellness & Spa', icon: Heart },
+    { id: 'sports', label: 'Sports & Fitness', icon: Trophy },
+    { id: 'art', label: 'Art & Museums', icon: Sparkles },
+    { id: 'music', label: 'Music & Festivals', icon: Bell }
   ]
 
   return (
@@ -416,7 +431,7 @@ export const ProfilePage: React.FC = () => {
                     Cancel
                   </Button>
                   <Button
-                    className="bg-white text-blue-600 hover:bg-white/90"
+                    className="bg-blue-600 text-white hover:bg-blue-700"
                     onClick={handleSave}
                     disabled={loading}
                   >
@@ -542,60 +557,6 @@ export const ProfilePage: React.FC = () => {
           </CardContent>
         </Card>
 
-        {/* Role Switcher Widget */}
-        <Card className="bg-white shadow-lg mb-8 border border-gray-100">
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-3">
-                <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center">
-                  <UserCheck className="w-6 h-6 text-blue-600" />
-                </div>
-                <div>
-                  <p className="text-sm text-gray-600">Your Active Role</p>
-                  <p className="font-semibold text-gray-900">
-                    {user.activeRole === 'merchant' ? '🏪 Business Owner' :
-                     user.activeRole === 'transport_provider' ? '🚗 Transport Provider' :
-                     user.activeRole === 'travel_agent' ? '🧳 Travel Agent' : '✈️ Traveler'}
-                  </p>
-                </div>
-              </div>
-              <div className="relative role-menu-container">
-                <Button
-                  variant="outline"
-                  onClick={() => setShowRoleMenu(!showRoleMenu)}
-                  className="border-2"
-                >
-                  Switch Role ▼
-                </Button>
-                {showRoleMenu && (
-                  <div className="absolute right-0 mt-2 w-56 bg-white rounded-xl shadow-2xl border-2 border-gray-100 z-50">
-                    <div className="p-2">
-                      {(user.roles || [user.role || 'user']).map(role => (
-                        <button
-                          key={role}
-                          onClick={() => {
-                            // Handle role switch logic here
-                            setShowRoleMenu(false)
-                            navigate('/role-selection')
-                          }}
-                          className={`w-full text-left px-4 py-3 rounded-lg hover:bg-blue-50 transition-colors ${
-                            role === user.activeRole ? 'bg-blue-100 font-semibold' : ''
-                          }`}
-                        >
-                          {role === 'merchant' ? '🏪 Business Owner' :
-                           role === 'transport_provider' ? '🚗 Transport Provider' :
-                           role === 'travel_agent' ? '🧳 Travel Agent' : '✈️ Traveler'}
-                          {role === user.activeRole && ' ✓'}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
         {/* 2. Dynamic Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
           {getRoleStats().map((stat, index) => {
@@ -692,25 +653,33 @@ export const ProfilePage: React.FC = () => {
               </CardTitle>
             </CardHeader>
             <CardContent className="p-6">
-              <div className="space-y-4">
-                {getRecentActivity().map((activity, idx) => {
-                  const ActivityIcon = activity.icon
-                  return (
-                    <div key={idx} className="flex items-start space-x-3 p-3 hover:bg-gray-50 rounded-lg transition-colors">
-                      <div className="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center flex-shrink-0">
-                        <ActivityIcon className={`w-5 h-5 ${activity.color}`} />
+              {getRecentActivity().length === 0 ? (
+                <div className="text-center py-8">
+                  <Clock className="w-12 h-12 mx-auto mb-2 text-gray-300" />
+                  <p className="text-sm text-gray-500">No recent activity</p>
+                  <p className="text-xs text-gray-400 mt-1">Start planning trips to see your activity here</p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {getRecentActivity().map((activity, idx) => {
+                    const ActivityIcon = activity.icon
+                    return (
+                      <div key={idx} className="flex items-start space-x-3 p-3 hover:bg-gray-50 rounded-lg transition-colors">
+                        <div className="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                          <ActivityIcon className={`w-5 h-5 ${activity.color}`} />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm text-gray-900">
+                            <span className="font-medium">{activity.action}</span>{' '}
+                            <span className="font-semibold text-blue-600">{activity.target}</span>
+                          </p>
+                          <p className="text-xs text-gray-500 mt-1">{activity.time}</p>
+                        </div>
                       </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm text-gray-900">
-                          <span className="font-medium">{activity.action}</span>{' '}
-                          <span className="font-semibold text-blue-600">{activity.target}</span>
-                        </p>
-                        <p className="text-xs text-gray-500 mt-1">{activity.time}</p>
-                      </div>
-                    </div>
-                  )
-                })}
-              </div>
+                    )
+                  })}
+                </div>
+              )}
             </CardContent>
           </Card>
 
@@ -726,81 +695,63 @@ export const ProfilePage: React.FC = () => {
               <div className="space-y-3">
                 {isEditing ? (
                   <>
-                    <div>
-                      <label className="text-xs text-gray-600 mb-1 block">Instagram</label>
-                      <div className="flex items-center space-x-2">
-                        <Instagram className="w-4 h-4 text-pink-600" />
-                        <input
-                          type="text"
-                          value={socialLinks.instagram}
-                          onChange={(e) => setSocialLinks({ ...socialLinks, instagram: e.target.value })}
-                          className="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-sm"
-                          placeholder="@username"
-                        />
-                      </div>
-                    </div>
-                    <div>
-                      <label className="text-xs text-gray-600 mb-1 block">LinkedIn</label>
-                      <div className="flex items-center space-x-2">
-                        <Linkedin className="w-4 h-4 text-blue-700" />
-                        <input
-                          type="text"
-                          value={socialLinks.linkedin}
-                          onChange={(e) => setSocialLinks({ ...socialLinks, linkedin: e.target.value })}
-                          className="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-sm"
-                          placeholder="/in/username"
-                        />
-                      </div>
-                    </div>
-                    <div>
-                      <label className="text-xs text-gray-600 mb-1 block">Twitter</label>
-                      <div className="flex items-center space-x-2">
-                        <Twitter className="w-4 h-4 text-blue-400" />
-                        <input
-                          type="text"
-                          value={socialLinks.twitter}
-                          onChange={(e) => setSocialLinks({ ...socialLinks, twitter: e.target.value })}
-                          className="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-sm"
-                          placeholder="@username"
-                        />
-                      </div>
+                    {socialLinks.map((link, idx) => {
+                      const icons: Record<string, any> = { instagram: Instagram, linkedin: Linkedin, twitter: Twitter, facebook: Facebook, tiktok: '🎵', youtube: '▶️', github: '💻', website: Globe }
+                      const Icon = icons[link.platform]
+                      return (
+                        <div key={idx} className="flex items-center space-x-2">
+                          {typeof Icon === 'string' ? <span className="text-lg">{Icon}</span> : <Icon className="w-4 h-4" />}
+                          <input
+                            type="text"
+                            value={link.url}
+                            onChange={(e) => {
+                              const updated = [...socialLinks]
+                              updated[idx].url = e.target.value
+                              setSocialLinks(updated)
+                            }}
+                            className="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-sm"
+                            placeholder="Enter URL"
+                          />
+                          <Button size="sm" variant="outline" onClick={() => setSocialLinks(socialLinks.filter((_, i) => i !== idx))} className="text-red-600">
+                            <X className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      )
+                    })}
+                    <div className="flex items-center space-x-2">
+                      <select value={newPlatform} onChange={(e) => setNewPlatform(e.target.value)} className="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-sm">
+                        <option value="">Select platform</option>
+                        {['instagram', 'linkedin', 'twitter', 'facebook', 'tiktok', 'youtube', 'github', 'website'].filter(p => !socialLinks.find(l => l.platform === p)).map(p => (
+                          <option key={p} value={p}>{p.charAt(0).toUpperCase() + p.slice(1)}</option>
+                        ))}
+                      </select>
+                      <Button size="sm" onClick={() => { if (newPlatform) { setSocialLinks([...socialLinks, { platform: newPlatform, url: '' }]); setNewPlatform('') } }} disabled={!newPlatform}>
+                        Add
+                      </Button>
                     </div>
                   </>
                 ) : (
                   <>
-                    {!socialLinks.instagram && !socialLinks.linkedin && !socialLinks.twitter ? (
+                    {socialLinks.length === 0 ? (
                       <div className="text-center py-6">
                         <LinkIcon className="w-12 h-12 mx-auto mb-2 text-gray-300" />
                         <p className="text-sm text-gray-500">No social links added</p>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => setIsEditing(true)}
-                          className="mt-3"
-                        >
+                        <Button size="sm" variant="outline" onClick={() => setIsEditing(true)} className="mt-3">
                           Add Links
                         </Button>
                       </div>
                     ) : (
                       <div className="space-y-2">
-                        {socialLinks.instagram && (
-                          <a href={`https://instagram.com/${socialLinks.instagram}`} target="_blank" rel="noopener noreferrer" className="flex items-center space-x-3 p-2 hover:bg-gray-50 rounded-lg">
-                            <Instagram className="w-5 h-5 text-pink-600" />
-                            <span className="text-sm text-gray-900">{socialLinks.instagram}</span>
-                          </a>
-                        )}
-                        {socialLinks.linkedin && (
-                          <a href={`https://linkedin.com${socialLinks.linkedin}`} target="_blank" rel="noopener noreferrer" className="flex items-center space-x-3 p-2 hover:bg-gray-50 rounded-lg">
-                            <Linkedin className="w-5 h-5 text-blue-700" />
-                            <span className="text-sm text-gray-900">{socialLinks.linkedin}</span>
-                          </a>
-                        )}
-                        {socialLinks.twitter && (
-                          <a href={`https://twitter.com/${socialLinks.twitter}`} target="_blank" rel="noopener noreferrer" className="flex items-center space-x-3 p-2 hover:bg-gray-50 rounded-lg">
-                            <Twitter className="w-5 h-5 text-blue-400" />
-                            <span className="text-sm text-gray-900">{socialLinks.twitter}</span>
-                          </a>
-                        )}
+                        {socialLinks.map((link, idx) => {
+                          const icons: Record<string, any> = { instagram: Instagram, linkedin: Linkedin, twitter: Twitter, facebook: Facebook, tiktok: '🎵', youtube: '▶️', github: '💻', website: Globe }
+                          const Icon = icons[link.platform]
+                          return (
+                            <a key={idx} href={link.url} target="_blank" rel="noopener noreferrer" className="flex items-center space-x-3 p-2 hover:bg-gray-50 rounded-lg">
+                              {typeof Icon === 'string' ? <span className="text-lg">{Icon}</span> : <Icon className="w-5 h-5" />}
+                              <span className="text-sm text-gray-900 capitalize">{link.platform}</span>
+                            </a>
+                          )
+                        })}
                       </div>
                     )}
                   </>
@@ -1179,7 +1130,7 @@ export const ProfilePage: React.FC = () => {
                   <Button
                     variant="outline"
                     className="justify-start border-2 hover:bg-green-50 h-14"
-                    onClick={() => navigate('/community')}
+                    onClick={() => navigate('/discovery')}
                   >
                     <Heart className="w-6 h-6 mr-3 text-green-600" />
                     <div className="text-left">
@@ -1196,7 +1147,7 @@ export const ProfilePage: React.FC = () => {
                     <MessageCircle className="w-6 h-6 mr-3 text-yellow-600" />
                     <div className="text-left">
                       <div className="font-semibold">Messages</div>
-                      <div className="text-xs text-gray-500">3 unread</div>
+                      <div className="text-xs text-gray-500">Coming soon</div>
                     </div>
                   </Button>
                 </div>

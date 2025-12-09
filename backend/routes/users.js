@@ -144,6 +144,7 @@ router.get('/:id/stats', async (req, res) => {
     res.json({
       totalTrips: tripCount,
       totalFavorites: user.favoritePlaces?.length || 0,
+      totalPosts: 0,
       memberSince: user.createdAt,
       tier: user.tier || 'free',
       fullName: user.fullName,

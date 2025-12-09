@@ -608,7 +608,7 @@ export const OptimizedHomePage: React.FC = () => {
             {/* Compact Header */}
             <div className="text-center text-white mb-8">
               <h1 className="text-3xl md:text-5xl lg:text-6xl font-bold mb-4 leading-tight">
-                {user ? `Welcome back, ${user.username?.split(' ')[0] || user.name || 'Explorer'}!` : 'Your Perfect Trip in'}
+                {user ? `Welcome back, ${user.fullName?.split(' ')[0] || user.username?.split(' ')[0] || user.name || 'Explorer'}!` : 'Your Perfect Trip in'}
                 <span className="block text-yellow-400">
                   {user ? 'Your next adventure is waiting.' : '2 Minutes'}
                 </span>
