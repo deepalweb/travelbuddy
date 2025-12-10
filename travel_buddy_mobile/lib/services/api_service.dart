@@ -1,6 +1,9 @@
 import 'package:dio/dio.dart';
+import 'package:dio_cache_interceptor/dio_cache_interceptor.dart';
+import 'package:dio_cache_interceptor_hive_store/dio_cache_interceptor_hive_store.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:path_provider/path_provider.dart';
 import '../constants/app_constants.dart';
 import '../config/environment.dart';
 import '../models/place.dart';
@@ -22,11 +25,20 @@ class ApiService {
 
   ApiService._internal() {
     _dio = _authApiService.authenticatedDio;
-    _dio.interceptors.add(LogInterceptor(
-      requestBody: true,
-      responseBody: true,
-      logPrint: (obj) => print('🌐 API: $obj'),
-    ));
+    _initCache();
+  }
+
+  Future<void> _initCache() async {
+    final dir = await getTemporaryDirectory();
+    final cacheStore = HiveCacheStore(dir.path);
+    final cacheOptions = CacheOptions(
+      store: cacheStore,
+      maxStale: const Duration(hours: 24),
+      hitCacheOnErrorExcept: [401, 403],
+      policy: CachePolicy.forceCache,
+      priority: CachePriority.high,
+    );
+    _dio.interceptors.add(DioCacheInterceptor(options: cacheOptions));
   }
 
 
@@ -55,7 +67,7 @@ class ApiService {
       final user = FirebaseAuth.instance.currentUser;
       if (user == null) {
         print('❌ No authenticated user for personalized suggestions');
-        return _getMockSuggestions(interests);
+        return [];
       }
       
       print('💡 Fetching personalized suggestions for: ${user.uid}');
@@ -75,51 +87,11 @@ class ApiService {
           return List<Map<String, dynamic>>.from(data);
         }
       }
-      print('❌ No suggestions data received');
-      return _getMockSuggestions(interests);
+      return [];
     } catch (e) {
       print('❌ Error getting personalized suggestions: $e');
-      return _getMockSuggestions(interests);
+      return [];
     }
-  }
-
-  List<Map<String, dynamic>> _getMockSuggestions(List<String> interests) {
-    final hour = DateTime.now().hour;
-    final suggestions = <Map<String, dynamic>>[];
-    
-    if (hour < 12) {
-      suggestions.add({
-        'type': 'activity',
-        'title': 'Morning Coffee & Planning',
-        'description': 'Start your day with local coffee',
-        'reason': 'Perfect morning activity'
-      });
-    } else if (hour < 17) {
-      suggestions.add({
-        'type': 'activity',
-        'title': 'Afternoon Exploration',
-        'description': 'Great time to visit attractions',
-        'reason': 'Ideal afternoon timing'
-      });
-    } else {
-      suggestions.add({
-        'type': 'activity',
-        'title': 'Evening Dining',
-        'description': 'Discover local restaurants',
-        'reason': 'Perfect evening activity'
-      });
-    }
-    
-    for (final interest in interests.take(2)) {
-      suggestions.add({
-        'type': 'place',
-        'title': 'Explore $interest spots',
-        'description': 'Discover places for $interest enthusiasts',
-        'reason': 'Based on your interest in $interest'
-      });
-    }
-    
-    return suggestions;
   }
 
   // Trips API
@@ -147,7 +119,7 @@ class ApiService {
       final user = FirebaseAuth.instance.currentUser;
       if (user == null) {
         print('❌ No authenticated user for stats');
-        return _getMockUserStats();
+        return {};
       }
       
       print('📊 Fetching user stats for: ${user.uid}');
@@ -175,7 +147,7 @@ class ApiService {
       return stats;
     } catch (e) {
       print('❌ Error fetching user stats: $e');
-      return _getMockUserStats();
+      return {};
     }
   }
   
@@ -223,22 +195,6 @@ class ApiService {
     } catch (e) {
       return 0;
     }
-  }
-
-  Map<String, dynamic> _getMockUserStats() {
-    return {
-      'totalTrips': 0,
-      'totalPosts': 0,
-      'totalFavorites': 0,
-      'totalItineraries': 0,
-      'memberSince': DateTime.now().toIso8601String(),
-      'profileType': 'traveler',
-      'tier': 'free',
-      'subscriptionStatus': 'none',
-      'placesVisited': 0,
-      'badgesEarned': [],
-      'travelScore': 0
-    };
   }
 
   // Places API

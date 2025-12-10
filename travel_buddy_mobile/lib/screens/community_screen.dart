@@ -3,6 +3,8 @@ import 'package:provider/provider.dart';
 import '../providers/app_provider.dart';
 import '../providers/community_provider.dart';
 import '../widgets/instagram_post_card.dart';
+import '../widgets/skeleton_post_card.dart';
+import '../widgets/error_retry_widget.dart';
 import 'create_post_screen.dart';
 import 'user_profile_screen.dart';
 
@@ -80,33 +82,29 @@ class _CommunityScreenState extends State<CommunityScreen> {
   Widget _buildInstagramBody() {
     return Consumer2<AppProvider, CommunityProvider>(
       builder: (context, appProvider, communityProvider, child) {
-        print('📺 [FEED] Building Instagram body');
-        print('📺 [FEED] Posts count: ${communityProvider.posts.length}');
-        print('📺 [FEED] Is loading: ${communityProvider.isLoading}');
-        print('📺 [FEED] Error: ${communityProvider.error}');
-        print('📺 [FEED] User authenticated: ${appProvider.isAuthenticated}');
-        
-        if (communityProvider.posts.isNotEmpty) {
-          print('📺 [FEED] First post content: "${communityProvider.posts.first.content}"');
-          print('📺 [FEED] First post ID: ${communityProvider.posts.first.id}');
-          print('📺 [FEED] First post user: ${communityProvider.posts.first.userName}');
-          print('📺 [FEED] First post avatar: ${communityProvider.posts.first.userAvatar}');
-        } else {
-          print('📺 [FEED] No posts to display');
-        }
-        
         if (!appProvider.isAuthenticated) {
           return _buildUnauthenticatedView();
+        }
+
+        // Show error with retry button
+        if (communityProvider.error != null && communityProvider.posts.isEmpty) {
+          return ErrorRetryWidget(
+            message: communityProvider.error!,
+            onRetry: () => communityProvider.loadPosts(refresh: true, context: context),
+          );
         }
 
         return RefreshIndicator(
           onRefresh: () => communityProvider.loadPosts(refresh: true, context: context),
           child: CustomScrollView(
             slivers: [
-              // Posts List
+              // Initial loading with skeleton
               if (communityProvider.isLoading && communityProvider.posts.isEmpty)
-                const SliverFillRemaining(
-                  child: Center(child: CircularProgressIndicator()),
+                SliverList(
+                  delegate: SliverChildBuilderDelegate(
+                    (context, index) => const SkeletonPostCard(),
+                    childCount: 3,
+                  ),
                 )
               else if (communityProvider.posts.isEmpty)
                 SliverFillRemaining(child: _buildEmptyView())
@@ -114,13 +112,11 @@ class _CommunityScreenState extends State<CommunityScreen> {
                 SliverList(
                   delegate: SliverChildBuilderDelegate(
                     (context, index) {
+                      // Load more with skeleton
                       if (index >= communityProvider.posts.length) {
                         if (communityProvider.hasMorePosts) {
                           communityProvider.loadPosts(context: context);
-                          return const Padding(
-                            padding: EdgeInsets.all(16),
-                            child: Center(child: CircularProgressIndicator()),
-                          );
+                          return const SkeletonPostCard();
                         }
                         return const SizedBox.shrink();
                       }
@@ -346,13 +342,16 @@ class UserSearchDelegate extends SearchDelegate<String> {
       itemCount: users.length,
       itemBuilder: (context, index) {
         final user = users[index];
+        final userName = user['userName'] ?? '';
+        final userAvatar = user['userAvatar'] ?? '';
+        
         return ListTile(
           leading: CircleAvatar(
-            backgroundImage: user['userAvatar']!.isNotEmpty && !user['userAvatar']!.contains('unsplash')
-                ? NetworkImage(user['userAvatar']!)
+            backgroundImage: userAvatar.isNotEmpty && !userAvatar.contains('unsplash')
+                ? NetworkImage(userAvatar)
                 : null,
-            child: user['userAvatar']!.isEmpty || user['userAvatar']!.contains('unsplash')
-                ? Text(user['userName']![0].toUpperCase())
+            child: userAvatar.isEmpty || userAvatar.contains('unsplash')
+                ? Text(userName.isNotEmpty ? userName[0].toUpperCase() : '?')
                 : null,
           ),
           title: Text(user['userName']!),

@@ -5,12 +5,14 @@ class CommunityPost {
   final String userId;
   final String userName;
   final String userAvatar;
+  final String title; // NEW: Story title
   final String content;
   final List<String> images;
   final String location;
   final DateTime createdAt;
   final int likesCount;
   final int commentsCount;
+  final int viewsCount; // NEW: View count
   final bool isLiked;
   final PostType postType;
   final List<String> hashtags;
@@ -27,12 +29,14 @@ class CommunityPost {
     required this.userId,
     required this.userName,
     required this.userAvatar,
+    this.title = '',
     required this.content,
     this.images = const [],
     required this.location,
     required this.createdAt,
     this.likesCount = 0,
     this.commentsCount = 0,
+    this.viewsCount = 0,
     this.isLiked = false,
     this.postType = PostType.experience,
     this.hashtags = const [],
@@ -56,12 +60,14 @@ class CommunityPost {
       userId: json['userId'] ?? '',
       userName: author['name'] ?? json['userName'] ?? 'User',
       userAvatar: author['avatar'] ?? json['userAvatar'] ?? '',
+      title: json['title'] ?? '',
       content: content['text'] ?? json['content'] ?? '',
       images: List<String>.from(content['images'] ?? json['images'] ?? []),
       location: author['location'] ?? json['location'] ?? '',
       createdAt: DateTime.tryParse(json['createdAt'] ?? '') ?? DateTime.now(),
       likesCount: engagement['likes'] ?? json['likesCount'] ?? 0,
       commentsCount: engagement['comments'] ?? json['commentsCount'] ?? 0,
+      viewsCount: engagement['views'] ?? json['viewsCount'] ?? 0,
       isLiked: json['isLiked'] ?? false,
       postType: PostType.fromString(json['category'] ?? json['postType'] ?? 'story'),
       hashtags: List<String>.from(json['tags'] ?? json['hashtags'] ?? []),

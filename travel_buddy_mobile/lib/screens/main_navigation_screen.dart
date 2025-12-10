@@ -6,7 +6,7 @@ import 'places_screen.dart';
 import 'deals_screen.dart';
 import 'planner_screen.dart';
 
-import 'community_screen.dart';
+import 'community_screen_v2.dart';
 import 'profile_screen.dart';
 
 class MainNavigationScreen extends StatefulWidget {
@@ -22,7 +22,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
     const PlacesScreen(),
     const DealsScreen(),
     const PlannerScreen(),
-    const CommunityScreen(),
+    const CommunityScreenV2(),
     const ProfileScreen(),
   ];
 

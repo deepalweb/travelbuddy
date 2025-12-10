@@ -755,10 +755,13 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
 
   Future<bool> updateUserProfile({
     String? username,
+    String? fullName,
+    String? phone,
     String? email,
     String? bio,
     String? website,
     String? location,
+    String? homeCity,
     String? birthday,
     List<String>? languages,
     List<String>? interests,
@@ -790,10 +793,13 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
       // Update current user locally first
       _currentUser = _currentUser!.copyWith(
         username: username ?? _currentUser?.username,
+        fullName: fullName ?? _currentUser?.fullName,
+        phone: phone ?? _currentUser?.phone,
         email: email ?? _currentUser?.email,
         bio: bio ?? _currentUser?.bio,
         website: website ?? _currentUser?.website,
         location: location ?? _currentUser?.location,
+        homeCity: homeCity ?? _currentUser?.homeCity,
         birthday: birthday ?? _currentUser?.birthday,
         languages: languages ?? _currentUser?.languages,
         interests: interests ?? _currentUser?.interests,
@@ -835,10 +841,13 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
       // Sync all profile data to backend
       await _syncProfileToBackend({
         'username': username,
+        'fullName': fullName,
+        'phone': phone,
         'email': email,
         'bio': bio,
         'website': website,
         'location': location,
+        'homeCity': homeCity,
         'birthday': birthday,
         'languages': languages,
         'interests': interests,
@@ -2897,6 +2906,21 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
       
       // Load user-specific data
       try {
+        // Fetch latest profile from backend to get profilePicture and other fields
+        try {
+          final response = await http.get(
+            Uri.parse('${Environment.backendUrl}/api/users/${_currentUser!.uid}'),
+          );
+          if (response.statusCode == 200) {
+            final userData = json.decode(response.body);
+            _currentUser = CurrentUser.fromJson(userData);
+            await _storageService.saveUser(_currentUser!);
+            print('✅ Synced user profile from backend (including profilePicture)');
+          }
+        } catch (e) {
+          print('⚠️ Failed to fetch user profile from backend: $e');
+        }
+        
         // DON'T reload trip plans here - already loaded in _loadCachedData
         print('⚠️ SKIPPING trip plans reload to preserve data');
         
@@ -2924,9 +2948,6 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
           _favoriteIds = ErrorHandlerService.safeListCast<String>(favorites, 'loadUserData - favorites');
         }
         await _updateFavoritePlaces();
-        
-        // Save current user to storage if not already saved
-        await _storageService.saveUser(_currentUser!);
         
         // Sync travel style from backend if available
         try {

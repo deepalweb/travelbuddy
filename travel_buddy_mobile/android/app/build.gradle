@@ -12,7 +12,7 @@ if (keystorePropertiesFile.exists()) {
 }
 
 android {
-    namespace = "com.example.travel_buddy_mobile"
+    namespace = "com.travelbuddylk.app"
     compileSdk = 36
     ndkVersion = "27.0.12077973"
 
@@ -27,7 +27,7 @@ android {
     }
 
     defaultConfig {
-        applicationId = "com.example.travel_buddy_mobile"
+        applicationId = "com.travelbuddylk.app"
         minSdkVersion = flutter.minSdkVersion
         targetSdkVersion = 35
         versionCode = 1

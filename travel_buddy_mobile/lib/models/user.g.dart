@@ -44,13 +44,20 @@ class CurrentUserAdapter extends TypeAdapter<CurrentUser> {
       showLocationToOthers: fields[24] as bool,
       travelStyle: fields[25] as TravelStyle?,
       status: fields[26] as String?,
+      fullName: fields[27] as String?,
+      phone: fields[28] as String?,
+      homeCity: fields[29] as String?,
+      socialLinks: (fields[30] as List?)
+          ?.map((dynamic e) => (e as Map).cast<String, String>())
+          ?.toList(),
+      travelPreferences: (fields[31] as Map?)?.cast<String, dynamic>(),
     );
   }
 
   @override
   void write(BinaryWriter writer, CurrentUser obj) {
     writer
-      ..writeByte(27)
+      ..writeByte(32)
       ..writeByte(0)
       ..write(obj.username)
       ..writeByte(1)
@@ -104,7 +111,17 @@ class CurrentUserAdapter extends TypeAdapter<CurrentUser> {
       ..writeByte(25)
       ..write(obj.travelStyle)
       ..writeByte(26)
-      ..write(obj.status);
+      ..write(obj.status)
+      ..writeByte(27)
+      ..write(obj.fullName)
+      ..writeByte(28)
+      ..write(obj.phone)
+      ..writeByte(29)
+      ..write(obj.homeCity)
+      ..writeByte(30)
+      ..write(obj.socialLinks)
+      ..writeByte(31)
+      ..write(obj.travelPreferences);
   }
 
   @override

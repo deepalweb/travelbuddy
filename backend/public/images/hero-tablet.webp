@@ -1,0 +1,3 @@
+# Placeholder for hero-tablet.webp (1536x1024, ≤120kB, 85% quality)
+# This would be the actual optimized WebP image file
+# Generated with: cwebp -q 85 -resize 1536 1024 source.jpg -o hero-tablet.webp

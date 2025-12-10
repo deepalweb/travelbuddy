@@ -655,7 +655,7 @@ class _UserProfileScreenState extends State<UserProfileScreen>
         radius: 50,
         backgroundColor: Colors.white,
         child: Text(
-          widget.userName[0].toUpperCase(),
+          widget.userName.isNotEmpty ? widget.userName[0].toUpperCase() : '?',
           style: const TextStyle(
             fontSize: 32,
             fontWeight: FontWeight.bold,
@@ -697,7 +697,7 @@ class _UserProfileScreenState extends State<UserProfileScreen>
       radius: 50,
       backgroundColor: Colors.white,
       child: Text(
-        widget.userName[0].toUpperCase(),
+        widget.userName.isNotEmpty ? widget.userName[0].toUpperCase() : '?',
         style: const TextStyle(
           fontSize: 32,
           fontWeight: FontWeight.bold,

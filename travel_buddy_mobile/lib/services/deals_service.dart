@@ -58,7 +58,12 @@ class DealsService {
       print('📡 Response headers: ${response.headers}');
       
       if (response.statusCode == 200 && response.data != null) {
-        final List<dynamic> data = response.data;
+        // Backend returns {deals: [...], newDealsCount: 0}
+        final responseData = response.data;
+        final List<dynamic> data = responseData is Map && responseData['deals'] != null 
+            ? responseData['deals'] 
+            : (responseData is List ? responseData : []);
+        
         print('✅ Loaded ${data.length} deals from backend');
         
         if (data.isNotEmpty) {
@@ -83,78 +88,17 @@ class DealsService {
           if (deals.isNotEmpty) {
             print('✅ Successfully parsed ${deals.length} deals');
             return deals;
-          } else {
-            print('⚠️ No deals could be parsed, using mock data');
-            return _getMockDeals();
           }
         } catch (e) {
           print('❌ Error parsing deals: $e');
-          print('🔍 Raw data sample: ${data.take(1).toList()}');
-          return _getMockDeals();
         }
-      } else {
-        print('❌ Invalid response: ${response.statusCode}');
-        print('❌ Response data: ${response.data}');
       }
       
-      print('🎭 Using mock deals as fallback');
-      return _getMockDeals();
+      return [];
     } catch (e) {
       print('❌ Error fetching deals: $e');
-      print('🎭 Using mock deals due to error');
-      return _getMockDeals();
+      return [];
     }
-  }
-  
-  static List<Deal> _getMockDeals() {
-    print('Hot Deals: MOCK data (3 deals)');
-    print('! Skipping real deals API - endpoint not implemented');
-    print('! Skipping fallback deals service - using places data instead');
-    return [
-      Deal(
-        id: 'mock_1',
-        title: '50% Off Pizza',
-        description: 'Get 50% off on all pizzas this weekend!',
-        discount: '50% OFF',
-        placeName: 'Mario\'s Pizza',
-        businessType: 'restaurant',
-        businessName: 'Mario\'s Pizza',
-        images: ['https://images.unsplash.com/photo-1565299624946-b28f40a0ca4b?w=400'],
-        validUntil: DateTime.now().add(Duration(days: 7)),
-        views: 245,
-        claims: 12,
-        price: PriceInfo(amount: 15.99, currencyCode: 'USD'),
-      ),
-      Deal(
-        id: 'mock_2',
-        title: 'Free Coffee',
-        description: 'Buy one coffee, get one free!',
-        discount: 'Buy 1 Get 1',
-        placeName: 'Coffee Corner',
-        businessType: 'cafe',
-        businessName: 'Coffee Corner',
-        images: ['https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?w=400'],
-        validUntil: DateTime.now().add(Duration(days: 3)),
-        views: 189,
-        claims: 8,
-        price: PriceInfo(amount: 4.50, currencyCode: 'USD'),
-      ),
-      Deal(
-        id: 'mock_3',
-        title: '20% Off Hotel Stay',
-        description: 'Special discount on weekend stays',
-        discount: '20% OFF',
-        placeName: 'Grand Hotel',
-        businessType: 'hotel',
-        businessName: 'Grand Hotel',
-        images: ['https://images.unsplash.com/photo-1566073771259-6a8506099945?w=400'],
-        validUntil: DateTime.now().add(Duration(days: 14)),
-        views: 567,
-        claims: 23,
-        price: PriceInfo(amount: 120.00, currencyCode: 'USD'),
-        isPremium: true,
-      ),
-    ];
   }
 
   static Future<bool> claimDeal(String dealId) async {

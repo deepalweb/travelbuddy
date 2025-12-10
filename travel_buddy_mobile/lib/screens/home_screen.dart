@@ -18,6 +18,7 @@ import '../screens/trip_plan_detail_screen.dart';
 import '../screens/transport_screen.dart';
 import '../screens/travel_agent_screen.dart';
 import '../screens/events_screen.dart';
+import '../config/environment.dart';
 
 
 class HomeScreen extends StatefulWidget {
@@ -615,23 +616,33 @@ class _HomeScreenState extends State<HomeScreen> {
           borderRadius: BorderRadius.circular(20),
           child: Stack(
             children: [
-              // Background image
+              // Background image - nearby place or fallback
               Positioned.fill(
-                child: Image.network(
-                  'https://images.unsplash.com/photo-1488646953014-85cb44e25828?w=800&q=80',
-                  fit: BoxFit.cover,
-                  errorBuilder: (context, error, stackTrace) {
-                    return Container(
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          colors: [Color(0xFF667eea), Color(0xFF764ba2)],
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
+                child: appProvider.places.isNotEmpty && appProvider.places.first.photoUrl.isNotEmpty
+                    ? Image.network(
+                        appProvider.places.first.photoUrl,
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) {
+                          return Container(
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                colors: [Color(0xFF667eea), Color(0xFF764ba2)],
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                              ),
+                            ),
+                          );
+                        },
+                      )
+                    : Container(
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: [Color(0xFF667eea), Color(0xFF764ba2)],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          ),
                         ),
                       ),
-                    );
-                  },
-                ),
               ),
               // Dark overlay for text readability
               Positioned.fill(
@@ -1790,8 +1801,9 @@ class _HomeScreenState extends State<HomeScreen> {
     switch (action) {
       case 'Safety Hub':
       case 'safety':
-        Navigator.pushNamed(context, '/safety');
+        _showEmergencyDialog();
         break;
+      case 'Language Assistant':
       case 'Translator':
       case 'translator':
         Navigator.push(
@@ -1801,18 +1813,32 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         );
         break;
+      case 'Live Weather':
       case 'Weather':
       case 'weather':
         _showWeatherModal(appProvider);
         break;
+      case 'Transport Hub':
       case 'Transport':
       case 'transport':
-        _showTransportModal();
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => const TransportScreen(),
+          ),
+        );
         break;
+      case 'Travel Assistance':
       case 'Travel Agent':
       case 'travel_agent':
-        _showTravelAgentModal();
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => const TravelAgentScreen(),
+          ),
+        );
         break;
+      case 'Events & Festivals':
       case 'Events':
       case 'events':
         Navigator.push(
@@ -1972,15 +1998,10 @@ class _HomeScreenState extends State<HomeScreen> {
       // Get location name first
       final locationName = await _getLocationName(lat, lng);
       
-      // Use Azure OpenAI to get emergency numbers
-      final response = await http.post(
-        Uri.parse('http://localhost:3001/api/emergency/emergency-numbers'),
+      // Use real emergency numbers database
+      final response = await http.get(
+        Uri.parse('${Environment.backendUrl}/api/emergency/numbers?lat=$lat&lng=$lng'),
         headers: {'Content-Type': 'application/json'},
-        body: json.encode({
-          'location': locationName,
-          'latitude': lat,
-          'longitude': lng,
-        }),
       );
       
       if (response.statusCode == 200) {
@@ -2087,6 +2108,8 @@ class _HomeScreenState extends State<HomeScreen> {
   void _showWeatherModal(AppProvider appProvider) {
     final temp = appProvider.weatherInfo?.temperature.round() ?? 28;
     final condition = appProvider.weatherInfo?.condition ?? 'sunny';
+    final humidity = appProvider.weatherInfo?.humidity.round() ?? 65;
+    final windSpeed = appProvider.weatherInfo?.windSpeed.round() ?? 12;
     final feelsLike = temp + 2;
     
     showModalBottomSheet(
@@ -2158,9 +2181,9 @@ class _HomeScreenState extends State<HomeScreen> {
                     const SizedBox(height: 12),
                     Row(
                       children: [
-                        Expanded(child: _buildMetricCard('💨 Wind', '12 km/h', Colors.blue)),
+                        Expanded(child: _buildMetricCard('💨 Wind', '$windSpeed km/h', Colors.blue)),
                         const SizedBox(width: 8),
-                        Expanded(child: _buildMetricCard('☁ Humidity', '65%', Colors.cyan)),
+                        Expanded(child: _buildMetricCard('☁ Humidity', '$humidity%', Colors.cyan)),
                       ],
                     ),
                     const SizedBox(height: 8),

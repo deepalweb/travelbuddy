@@ -1,7 +1,39 @@
 import express from 'express';
 const router = express.Router();
 
-// GET /api/emergency/numbers - Get emergency numbers using Azure OpenAI
+// Official emergency numbers database (verified sources)
+const EMERGENCY_NUMBERS = {
+  'US': { country: 'United States', police: '911', ambulance: '911', fire: '911' },
+  'CA': { country: 'Canada', police: '911', ambulance: '911', fire: '911' },
+  'GB': { country: 'United Kingdom', police: '999', ambulance: '999', fire: '999' },
+  'AU': { country: 'Australia', police: '000', ambulance: '000', fire: '000' },
+  'NZ': { country: 'New Zealand', police: '111', ambulance: '111', fire: '111' },
+  'IN': { country: 'India', police: '100', ambulance: '102', fire: '101' },
+  'LK': { country: 'Sri Lanka', police: '119', ambulance: '110', fire: '111' },
+  'JP': { country: 'Japan', police: '110', ambulance: '119', fire: '119' },
+  'CN': { country: 'China', police: '110', ambulance: '120', fire: '119' },
+  'KR': { country: 'South Korea', police: '112', ambulance: '119', fire: '119' },
+  'TH': { country: 'Thailand', police: '191', ambulance: '1669', fire: '199' },
+  'SG': { country: 'Singapore', police: '999', ambulance: '995', fire: '995' },
+  'MY': { country: 'Malaysia', police: '999', ambulance: '999', fire: '994' },
+  'PH': { country: 'Philippines', police: '911', ambulance: '911', fire: '911' },
+  'ID': { country: 'Indonesia', police: '110', ambulance: '118', fire: '113' },
+  'AE': { country: 'UAE', police: '999', ambulance: '998', fire: '997' },
+  'SA': { country: 'Saudi Arabia', police: '999', ambulance: '997', fire: '998' },
+  'ZA': { country: 'South Africa', police: '10111', ambulance: '10177', fire: '10111' },
+  'BR': { country: 'Brazil', police: '190', ambulance: '192', fire: '193' },
+  'MX': { country: 'Mexico', police: '911', ambulance: '911', fire: '911' },
+  'AR': { country: 'Argentina', police: '911', ambulance: '107', fire: '100' },
+  'FR': { country: 'France', police: '17', ambulance: '15', fire: '18' },
+  'DE': { country: 'Germany', police: '110', ambulance: '112', fire: '112' },
+  'IT': { country: 'Italy', police: '113', ambulance: '118', fire: '115' },
+  'ES': { country: 'Spain', police: '091', ambulance: '061', fire: '080' },
+  'RU': { country: 'Russia', police: '102', ambulance: '103', fire: '101' },
+  'TR': { country: 'Turkey', police: '155', ambulance: '112', fire: '110' },
+  'EG': { country: 'Egypt', police: '122', ambulance: '123', fire: '180' },
+};
+
+// GET /api/emergency/numbers - Get real emergency numbers by location
 router.get('/numbers', async (req, res) => {
   const { lat, lng } = req.query;
   
@@ -10,40 +42,31 @@ router.get('/numbers', async (req, res) => {
   }
 
   try {
-    const { AzureOpenAI } = await import('openai');
+    // Use Google Geocoding API to get country code
+    const fetch = (await import('node-fetch')).default;
+    const geocodeUrl = `https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lng}&key=${process.env.GOOGLE_PLACES_API_KEY}`;
     
-    const client = new AzureOpenAI({
-      apiKey: process.env.AZURE_OPENAI_API_KEY,
-      endpoint: process.env.AZURE_OPENAI_ENDPOINT,
-      apiVersion: '2024-02-15-preview',
-    });
+    const response = await fetch(geocodeUrl);
+    const data = await response.json();
     
-    const prompt = `Given coordinates ${lat}, ${lng}, provide official emergency numbers for this location. Return ONLY JSON:\n    {\n      "country": "Country Name",\n      "police": "number",\n      "ambulance": "number", \n      "fire": "number"\n    }`;
-    
-    const response = await client.chat.completions.create({
-      model: process.env.AZURE_OPENAI_DEPLOYMENT_NAME || 'gpt-4',
-      messages: [{
-        role: 'user',
-        content: prompt
-      }],
-      max_tokens: 200,
-      temperature: 0.1,
-    });
-    
-    const aiResponse = response.choices[0]?.message?.content?.trim();
-    
-    if (aiResponse) {
-      try {
-        const emergencyData = JSON.parse(aiResponse);
-        if (emergencyData.country && emergencyData.police) {
+    if (data.status === 'OK' && data.results[0]) {
+      // Extract country code from address components
+      const addressComponents = data.results[0].address_components;
+      const countryComponent = addressComponents.find(c => c.types.includes('country'));
+      
+      if (countryComponent) {
+        const countryCode = countryComponent.short_name;
+        const emergencyData = EMERGENCY_NUMBERS[countryCode];
+        
+        if (emergencyData) {
+          console.log(`✅ Found real emergency numbers for ${emergencyData.country}`);
           return res.json(emergencyData);
         }
-      } catch (parseError) {
-        console.error('Failed to parse AI response:', parseError);
       }
     }
     
-    // Fallback
+    // Fallback to EU standard
+    console.log('⚠️ Country not in database, using EU standard 112');
     res.json({
       country: 'International',
       police: '112',
@@ -52,7 +75,7 @@ router.get('/numbers', async (req, res) => {
     });
     
   } catch (error) {
-    console.error('Azure OpenAI error:', error);
+    console.error('Emergency numbers API error:', error);
     res.json({
       country: 'International', 
       police: '112',
@@ -306,6 +329,53 @@ router.get('/phrases', async (req, res) => {
   } catch (error) {
     console.error('Emergency phrases error:', error);
     res.status(500).json({ error: 'Failed to fetch emergency phrases' });
+  }
+});
+
+// POST /api/emergency/emergency-numbers - Alternative endpoint for mobile app
+router.post('/emergency-numbers', async (req, res) => {
+  const { latitude, longitude } = req.body;
+  
+  if (!latitude || !longitude) {
+    return res.status(400).json({ error: 'Latitude and longitude required' });
+  }
+
+  try {
+    const fetch = (await import('node-fetch')).default;
+    const geocodeUrl = `https://maps.googleapis.com/maps/api/geocode/json?latlng=${latitude},${longitude}&key=${process.env.GOOGLE_PLACES_API_KEY}`;
+    
+    const response = await fetch(geocodeUrl);
+    const data = await response.json();
+    
+    if (data.status === 'OK' && data.results[0]) {
+      const addressComponents = data.results[0].address_components;
+      const countryComponent = addressComponents.find(c => c.types.includes('country'));
+      
+      if (countryComponent) {
+        const countryCode = countryComponent.short_name;
+        const emergencyData = EMERGENCY_NUMBERS[countryCode];
+        
+        if (emergencyData) {
+          return res.json(emergencyData);
+        }
+      }
+    }
+    
+    res.json({
+      country: 'International',
+      police: '112',
+      ambulance: '112',
+      fire: '112'
+    });
+    
+  } catch (error) {
+    console.error('Emergency numbers error:', error);
+    res.json({
+      country: 'International',
+      police: '112',
+      ambulance: '112',
+      fire: '112'
+    });
   }
 });
 

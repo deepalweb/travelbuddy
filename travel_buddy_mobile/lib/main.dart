@@ -10,6 +10,7 @@ import 'screens/splash_screen.dart';
 import 'screens/safety_screen.dart';
 import 'screens/ai_plan_screen.dart';
 import 'screens/enhanced_route_plan_screen.dart';
+import 'theme/app_theme.dart';
 
 import 'models/place.dart';
 import 'services/storage_service.dart';
@@ -95,40 +96,7 @@ class TravelBuddyApp extends StatelessWidget {
           return MaterialApp(
             title: 'Travel Buddy',
             debugShowCheckedModeBanner: false,
-            theme: ThemeData(
-              colorScheme: ColorScheme.fromSeed(
-                seedColor: Color(AppConstants.colors['primary']!),
-                brightness: Brightness.light,
-              ),
-              useMaterial3: true,
-              appBarTheme: AppBarTheme(
-                backgroundColor: Color(AppConstants.colors['primary']!),
-                foregroundColor: Colors.white,
-                elevation: 0,
-              ),
-              elevatedButtonTheme: ElevatedButtonThemeData(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Color(AppConstants.colors['primary']!),
-                  foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
-              ),
-              cardTheme: CardThemeData(
-                elevation: 2,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
-            ),
-            darkTheme: ThemeData(
-              colorScheme: ColorScheme.fromSeed(
-                seedColor: Color(AppConstants.colors['primary']!),
-                brightness: Brightness.dark,
-              ),
-              useMaterial3: true,
-            ),
+            theme: AppTheme.lightTheme,
             themeMode: appProvider.isDarkMode ? ThemeMode.dark : ThemeMode.light,
             home: const SplashScreen(),
             routes: {

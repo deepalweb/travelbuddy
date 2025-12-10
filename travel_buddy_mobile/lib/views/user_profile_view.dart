@@ -541,7 +541,7 @@ class _FollowersScreen extends StatelessWidget {
                       ? NetworkImage(user.profileImage) 
                       : null,
                   child: user.profileImage.isEmpty 
-                      ? Text(user.username[0].toUpperCase()) 
+                      ? Text(user.username.isNotEmpty ? user.username[0].toUpperCase() : '?') 
                       : null,
                 ),
                 title: Text(user.username),

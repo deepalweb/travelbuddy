@@ -23,6 +23,8 @@ import { SubscriptionPage } from './pages/SubscriptionPage'
 import { EventOrganizerRegistration } from './pages/EventOrganizerRegistration'
 import { CreateEventPage } from './pages/CreateEventPage'
 import { checkFirebaseStatus } from './utils/firebaseStatus'
+import PrivacyPolicyPage from './pages/PrivacyPolicyPage'
+import TermsOfServicePage from './pages/TermsOfServicePage'
 
 const AppContent: React.FC = () => {
   const { config, loading, error } = useConfig()
@@ -62,6 +64,8 @@ const AppContent: React.FC = () => {
           <Routes>
             <Route path="/login" element={<LoginPage />} />
             <Route path="/register" element={<RegisterPage />} />
+            <Route path="/privacy-policy" element={<PrivacyPolicyPage />} />
+            <Route path="/terms-of-service" element={<TermsOfServicePage />} />
             <Route path="/role-selection" element={<RoleSelectionPage />} />
             <Route path="/travel-agent-registration" element={<TravelAgentRegistration />} />
             <Route path="/travel-agents" element={<TravelAgentsPage />} />

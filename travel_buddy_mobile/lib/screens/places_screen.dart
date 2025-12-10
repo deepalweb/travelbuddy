@@ -7,6 +7,7 @@ import '../widgets/place_card.dart';
 import '../widgets/search_bar_widget.dart';
 import '../widgets/place_section_widget.dart';
 import '../services/places_service.dart';
+import '../utils/api_debouncer.dart';
 import 'place_details_screen.dart';
 import 'subscription_plans_screen.dart';
 import 'route_plan_screen.dart';
@@ -20,10 +21,12 @@ class PlacesScreen extends StatefulWidget {
 
 class _PlacesScreenState extends State<PlacesScreen> {
   final TextEditingController _searchController = TextEditingController();
+  final _searchDebouncer = ApiDebouncer(delay: Duration(milliseconds: 500));
 
   @override
   void dispose() {
     _searchController.dispose();
+    _searchDebouncer.dispose();
     super.dispose();
   }
 
@@ -123,14 +126,13 @@ class _PlacesScreenState extends State<PlacesScreen> {
                   child: SearchBarWidget(
                     controller: _searchController,
                     onSearch: (query) {
-                      print('🔍 Search submitted: "$query"');
-                      if (query.trim().isNotEmpty) {
-                        // Show search results instantly
-                        appProvider.performInstantSearch(query.trim());
-                      } else {
-                        // Clear search - show sections
-                        appProvider.clearSearchAndShowSections();
-                      }
+                      _searchDebouncer.call(() {
+                        if (query.trim().isNotEmpty) {
+                          appProvider.performInstantSearch(query.trim());
+                        } else {
+                          appProvider.clearSearchAndShowSections();
+                        }
+                      });
                     },
                   ),
                 ),

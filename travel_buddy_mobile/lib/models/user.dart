@@ -132,6 +132,21 @@ class CurrentUser extends HiveObject {
   @HiveField(26)
   final String? status;
 
+  @HiveField(27)
+  final String? fullName;
+
+  @HiveField(28)
+  final String? phone;
+
+  @HiveField(29)
+  final String? homeCity;
+
+  @HiveField(30)
+  final List<Map<String, String>>? socialLinks;
+
+  @HiveField(31)
+  final Map<String, dynamic>? travelPreferences;
+
   CurrentUser({
     this.username,
     this.uid,
@@ -160,6 +175,11 @@ class CurrentUser extends HiveObject {
     this.showLocationToOthers = true,
     this.travelStyle,
     this.status,
+    this.fullName,
+    this.phone,
+    this.homeCity,
+    this.socialLinks,
+    this.travelPreferences,
   });
 
   factory CurrentUser.fromJson(Map<String, dynamic> json) {
@@ -208,6 +228,11 @@ class CurrentUser extends HiveObject {
             )
           : null,
       status: json['status'],
+      fullName: json['fullName'],
+      phone: json['phone'],
+      homeCity: json['homeCity'],
+      socialLinks: (json['socialLinks'] as List?)?.map((e) => Map<String, String>.from(e)).toList(),
+      travelPreferences: json['travelPreferences'] as Map<String, dynamic>?,
     );
   }
 
@@ -240,6 +265,11 @@ class CurrentUser extends HiveObject {
       'showLocationToOthers': showLocationToOthers,
       'travelStyle': travelStyle?.name,
       'status': status,
+      'fullName': fullName,
+      'phone': phone,
+      'homeCity': homeCity,
+      'socialLinks': socialLinks,
+      'travelPreferences': travelPreferences,
     };
   }
 
@@ -271,6 +301,11 @@ class CurrentUser extends HiveObject {
     bool? showLocationToOthers,
     TravelStyle? travelStyle,
     String? status,
+    String? fullName,
+    String? phone,
+    String? homeCity,
+    List<Map<String, String>>? socialLinks,
+    Map<String, dynamic>? travelPreferences,
   }) {
     return CurrentUser(
       username: username ?? this.username,
@@ -300,6 +335,11 @@ class CurrentUser extends HiveObject {
       showLocationToOthers: showLocationToOthers ?? this.showLocationToOthers,
       travelStyle: travelStyle ?? this.travelStyle,
       status: status ?? this.status,
+      fullName: fullName ?? this.fullName,
+      phone: phone ?? this.phone,
+      homeCity: homeCity ?? this.homeCity,
+      socialLinks: socialLinks ?? this.socialLinks,
+      travelPreferences: travelPreferences ?? this.travelPreferences,
     );
   }
 }

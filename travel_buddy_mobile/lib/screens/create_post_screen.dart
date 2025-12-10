@@ -7,6 +7,8 @@ import 'package:geocoding/geocoding.dart';
 import '../providers/community_provider.dart';
 import '../services/image_service.dart';
 import '../widgets/location_picker_map.dart';
+import '../widgets/location_autocomplete_field.dart';
+import '../widgets/enhanced_location_picker_map.dart';
 import '../models/community_post.dart';
 
 class CreatePostScreen extends StatefulWidget {
@@ -223,66 +225,49 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
               borderRadius: BorderRadius.circular(12),
               border: Border.all(color: Colors.grey[300]!),
             ),
-            child: TextField(
+            child: LocationAutocompleteField(
               controller: _locationController,
-              style: const TextStyle(fontSize: 16),
-              decoration: InputDecoration(
-                hintText: 'Where are you?',
-                hintStyle: TextStyle(color: Colors.grey[500]),
-                border: InputBorder.none,
-                contentPadding: const EdgeInsets.all(16),
-                suffixIcon: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    IconButton(
-                      icon: _isLoadingLocation 
-                          ? SizedBox(
-                              width: 20,
-                              height: 20,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                valueColor: AlwaysStoppedAnimation<Color>(Colors.blue[600]!),
-                              ),
-                            )
-                          : Icon(Icons.my_location, color: Colors.blue[600]),
-                      onPressed: _isLoadingLocation ? null : _getCurrentLocation,
-                      tooltip: 'Current location',
-                    ),
-                    IconButton(
-                      icon: Icon(Icons.map, color: Colors.green[600]),
-                      onPressed: _openMapPicker,
-                      tooltip: 'Pick from map',
-                    ),
-                  ],
-                ),
-              ),
+              hintText: 'Search for a location...',
+              onLocationSelected: (location, lat, lng) {
+                print('✅ Location selected: $location at $lat, $lng');
+              },
             ),
           ),
           const SizedBox(height: 12),
-          SizedBox(
-            height: 40,
-            child: ListView.builder(
-              scrollDirection: Axis.horizontal,
-              itemCount: _getPopularLocations().length,
-              itemBuilder: (context, index) {
-                final location = _getPopularLocations()[index];
-                return Container(
-                  margin: const EdgeInsets.only(right: 8),
-                  child: ActionChip(
-                    label: Text(
-                      location,
-                      style: const TextStyle(fontSize: 12),
-                    ),
-                    onPressed: () {
-                      _locationController.text = location;
-                    },
-                    backgroundColor: Colors.blue[50],
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: _isLoadingLocation ? null : _getCurrentLocation,
+                  icon: _isLoadingLocation
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.my_location, size: 18),
+                  label: const Text('GPS Location'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: Colors.blue[600],
                     side: BorderSide(color: Colors.blue[200]!),
-                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    padding: const EdgeInsets.symmetric(vertical: 12),
                   ),
-                );
-              },
-            ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: _openMapPicker,
+                  icon: const Icon(Icons.map, size: 18),
+                  label: const Text('Map Picker'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: Colors.green[600],
+                    side: BorderSide(color: Colors.green[200]!),
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                  ),
+                ),
+              ),
+            ],
           ),
         ],
       ),
@@ -799,9 +784,12 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => LocationPickerMap(
+        builder: (context) => EnhancedLocationPickerMap(
           onLocationSelected: (location, lat, lng) {
-            _locationController.text = location;
+            setState(() {
+              _locationController.text = location;
+            });
+            print('✅ Map location selected: $location at $lat, $lng');
           },
         ),
       ),

@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import '../models/community_post.dart';
 import '../providers/community_provider.dart';
 import '../screens/post_comments_screen.dart';
@@ -151,42 +152,29 @@ class _InstagramPostCardState extends State<InstagramPostCard>
 
   Widget _buildSingleImage() {
     final imageUrl = widget.post.images.first;
-    print('🖼️ [POST] Loading single image: ${imageUrl.substring(0, 50)}...');
     
     // Handle base64 data URLs
     if (imageUrl.startsWith('data:image/')) {
       try {
         final base64String = imageUrl.split(',')[1];
         final bytes = base64Decode(base64String);
-        print('✅ [POST] Loading base64 image (${bytes.length} bytes)');
-        return Image.memory(
-          bytes,
-          fit: BoxFit.cover,
-        );
+        return Image.memory(bytes, fit: BoxFit.cover);
       } catch (e) {
-        print('❌ [POST] Base64 decode error: $e');
         return _buildImageError();
       }
     }
     
-    // Handle regular network URLs
-    return Image.network(
-      imageUrl,
+    // Use cached network image for better performance
+    return CachedNetworkImage(
+      imageUrl: imageUrl,
       fit: BoxFit.cover,
-      loadingBuilder: (context, child, loadingProgress) {
-        if (loadingProgress == null) {
-          print('✅ [POST] Network image loaded: $imageUrl');
-          return child;
-        }
-        return Container(
-          color: Colors.grey[100],
-          child: const Center(child: CircularProgressIndicator()),
-        );
-      },
-      errorBuilder: (context, error, stackTrace) {
-        print('❌ [POST] Network image error: $error');
-        return _buildImageError();
-      },
+      placeholder: (context, url) => Container(
+        color: Colors.grey[100],
+        child: const Center(child: CircularProgressIndicator()),
+      ),
+      errorWidget: (context, url, error) => _buildImageError(),
+      memCacheWidth: 800,
+      maxWidthDiskCache: 800,
     );
   }
   
@@ -226,11 +214,17 @@ class _InstagramPostCardState extends State<InstagramPostCard>
           }
         }
         
-        // Handle regular network URLs
-        return Image.network(
-          imageUrl,
+        // Use cached network image
+        return CachedNetworkImage(
+          imageUrl: imageUrl,
           fit: BoxFit.cover,
-          errorBuilder: (context, error, stackTrace) => _buildImageError(),
+          placeholder: (context, url) => Container(
+            color: Colors.grey[100],
+            child: const Center(child: CircularProgressIndicator()),
+          ),
+          errorWidget: (context, url, error) => _buildImageError(),
+          memCacheWidth: 800,
+          maxWidthDiskCache: 800,
         );
       },
     );
@@ -437,25 +431,9 @@ class _InstagramPostCardState extends State<InstagramPostCard>
   }
 
   Widget _buildUserAvatar() {
-    print('🖼️ [AVATAR] User: ${widget.post.userName}');
-    print('🖼️ [AVATAR] Avatar URL: "${widget.post.userAvatar}"');
-    print('🖼️ [AVATAR] Is empty: ${widget.post.userAvatar.isEmpty}');
-    print('🖼️ [AVATAR] Is fallback: ${widget.post.userAvatar.contains("unsplash")}');
-    
     // If no avatar or fallback, show user initial
     if (widget.post.userAvatar.isEmpty || widget.post.userAvatar.contains('unsplash')) {
-      return CircleAvatar(
-        radius: 16,
-        backgroundColor: Colors.blue[100],
-        child: Text(
-          widget.post.userName[0].toUpperCase(),
-          style: TextStyle(
-            fontSize: 14,
-            fontWeight: FontWeight.bold,
-            color: Colors.blue[700],
-          ),
-        ),
-      );
+      return _buildFallbackAvatar();
     }
     
     // Handle base64 images (uploaded profile pictures)
@@ -463,26 +441,32 @@ class _InstagramPostCardState extends State<InstagramPostCard>
       try {
         final base64String = widget.post.userAvatar.split(',')[1];
         final bytes = base64Decode(base64String);
-        print('✅ [AVATAR] Using base64 image (${bytes.length} bytes)');
         return CircleAvatar(
           radius: 16,
           backgroundColor: Colors.grey[300],
           backgroundImage: MemoryImage(bytes),
         );
       } catch (e) {
-        print('❌ [AVATAR] Base64 decode error: $e');
         return _buildFallbackAvatar();
       }
     }
     
-    // Handle network images (Google photos, etc.)
+    // Use cached network image for avatars
     return CircleAvatar(
       radius: 16,
       backgroundColor: Colors.grey[300],
-      backgroundImage: NetworkImage(widget.post.userAvatar),
-      onBackgroundImageError: (error, stackTrace) {
-        print('❌ [AVATAR] Network image error: $error');
-      },
+      child: ClipOval(
+        child: CachedNetworkImage(
+          imageUrl: widget.post.userAvatar,
+          fit: BoxFit.cover,
+          width: 32,
+          height: 32,
+          placeholder: (context, url) => const CircularProgressIndicator(strokeWidth: 2),
+          errorWidget: (context, url, error) => _buildFallbackAvatar(),
+          memCacheWidth: 64,
+          maxWidthDiskCache: 64,
+        ),
+      ),
     );
   }
   
@@ -491,7 +475,7 @@ class _InstagramPostCardState extends State<InstagramPostCard>
       radius: 16,
       backgroundColor: Colors.blue[100],
       child: Text(
-        widget.post.userName[0].toUpperCase(),
+        widget.post.userName.isNotEmpty ? widget.post.userName[0].toUpperCase() : '?',
         style: TextStyle(
           fontSize: 14,
           fontWeight: FontWeight.bold,
@@ -504,19 +488,10 @@ class _InstagramPostCardState extends State<InstagramPostCard>
   void _showMoreOptions() {
     final currentUser = context.read<AppProvider>().currentUser;
     
-    // Debug logging
-    print('🔍 DEBUG: Checking post ownership');
-    print('  - Current user: ${currentUser?.username ?? "None"} (${currentUser?.uid ?? "None"})');
-    print('  - Current user MongoDB ID: ${currentUser?.mongoId ?? "None"}');
-    print('  - Post user ID: ${widget.post.userId}');
-    print('  - Post user name: ${widget.post.userName}');
-    
+    // Standardized ownership check using mongoId only
     final isOwnPost = currentUser != null && 
-        (widget.post.userId == currentUser.mongoId || 
-         widget.post.userId == currentUser.uid ||
-         widget.post.userName == currentUser.username);
-    
-    print('  - Is own post: $isOwnPost');
+        currentUser.mongoId != null &&
+        widget.post.userId == currentUser.mongoId;
 
     showModalBottomSheet(
       context: context,

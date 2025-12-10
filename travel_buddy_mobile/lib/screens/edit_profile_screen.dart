@@ -16,9 +16,12 @@ class EditProfileScreen extends StatefulWidget {
 class _EditProfileScreenState extends State<EditProfileScreen> {
   final _formKey = GlobalKey<FormState>();
   final _usernameController = TextEditingController();
+  final _fullNameController = TextEditingController();
+  final _phoneController = TextEditingController();
   final _bioController = TextEditingController();
   final _websiteController = TextEditingController();
   final _locationController = TextEditingController();
+  final _homeCityController = TextEditingController();
   final _statusController = TextEditingController();
   bool _isLoading = false;
   bool _isPickingImage = false;
@@ -38,9 +41,12 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   @override
   void dispose() {
     _usernameController.dispose();
+    _fullNameController.dispose();
+    _phoneController.dispose();
     _bioController.dispose();
     _websiteController.dispose();
     _locationController.dispose();
+    _homeCityController.dispose();
     _statusController.dispose();
     super.dispose();
   }
@@ -49,9 +55,12 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     final user = context.read<AppProvider>().currentUser;
     if (user != null) {
       _usernameController.text = user.username ?? '';
+      _fullNameController.text = user.fullName ?? '';
+      _phoneController.text = user.phone ?? '';
       _bioController.text = user.bio ?? 'Travel Enthusiast • 🌍 Explorer';
       _websiteController.text = user.website ?? '';
       _locationController.text = user.location ?? '';
+      _homeCityController.text = user.homeCity ?? '';
       _statusController.text = user.status ?? '';
       _selectedBirthday = user.birthday != null ? DateTime.tryParse(user.birthday!) : null;
       _currentAvatarUrl = user.profilePicture;
@@ -148,26 +157,46 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
             ),
             const SizedBox(height: 32),
             
-            // Display Name Field
+            // Full Name Field
             TextFormField(
-              controller: _usernameController,
+              controller: _fullNameController,
               decoration: InputDecoration(
-                labelText: 'Display Name',
+                labelText: 'Full Name',
                 prefixIcon: const Icon(Icons.person),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(8),
                 ),
                 hintText: 'Enter your full name',
               ),
-              validator: (value) {
-                if (value == null || value.trim().isEmpty) {
-                  return 'Display name is required';
-                }
-                if (value.trim().length < 2) {
-                  return 'Display name must be at least 2 characters';
-                }
-                return null;
-              },
+            ),
+            const SizedBox(height: 16),
+            
+            // Username Field
+            TextFormField(
+              controller: _usernameController,
+              decoration: InputDecoration(
+                labelText: 'Username',
+                prefixIcon: const Icon(Icons.alternate_email),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                hintText: 'Enter username',
+              ),
+            ),
+            const SizedBox(height: 16),
+            
+            // Phone Field
+            TextFormField(
+              controller: _phoneController,
+              keyboardType: TextInputType.phone,
+              decoration: InputDecoration(
+                labelText: 'Phone',
+                prefixIcon: const Icon(Icons.phone),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                hintText: '+1 (555) 123-4567',
+              ),
             ),
             const SizedBox(height: 16),
             
@@ -224,16 +253,16 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
             ),
             const SizedBox(height: 16),
             
-            // Location Field
+            // Home City Field
             TextFormField(
-              controller: _locationController,
+              controller: _homeCityController,
               decoration: InputDecoration(
-                labelText: 'Location',
-                prefixIcon: const Icon(Icons.location_on),
+                labelText: 'Home City',
+                prefixIcon: const Icon(Icons.home),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(8),
                 ),
-                hintText: 'City, Country',
+                hintText: 'New York, NY',
               ),
             ),
             const SizedBox(height: 16),
@@ -818,9 +847,11 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       final appProvider = context.read<AppProvider>();
       final success = await appProvider.updateUserProfile(
         username: _usernameController.text.trim(),
+        fullName: _fullNameController.text.trim(),
+        phone: _phoneController.text.trim(),
         bio: _bioController.text.trim(),
         website: _websiteController.text.trim(),
-        location: _locationController.text.trim(),
+        homeCity: _homeCityController.text.trim(),
         birthday: _selectedBirthday?.toIso8601String(),
         profilePicture: profilePictureData,
         languages: _selectedLanguages.toList(),
