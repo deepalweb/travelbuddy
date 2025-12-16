@@ -87,6 +87,8 @@ class AppConstants {
     {'value': 'culture', 'label': 'Culture & Museums'},
     {'value': 'nature', 'label': 'Outdoor & Nature'},
     {'value': 'shopping', 'label': 'Shopping & Markets'},
+    {'value': 'entertainment', 'label': 'Entertainment & Nightlife'},
+    {'value': 'photography', 'label': 'Photography Spots'},
     {'value': 'spa', 'label': 'SPA & Wellness'},
   ];
   

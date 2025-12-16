@@ -1,4 +1,0 @@
-az webapp config appsettings set --resource-group travelbuddy --name travelbuddy --settings `
-  AZURE_OPENAI_ENDPOINT="<your-azure-openai-endpoint>" `
-  AZURE_OPENAI_API_KEY="<your-azure-openai-api-key>" `
-  AZURE_OPENAI_DEPLOYMENT_NAME="<your-deployment-name>"

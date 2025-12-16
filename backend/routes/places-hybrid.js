@@ -154,6 +154,18 @@ async function searchWithGooglePlaces(query, lat, lng, radius) {
   }));
 }
 
+// Clear cache endpoint
+router.post('/clear-cache', (req, res) => {
+  const cacheSize = placesCache.size;
+  placesCache.clear();
+  console.log(`🗑️ Cache cleared: ${cacheSize} entries removed`);
+  res.json({
+    success: true,
+    message: `Cache cleared successfully`,
+    entriesRemoved: cacheSize
+  });
+});
+
 // Get usage statistics
 router.get('/usage', (req, res) => {
   resetDailyCounters();

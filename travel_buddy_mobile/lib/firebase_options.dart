@@ -63,7 +63,7 @@ class DefaultFirebaseOptions {
     messagingSenderId: '45425409967',
     projectId: 'travelbuddy-2d1c5',
     storageBucket: 'travelbuddy-2d1c5.firebasestorage.app',
-    iosBundleId: 'com.example.travelBuddyMobile',
+    iosBundleId: 'com.travelbuddylk.app',
   );
 
   static const FirebaseOptions macos = FirebaseOptions(
@@ -72,7 +72,7 @@ class DefaultFirebaseOptions {
     messagingSenderId: '45425409967',
     projectId: 'travelbuddy-2d1c5',
     storageBucket: 'travelbuddy-2d1c5.firebasestorage.app',
-    iosBundleId: 'com.example.travelBuddyMobile',
+    iosBundleId: 'com.travelbuddylk.app',
   );
 
   static const FirebaseOptions windows = FirebaseOptions(

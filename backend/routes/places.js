@@ -124,7 +124,7 @@ router.get('/hybrid', async (req, res) => {
 // Enhanced Places Search endpoint specifically for mobile
 router.get('/mobile/nearby', async (req, res) => {
   try {
-    const { lat, lng, q, radius = 25000, limit = 60 } = req.query;
+    const { lat, lng, q, radius = 25000, limit = 60, offset = 0 } = req.query;
     const apiKey = process.env.GOOGLE_PLACES_API_KEY;
     
     console.log(`🔍 Mobile API Key Check: ${apiKey ? 'Present' : 'Missing'} (length: ${apiKey?.length || 0})`);
@@ -141,6 +141,7 @@ router.get('/mobile/nearby', async (req, res) => {
     const query = (q || '').toString().trim() || 'points of interest';
     const searchRadius = parseInt(radius, 10);
     const maxResults = parseInt(limit, 10);
+    const skipResults = parseInt(offset, 10);
 
     console.log(`🔍 Mobile places search: ${query} within ${searchRadius}m, limit: ${maxResults}`);
 
@@ -179,19 +180,43 @@ router.get('/mobile/nearby', async (req, res) => {
       results = testData.results || [];
     }
     
+    // Filter out results too far from search location (>100km = wrong location)
+    const searchLat = parseFloat(lat);
+    const searchLng = parseFloat(lng);
+    results = results.filter(place => {
+      const placeLat = place.geometry?.location?.lat;
+      const placeLng = place.geometry?.location?.lng;
+      if (!placeLat || !placeLng) return false;
+      
+      const distance = Math.sqrt(
+        Math.pow(placeLat - searchLat, 2) + Math.pow(placeLng - searchLng, 2)
+      ) * 111; // rough km conversion
+      
+      if (distance > 100) {
+        console.log(`🚫 Rejected ${place.name}: ${distance.toFixed(0)}km away (${placeLat}, ${placeLng})`);
+        return false;
+      }
+      return true;
+    });
+    
+    console.log(`✅ Location filtered: ${results.length} places within 100km`);
+    
     // Apply mobile-optimized filtering
     results = PlacesOptimizer.filterQualityResults(results, { minRating: 3.0 });
     results = PlacesOptimizer.enrichPlaceTypes(results);
-    results = PlacesOptimizer.rankResults(results, parseFloat(lat), parseFloat(lng), query);
+    results = PlacesOptimizer.rankResults(results, searchLat, searchLng, query);
     
     // Ensure variety in results for mobile
-    const diverseResults = PlacesOptimizer.ensureVariety(results, maxResults);
+    const diverseResults = PlacesOptimizer.ensureVariety(results, maxResults + skipResults);
     
-    console.log(`✅ Mobile search returned ${diverseResults.length} diverse places`);
+    // Apply offset for pagination
+    const paginatedResults = diverseResults.slice(skipResults, skipResults + maxResults);
+    
+    console.log(`✅ Mobile search returned ${paginatedResults.length} diverse places (offset: ${skipResults})`);
     
     res.json({
       status: 'OK',
-      results: diverseResults.slice(0, maxResults),
+      results: paginatedResults,
       query: query,
       location: { lat: parseFloat(lat), lng: parseFloat(lng) },
       radius: searchRadius

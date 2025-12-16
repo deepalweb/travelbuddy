@@ -16,7 +16,6 @@ import 'models/place.dart';
 import 'services/storage_service.dart';
 import 'services/firebase_service.dart';
 import 'services/connectivity_test.dart';
-import 'constants/app_constants.dart';
 import 'config/environment.dart';
 import 'utils/debug_logger.dart';
 

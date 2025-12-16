@@ -1303,6 +1303,7 @@ const userSchema = new mongoose.Schema({
   
   // Subscription
   tier: { type: String, default: 'free', enum: ['free', 'basic', 'premium', 'pro'] },
+  subscriptionTier: { type: String, default: 'free', enum: ['free', 'basic', 'premium', 'pro'] },
   subscriptionStatus: { type: String, default: 'none', enum: ['none', 'trial', 'active', 'expired', 'canceled'] },
   subscriptionEndDate: Date,
   trialEndDate: Date,

@@ -86,10 +86,6 @@ class PlaceService {
       print('🏢 Places array type: ${places.runtimeType}');
       print('🏢 Places array length: ${(places as List).length}');
       
-      if (places.isNotEmpty) {
-        print('📄 First place sample: ${places[0]}');
-      }
-      
       final parsedPlaces = (places)
           .map((result) {
             try {

@@ -140,27 +140,29 @@ class DealDetailScreen extends StatelessWidget {
                   const SizedBox(height: 24),
 
                   // Action Buttons
-                  Row(
-                    children: [
-                      Expanded(
-                        child: ElevatedButton.icon(
-                          onPressed: () => _claimDeal(context),
-                          icon: const Icon(Icons.local_offer),
-                          label: const Text('Claim Deal'),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Color(AppConstants.colors['primary']!),
-                            foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(vertical: 12),
+                  SafeArea(
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: ElevatedButton.icon(
+                            onPressed: () => _claimDeal(context),
+                            icon: const Icon(Icons.local_offer),
+                            label: const Text('Claim Deal'),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Color(AppConstants.colors['primary']!),
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                            ),
                           ),
                         ),
-                      ),
-                      const SizedBox(width: 12),
-                      OutlinedButton.icon(
-                        onPressed: () => _getDirections(context),
-                        icon: const Icon(Icons.directions),
-                        label: const Text('Directions'),
-                      ),
-                    ],
+                        const SizedBox(width: 12),
+                        OutlinedButton.icon(
+                          onPressed: () => _getDirections(context),
+                          icon: const Icon(Icons.directions),
+                          label: const Text('Directions'),
+                        ),
+                      ],
+                    ),
                   ),
                 ],
               ),

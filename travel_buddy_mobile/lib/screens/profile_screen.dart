@@ -19,8 +19,14 @@ import 'favorites_screen.dart';
 import 'help_support_screen.dart';
 import 'edit_profile_screen.dart';
 import 'travel_style_selection_screen.dart';
+import 'profile_picture_upload_screen.dart';
+import 'travel_preferences_screen.dart';
+import 'social_links_screen.dart';
+import 'security_settings_screen.dart';
+import 'privacy_notifications_screen.dart';
 import '../models/travel_style.dart';
 import '../services/usage_tracking_service.dart';
+import '../widgets/profile_completion_widget.dart';
 
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
@@ -47,6 +53,12 @@ class ProfileScreen extends StatelessWidget {
             padding: const EdgeInsets.all(16),
             child: Column(
               children: [
+                // Profile Completion Progress
+                ProfileCompletionWidget(
+                  user: user,
+                  onTap: () => _showCompletionDetails(context, user),
+                ),
+                
                 // Profile Header Card
                 Card(
                   child: Padding(
@@ -62,7 +74,36 @@ class ProfileScreen extends StatelessWidget {
                             // Profile Picture and Name
                             Row(
                               children: [
-                                _ProfilePicture(user: user, radius: 32),
+                                GestureDetector(
+                                  onTap: () {
+                                    Navigator.of(context).push(
+                                      MaterialPageRoute(
+                                        builder: (context) => const ProfilePictureUploadScreen(),
+                                      ),
+                                    );
+                                  },
+                                  child: Stack(
+                                    children: [
+                                      _ProfilePicture(user: user, radius: 32),
+                                      Positioned(
+                                        bottom: 0,
+                                        right: 0,
+                                        child: Container(
+                                          padding: const EdgeInsets.all(4),
+                                          decoration: BoxDecoration(
+                                            color: Colors.blue[600],
+                                            shape: BoxShape.circle,
+                                          ),
+                                          child: const Icon(
+                                            Icons.camera_alt,
+                                            size: 16,
+                                            color: Colors.white,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
                                 const SizedBox(width: 16),
                                 Expanded(
                                   child: Column(
@@ -233,6 +274,62 @@ class ProfileScreen extends StatelessWidget {
                       ),
                       const Divider(height: 1),
                       ListTile(
+                        leading: const Icon(Icons.tune),
+                        title: const Text('Travel Preferences'),
+                        subtitle: const Text('Budget, pace & interests'),
+                        trailing: const Icon(Icons.chevron_right),
+                        onTap: () {
+                          Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (context) => const TravelPreferencesScreen(),
+                            ),
+                          );
+                        },
+                      ),
+                      const Divider(height: 1),
+                      ListTile(
+                        leading: const Icon(Icons.share),
+                        title: const Text('Social Links'),
+                        subtitle: const Text('Connect your social media'),
+                        trailing: const Icon(Icons.chevron_right),
+                        onTap: () {
+                          Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (context) => const SocialLinksScreen(),
+                            ),
+                          );
+                        },
+                      ),
+                      const Divider(height: 1),
+                      ListTile(
+                        leading: const Icon(Icons.lock),
+                        title: const Text('Security'),
+                        subtitle: const Text('Password & 2FA'),
+                        trailing: const Icon(Icons.chevron_right),
+                        onTap: () {
+                          Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (context) => const SecuritySettingsScreen(),
+                            ),
+                          );
+                        },
+                      ),
+                      const Divider(height: 1),
+                      ListTile(
+                        leading: const Icon(Icons.privacy_tip),
+                        title: const Text('Privacy & Notifications'),
+                        subtitle: const Text('Control your visibility'),
+                        trailing: const Icon(Icons.chevron_right),
+                        onTap: () {
+                          Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (context) => const PrivacyNotificationsScreen(),
+                            ),
+                          );
+                        },
+                      ),
+                      const Divider(height: 1),
+                      ListTile(
                         leading: const Icon(Icons.workspace_premium),
                         title: const Text('Subscription'),
                         trailing: const Icon(Icons.chevron_right),
@@ -334,6 +431,49 @@ class ProfileScreen extends StatelessWidget {
           ),
         );
       },
+    );
+  }
+
+  void _showCompletionDetails(BuildContext context, user) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Complete Your Profile'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildCompletionItem('Personal Info', user?.username != null),
+            _buildCompletionItem('Profile Picture', user?.profilePicture != null),
+            _buildCompletionItem('Travel Preferences', false),
+            _buildCompletionItem('Email Verified', false),
+            _buildCompletionItem('Status/Bio', user?.status != null && user!.status!.isNotEmpty),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Close'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCompletionItem(String label, bool completed) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        children: [
+          Icon(
+            completed ? Icons.check_circle : Icons.circle_outlined,
+            color: completed ? Colors.green : Colors.grey,
+            size: 20,
+          ),
+          const SizedBox(width: 8),
+          Text(label),
+        ],
+      ),
     );
   }
 

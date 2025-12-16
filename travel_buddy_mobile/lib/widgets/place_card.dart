@@ -39,7 +39,7 @@ class PlaceCard extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Expanded(
-          flex: 3,
+          flex: 4,
           child: Container(
             width: double.infinity,
             decoration: BoxDecoration(
@@ -166,7 +166,7 @@ class PlaceCard extends StatelessWidget {
       children: [
         // Image
         Container(
-          height: 180,
+          height: 220,
           width: double.infinity,
           decoration: BoxDecoration(
             color: Colors.grey[300],

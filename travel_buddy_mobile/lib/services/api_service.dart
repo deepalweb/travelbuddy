@@ -1039,6 +1039,99 @@ class ApiService {
       throw e;
     }
   }
-  
+
+  // Phase 1 Profile Enhancement APIs
+  Future<void> updateUserPreferences(Map<String, dynamic> preferences) async {
+    try {
+      await _dio.put('/api/users/preferences', data: preferences);
+    } catch (e) {
+      print('Error updating preferences: $e');
+      throw e;
+    }
+  }
+
+  Future<List<Map<String, String>>> getSocialLinks() async {
+    try {
+      final response = await _dio.get('/api/users/social-links');
+      if (response.statusCode == 200 && response.data != null) {
+        return List<Map<String, String>>.from(response.data);
+      }
+      return [];
+    } catch (e) {
+      print('Error getting social links: $e');
+      return [];
+    }
+  }
+
+  Future<void> updateSocialLinks(List<Map<String, String>> links) async {
+    try {
+      await _dio.put('/api/users/social-links', data: {'links': links});
+    } catch (e) {
+      print('Error updating social links: $e');
+      throw e;
+    }
+  }
+
+  Future<void> update2FA(bool enabled) async {
+    try {
+      await _dio.put('/api/users/2fa', data: {'enabled': enabled});
+    } catch (e) {
+      print('Error updating 2FA: $e');
+      throw e;
+    }
+  }
+
+  Future<void> sendPasswordReset() async {
+    try {
+      await _dio.post('/api/users/password-reset');
+    } catch (e) {
+      print('Error sending password reset: $e');
+      throw e;
+    }
+  }
+
+  Future<Map<String, dynamic>> getPrivacySettings() async {
+    try {
+      final response = await _dio.get('/api/users/privacy-settings');
+      if (response.statusCode == 200) {
+        return Map<String, dynamic>.from(response.data);
+      }
+      return {};
+    } catch (e) {
+      print('Error getting privacy settings: $e');
+      return {};
+    }
+  }
+
+  Future<void> updatePrivacySettings(Map<String, dynamic> settings) async {
+    try {
+      await _dio.put('/api/users/privacy-settings', data: settings);
+    } catch (e) {
+      print('Error updating privacy settings: $e');
+      throw e;
+    }
+  }
+
+  Future<Map<String, dynamic>> exportUserData() async {
+    try {
+      final response = await _dio.get('/api/users/export');
+      if (response.statusCode == 200) {
+        return Map<String, dynamic>.from(response.data);
+      }
+      return {};
+    } catch (e) {
+      print('Error exporting data: $e');
+      throw e;
+    }
+  }
+
+  Future<void> deleteAccount() async {
+    try {
+      await _dio.delete('/api/users/account');
+    } catch (e) {
+      print('Error deleting account: $e');
+      throw e;
+    }
+  }
 
 }

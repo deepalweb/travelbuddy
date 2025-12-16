@@ -8,7 +8,7 @@ class SubscriptionService {
 
   static final Map<SubscriptionTier, SubscriptionLimits> tierLimits = {
     SubscriptionTier.free: const SubscriptionLimits(
-      placesPerDay: 10,
+      placesPerDay: 1,
       aiQueriesPerDay: 0,
       dealsPerDay: 3,
       favoritesMax: 0,
@@ -17,7 +17,7 @@ class SubscriptionService {
       trialDays: 0,
     ),
     SubscriptionTier.basic: const SubscriptionLimits(
-      placesPerDay: 30,
+      placesPerDay: 5,
       aiQueriesPerDay: 0,
       dealsPerDay: 10,
       favoritesMax: 50,
@@ -26,7 +26,7 @@ class SubscriptionService {
       trialDays: 7,
     ),
     SubscriptionTier.premium: const SubscriptionLimits(
-      placesPerDay: 100,
+      placesPerDay: 20,
       aiQueriesPerDay: 20,
       dealsPerDay: 20,
       favoritesMax: 200,
@@ -35,7 +35,7 @@ class SubscriptionService {
       trialDays: 7,
     ),
     SubscriptionTier.pro: const SubscriptionLimits(
-      placesPerDay: -1,
+      placesPerDay: 50,
       aiQueriesPerDay: 100,
       dealsPerDay: -1,
       favoritesMax: -1,

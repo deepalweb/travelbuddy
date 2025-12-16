@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../providers/app_provider.dart';
 import '../providers/community_provider.dart';
 import '../widgets/enhanced_story_card.dart';
 import 'create_post_screen.dart';

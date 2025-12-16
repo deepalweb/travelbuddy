@@ -64,25 +64,7 @@
 	<key>NSPhotoLibraryAddUsageDescription</key>
 	<string>Travel Buddy needs permission to save photos to your photo library.</string>
 	
-	<!-- Microphone permissions -->
-	<key>NSMicrophoneUsageDescription</key>
-	<string>Travel Buddy needs microphone access for voice notes and emergency features.</string>
-	
-	<!-- Contacts permissions -->
-	<key>NSContactsUsageDescription</key>
-	<string>Travel Buddy needs contacts access to share travel plans with friends and emergency contacts.</string>
-	
-	<!-- Calendar permissions -->
-	<key>NSCalendarsUsageDescription</key>
-	<string>Travel Buddy needs calendar access to add travel events and itineraries.</string>
-	
-	<!-- Motion permissions -->
-	<key>NSMotionUsageDescription</key>
-	<string>Travel Buddy uses motion data to track walking activities and provide fitness insights during travel.</string>
-	
-	<!-- Face ID permissions -->
-	<key>NSFaceIDUsageDescription</key>
-	<string>Travel Buddy uses Face ID for secure authentication and protecting your travel data.</string>
+
 
 </dict>
 </plist>

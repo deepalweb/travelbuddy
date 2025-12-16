@@ -385,4 +385,31 @@ router.put('/notifications', requireAuth, async (req, res) => {
   }
 });
 
+// Update subscription
+router.put('/subscription', requireAuth, async (req, res) => {
+  try {
+    const User = getUser();
+    const { tier, status, trialEndDate, subscriptionEndDate } = req.body;
+    
+    const user = await User.findOneAndUpdate(
+      { firebaseUid: req.user.uid },
+      { 
+        $set: { 
+          tier,
+          subscriptionTier: tier,
+          subscriptionStatus: status,
+          trialEndDate,
+          subscriptionEndDate
+        }
+      },
+      { new: true }
+    );
+    
+    if (!user) return res.status(404).json({ error: 'User not found' });
+    res.json(user);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 export default router;

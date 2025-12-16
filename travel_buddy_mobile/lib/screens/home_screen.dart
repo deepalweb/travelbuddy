@@ -18,8 +18,211 @@ import '../screens/trip_plan_detail_screen.dart';
 import '../screens/transport_screen.dart';
 import '../screens/travel_agent_screen.dart';
 import '../screens/events_screen.dart';
+import '../screens/place_details_screen.dart';
 import '../config/environment.dart';
 
+
+extension StringExtension on String {
+  String capitalize() {
+    if (isEmpty) return this;
+    return '${this[0].toUpperCase()}${substring(1).toLowerCase()}';
+  }
+}
+
+class PlaceSearchDelegate extends SearchDelegate<String> {
+  @override
+  String get searchFieldLabel => 'Search destinations, places...';
+
+  @override
+  List<Widget> buildActions(BuildContext context) {
+    return [
+      if (query.isNotEmpty)
+        IconButton(
+          icon: const Icon(Icons.clear),
+          onPressed: () => query = '',
+        ),
+    ];
+  }
+
+  @override
+  Widget buildLeading(BuildContext context) {
+    return IconButton(
+      icon: const Icon(Icons.arrow_back),
+      onPressed: () => close(context, ''),
+    );
+  }
+
+  @override
+  Widget buildResults(BuildContext context) {
+    final appProvider = context.read<AppProvider>();
+    final results = appProvider.places.where((place) {
+      final searchLower = query.toLowerCase();
+      return place.name.toLowerCase().contains(searchLower) ||
+             place.type.toLowerCase().contains(searchLower) ||
+             place.description.toLowerCase().contains(searchLower);
+    }).toList();
+
+    if (results.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.search_off, size: 64, color: Colors.grey[400]),
+            const SizedBox(height: 16),
+            Text('No places found for "$query"', style: TextStyle(color: Colors.grey[600])),
+            const SizedBox(height: 8),
+            TextButton(
+              onPressed: () {
+                appProvider.setCurrentTabIndex(1);
+                close(context, '');
+              },
+              child: const Text('Browse All Places'),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return ListView.builder(
+      itemCount: results.length,
+      itemBuilder: (context, index) {
+        final place = results[index];
+        return ListTile(
+          leading: place.photoUrl.isNotEmpty
+              ? ClipRRect(
+                  borderRadius: BorderRadius.circular(8),
+                  child: Image.network(
+                    place.photoUrl,
+                    width: 50,
+                    height: 50,
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, __, ___) => Icon(Icons.place, color: Colors.grey[400]),
+                  ),
+                )
+              : Icon(Icons.place, color: Colors.grey[400]),
+          title: Text(place.name, style: const TextStyle(fontWeight: FontWeight.w600)),
+          subtitle: Text(place.type, style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+          trailing: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.star, size: 14, color: Colors.amber),
+              const SizedBox(width: 2),
+              Text(place.rating.toStringAsFixed(1), style: const TextStyle(fontSize: 12)),
+            ],
+          ),
+          onTap: () {
+            close(context, place.name);
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => PlaceDetailsScreen(place: place),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  @override
+  Widget buildSuggestions(BuildContext context) {
+    final appProvider = context.watch<AppProvider>();
+    
+    if (query.isEmpty) {
+      // Show top-rated places from API
+      final topPlaces = appProvider.places.take(6).toList();
+      
+      if (topPlaces.isEmpty) {
+        return Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.search, size: 64, color: Colors.grey[300]),
+              const SizedBox(height: 16),
+              Text('Search places, destinations...', style: TextStyle(color: Colors.grey[600])),
+            ],
+          ),
+        );
+      }
+      
+      return ListView.builder(
+        itemCount: topPlaces.length,
+        itemBuilder: (context, index) {
+          final place = topPlaces[index];
+          return ListTile(
+            leading: place.photoUrl.isNotEmpty
+                ? ClipRRect(
+                    borderRadius: BorderRadius.circular(8),
+                    child: Image.network(
+                      place.photoUrl,
+                      width: 40,
+                      height: 40,
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, __, ___) => const Icon(Icons.trending_up, color: Colors.blue),
+                    ),
+                  )
+                : const Icon(Icons.trending_up, color: Colors.blue),
+            title: Text(place.name),
+            subtitle: Text('${place.type} • ⭐ ${place.rating.toStringAsFixed(1)}', style: const TextStyle(fontSize: 11)),
+            onTap: () {
+              close(context, place.name);
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => PlaceDetailsScreen(place: place),
+                ),
+              );
+            },
+          );
+        },
+      );
+    }
+
+    final suggestions = appProvider.places.where((place) {
+      return place.name.toLowerCase().contains(query.toLowerCase());
+    }).take(5).toList();
+
+    return ListView.builder(
+      itemCount: suggestions.length,
+      itemBuilder: (context, index) {
+        final place = suggestions[index];
+        return ListTile(
+          leading: place.photoUrl.isNotEmpty
+              ? ClipRRect(
+                  borderRadius: BorderRadius.circular(8),
+                  child: Image.network(
+                    place.photoUrl,
+                    width: 40,
+                    height: 40,
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, __, ___) => const Icon(Icons.location_on),
+                  ),
+                )
+              : const Icon(Icons.location_on),
+          title: Text(place.name),
+          subtitle: Text(place.type, style: const TextStyle(fontSize: 11)),
+          trailing: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.star, size: 12, color: Colors.amber),
+              const SizedBox(width: 2),
+              Text(place.rating.toStringAsFixed(1), style: const TextStyle(fontSize: 11)),
+            ],
+          ),
+          onTap: () {
+            close(context, place.name);
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => PlaceDetailsScreen(place: place),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+}
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -32,6 +235,7 @@ class _HomeScreenState extends State<HomeScreen> {
   PageController _dealsPageController = PageController();
   Timer? _dealsTimer;
   int _currentDealIndex = 0;
+  bool _showInProgressTrips = true;
   
   // Cache for location names to prevent repeated API calls
   final Map<String, String> _locationCache = {};
@@ -410,7 +614,6 @@ class _HomeScreenState extends State<HomeScreen> {
                 icon: const Icon(Icons.notifications_outlined),
                 onPressed: () => _showNotifications(appProvider),
               ),
-              // Language Quick Access Button
               Consumer<LanguageProvider>(
                 builder: (context, languageProvider, child) {
                   return IconButton(
@@ -453,10 +656,6 @@ class _HomeScreenState extends State<HomeScreen> {
                   );
                 },
               ),
-              IconButton(
-                icon: const Icon(Icons.refresh),
-                onPressed: _loadData,
-              ),
             ],
           ),
           body: SafeWidget(
@@ -468,19 +667,19 @@ class _HomeScreenState extends State<HomeScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const SubscriptionStatusWidget(),
+                    _buildSearchBar(),
+                    const SizedBox(height: 16),
                     _buildWelcomeCard(appProvider),
+                    const SizedBox(height: 16),
+                    _buildPlanTripCTA(),
                     const SizedBox(height: 16),
                     _buildInProgressTrips(appProvider),
                     const SizedBox(height: 16),
-                    _buildLocationCard(appProvider),
-                    const SizedBox(height: 16),
-                    _buildHotDealsSlideshow(appProvider),
-                    const SizedBox(height: 16),
                     _buildQuickActions(appProvider),
+                    const SizedBox(height: 20),
+                    _buildMoreServices(appProvider),
                     const SizedBox(height: 16),
                     _buildNearbyPlaces(appProvider),
-                    const SizedBox(height: 16),
-                    _buildRecentActivity(appProvider),
                   ],
                 ),
               ),
@@ -597,6 +796,103 @@ class _HomeScreenState extends State<HomeScreen> {
   }
   
 
+
+  Widget _buildSearchBar() {
+    return GestureDetector(
+      onTap: () {
+        showSearch(
+          context: context,
+          delegate: PlaceSearchDelegate(),
+        );
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        decoration: BoxDecoration(
+          color: Colors.grey[100],
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: Colors.grey[300]!),
+        ),
+        child: Row(
+          children: [
+            Icon(Icons.search, color: Colors.grey[600], size: 22),
+            const SizedBox(width: 12),
+            Text(
+              'Search destinations, places...',
+              style: TextStyle(color: Colors.grey[600], fontSize: 15),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPlanTripCTA() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [Color(0xFF6366F1), Color(0xFF8B5CF6)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF6366F1).withOpacity(0.3),
+            blurRadius: 12,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Plan Your Next Trip',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  'AI-powered itinerary in seconds',
+                  style: TextStyle(
+                    color: Colors.white.withOpacity(0.9),
+                    fontSize: 14,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 12),
+          ElevatedButton(
+            onPressed: () => context.read<AppProvider>().setCurrentTabIndex(3),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.white,
+              foregroundColor: const Color(0xFF6366F1),
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+            child: const Row(
+              children: [
+                Text('Start', style: TextStyle(fontWeight: FontWeight.bold)),
+                SizedBox(width: 4),
+                Icon(Icons.arrow_forward, size: 18),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 
   Widget _buildWelcomeCard(AppProvider appProvider) {
     try {
@@ -837,46 +1133,32 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _buildQuickActions(AppProvider appProvider) {
     final actions = [
       {
-        'label': 'Live Weather',
-        'icon': Icons.cloud,
-        'color': const Color(0xFF0A84FF),
-        'gradient': [const Color(0xFF0A84FF), const Color(0xFF0066CC)],
-        'action': 'weather',
+        'label': 'Nearby Places',
+        'icon': Icons.explore,
+        'color': const Color(0xFF10B981),
+        'gradient': [const Color(0xFF10B981), const Color(0xFF059669)],
+        'action': 'nearby',
+      },
+      {
+        'label': 'Hot Deals',
+        'icon': Icons.local_offer,
+        'color': const Color(0xFFFF3B30),
+        'gradient': [const Color(0xFFFF3B30), const Color(0xFFD70015)],
+        'action': 'deals',
       },
       {
         'label': 'Safety Hub',
         'icon': Icons.emergency_share,
-        'color': const Color(0xFFFF3B30),
-        'gradient': [const Color(0xFFFF3B30), const Color(0xFFD70015)],
+        'color': const Color(0xFFEF4444),
+        'gradient': [const Color(0xFFEF4444), const Color(0xFFDC2626)],
         'action': 'safety',
       },
       {
-        'label': 'Language Assistant',
+        'label': 'Language',
         'icon': Icons.translate,
-        'color': const Color(0xFF30B0C7),
-        'gradient': [const Color(0xFF30B0C7), const Color(0xFF2596A8)],
+        'color': const Color(0xFF3B82F6),
+        'gradient': [const Color(0xFF3B82F6), const Color(0xFF2563EB)],
         'action': 'translator',
-      },
-      {
-        'label': 'Transport Hub',
-        'icon': Icons.airport_shuttle,
-        'color': const Color(0xFF8E44AD),
-        'gradient': [const Color(0xFF8E44AD), const Color(0xFF6C3483)],
-        'action': 'transport',
-      },
-      {
-        'label': 'Travel Assistance',
-        'icon': Icons.support_agent,
-        'color': const Color(0xFFFFB300),
-        'gradient': [const Color(0xFFFFB300), const Color(0xFFFF8F00)],
-        'action': 'travel_agent',
-      },
-      {
-        'label': 'Events & Festivals',
-        'icon': Icons.celebration,
-        'color': const Color(0xFFBF5AF2),
-        'gradient': [const Color(0xFFBF5AF2), const Color(0xFF9D3FD1)],
-        'action': 'events',
       },
     ];
 
@@ -908,11 +1190,11 @@ class _HomeScreenState extends State<HomeScreen> {
         GridView.builder(
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
-          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: actions.length > 3 ? 3 : actions.length,
+          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: 2,
             mainAxisSpacing: 12,
             crossAxisSpacing: 12,
-            childAspectRatio: 0.85,
+            childAspectRatio: 1.4,
           ),
           itemCount: actions.length,
           itemBuilder: (context, index) {
@@ -966,6 +1248,152 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
       ],
     );
+  }
+
+  Widget _buildMoreServices(AppProvider appProvider) {
+    final weather = appProvider.weatherInfo;
+    final temp = weather?.temperature.round() ?? 28;
+    final condition = weather?.condition ?? 'sunny';
+    
+    final services = [
+      {
+        'icon': Icons.wb_sunny,
+        'label': 'Weather',
+        'subtitle': '$temp°C • ${condition.capitalize()}',
+        'color': const Color(0xFF3B82F6),
+        'action': 'weather',
+      },
+      {
+        'icon': Icons.directions_bus,
+        'label': 'Transport',
+        'subtitle': 'Taxis, buses & trains',
+        'color': const Color(0xFF8E44AD),
+        'action': 'transport',
+      },
+      {
+        'icon': Icons.support_agent,
+        'label': 'Travel Agent',
+        'subtitle': 'Book guides & tours',
+        'color': const Color(0xFFFFB300),
+        'action': 'travel_agent',
+      },
+      {
+        'icon': Icons.celebration,
+        'label': 'Events',
+        'subtitle': 'Festivals & activities',
+        'color': const Color(0xFFBF5AF2),
+        'action': 'events',
+      },
+    ];
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Row(
+            children: [
+              Text(
+                'More Services',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.grey[700],
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 12),
+        ...services.map((service) => Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+          child: InkWell(
+            onTap: () => _handleMoreServiceAction(service['action'] as String, appProvider),
+            borderRadius: BorderRadius.circular(12),
+            child: Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.grey[50],
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.grey[200]!),
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: (service['color'] as Color).withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Icon(
+                      service['icon'] as IconData,
+                      color: service['color'] as Color,
+                      size: 22,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          service['label'] as String,
+                          style: const TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          service['subtitle'] as String,
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.grey[600],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Icon(Icons.arrow_forward_ios, size: 16, color: Colors.grey[400]),
+                ],
+              ),
+            ),
+          ),
+        )),
+      ],
+    );
+  }
+
+  void _handleMoreServiceAction(String action, AppProvider appProvider) {
+    switch (action) {
+      case 'weather':
+        _showWeatherModal(appProvider);
+        break;
+      case 'transport':
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => const TransportScreen(),
+          ),
+        );
+        break;
+      case 'travel_agent':
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => const TravelAgentScreen(),
+          ),
+        );
+        break;
+      case 'events':
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => const EventsScreen(),
+          ),
+        );
+        break;
+    }
   }
 
   Widget _buildNearbyPlaces(AppProvider appProvider) {
@@ -1139,7 +1567,7 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _buildInProgressTrips(AppProvider appProvider) {
     try {
       final allTrips = [...appProvider.tripPlans, ...appProvider.itineraries];
-      if (allTrips.isEmpty) {
+      if (allTrips.isEmpty || !_showInProgressTrips) {
         return const SizedBox.shrink();
       }
 
@@ -1177,9 +1605,20 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ),
               const SizedBox(width: 12),
-              const Text(
-                'In Progress Trip Plans',
-                style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+              const Expanded(
+                child: Text(
+                  'In Progress Trips',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                ),
+              ),
+              IconButton(
+                icon: const Icon(Icons.close, size: 20),
+                onPressed: () {
+                  setState(() {
+                    _showInProgressTrips = false;
+                  });
+                },
+                tooltip: 'Dismiss',
               ),
             ],
           ),
@@ -1799,52 +2238,24 @@ class _HomeScreenState extends State<HomeScreen> {
 
   void _handleQuickAction(String action, AppProvider appProvider) {
     switch (action) {
+      case 'Nearby Places':
+      case 'nearby':
+        appProvider.setCurrentTabIndex(1);
+        break;
+      case 'Hot Deals':
+      case 'deals':
+        appProvider.setCurrentTabIndex(2);
+        break;
       case 'Safety Hub':
       case 'safety':
         _showEmergencyDialog();
         break;
-      case 'Language Assistant':
-      case 'Translator':
+      case 'Language':
       case 'translator':
         Navigator.push(
           context,
           MaterialPageRoute(
             builder: (context) => const LanguageAssistantScreen(),
-          ),
-        );
-        break;
-      case 'Live Weather':
-      case 'Weather':
-      case 'weather':
-        _showWeatherModal(appProvider);
-        break;
-      case 'Transport Hub':
-      case 'Transport':
-      case 'transport':
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => const TransportScreen(),
-          ),
-        );
-        break;
-      case 'Travel Assistance':
-      case 'Travel Agent':
-      case 'travel_agent':
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => const TravelAgentScreen(),
-          ),
-        );
-        break;
-      case 'Events & Festivals':
-      case 'Events':
-      case 'events':
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => const EventsScreen(),
           ),
         );
         break;

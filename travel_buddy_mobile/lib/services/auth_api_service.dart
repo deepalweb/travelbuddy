@@ -52,9 +52,9 @@ class AuthApiService {
         options.headers['X-Firebase-UID'] = user.uid;
         
         // Add user context to request
-        if (!options.data?.containsKey('userId') && options.method != 'GET') {
+        if (options.method != 'GET') {
           options.data ??= {};
-          if (options.data is Map) {
+          if (options.data is Map && !options.data.containsKey('userId')) {
             options.data['userId'] = user.uid;
           }
         }

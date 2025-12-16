@@ -22,6 +22,7 @@ class PlacesScreen extends StatefulWidget {
 class _PlacesScreenState extends State<PlacesScreen> {
   final TextEditingController _searchController = TextEditingController();
   final _searchDebouncer = ApiDebouncer(delay: Duration(milliseconds: 500));
+  bool _showOpenOnly = false;
 
   @override
   void dispose() {
@@ -94,6 +95,20 @@ class _PlacesScreenState extends State<PlacesScreen> {
                           fontWeight: FontWeight.w600,
                         ),
                       ),
+                      if (appProvider.currentLocation != null)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 4),
+                          child: Row(
+                            children: [
+                              Icon(Icons.location_on, size: 14, color: Colors.grey[600]),
+                              const SizedBox(width: 4),
+                              Text(
+                                '${appProvider.currentLocation!.latitude.toStringAsFixed(2)}, ${appProvider.currentLocation!.longitude.toStringAsFixed(2)}',
+                                style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                              ),
+                            ],
+                          ),
+                        ),
                       const SizedBox(height: 8),
                       if (_getSmartSuggestion().isNotEmpty)
                         GestureDetector(
@@ -105,13 +120,20 @@ class _PlacesScreenState extends State<PlacesScreen> {
                               borderRadius: BorderRadius.circular(20),
                               border: Border.all(color: Colors.blue[200]!),
                             ),
-                            child: Text(
-                              _getSmartSuggestion(),
-                              style: TextStyle(
-                                fontSize: 13,
-                                color: Colors.blue[700],
-                                fontWeight: FontWeight.w500,
-                              ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  _getSmartSuggestion(),
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    color: Colors.blue[700],
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                                const SizedBox(width: 4),
+                                Icon(Icons.arrow_forward, size: 14, color: Colors.blue[700]),
+                              ],
                             ),
                           ),
                         ),
@@ -188,9 +210,38 @@ class _PlacesScreenState extends State<PlacesScreen> {
                   child: ListView.builder(
                     scrollDirection: Axis.horizontal,
                     padding: const EdgeInsets.symmetric(horizontal: 16),
-                    itemCount: AppConstants.placeCategories.length,
+                    itemCount: AppConstants.placeCategories.length + 1,
                     itemBuilder: (context, index) {
-                      final category = AppConstants.placeCategories[index];
+                      // Open Now filter as first chip
+                      if (index == 0) {
+                        return Padding(
+                          padding: const EdgeInsets.only(right: 8),
+                          child: FilterChip(
+                            label: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  Icons.access_time,
+                                  size: 14,
+                                  color: _showOpenOnly ? Colors.green[700] : Colors.grey[600],
+                                ),
+                                const SizedBox(width: 4),
+                                const Text('Open Now', style: TextStyle(fontSize: 13)),
+                              ],
+                            ),
+                            selected: _showOpenOnly,
+                            onSelected: (selected) {
+                              setState(() => _showOpenOnly = selected);
+                            },
+                            selectedColor: Colors.green[50],
+                            checkmarkColor: Colors.green[700],
+                            materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                            visualDensity: VisualDensity.compact,
+                          ),
+                        );
+                      }
+                      
+                      final category = AppConstants.placeCategories[index - 1];
                       final isSelected = appProvider.selectedCategory == category['value'];
                       
                       return Padding(
@@ -204,7 +255,7 @@ class _PlacesScreenState extends State<PlacesScreen> {
                           onSelected: (selected) {
                             appProvider.setSelectedCategory(category['value']!);
                           },
-                          selectedColor: Color(AppConstants.colors['primary']!).withOpacity(0.2),
+                          selectedColor: Color(AppConstants.colors['primary']!).withValues(alpha: 0.2),
                           checkmarkColor: Color(AppConstants.colors['primary']!),
                           materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                           visualDensity: VisualDensity.compact,
@@ -258,41 +309,19 @@ class _PlacesScreenState extends State<PlacesScreen> {
                         ),
                       ),
                       const SizedBox(height: 20),
-                      Row(
-                        children: [
-                          Expanded(
-                            flex: 3,
-                            child: ElevatedButton.icon(
-                              onPressed: () => _loadSectionedPlaces(appProvider),
-                              icon: const Icon(Icons.explore, size: 20),
-                              label: const Text('Find Places'),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: Color(AppConstants.colors['primary']!),
-                                foregroundColor: Colors.white,
-                                padding: const EdgeInsets.symmetric(vertical: 14),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                              ),
-                            ),
+                      ElevatedButton.icon(
+                        onPressed: () => _loadSectionedPlaces(appProvider),
+                        icon: const Icon(Icons.explore, size: 20),
+                        label: const Text('Find Places'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Color(AppConstants.colors['primary']!),
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          minimumSize: const Size(double.infinity, 48),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
                           ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            flex: 2,
-                            child: ElevatedButton(
-                              onPressed: () => _testApiConnection(),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.orange,
-                                foregroundColor: Colors.white,
-                                padding: const EdgeInsets.symmetric(vertical: 14),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                              ),
-                              child: const Text('Test API', style: TextStyle(fontSize: 13)),
-                            ),
-                          ),
-                        ],
+                        ),
                       ),
                     ],
                   ),
@@ -329,7 +358,7 @@ class _PlacesScreenState extends State<PlacesScreen> {
     );
   }
 
-  Widget _buildPlacesList(AppProvider appProvider) {
+  Widget _buildPlacesListOld(AppProvider appProvider) {
     if (appProvider.isPlacesLoading) {
       return const Center(
         child: CircularProgressIndicator(),
@@ -420,7 +449,7 @@ class _PlacesScreenState extends State<PlacesScreen> {
     return _buildPlacesListView(appProvider);
   }
 
-  Widget _buildPlacesListWithLoadMore(AppProvider appProvider) {
+  Widget _buildPlacesListWithLoadMoreOld(AppProvider appProvider) {
     if (appProvider.isPlacesLoading && appProvider.places.isEmpty) {
       return const Center(child: CircularProgressIndicator());
     }
@@ -775,7 +804,41 @@ class _PlacesScreenState extends State<PlacesScreen> {
   
   Widget _buildSectionedPlacesList(AppProvider appProvider) {
     if (appProvider.isSectionsLoading) {
-      return const Center(child: CircularProgressIndicator());
+      return ListView.builder(
+        itemCount: 5,
+        itemBuilder: (context, index) => Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 150,
+                height: 20,
+                decoration: BoxDecoration(
+                  color: Colors.grey[300],
+                  borderRadius: BorderRadius.circular(4),
+                ),
+              ),
+              const SizedBox(height: 12),
+              SizedBox(
+                height: 200,
+                child: ListView.builder(
+                  scrollDirection: Axis.horizontal,
+                  itemCount: 3,
+                  itemBuilder: (context, i) => Container(
+                    width: 150,
+                    margin: const EdgeInsets.only(right: 12),
+                    decoration: BoxDecoration(
+                      color: Colors.grey[300],
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
     }
     
     if (appProvider.placeSections.isEmpty) {
@@ -884,7 +947,12 @@ class _PlacesScreenState extends State<PlacesScreen> {
       return _buildErrorState(appProvider);
     }
 
-    if (appProvider.places.isEmpty) {
+    // Filter by Open Now if enabled
+    final filteredPlaces = _showOpenOnly
+        ? appProvider.places.where((p) => p.isOpenNow == true).toList()
+        : appProvider.places;
+
+    if (filteredPlaces.isEmpty) {
       return ListView(
         physics: const AlwaysScrollableScrollPhysics(),
         children: [
@@ -922,23 +990,102 @@ class _PlacesScreenState extends State<PlacesScreen> {
         // Search results header
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          child: Row(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                'Results for "${_searchController.text}"',
-                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      'Results for "${_searchController.text}"',
+                      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: Colors.blue[50],
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      '${filteredPlaces.length} found',
+                      style: TextStyle(
+                        color: Colors.blue[700],
+                        fontWeight: FontWeight.w600,
+                        fontSize: 13,
+                      ),
+                    ),
+                  ),
+                ],
               ),
-              const Spacer(),
-              Text(
-                '${appProvider.places.length} found',
-                style: TextStyle(color: Colors.grey[600]),
-              ),
+              if (_showOpenOnly)
+                Padding(
+                  padding: const EdgeInsets.only(top: 8),
+                  child: Wrap(
+                    spacing: 8,
+                    children: [
+                      Chip(
+                        label: const Text('Open Now', style: TextStyle(fontSize: 12)),
+                        deleteIcon: const Icon(Icons.close, size: 16),
+                        onDeleted: () {
+                          setState(() => _showOpenOnly = false);
+                          appProvider.loadNearbyPlaces();
+                        },
+                        backgroundColor: Colors.green[50],
+                      ),
+                    ],
+                  ),
+                ),
             ],
           ),
         ),
         // Search results list
         Expanded(
-          child: _buildPlacesListView(appProvider),
+          child: _buildPlacesListViewFiltered(filteredPlaces),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildPlacesListViewFiltered(List<dynamic> places) {
+    return CustomScrollView(
+      physics: const AlwaysScrollableScrollPhysics(),
+      slivers: [
+        SliverPadding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          sliver: SliverGrid(
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 2,
+              childAspectRatio: 0.75,
+              crossAxisSpacing: 12,
+              mainAxisSpacing: 12,
+            ),
+            delegate: SliverChildBuilderDelegate(
+              (context, index) {
+                final place = places[index];
+                final appProvider = context.read<AppProvider>();
+                return PlaceCard(
+                  place: place,
+                  compact: true,
+                  isFavorite: appProvider.favoriteIds.contains(place.id),
+                  onFavoriteToggle: () async {
+                    final success = await appProvider.toggleFavorite(place.id);
+                    if (!success && mounted) {
+                      _showUpgradeDialog(context);
+                    }
+                  },
+                  onTap: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (context) => PlaceDetailsScreen(place: place),
+                      ),
+                    );
+                  },
+                );
+              },
+              childCount: places.length,
+            ),
+          ),
         ),
       ],
     );
@@ -1051,7 +1198,12 @@ class _PlacesScreenState extends State<PlacesScreen> {
       return _buildErrorState(appProvider);
     }
 
-    if (appProvider.places.isEmpty) {
+    // Filter by Open Now if enabled
+    final filteredPlaces = _showOpenOnly
+        ? appProvider.places.where((p) => p.isOpenNow == true).toList()
+        : appProvider.places;
+
+    if (filteredPlaces.isEmpty) {
       return ListView(
         physics: const AlwaysScrollableScrollPhysics(),
         children: [
@@ -1097,23 +1249,58 @@ class _PlacesScreenState extends State<PlacesScreen> {
         // Category results header
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          child: Row(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                _getCategoryDisplayName(appProvider.selectedCategory),
-                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      _getCategoryDisplayName(appProvider.selectedCategory),
+                      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: Colors.blue[50],
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      '${filteredPlaces.length} found',
+                      style: TextStyle(
+                        color: Colors.blue[700],
+                        fontWeight: FontWeight.w600,
+                        fontSize: 13,
+                      ),
+                    ),
+                  ),
+                ],
               ),
-              const Spacer(),
-              Text(
-                '${appProvider.places.length} found',
-                style: TextStyle(color: Colors.grey[600]),
-              ),
+              if (_showOpenOnly)
+                Padding(
+                  padding: const EdgeInsets.only(top: 8),
+                  child: Wrap(
+                    spacing: 8,
+                    children: [
+                      Chip(
+                        label: const Text('Open Now', style: TextStyle(fontSize: 12)),
+                        deleteIcon: const Icon(Icons.close, size: 16),
+                        onDeleted: () {
+                          setState(() => _showOpenOnly = false);
+                          appProvider.loadNearbyPlaces();
+                        },
+                        backgroundColor: Colors.green[50],
+                      ),
+                    ],
+                  ),
+                ),
             ],
           ),
         ),
         // Category results list
         Expanded(
-          child: _buildPlacesListView(appProvider),
+          child: _buildPlacesListViewFiltered(filteredPlaces),
         ),
       ],
     );
@@ -1132,7 +1319,7 @@ class _PlacesScreenState extends State<PlacesScreen> {
     return categoryMap[category] ?? category.toUpperCase();
   }
 
-  void _openRoutePlan(AppProvider appProvider) {
+  void _openRoutePlanOld(AppProvider appProvider) {
     if (appProvider.places.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(

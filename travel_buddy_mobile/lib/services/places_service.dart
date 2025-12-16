@@ -7,7 +7,7 @@ import '../models/place.dart';
 import '../config/environment.dart';
 import '../utils/debug_logger.dart';
 import 'gemini_places_service.dart';
-import '../providers/user_profile_provider.dart';
+import 'storage_service.dart';
 
 class PlacesService {
   static final PlacesService _instance = PlacesService._internal();
@@ -31,10 +31,10 @@ class PlacesService {
   
   // Daily API limits by subscription tier
   static const Map<String, int> _subscriptionLimits = {
-    'free': 10,
-    'basic': 50, 
-    'premium': 200,
-    'pro': 500,
+    'free': 1,
+    'basic': 5, 
+    'premium': 20,
+    'pro': 50,
   };
 
   // Google Places API First pipeline with AI fallback
@@ -49,12 +49,13 @@ class PlacesService {
     String? vibe,
     String? language,
   }) async {
-    // Check cache first
+    // Cache disabled - always fetch fresh data
+    // final cacheKey = '${latitude.toStringAsFixed(3)}_${longitude.toStringAsFixed(3)}_$query';
+    // if (_isValidCache(cacheKey)) {
+    //   DebugLogger.log('💾 Using cached places (${_cache[cacheKey]!.length} found) - API call avoided');
+    //   return _cache[cacheKey]!.take(topN).toList();
+    // }
     final cacheKey = '${latitude.toStringAsFixed(3)}_${longitude.toStringAsFixed(3)}_$query';
-    if (_isValidCache(cacheKey)) {
-      DebugLogger.log('💾 Using cached places (${_cache[cacheKey]!.length} found) - API call avoided');
-      return _cache[cacheKey]!.take(topN).toList();
-    }
     
     // Rate limiting check
     if (_isRateLimited(cacheKey)) {
@@ -64,7 +65,7 @@ class PlacesService {
     }
     
     // Subscription limit check
-    if (!_canMakeApiCall()) {
+    if (!await _canMakeApiCall()) {
       DebugLogger.log('🚫 Daily API limit reached for subscription, using AI fallback');
       _notifyLimitReached();
       return await _fetchAIPlaces(latitude, longitude, query, radius, userType, vibe, language)
@@ -75,7 +76,7 @@ class PlacesService {
       // Primary: Google Places API for real, accurate data
       DebugLogger.log('🔍 Using Google Places API for real places data');
       _lastApiCalls[cacheKey] = DateTime.now();
-      _incrementApiCall();
+      await _incrementApiCall();
       final realPlaces = await _fetchRealPlaces(latitude, longitude, query, radius, offset, topN)
           .timeout(const Duration(seconds: 15));
       
@@ -503,17 +504,18 @@ class PlacesService {
   }
   
   // Subscription-based API limiting
-  bool _canMakeApiCall() {
+  Future<bool> _canMakeApiCall() async {
     _resetDailyCountIfNeeded();
-    final userTier = _getUserSubscriptionTier();
+    final userTier = await _getUserSubscriptionTier();
     final limit = _subscriptionLimits[userTier] ?? _subscriptionLimits['free']!;
     return _dailyApiCalls < limit;
   }
   
-  void _incrementApiCall() {
+  Future<void> _incrementApiCall() async {
     _resetDailyCountIfNeeded();
     _dailyApiCalls++;
-    print('📊 API calls today: $_dailyApiCalls/${_subscriptionLimits[_getUserSubscriptionTier()]}');
+    final userTier = await _getUserSubscriptionTier();
+    print('📊 API calls today: $_dailyApiCalls/${_subscriptionLimits[userTier]}');
   }
   
   void _resetDailyCountIfNeeded() {
@@ -525,32 +527,33 @@ class PlacesService {
     }
   }
   
-  String _getUserSubscriptionTier() {
+  Future<String> _getUserSubscriptionTier() async {
     try {
-      final userProvider = UserProfileProvider();
-      return userProvider.currentUserProfile?.subscriptionTier ?? 'free';
+      final storageService = StorageService();
+      final user = await storageService.getUser();
+      return user?.tier.name ?? 'free';
     } catch (e) {
       return 'free';
     }
   }
   
-  int getRemainingApiCalls() {
+  Future<int> getRemainingApiCalls() async {
     _resetDailyCountIfNeeded();
-    final userTier = _getUserSubscriptionTier();
+    final userTier = await _getUserSubscriptionTier();
     final limit = _subscriptionLimits[userTier] ?? _subscriptionLimits['free']!;
     return (limit - _dailyApiCalls).clamp(0, limit);
   }
   
-  Map<String, dynamic> getApiUsageStats() {
+  Future<Map<String, dynamic>> getApiUsageStats() async {
     _resetDailyCountIfNeeded();
-    final userTier = _getUserSubscriptionTier();
+    final userTier = await _getUserSubscriptionTier();
     final limit = _subscriptionLimits[userTier] ?? _subscriptionLimits['free']!;
     
     return {
       'tier': userTier,
       'used': _dailyApiCalls,
       'limit': limit,
-      'remaining': getRemainingApiCalls(),
+      'remaining': await getRemainingApiCalls(),
       'percentage': (_dailyApiCalls / limit * 100).clamp(0, 100).toInt(),
     };
   }

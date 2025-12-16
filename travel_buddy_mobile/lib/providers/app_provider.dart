@@ -40,6 +40,7 @@ import '../models/travel_style.dart';
 import '../models/place_section.dart';
 import '../utils/user_converter.dart';
 import '../utils/debug_logger.dart';
+import '../utils/place_ranker.dart';
 
 
 
@@ -867,46 +868,18 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
   }
 
   Future<void> _syncProfileToBackend(Map<String, dynamic> profileData) async {
-    if (_currentUser?.mongoId == null) {
-      print('⚠️ No MongoDB ID - skipping backend sync');
-      print('   Current user: ${_currentUser?.username}');
-      print('   MongoDB ID: ${_currentUser?.mongoId}');
-      return;
-    }
-    
     try {
-      // Remove null values
       final cleanData = <String, dynamic>{};
       profileData.forEach((key, value) {
-        if (value != null) {
-          cleanData[key] = value;
-        }
+        if (value != null) cleanData[key] = value;
       });
       
-      if (cleanData.isEmpty) {
-        print('⚠️ No data to sync to backend');
-        return;
-      }
+      if (cleanData.isEmpty) return;
       
-      print('🔄 Syncing to backend: ${Environment.backendUrl}/api/users/${_currentUser!.mongoId}');
-      print('📤 Data to sync: ${json.encode(cleanData)}');
-      
-      final response = await http.put(
-        Uri.parse('${Environment.backendUrl}/api/users/${_currentUser!.mongoId}'),
-        headers: {'Content-Type': 'application/json'},
-        body: json.encode(cleanData),
-      );
-      
-      print('📥 Backend response: ${response.statusCode}');
-      print('📥 Response body: ${response.body}');
-      
-      if (response.statusCode == 200) {
-        print('✅ Profile synced to backend: ${cleanData.keys.join(", ")}');
-      } else {
-        print('⚠️ Backend sync failed: ${response.statusCode} - ${response.body}');
-      }
+      await _apiService.updateUserProfile(cleanData);
+      print('? Profile synced to backend: ${cleanData.keys.join(", ")}');
     } catch (e) {
-      print('❌ Backend sync error: $e');
+      print('?? Backend sync failed: $e');
     }
   }
 
@@ -1114,24 +1087,24 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
     // Check if location changed significantly - force refresh if moved >1km
     final locationChanged = await _hasLocationChangedSignificantly();
     
-    // Check if we have valid cached data for current location (only if location hasn't changed much)
-    if (!loadMore && searchQuery.isEmpty && !locationChanged) {
-      final cachedData = await _storageService.getCachedPlacesForLocation(
-        _currentLocation!.latitude,
-        _currentLocation!.longitude,
-        _selectedCategory,
-        maxAgeHours: 0.5, // Shorter cache time - 30 minutes
-        maxDistanceKm: 1.0, // Tighter distance threshold - 1km
-      );
-      
-      if (cachedData.isNotEmpty) {
-        print('💾 Using cached places (${cachedData.length}) - within distance/time threshold');
-        _places = cachedData;
-        _placesError = null;
-        notifyListeners();
-        return; // Skip API call - use cache
-      }
-    }
+    // Cache disabled - always fetch fresh data
+    // if (!loadMore && searchQuery.isEmpty && !locationChanged) {
+    //   final cachedData = await _storageService.getCachedPlacesForLocation(
+    //     _currentLocation!.latitude,
+    //     _currentLocation!.longitude,
+    //     _selectedCategory,
+    //     maxAgeHours: 0.5,
+    //     maxDistanceKm: 1.0,
+    //   );
+    //   
+    //   if (cachedData.isNotEmpty) {
+    //     print('💾 Using cached places (${cachedData.length}) - within distance/time threshold');
+    //     _places = cachedData;
+    //     _placesError = null;
+    //     notifyListeners();
+    //     return;
+    //   }
+    // }
     
     if (locationChanged) {
       print('📍 Location changed significantly - forcing fresh places load');
@@ -1373,11 +1346,34 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
           );
           print('✅ Applied ML-based personalized ranking to ${places.length} places');
         } else {
-          // Fallback to rating-based sorting
-          places.sort((a, b) => b.rating.compareTo(a.rating));
+          // AI ranking with rating, reviews, distance, weather, opening hours
+          places = PlaceRanker.rankPlaces(
+            places,
+            _currentLocation!.latitude,
+            _currentLocation!.longitude,
+            weather: _weatherInfo?.condition,
+            considerOpeningHours: true,
+          );
+          print('✅ Applied AI ranking to ${places.length} places');
         }
       }
 
+      // Filter by search relevance if this is a search query
+      if (searchQuery.isNotEmpty) {
+        final originalQuery = searchQuery.toLowerCase().trim();
+        places = places.where((place) {
+          final name = place.name.toLowerCase();
+          final type = place.type.toLowerCase();
+          final description = place.description.toLowerCase();
+          
+          // Check if place matches the search query
+          return name.contains(originalQuery) || 
+                 type.contains(originalQuery) ||
+                 description.contains(originalQuery);
+        }).toList();
+        print('🎯 Filtered to ${places.length} relevant results for "$searchQuery"');
+      }
+      
       // AI Enrichment and distance calculation
       places = await _enrichPlacesWithAI(places);
       
@@ -1473,7 +1469,7 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
           _currentLocation!.longitude,
           _selectedCategory
         );
-        print('💾 Cached ${places.length} places for location ${_currentLocation!.latitude.toStringAsFixed(3)}, ${_currentLocation!.longitude.toStringAsFixed(3)}');
+
       }
       await _updateFavoritePlaces();
       
@@ -1616,6 +1612,10 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
         return _expandKeywords(['parks', 'nature']);
       case 'shopping':
         return _expandKeywords(['shopping', 'markets']);
+      case 'entertainment':
+        return isEvening ? _expandKeywords(['nightclub', 'bar', 'live music']) : _expandKeywords(['cinema', 'theater', 'entertainment']);
+      case 'photography':
+        return _expandKeywords(['viewpoint', 'scenic spot', 'landmark']);
       case 'spa':
         return _expandKeywords(['spa', 'wellness']);
       case 'all':
@@ -1647,7 +1647,7 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
           expanded.addAll(['landmark', 'attraction', 'tourist attraction', 'monument']);
           break;
         case 'culture':
-          expanded.addAll(['museum', 'art gallery', 'temple', 'church', 'historic site']);
+          expanded.addAll(['museum', 'art gallery', 'cultural center']);
           break;
         case 'nature':
           expanded.addAll(['park', 'garden', 'beach', 'nature reserve', 'scenic viewpoint']);
@@ -1671,6 +1671,17 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
         case 'spa':
         case 'wellness':
           expanded.addAll(['spa', 'wellness center', 'massage', 'beauty salon']);
+          break;
+        case 'entertainment':
+          expanded.addAll(['cinema', 'theater', 'entertainment venue', 'concert hall']);
+          break;
+        case 'nightclub':
+        case 'live music':
+          expanded.addAll(['nightclub', 'bar', 'pub', 'live music', 'concert venue', 'lounge']);
+          break;
+        case 'viewpoint':
+        case 'scenic spot':
+          expanded.addAll(['viewpoint', 'scenic spot', 'observation deck', 'rooftop', 'pier', 'lookout']);
           break;
         default:
           expanded.add(keyword);
@@ -1846,6 +1857,8 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
         'culture': 'museums art galleries cultural centers theaters',
         'nature': 'parks gardens hiking trails nature spots',
         'shopping': 'shopping malls local markets bazaars shops',
+        'entertainment': 'cinema theater nightclub bar live music concert venue',
+        'photography': 'viewpoint scenic spot observation deck rooftop landmark',
         'spa': 'spa wellness massage therapy beauty salon',
       };
       
@@ -1858,6 +1871,34 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
       
       // Convert batch results to sections
       final sections = <PlaceSection>[];
+      
+      // Add dynamic "Nearby Now" section
+      final nearbyNowPlaces = await _getNearbyNowPlaces();
+      if (nearbyNowPlaces.isNotEmpty) {
+        sections.add(PlaceSection(
+          id: 'nearby_now',
+          title: 'Open Now & Popular 🔥',
+          subtitle: 'Currently open and trending nearby',
+          emoji: '🔥',
+          places: nearbyNowPlaces,
+          category: 'nearby_now',
+          query: 'open now popular',
+        ));
+      }
+      
+      // Add dynamic "For You" section
+      final forYouPlaces = await _getPersonalizedPlaces();
+      if (forYouPlaces.isNotEmpty) {
+        sections.add(PlaceSection(
+          id: 'for_you',
+          title: 'For You ⭐',
+          subtitle: 'Based on your preferences',
+          emoji: '⭐',
+          places: forYouPlaces,
+          category: 'personalized',
+          query: 'personalized',
+        ));
+      }
       
       if (batchResults['food']?.isNotEmpty == true) {
         sections.add(PlaceSection(
@@ -1919,6 +1960,30 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
         ));
       }
       
+      if (batchResults['entertainment']?.isNotEmpty == true) {
+        sections.add(PlaceSection(
+          id: 'entertainment',
+          title: 'Entertainment & Nightlife',
+          subtitle: 'Cinemas, theaters, nightclubs, live music',
+          emoji: '🎉',
+          places: batchResults['entertainment']!,
+          category: 'entertainment',
+          query: categories['entertainment']!,
+        ));
+      }
+      
+      if (batchResults['photography']?.isNotEmpty == true) {
+        sections.add(PlaceSection(
+          id: 'photography',
+          title: 'Photography Spots',
+          subtitle: 'Viewpoints, scenic spots, observation decks',
+          emoji: '📸',
+          places: batchResults['photography']!,
+          category: 'photography',
+          query: categories['photography']!,
+        ));
+      }
+      
       if (batchResults['spa']?.isNotEmpty == true) {
         sections.add(PlaceSection(
           id: 'spa',
@@ -1933,21 +1998,6 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
       
       _placeSections = sections;
       print('✅ Loaded ${_placeSections.length} place sections via batch API');
-      
-      // Debug: Check if places have real data
-      for (final section in _placeSections) {
-        final realPlaces = section.places.where((p) => 
-          p.id.isNotEmpty && 
-          !p.id.startsWith('mock_') && 
-          !p.name.contains('Local') && 
-          p.address != 'Near your location'
-        ).length;
-        print('📊 ${section.title}: ${realPlaces}/${section.places.length} real places');
-        if (section.places.isNotEmpty) {
-          final sample = section.places.first;
-          print('   Sample: ${sample.name} (ID: ${sample.id.substring(0, math.min(20, sample.id.length))})'); 
-        }
-      }
       
       // Always try individual loading for better location accuracy
       print('🔄 Using individual loading for better location filtering');
@@ -2159,6 +2209,97 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
     
     return filteredPlaces;
   }
+  
+  // Get "Nearby Now" places (open, popular, close)
+  Future<List<Place>> _getNearbyNowPlaces() async {
+    if (_places.isEmpty) return [];
+    
+    final isRainy = _weatherInfo?.condition.toLowerCase().contains('rain') ?? false;
+    
+    final filtered = _places.where((place) {
+      // Open now
+      if (place.isOpenNow != true) return false;
+      
+      // High rating
+      if (place.rating < 4.0) return false;
+      
+      // Weather suitable
+      if (isRainy) {
+        final type = place.type.toLowerCase();
+        if (!type.contains('museum') && !type.contains('mall') && !type.contains('cinema')) return false;
+      }
+      
+      // Close distance (< 2km)
+      final distance = Geolocator.distanceBetween(
+        _currentLocation!.latitude,
+        _currentLocation!.longitude,
+        place.latitude ?? 0,
+        place.longitude ?? 0,
+      ) / 1000;
+      if (distance > 2.0) return false;
+      
+      return true;
+    }).toList();
+    
+    // Rank by score
+    return PlaceRanker.rankPlaces(
+      filtered,
+      _currentLocation!.latitude,
+      _currentLocation!.longitude,
+      weather: _weatherInfo?.condition,
+    ).take(10).toList();
+  }
+  
+  // Get "For You" personalized places
+  Future<List<Place>> _getPersonalizedPlaces() async {
+    if (_places.isEmpty) return [];
+    
+    final userInsights = _usageTrackingService.getUserInsights();
+    final topCategory = userInsights['topCategory'] as String?;
+    final favoriteTypes = <String>[];
+    
+    // Map travel style to types
+    if (_currentUser?.travelStyle != null) {
+      switch (_currentUser!.travelStyle!.name) {
+        case 'foodie':
+          favoriteTypes.addAll(['restaurant', 'cafe', 'food']);
+          break;
+        case 'culture':
+          favoriteTypes.addAll(['museum', 'gallery', 'temple']);
+          break;
+        case 'nature':
+          favoriteTypes.addAll(['park', 'garden', 'beach']);
+          break;
+        case 'nightOwl':
+          favoriteTypes.addAll(['bar', 'nightclub', 'pub']);
+          break;
+      }
+    }
+    
+    // Filter by preferences
+    final filtered = _places.where((place) {
+      final type = place.type.toLowerCase();
+      
+      // Match travel style
+      if (favoriteTypes.any((t) => type.contains(t))) return true;
+      
+      // Match top category
+      if (topCategory != null && type.contains(topCategory.toLowerCase())) return true;
+      
+      // High rated
+      if (place.rating >= 4.5) return true;
+      
+      return false;
+    }).toList();
+    
+    // Rank by score
+    return PlaceRanker.rankPlaces(
+      filtered,
+      _currentLocation!.latitude,
+      _currentLocation!.longitude,
+      weather: _weatherInfo?.condition,
+    ).take(10).toList();
+  }
 
   Future<void> searchPlaces(String query) async {
     print('🔍 searchPlaces called with: "$query"');
@@ -2174,18 +2315,18 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
       return;
     }
     
-    // Enhance search with keyword expansion and location context
-    String enhancedQuery = _expandKeywords([query]);
-    if (!enhancedQuery.toLowerCase().contains('near') && !enhancedQuery.toLowerCase().contains('in')) {
-      enhancedQuery = '$enhancedQuery near me';
-    }
-    
-    print('🔍 Enhanced query: "$enhancedQuery"');
-    await loadNearbyPlaces(searchQuery: enhancedQuery);
+    // Use query directly - lat/lng already provides location context
+    // Don't add "near me" as it confuses Google Places API
+    print('🔍 Search query: "$query"');
+    await loadNearbyPlaces(searchQuery: query);
   }
 
   Future<void> performInstantSearch(String query) async {
     print('🔍 performInstantSearch called with: "$query"');
+    if (query.isNotEmpty) {
+      _selectedCategory = 'all'; // Reset category when searching
+      notifyListeners();
+    }
     await searchPlaces(query);
   }
 
@@ -2908,14 +3049,14 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
       try {
         // Fetch latest profile from backend to get profilePicture and other fields
         try {
-          final response = await http.get(
-            Uri.parse('${Environment.backendUrl}/api/users/${_currentUser!.uid}'),
-          );
-          if (response.statusCode == 200) {
-            final userData = json.decode(response.body);
-            _currentUser = CurrentUser.fromJson(userData);
+          // First get mongoId by Firebase UID
+          final userByUid = await _apiService.getUserByFirebaseUid(_currentUser!.uid!);
+          if (userByUid != null) {
+            _currentUser = CurrentUser.fromJson(userByUid);
             await _storageService.saveUser(_currentUser!);
-            print('✅ Synced user profile from backend (including profilePicture)');
+            print('✅ Synced user profile from backend (including profilePicture and fullName)');
+            print('   - Profile Picture: ${_currentUser!.profilePicture?.substring(0, 50) ?? "none"}...');
+            print('   - Full Name: ${_currentUser!.fullName ?? "none"}');
           }
         } catch (e) {
           print('⚠️ Failed to fetch user profile from backend: $e');

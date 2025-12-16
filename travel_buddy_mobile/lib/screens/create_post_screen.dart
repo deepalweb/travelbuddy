@@ -6,7 +6,6 @@ import 'package:geolocator/geolocator.dart';
 import 'package:geocoding/geocoding.dart';
 import '../providers/community_provider.dart';
 import '../services/image_service.dart';
-import '../widgets/location_picker_map.dart';
 import '../widgets/location_autocomplete_field.dart';
 import '../widgets/enhanced_location_picker_map.dart';
 import '../models/community_post.dart';
