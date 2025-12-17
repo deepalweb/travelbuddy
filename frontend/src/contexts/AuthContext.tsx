@@ -4,6 +4,9 @@ import {
   createUserWithEmailAndPassword, 
   signOut, 
   onAuthStateChanged,
+  GoogleAuthProvider,
+  signInWithRedirect,
+  getRedirectResult,
   type User as FirebaseUser
 } from 'firebase/auth'
 import { auth } from '../lib/firebase'
@@ -30,6 +33,7 @@ interface AuthContextType {
   user: User | null
   login: (email: string, password: string) => Promise<void>
   register: (username: string, email: string, password: string) => Promise<void>
+  loginWithGoogle: () => Promise<void>
   loginDemo: () => Promise<void>
   logout: () => void
   updateProfile: (data: Partial<User>) => Promise<void>
@@ -64,6 +68,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (configLoading || !config) {
       debug.log('⏳ AUTH STEP 1: Waiting for dependencies')
       return
+    }
+
+    // Check for Google Sign-In redirect result
+    if (firebase && config?.firebase?.apiKey) {
+      getRedirectResult(firebase.auth)
+        .then((result) => {
+          if (result) {
+            debug.log('✅ Google Sign-In redirect successful', result.user.email)
+            // User will be synced by onAuthStateChanged
+          }
+        })
+        .catch((error) => {
+          debug.error('❌ Google Sign-In redirect error:', error)
+        })
     }
 
     // Check for demo token first and restore demo user
@@ -290,6 +308,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }
 
+  const loginWithGoogle = async () => {
+    if (!firebase) throw new Error('Firebase not initialized')
+    try {
+      debug.log('🔐 Starting Google Sign-In')
+      const provider = new GoogleAuthProvider()
+      provider.setCustomParameters({
+        prompt: 'select_account'
+      })
+      // Use redirect instead of popup for Azure compatibility
+      await signInWithRedirect(firebase.auth, provider)
+      // User will be redirected to Google, then back to app
+      // Result handled by getRedirectResult in useEffect
+    } catch (error: any) {
+      debug.error('❌ Google Sign-In failed:', error)
+      throw new Error(error.message || 'Google Sign-In failed')
+    }
+  }
+
   const register = async (username: string, email: string, password: string) => {
     if (!firebase) throw new Error('Firebase not initialized')
     try {
@@ -383,7 +419,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }
 
   return (
-    <AuthContext.Provider value={{ user, login, register, loginDemo, logout, updateProfile, isLoading }}>
+    <AuthContext.Provider value={{ user, login, register, loginWithGoogle, loginDemo, logout, updateProfile, isLoading }}>
       {children}
     </AuthContext.Provider>
   )
