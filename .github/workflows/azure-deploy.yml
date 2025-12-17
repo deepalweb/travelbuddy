@@ -123,6 +123,15 @@ jobs:
         npm run build
         echo "✅ Frontend build completed"
         ls -la dist/
+        
+        # Verify web.config exists (required for Azure SPA routing & admin panel)
+        if [ -f "dist/web.config" ]; then
+          echo "✅ web.config found - Admin panel routing will work on Azure"
+        else
+          echo "⚠️ WARNING: web.config missing - Admin panel may return 404 on Azure"
+          echo "Copying web.config from public folder..."
+          cp public/web.config dist/web.config || echo "❌ Failed to copy web.config"
+        fi
     
 
     
@@ -136,12 +145,21 @@ jobs:
         # Create deployment directory structure
         mkdir -p backend/public
         
-        # Copy frontend build
+        # Copy frontend build (includes web.config for admin panel routing)
         cp -r frontend/dist/* backend/public/
         
+        # Verify critical files for Azure deployment
         echo "✅ Deployment structure prepared"
         echo "Frontend files:"
         ls -la backend/public/
+        
+        # Verify web.config exists in deployment
+        if [ -f "backend/public/web.config" ]; then
+          echo "✅ web.config deployed - /admin route will work"
+        else
+          echo "❌ ERROR: web.config missing - /admin will return 404"
+          exit 1
+        fi
     
     - name: ⚙️ Create Optimized web.config
       run: |
