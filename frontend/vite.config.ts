@@ -20,6 +20,7 @@ export default defineConfig({
     },
     chunkSizeWarningLimit: 1000
   },
+  publicDir: 'public',
   server: {
     port: 3000,
     proxy: {
