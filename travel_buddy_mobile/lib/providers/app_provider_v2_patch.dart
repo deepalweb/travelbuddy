@@ -49,21 +49,21 @@
         longitude: _currentLocation!.longitude,
         query: 'restaurants cafes bars coffee shops',
         radius: _selectedRadius,
-        topN: 8,
+        topN: 5,
       ),
       placesService.fetchPlacesPipeline(
         latitude: _currentLocation!.latitude,
         longitude: _currentLocation!.longitude,
         query: 'tourist attractions monuments historical sites landmarks',
         radius: _selectedRadius,
-        topN: 8,
+        topN: 5,
       ),
       placesService.fetchPlacesPipeline(
         latitude: _currentLocation!.latitude,
         longitude: _currentLocation!.longitude,
         query: 'parks gardens hiking trails nature spots',
         radius: _selectedRadius,
-        topN: 8,
+        topN: 5,
       ),
     ]);
     
@@ -117,21 +117,21 @@
         longitude: _currentLocation!.longitude,
         query: 'museums art galleries cultural centers theaters',
         radius: _selectedRadius,
-        topN: 6,
+        topN: 5,
       ),
       placesService.fetchPlacesPipeline(
         latitude: _currentLocation!.latitude,
         longitude: _currentLocation!.longitude,
         query: 'shopping malls local markets bazaars shops',
         radius: _selectedRadius,
-        topN: 6,
+        topN: 5,
       ),
       placesService.fetchPlacesPipeline(
         latitude: _currentLocation!.latitude,
         longitude: _currentLocation!.longitude,
         query: 'cinema theater nightclub bar live music concert venue',
         radius: _selectedRadius,
-        topN: 6,
+        topN: 5,
       ),
     ]);
     

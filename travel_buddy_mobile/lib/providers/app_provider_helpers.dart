@@ -1,5 +1,4 @@
 import '../models/place.dart';
-import '../utils/place_ranker.dart';
 import 'package:geolocator/geolocator.dart';
 
 extension AppProviderHelpers on dynamic {

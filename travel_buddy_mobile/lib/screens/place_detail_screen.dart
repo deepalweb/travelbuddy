@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+import 'package:url_launcher/url_launcher.dart';
 import '../services/azure_openai_service.dart';
 import '../services/image_service.dart';
 import '../config/environment.dart';
@@ -228,159 +229,35 @@ Make it engaging and informative like a travel guide.''';
   }
 
   Widget _buildImageGallery() {
-    if (_images.isEmpty) {
-      return Container(
-        height: 250,
-        color: Colors.grey[300],
-        child: const Center(
-          child: Icon(Icons.image, size: 64, color: Colors.grey),
-        ),
-      );
-    }
-
-    return Column(
-      children: [
-        SizedBox(
-          height: 250,
-          child: PageView.builder(
-            controller: _pageController,
-            itemCount: _images.length,
-            onPageChanged: (index) => setState(() => _activeImageIndex = index),
-            itemBuilder: (context, index) {
-              return GestureDetector(
-                onTap: () {
-                  // Optional: Show full screen image viewer
-                },
-                child: Stack(
-                  children: [
-                    Image.network(
-                      _images[index],
-                      width: double.infinity,
-                      height: 250,
-                      fit: BoxFit.cover,
-                      loadingBuilder: (context, child, loadingProgress) {
-                        if (loadingProgress == null) return child;
-                        return Container(
-                          color: Colors.grey[200],
-                          child: Center(
-                            child: CircularProgressIndicator(
-                              value: loadingProgress.expectedTotalBytes != null
-                                  ? loadingProgress.cumulativeBytesLoaded / loadingProgress.expectedTotalBytes!
-                                  : null,
-                            ),
-                          ),
-                        );
-                      },
-                      errorBuilder: (context, error, stackTrace) {
-                        return Container(
-                          color: Colors.grey[300],
-                          child: const Center(
-                            child: Icon(Icons.image, size: 64, color: Colors.grey),
-                          ),
-                        );
-                      },
-                    ),
-                    // Left Arrow
-                    if (_images.length > 1)
-                      Positioned(
-                        left: 16,
-                        top: 100,
-                        child: GestureDetector(
-                          onTap: () {
-                            if (_activeImageIndex > 0) {
-                              _pageController.previousPage(
-                                duration: const Duration(milliseconds: 300),
-                                curve: Curves.easeInOut,
-                              );
-                            }
-                          },
-                          child: Container(
-                            padding: const EdgeInsets.all(12),
-                            decoration: BoxDecoration(
-                              color: Colors.black.withOpacity(0.7),
-                              shape: BoxShape.circle,
-                            ),
-                            child: Icon(
-                              Icons.arrow_back_ios,
-                              color: _activeImageIndex > 0 ? Colors.white : Colors.grey,
-                              size: 24,
-                            ),
-                          ),
-                        ),
-                      ),
-                    // Right Arrow
-                    if (_images.length > 1)
-                      Positioned(
-                        right: 16,
-                        top: 100,
-                        child: GestureDetector(
-                          onTap: () {
-                            if (_activeImageIndex < _images.length - 1) {
-                              _pageController.nextPage(
-                                duration: const Duration(milliseconds: 300),
-                                curve: Curves.easeInOut,
-                              );
-                            }
-                          },
-                          child: Container(
-                            padding: const EdgeInsets.all(12),
-                            decoration: BoxDecoration(
-                              color: Colors.black.withOpacity(0.7),
-                              shape: BoxShape.circle,
-                            ),
-                            child: Icon(
-                              Icons.arrow_forward_ios,
-                              color: _activeImageIndex < _images.length - 1 ? Colors.white : Colors.grey,
-                              size: 24,
-                            ),
-                          ),
-                        ),
-                      ),
-                    // Image Counter
-                    if (_images.length > 1)
-                      Positioned(
-                        bottom: 16,
-                        right: 16,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: Colors.black.withOpacity(0.6),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Text(
-                            '${_activeImageIndex + 1}/${_images.length}',
-                            style: const TextStyle(color: Colors.white, fontSize: 12),
-                          ),
-                        ),
-                      ),
-                  ],
-                ),
-              );
-            },
-          ),
-        ),
-        if (_images.length > 1)
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: 8),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: List.generate(
-                _images.length,
-                (index) => Container(
-                  margin: const EdgeInsets.symmetric(horizontal: 4),
-                  width: 8,
-                  height: 8,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: _activeImageIndex == index
-                        ? Colors.green[600]
-                        : Colors.grey[300],
+    final imageUrl = _images.isNotEmpty ? _images.first : null;
+    
+    return Container(
+      height: 250,
+      color: Colors.grey[300],
+      child: imageUrl != null
+          ? Image.network(
+              imageUrl,
+              width: double.infinity,
+              height: 250,
+              fit: BoxFit.cover,
+              loadingBuilder: (context, child, loadingProgress) {
+                if (loadingProgress == null) return child;
+                return Container(
+                  color: Colors.grey[200],
+                  child: const Center(
+                    child: CircularProgressIndicator(),
                   ),
-                ),
-              ),
+                );
+              },
+              errorBuilder: (context, error, stackTrace) {
+                return const Center(
+                  child: Icon(Icons.image, size: 64, color: Colors.grey),
+                );
+              },
+            )
+          : const Center(
+              child: Icon(Icons.image, size: 64, color: Colors.grey),
             ),
-          ),
-      ],
     );
   }
 
@@ -543,45 +420,33 @@ Make it engaging and informative like a travel guide.''';
   }
 
   Widget _buildActionButtons() {
-    return Column(
-      children: [
-        SizedBox(
-          width: double.infinity,
-          child: ElevatedButton.icon(
-            onPressed: () {
-              // Open in Google Maps
-              final query = Uri.encodeComponent(widget.placeAddress.isNotEmpty ? widget.placeAddress : widget.placeName);
-              final url = 'https://www.google.com/maps/search/?api=1&query=$query';
-              // Launch URL logic here
-            },
-            icon: const Icon(Icons.map),
-            label: const Text('Open in Google Maps'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.green,
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(vertical: 12),
-            ),
-          ),
+    return SizedBox(
+      width: double.infinity,
+      child: ElevatedButton.icon(
+        onPressed: () async {
+          final lat = _placeDetails?['geometry']?['location']?['lat'];
+          final lng = _placeDetails?['geometry']?['location']?['lng'];
+          
+          String url;
+          if (lat != null && lng != null) {
+            url = 'https://www.google.com/maps/search/?api=1&query=$lat,$lng';
+          } else {
+            final query = Uri.encodeComponent(widget.placeAddress.isNotEmpty ? widget.placeAddress : widget.placeName);
+            url = 'https://www.google.com/maps/search/?api=1&query=$query';
+          }
+          
+          if (await canLaunchUrl(Uri.parse(url))) {
+            await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
+          }
+        },
+        icon: const Icon(Icons.map),
+        label: const Text('View Place'),
+        style: ElevatedButton.styleFrom(
+          backgroundColor: Colors.green,
+          foregroundColor: Colors.white,
+          padding: const EdgeInsets.symmetric(vertical: 16),
         ),
-        const SizedBox(height: 8),
-        SizedBox(
-          width: double.infinity,
-          child: ElevatedButton.icon(
-            onPressed: () {
-              // Share place
-              final shareText = '${widget.placeName}\n${widget.placeAddress}';
-              // Share logic here
-            },
-            icon: const Icon(Icons.share),
-            label: const Text('Share Place'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.blue,
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(vertical: 12),
-            ),
-          ),
-        ),
-      ],
+      ),
     );
   }
 }

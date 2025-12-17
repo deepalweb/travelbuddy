@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { Button } from '../components/Button'
 import { Mail, Lock, User, Eye, EyeOff } from 'lucide-react'
+import { GoogleSignInDebug } from './GoogleSignInDebug'
 
 
 export const LoginPage: React.FC = () => {
@@ -59,6 +60,8 @@ export const LoginPage: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 flex items-center justify-center p-4">
+      {/* Debug component - remove in production */}
+      <GoogleSignInDebug />
       <div className="max-w-md w-full">
         <div className="bg-white rounded-2xl shadow-xl p-8">
           {/* Header */}

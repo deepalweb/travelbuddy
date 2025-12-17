@@ -70,17 +70,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return
     }
 
-    // Check for Google Sign-In redirect result
+    // Check for Google Sign-In redirect result BEFORE checking demo token
     if (firebase && config?.firebase?.apiKey) {
       getRedirectResult(firebase.auth)
         .then((result) => {
           if (result) {
             debug.log('✅ Google Sign-In redirect successful', result.user.email)
             // User will be synced by onAuthStateChanged
+          } else {
+            debug.log('ℹ️ No redirect result (normal page load)')
           }
         })
         .catch((error) => {
           debug.error('❌ Google Sign-In redirect error:', error)
+          // Don't block auth flow on redirect error
         })
     }
 
@@ -136,7 +139,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           // Don't clear user state
         } else {
           debug.log('🔐 AUTH STEP 5: No user, setting null')
-          console.log('⚠️ onAuthStateChanged: Clearing user state')
           setUser(null)
         }
       }
