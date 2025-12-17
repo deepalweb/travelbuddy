@@ -8,8 +8,6 @@ import { LoginPage } from './pages/LoginPage'
 import { RegisterPage } from './pages/RegisterPage'
 import { TripDetailPage } from './pages/TripDetailPage'
 import PlaceDetailsPage from './pages/PlaceDetailsPage'
-import { AdminLayout } from './components/AdminLayout'
-import { AdminDashboard } from './pages/AdminDashboard'
 import { AgentRegistration } from './pages/AgentRegistration'
 
 import { StoryDetailPage } from './pages/StoryDetailPage'
@@ -78,8 +76,7 @@ const AppContent: React.FC = () => {
             <Route path="/trips/:id" element={<TripDetailPage />} />
             <Route path="/places/:id" element={<PlaceDetailsPage />} />
             <Route path="/community/story/:id" element={<StoryDetailPage />} />
-            <Route path="/admin" element={<AdminDashboard />} />
-            <Route path="/admin/*" element={<AdminLayout />} />
+
             <Route path="/*" element={<Layout />} />
             <Route path="*" element={<NotFoundPage />} />
           </Routes>
