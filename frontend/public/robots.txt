@@ -1,0 +1,8 @@
+# TravelBuddy Robots.txt
+User-agent: *
+Allow: /
+Disallow: /admin/
+Disallow: /api/
+
+# Sitemaps
+Sitemap: https://travelbuddy.com/sitemap.xml

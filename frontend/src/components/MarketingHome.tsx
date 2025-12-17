@@ -4,6 +4,7 @@ import { ArrowRight, Compass, Globe, Star, MapPin, DollarSign } from 'lucide-rea
 import { Button } from './Button'
 import { Card } from './Card'
 import { ImageWithFallback } from './ImageWithFallback'
+import { FAQSection } from './FAQSection'
 
 const destinations = [
   {
@@ -65,7 +66,7 @@ export const MarketingHome: React.FC = () => {
                 </div>
                 
                 <h1 className="text-5xl md:text-6xl lg:text-7xl font-black mb-6 leading-tight">
-                  Discover, Plan &
+                  AI Travel Planner - Discover, Plan &
                   <span className="block text-transparent bg-clip-text bg-gradient-to-r from-yellow-300 via-orange-300 to-pink-300">
                     Experience the World
                   </span>
@@ -187,7 +188,7 @@ export const MarketingHome: React.FC = () => {
               Popular Destinations
             </div>
             <h2 className="text-4xl md:text-5xl font-black text-gray-900 mb-6">
-              Explore Top Destinations
+              Best Travel Destinations to Explore
             </h2>
             <p className="text-xl text-gray-600 max-w-2xl mx-auto">
               Handpicked destinations that offer unforgettable experiences
@@ -201,8 +202,9 @@ export const MarketingHome: React.FC = () => {
                   <ImageWithFallback
                     src={dest.image}
                     fallbackSrc={`https://picsum.photos/600/400?random=${dest.id}`}
-                    alt={dest.name}
+                    alt={`${dest.name} - ${dest.tagline} | Best time to visit: ${dest.season} | Budget: ${dest.budget}`}
                     className="w-full h-64 object-cover group-hover:scale-110 transition-transform duration-700"
+                    loading="lazy"
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
                   
@@ -249,7 +251,7 @@ export const MarketingHome: React.FC = () => {
               How It Works
             </div>
             <h2 className="text-4xl md:text-5xl font-black text-gray-900 mb-6">
-              Plan Your Perfect Trip in 3 Steps
+              How to Plan Your Perfect Trip with AI in 3 Easy Steps
             </h2>
             <p className="text-xl text-gray-600">
               AI-powered planning makes travel simple
@@ -287,6 +289,9 @@ export const MarketingHome: React.FC = () => {
           </div>
         </div>
       </section>
+
+      {/* FAQ Section */}
+      <FAQSection />
 
       {/* CTA Section */}
       <section className="relative py-32 bg-gradient-to-br from-blue-600 via-purple-600 to-pink-600 text-white overflow-hidden">

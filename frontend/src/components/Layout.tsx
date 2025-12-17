@@ -19,6 +19,7 @@ import { CommunityPage } from '../pages/CommunityPage'
 import { EventsPage } from '../pages/EventsPage'
 import { AboutPage } from '../pages/AboutPage'
 import { ContactPage } from '../pages/ContactPage'
+import { Breadcrumbs } from './Breadcrumbs'
 import { useApp } from '../contexts/AppContext'
 import { useAuth } from '../contexts/AuthContext'
 
@@ -118,6 +119,7 @@ export const Layout: React.FC = () => {
   return (
     <div className="min-h-screen">
       <MainHeader />
+      <Breadcrumbs />
       
       <main className="pt-16 lg:pt-20">
         {renderPage()}

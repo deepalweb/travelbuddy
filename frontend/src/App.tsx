@@ -25,6 +25,7 @@ import { CreateEventPage } from './pages/CreateEventPage'
 import { checkFirebaseStatus } from './utils/firebaseStatus'
 import PrivacyPolicyPage from './pages/PrivacyPolicyPage'
 import TermsOfServicePage from './pages/TermsOfServicePage'
+import { NotFoundPage } from './pages/NotFoundPage'
 
 const AppContent: React.FC = () => {
   const { config, loading, error } = useConfig()
@@ -80,6 +81,7 @@ const AppContent: React.FC = () => {
             <Route path="/admin" element={<AdminDashboard />} />
             <Route path="/admin/*" element={<AdminLayout />} />
             <Route path="/*" element={<Layout />} />
+            <Route path="*" element={<NotFoundPage />} />
           </Routes>
         </Router>
       </AppProvider>
