@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Calendar, MapPin, DollarSign, Upload, Users, Clock, FileText, Image as ImageIcon, CheckCircle } from 'lucide-react';
+import { Calendar, DollarSign, Users, Clock, Image as ImageIcon, CheckCircle } from 'lucide-react';
 import { Card, CardContent } from '../components/Card';
 import { useConfig } from '../contexts/ConfigContext';
 import { useAuth } from '../contexts/AuthContext';
+import { LocationPicker } from '../components/LocationPicker';
 
 export const CreateEventPage: React.FC = () => {
   const navigate = useNavigate();
@@ -16,13 +17,16 @@ export const CreateEventPage: React.FC = () => {
     date: '',
     endDate: '',
     time: '',
-    city: '',
-    country: '',
-    venue: '',
     price: '',
     currency: 'USD',
     capacity: '',
     isFree: false
+  });
+  const [locationData, setLocationData] = useState({
+    address: '',
+    coordinates: { lat: 0, lng: 0 },
+    city: '',
+    country: ''
   });
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string>('');
@@ -51,9 +55,10 @@ export const CreateEventPage: React.FC = () => {
         category: formData.category,
         description: formData.description,
         location: {
-          city: formData.city,
-          country: formData.country,
-          address: formData.venue
+          city: locationData.city,
+          country: locationData.country,
+          address: locationData.address,
+          coordinates: locationData.coordinates
         },
         date: formData.date,
         endDate: formData.endDate || formData.date,
@@ -247,43 +252,13 @@ export const CreateEventPage: React.FC = () => {
               </div>
 
               {/* Location */}
-              <div className="grid grid-cols-3 gap-4">
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">City *</label>
-                  <div className="relative">
-                    <MapPin className="absolute left-3 top-3 w-5 h-5 text-gray-400" />
-                    <input
-                      type="text"
-                      required
-                      value={formData.city}
-                      onChange={(e) => setFormData({...formData, city: e.target.value})}
-                      className="w-full pl-12 pr-4 py-3 border-2 border-gray-200 rounded-xl focus:border-purple-600 focus:outline-none"
-                      placeholder="Barcelona"
-                    />
-                  </div>
-                </div>
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">Country *</label>
-                  <input
-                    type="text"
-                    required
-                    value={formData.country}
-                    onChange={(e) => setFormData({...formData, country: e.target.value})}
-                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-purple-600 focus:outline-none"
-                    placeholder="Spain"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">Venue *</label>
-                  <input
-                    type="text"
-                    required
-                    value={formData.venue}
-                    onChange={(e) => setFormData({...formData, venue: e.target.value})}
-                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-purple-600 focus:outline-none"
-                    placeholder="Stadium Name"
-                  />
-                </div>
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-4">Event Location *</label>
+                <LocationPicker
+                  value={locationData}
+                  onChange={setLocationData}
+                  required
+                />
               </div>
 
               {/* Pricing */}

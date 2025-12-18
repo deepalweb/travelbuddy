@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { MapPin, Navigation, Search, Loader } from 'lucide-react'
+import { InteractiveMap } from './InteractiveMap'
 
 interface LocationData {
   address: string
@@ -231,6 +232,45 @@ export const LocationPicker: React.FC<LocationPickerProps> = ({ value, onChange,
         />
       </div>
 
+      {/* Interactive Map */}
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-2">
+          Click or Drag Marker on Map to Select Location
+        </label>
+        <div className="relative w-full h-96 bg-gray-100 rounded-lg overflow-hidden border border-gray-300">
+          {typeof window !== 'undefined' && window.google ? (
+            <InteractiveMap
+              lat={value.coordinates.lat || 6.9271}
+              lng={value.coordinates.lng || 79.8612}
+              onLocationChange={async (lat, lng) => {
+                const address = await reverseGeocode(lat, lng)
+                onChange({
+                  address,
+                  coordinates: { lat, lng },
+                  city: extractCity(address),
+                  country: extractCountry(address)
+                })
+              }}
+            />
+          ) : (
+            <div className="w-full h-full flex items-center justify-center">
+              <div className="text-center">
+                <Loader className="h-8 w-8 animate-spin text-blue-600 mx-auto mb-2" />
+                <p className="text-sm text-gray-600">Loading map...</p>
+              </div>
+            </div>
+          )}
+          <div className="absolute bottom-4 left-4 right-4 bg-white/95 backdrop-blur-sm rounded-lg p-3 shadow-lg">
+            <p className="text-xs text-gray-600">
+              📍 Current: {value.coordinates.lat.toFixed(6)}, {value.coordinates.lng.toFixed(6)}
+            </p>
+            <p className="text-xs text-blue-600 mt-1">
+              👆 Click map or drag marker to change location
+            </p>
+          </div>
+        </div>
+      </div>
+
       {/* Map Preview Link */}
       {value.coordinates.lat !== 0 && value.coordinates.lng !== 0 && (
         <div className="bg-green-50 border border-green-200 rounded-lg p-4">
@@ -242,12 +282,12 @@ export const LocationPicker: React.FC<LocationPickerProps> = ({ value, onChange,
                 Coordinates: {value.coordinates.lat.toFixed(6)}, {value.coordinates.lng.toFixed(6)}
               </p>
               <a
-                href={`https://www.openstreetmap.org/?mlat=${value.coordinates.lat}&mlon=${value.coordinates.lng}&zoom=15`}
+                href={`https://www.google.com/maps/search/?api=1&query=${value.coordinates.lat},${value.coordinates.lng}`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-xs text-blue-600 hover:text-blue-800 underline mt-2 inline-block"
               >
-                View on Map →
+                Open in Google Maps →
               </a>
             </div>
           </div>
