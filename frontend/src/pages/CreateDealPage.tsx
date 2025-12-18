@@ -4,6 +4,7 @@ import { Save, Upload, Calendar, DollarSign, MapPin, Tag, Sparkles, Target, Eye,
 import { Button } from '../components/Button'
 import { Card, CardContent } from '../components/Card'
 import { dealsService } from '../services/dealsService'
+import { LocationPicker } from '../components/LocationPicker'
 
 const CreateDealPage: React.FC = () => {
   const navigate = useNavigate()
@@ -526,18 +527,16 @@ const CreateDealPage: React.FC = () => {
           Location & Validity
         </h2>
         
+        {/* GPS Location Picker */}
+        <div className="mb-6">
+          <LocationPicker
+            value={formData.location}
+            onChange={(location) => setFormData(prev => ({ ...prev, location }))}
+            required
+          />
+        </div>
+
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Business Address</label>
-            <input
-              type="text"
-              required
-              value={formData.location.address}
-              onChange={(e) => handleInputChange('address', e.target.value)}
-              placeholder="Full business address"
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            />
-          </div>
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">Max Claims</label>

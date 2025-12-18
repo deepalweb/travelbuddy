@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Check } from 'lucide-react'
 import { configService } from '../services/configService'
+import { LocationPicker } from '../components/LocationPicker'
 
 interface FormData {
   fullName: string
@@ -9,6 +10,10 @@ interface FormData {
   phone: string
   country: string
   city: string
+  location: {
+    address: string
+    coordinates: { lat: number; lng: number }
+  }
   languages: string[]
   experience: string
   specializations: string[]
@@ -36,6 +41,10 @@ export const TravelAgentRegistration: React.FC = () => {
     phone: '',
     country: '',
     city: '',
+    location: {
+      address: '',
+      coordinates: { lat: 0, lng: 0 }
+    },
     languages: [],
     experience: '',
     specializations: [],
@@ -209,33 +218,17 @@ export const TravelAgentRegistration: React.FC = () => {
               </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Country *</label>
-                <select
-                  value={formData.country}
-                  onChange={(e) => setFormData({ ...formData, country: e.target.value })}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                  required
-                >
-                  <option value="">Select country...</option>
-                  {countries.map(country => (
-                    <option key={country} value={country}>{country}</option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">City *</label>
-                <input
-                  type="text"
-                  value={formData.city}
-                  onChange={(e) => setFormData({ ...formData, city: e.target.value })}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                  placeholder="e.g., Tokyo, Paris, Dubai"
-                  required
-                />
-              </div>
+            {/* GPS Location */}
+            <div className="bg-blue-50 p-4 rounded-lg mb-4">
+              <h4 className="font-semibold text-gray-900 mb-1">📍 Your Business Location</h4>
+              <p className="text-sm text-gray-600">Help travelers find you with accurate GPS coordinates</p>
             </div>
+            
+            <LocationPicker
+              value={formData.location}
+              onChange={(location) => setFormData({ ...formData, location })}
+              required
+            />
 
             {/* Languages */}
             <div>

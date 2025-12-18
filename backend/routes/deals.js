@@ -22,9 +22,16 @@ const dealSchema = new mongoose.Schema({
   originalPrice: String,
   discountedPrice: String,
   location: {
+    address: String,
+    coordinates: {
+      type: { type: String, enum: ['Point'], default: 'Point' },
+      coordinates: { type: [Number], index: '2dsphere' }
+    },
+    city: String,
+    country: String,
+    // Legacy fields for backward compatibility
     lat: Number,
-    lng: Number,
-    address: String
+    lng: Number
   },
   images: [String],
   views: { type: Number, default: 0 },
@@ -45,6 +52,9 @@ const dealSchema = new mongoose.Schema({
   },
   createdAt: { type: Date, default: Date.now }
 });
+
+// Geospatial index for proximity queries
+dealSchema.index({ 'location.coordinates': '2dsphere' });
 
 let Deal;
 try {
@@ -180,6 +190,17 @@ router.post('/', async (req, res) => {
       createdAt: new Date()
     };
     
+    // Transform coordinates: frontend {lat, lng} → MongoDB [lng, lat]
+    if (dealData.location?.coordinates?.lat && dealData.location?.coordinates?.lng) {
+      dealData.location.coordinates = {
+        type: 'Point',
+        coordinates: [dealData.location.coordinates.lng, dealData.location.coordinates.lat]
+      };
+      // Keep legacy fields
+      dealData.location.lat = req.body.location.coordinates.lat;
+      dealData.location.lng = req.body.location.coordinates.lng;
+    }
+    
     const deal = new Deal(dealData);
     await deal.save();
     
@@ -188,6 +209,76 @@ router.post('/', async (req, res) => {
   } catch (error) {
     console.error('❌ Error creating deal:', error);
     res.status(400).json({ error: error.message });
+  }
+});
+
+// GET /api/deals/nearby - Get deals near a location
+router.get('/nearby', async (req, res) => {
+  try {
+    const { lat, lng, radius = 5000, limit = 50, businessType } = req.query;
+    
+    if (!lat || !lng) {
+      return res.status(400).json({ error: 'Latitude and longitude required' });
+    }
+    
+    const query = {
+      isActive: true,
+      $or: [
+        { validUntil: { $gte: new Date() } },
+        { validUntil: { $exists: false } },
+        { validUntil: null }
+      ],
+      'location.coordinates': {
+        $near: {
+          $geometry: {
+            type: 'Point',
+            coordinates: [parseFloat(lng), parseFloat(lat)]
+          },
+          $maxDistance: parseInt(radius)
+        }
+      }
+    };
+    
+    if (businessType && businessType !== 'all') {
+      query.businessType = businessType;
+    }
+    
+    const deals = await Deal.find(query)
+      .limit(parseInt(limit))
+      .lean();
+    
+    // Calculate distance for each deal
+    const dealsWithDistance = deals.map(deal => {
+      let distance = null;
+      if (deal.location?.coordinates?.coordinates) {
+        const [dealLng, dealLat] = deal.location.coordinates.coordinates;
+        const R = 6371e3;
+        const φ1 = parseFloat(lat) * Math.PI / 180;
+        const φ2 = dealLat * Math.PI / 180;
+        const Δφ = (dealLat - parseFloat(lat)) * Math.PI / 180;
+        const Δλ = (dealLng - parseFloat(lng)) * Math.PI / 180;
+        const a = Math.sin(Δφ/2) * Math.sin(Δφ/2) +
+                  Math.cos(φ1) * Math.cos(φ2) *
+                  Math.sin(Δλ/2) * Math.sin(Δλ/2);
+        distance = Math.round(R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)));
+      }
+      
+      // Transform coordinates back to frontend format
+      if (deal.location?.coordinates?.coordinates) {
+        deal.location.coordinates = {
+          lat: deal.location.coordinates.coordinates[1],
+          lng: deal.location.coordinates.coordinates[0]
+        };
+      }
+      
+      return { ...deal, distance };
+    });
+    
+    console.log(`✅ Found ${dealsWithDistance.length} deals near ${lat},${lng}`);
+    res.json(dealsWithDistance);
+  } catch (error) {
+    console.error('❌ Error fetching nearby deals:', error);
+    res.status(500).json({ error: error.message });
   }
 });
 

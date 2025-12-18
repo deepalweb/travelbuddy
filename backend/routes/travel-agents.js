@@ -36,6 +36,7 @@ router.post('/register', async (req, res) => {
       phone,
       country,
       city,
+      location,
       languages,
       experience,
       specializations,
@@ -80,6 +81,19 @@ router.post('/register', async (req, res) => {
       verified: true,
       approvedAt: new Date()
     };
+    
+    // Transform coordinates: frontend {lat, lng} → MongoDB [lng, lat]
+    if (location?.coordinates?.lat && location?.coordinates?.lng) {
+      agentData.location = {
+        address: location.address,
+        coordinates: {
+          type: 'Point',
+          coordinates: [location.coordinates.lng, location.coordinates.lat]
+        },
+        city: location.city,
+        country: location.country
+      };
+    }
 
     const agent = new TravelAgent(agentData);
     const savedAgent = await agent.save();
@@ -187,6 +201,73 @@ router.get('/admin/applications', async (req, res) => {
     res.json({ applications, summary });
   } catch (error) {
     res.status(500).json({ error: 'Failed to fetch applications' });
+  }
+});
+
+// Get nearby travel agents
+router.get('/nearby', async (req, res) => {
+  try {
+    const { lat, lng, radius = 10000, limit = 50, specialization } = req.query;
+    
+    if (!lat || !lng) {
+      return res.status(400).json({ error: 'Latitude and longitude required' });
+    }
+    
+    const query = {
+      verificationStatus: 'approved',
+      isActive: true,
+      'location.coordinates': {
+        $near: {
+          $geometry: {
+            type: 'Point',
+            coordinates: [parseFloat(lng), parseFloat(lat)]
+          },
+          $maxDistance: parseInt(radius)
+        }
+      }
+    };
+    
+    if (specialization) {
+      query.specializations = specialization;
+    }
+    
+    const agents = await TravelAgent.find(query)
+      .limit(parseInt(limit))
+      .select('-adminNotes -documents')
+      .lean();
+    
+    // Calculate distance and transform coordinates
+    const agentsWithDistance = agents.map(agent => {
+      let distance = null;
+      if (agent.location?.coordinates?.coordinates) {
+        const [agentLng, agentLat] = agent.location.coordinates.coordinates;
+        const R = 6371e3;
+        const φ1 = parseFloat(lat) * Math.PI / 180;
+        const φ2 = agentLat * Math.PI / 180;
+        const Δφ = (agentLat - parseFloat(lat)) * Math.PI / 180;
+        const Δλ = (agentLng - parseFloat(lng)) * Math.PI / 180;
+        const a = Math.sin(Δφ/2) * Math.sin(Δφ/2) +
+                  Math.cos(φ1) * Math.cos(φ2) *
+                  Math.sin(Δλ/2) * Math.sin(Δλ/2);
+        distance = Math.round(R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)));
+      }
+      
+      // Transform coordinates back to frontend format
+      if (agent.location?.coordinates?.coordinates) {
+        agent.location.coordinates = {
+          lat: agent.location.coordinates.coordinates[1],
+          lng: agent.location.coordinates.coordinates[0]
+        };
+      }
+      
+      return { ...agent, distance };
+    });
+    
+    console.log(`✅ Found ${agentsWithDistance.length} agents near ${lat},${lng}`);
+    res.json(agentsWithDistance);
+  } catch (error) {
+    console.error('❌ Error fetching nearby agents:', error);
+    res.status(500).json({ error: error.message });
   }
 });
 

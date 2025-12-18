@@ -47,6 +47,7 @@ router.post('/register', async (req, res) => {
       email,
       phone,
       address,
+      location,
       licenseNumber,
       vehicleTypes,
       serviceAreas,
@@ -82,6 +83,19 @@ router.post('/register', async (req, res) => {
       isActive: true,
       approvedAt: new Date()
     };
+    
+    // Transform coordinates: frontend {lat, lng} → MongoDB [lng, lat]
+    if (location?.coordinates?.lat && location?.coordinates?.lng) {
+      providerData.location = {
+        address: location.address,
+        coordinates: {
+          type: 'Point',
+          coordinates: [location.coordinates.lng, location.coordinates.lat]
+        },
+        city: location.city,
+        country: location.country
+      };
+    }
     
     // Add optional fields if provided
     if (req.body.description) providerData.description = req.body.description;
@@ -292,36 +306,69 @@ router.get('/popular-routes', async (req, res) => {
   }
 });
 
-// Get nearby services (for map view)
+// Get nearby transport providers
 router.get('/nearby', async (req, res) => {
   try {
-    const { lat, lng, radius = 10 } = req.query;
+    const { lat, lng, radius = 15000, limit = 50, vehicleType } = req.query;
     
-    // Mock nearby services
-    const nearbyServices = [
-      {
-        id: '1',
-        companyName: 'Quick Taxi',
-        vehicleType: 'Car',
-        distance: '0.5 km',
-        eta: '3 minutes',
-        price: 500,
-        coordinates: { lat: 6.9271, lng: 79.8612 }
-      },
-      {
-        id: '2', 
-        companyName: 'City Bus',
-        vehicleType: 'Bus',
-        distance: '0.8 km',
-        eta: '5 minutes',
-        price: 50,
-        coordinates: { lat: 6.9280, lng: 79.8620 }
+    if (!lat || !lng) {
+      return res.status(400).json({ error: 'Latitude and longitude required' });
+    }
+    
+    const query = {
+      verificationStatus: 'approved',
+      isActive: true,
+      'location.coordinates': {
+        $near: {
+          $geometry: {
+            type: 'Point',
+            coordinates: [parseFloat(lng), parseFloat(lat)]
+          },
+          $maxDistance: parseInt(radius)
+        }
       }
-    ];
+    };
     
-    res.json(nearbyServices);
+    if (vehicleType) {
+      query.vehicleTypes = vehicleType;
+    }
+    
+    const providers = await TransportProvider.find(query)
+      .limit(parseInt(limit))
+      .lean();
+    
+    // Calculate distance and transform coordinates
+    const providersWithDistance = providers.map(provider => {
+      let distance = null;
+      if (provider.location?.coordinates?.coordinates) {
+        const [providerLng, providerLat] = provider.location.coordinates.coordinates;
+        const R = 6371e3;
+        const φ1 = parseFloat(lat) * Math.PI / 180;
+        const φ2 = providerLat * Math.PI / 180;
+        const Δφ = (providerLat - parseFloat(lat)) * Math.PI / 180;
+        const Δλ = (providerLng - parseFloat(lng)) * Math.PI / 180;
+        const a = Math.sin(Δφ/2) * Math.sin(Δφ/2) +
+                  Math.cos(φ1) * Math.cos(φ2) *
+                  Math.sin(Δλ/2) * Math.sin(Δλ/2);
+        distance = Math.round(R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)));
+      }
+      
+      // Transform coordinates back to frontend format
+      if (provider.location?.coordinates?.coordinates) {
+        provider.location.coordinates = {
+          lat: provider.location.coordinates.coordinates[1],
+          lng: provider.location.coordinates.coordinates[0]
+        };
+      }
+      
+      return { ...provider, distance };
+    });
+    
+    console.log(`✅ Found ${providersWithDistance.length} providers near ${lat},${lng}`);
+    res.json(providersWithDistance);
   } catch (error) {
-    res.status(500).json({ error: 'Failed to fetch nearby services' });
+    console.error('❌ Error fetching nearby providers:', error);
+    res.status(500).json({ error: error.message });
   }
 });
 

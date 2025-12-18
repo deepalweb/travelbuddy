@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Check } from 'lucide-react'
 import { configService } from '../services/configService'
+import { LocationPicker } from '../components/LocationPicker'
 
 interface FormData {
   companyName: string
@@ -9,6 +10,10 @@ interface FormData {
   country: string
   city: string
   address: string
+  location: {
+    address: string
+    coordinates: { lat: number; lng: number }
+  }
   ownerName: string
   email: string
   phone: string
@@ -32,6 +37,10 @@ export const TransportRegistration: React.FC = () => {
     country: '',
     city: '',
     address: '',
+    location: {
+      address: '',
+      coordinates: { lat: 0, lng: 0 }
+    },
     ownerName: '',
     email: '',
     phone: '',
@@ -255,16 +264,17 @@ export const TransportRegistration: React.FC = () => {
               </div>
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Business Address *</label>
-              <textarea
-                value={formData.address}
-                onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-                rows={2}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                required
-              />
+            {/* GPS Location Picker */}
+            <div className="bg-blue-50 p-4 rounded-lg mb-4">
+              <h4 className="font-semibold text-gray-900 mb-1">📍 Business Location (GPS)</h4>
+              <p className="text-sm text-gray-600">Accurate location helps travelers find your services nearby</p>
             </div>
+            
+            <LocationPicker
+              value={formData.location}
+              onChange={(location) => setFormData({ ...formData, location, address: location.address })}
+              required
+            />
 
             <div className="bg-green-50 p-4 rounded-lg mb-6">
               <h3 className="font-semibold text-gray-900 mb-1">📞 Section 2: Contact Details</h3>

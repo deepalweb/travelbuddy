@@ -10,6 +10,17 @@ const transportProviderSchema = new mongoose.Schema({
   address: { type: String, required: true },
   description: String,
   
+  // GPS Location
+  location: {
+    address: String,
+    coordinates: {
+      type: { type: String, enum: ['Point'], default: 'Point' },
+      coordinates: { type: [Number], index: '2dsphere' }
+    },
+    city: String,
+    country: String
+  },
+  
   // Verification & Legal Info
   businessRegNumber: String,
   licenseNumber: { type: String, required: true },
@@ -86,6 +97,7 @@ transportProviderSchema.index({ email: 1 });
 transportProviderSchema.index({ verificationStatus: 1 });
 transportProviderSchema.index({ isActive: 1 });
 transportProviderSchema.index({ country: 1, serviceAreas: 1 });
+transportProviderSchema.index({ 'location.coordinates': '2dsphere' });
 
 const TransportProvider = mongoose.model('TransportProvider', transportProviderSchema);
 

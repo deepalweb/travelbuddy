@@ -25,6 +25,15 @@ const travelAgentSchema = new mongoose.Schema({
     type: String,
     required: true
   },
+  location: {
+    address: String,
+    coordinates: {
+      type: { type: String, enum: ['Point'], default: 'Point' },
+      coordinates: { type: [Number], index: '2dsphere' }
+    },
+    city: String,
+    country: String
+  },
   languages: [{
     type: String,
     required: true
@@ -116,6 +125,9 @@ const travelAgentSchema = new mongoose.Schema({
     default: ''
   }
 });
+
+// Geospatial index for proximity queries
+travelAgentSchema.index({ 'location.coordinates': '2dsphere' });
 
 const TravelAgent = mongoose.model('TravelAgent', travelAgentSchema);
 
