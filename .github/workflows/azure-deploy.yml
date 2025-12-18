@@ -1,22 +1,37 @@
-name: Deploy to Azure
+name: Deploy TravelBuddy to Azure
 
 on:
   push:
     branches: [ master ]
+  workflow_dispatch:
+
+env:
+  NODE_VERSION: '20'
+  AZURE_WEBAPP_NAME: 'travelbuddy-b2c6hgbbgeh4esdh'
 
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
     
     steps:
-    - uses: actions/checkout@v3
+    - name: 🚀 Checkout Repository
+      uses: actions/checkout@v4
     
-    - name: Setup Node.js
-      uses: actions/setup-node@v3
+    - name: 📦 Setup Node.js
+      uses: actions/setup-node@v4
       with:
-        node-version: '20'
+        node-version: ${{ env.NODE_VERSION }}
+        cache: 'npm'
+        cache-dependency-path: |
+          frontend/package-lock.json
+          backend/package-lock.json
     
-    - name: Install and Build
+    - name: 🔧 Install Frontend Dependencies
+      run: |
+        cd frontend
+        npm ci --prefer-offline --no-audit
+    
+    - name: 🏗️ Build Frontend with Secrets
       working-directory: ./frontend
       env:
         VITE_API_BASE_URL: ${{ secrets.VITE_API_BASE_URL }}
@@ -27,12 +42,66 @@ jobs:
         VITE_FIREBASE_MESSAGING_SENDER_ID: ${{ secrets.VITE_FIREBASE_MESSAGING_SENDER_ID }}
         VITE_FIREBASE_APP_ID: ${{ secrets.VITE_FIREBASE_APP_ID }}
       run: |
-        npm install
         npm run build
+        echo "✅ Frontend build completed"
+        ls -la dist/
     
-    - name: Deploy to Azure
+    - name: 🔧 Install Backend Dependencies
+      run: |
+        cd backend
+        npm ci --omit=dev --prefer-offline --no-audit
+    
+    - name: 📁 Prepare Deployment
+      run: |
+        mkdir -p backend/public
+        cp -r frontend/dist/* backend/public/
+        echo "✅ Deployment structure prepared"
+    
+    - name: ⚙️ Create web.config
+      run: |
+        cat > backend/web.config << 'EOF'
+        <?xml version="1.0" encoding="utf-8"?>
+        <configuration>
+          <system.webServer>
+            <handlers>
+              <add name="iisnode" path="server.js" verb="*" modules="iisnode"/>
+            </handlers>
+            <rewrite>
+              <rules>
+                <rule name="StaticAssets" stopProcessing="true">
+                  <match url="^(assets/.*|.*\.(css|js|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot|json|webp))$" />
+                  <action type="Rewrite" url="public/{R:0}" />
+                </rule>
+                <rule name="API" stopProcessing="true">
+                  <match url="^api/(.*)" />
+                  <action type="Rewrite" url="server.js" />
+                </rule>
+                <rule name="FrontendSPA" stopProcessing="true">
+                  <match url=".*" />
+                  <conditions logicalGrouping="MatchAll">
+                    <add input="{REQUEST_FILENAME}" matchType="IsFile" negate="true" />
+                    <add input="{REQUEST_URI}" pattern="^/api/" negate="true" />
+                  </conditions>
+                  <action type="Rewrite" url="public/index.html" />
+                </rule>
+              </rules>
+            </rewrite>
+            <httpProtocol>
+              <customHeaders>
+                <remove name="Content-Security-Policy" />
+              </customHeaders>
+            </httpProtocol>
+            <staticContent>
+              <clientCache cacheControlMode="UseMaxAge" cacheControlMaxAge="7.00:00:00" />
+            </staticContent>
+            <iisnode loggingEnabled="true" debuggingEnabled="false" />
+          </system.webServer>
+        </configuration>
+        EOF
+    
+    - name: 🚀 Deploy to Azure
       uses: azure/webapps-deploy@v2
       with:
-        app-name: 'travelbuddy-b2c6hgbbgeh4esdh'
+        app-name: ${{ env.AZURE_WEBAPP_NAME }}
         publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
-        package: ./frontend/dist
+        package: ./backend
