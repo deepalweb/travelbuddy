@@ -2,7 +2,14 @@ import { initializeApp } from 'firebase/app'
 import { getAuth, setPersistence, browserLocalPersistence } from 'firebase/auth'
 
 const getEnv = (key: string) => {
-  return (window as any).ENV?.[key] || import.meta.env[key]
+  const runtimeValue = (window as any).ENV?.[key]
+  const buildValue = import.meta.env[key]
+  
+  // If runtime value is still a token placeholder, use build value
+  if (runtimeValue && !runtimeValue.startsWith('#{')) {
+    return runtimeValue
+  }
+  return buildValue
 }
 
 const firebaseConfig = {
