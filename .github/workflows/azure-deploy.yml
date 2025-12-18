@@ -7,7 +7,7 @@ on:
 
 env:
   NODE_VERSION: '20'
-  AZURE_WEBAPP_NAME: 'travelbuddy-b2c6hgbbgeh4esdh'
+  AZURE_WEBAPP_NAME: 'travelbuddy'
 
 jobs:
   build-and-deploy:
