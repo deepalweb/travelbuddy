@@ -71,7 +71,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
 
     // Check for Google Sign-In redirect result BEFORE checking demo token
-    if (firebase && config?.firebase?.apiKey) {
+    if (firebase?.auth && config?.firebase?.apiKey) {
       getRedirectResult(firebase.auth)
         .then((result) => {
           if (result) {
@@ -95,7 +95,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return
     }
 
-    if (!firebase || !config?.firebase?.apiKey) {
+    if (!firebase?.auth || !config?.firebase?.apiKey) {
       debug.log('✅ AUTH STEP 2: Firebase disabled or not configured, no demo token - setting loading false')
       setIsLoading(false)
       return
@@ -103,9 +103,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     
     debug.log('🔐 AUTH STEP 3: Setting up Firebase auth listener')
     
-    // Check for existing session
-    const currentUser = firebase.auth.currentUser
+    // Check for existing session only if auth is available
+    const currentUser = firebase.auth?.currentUser
     debug.log('🔐 AUTH STEP 3.1: Checking existing session', {
+      hasAuth: !!firebase.auth,
       currentUser: currentUser,
       currentUserEmail: currentUser?.email,
       localStorage: {
@@ -115,7 +116,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     })
 
     // If we have a cached user and Firebase has a current user, restore immediately
-    if (currentUser) {
+    if (currentUser && firebase.auth) {
       debug.log('🔐 AUTH STEP 3.2: Current user exists, syncing immediately')
       syncUserProfile(currentUser).then(() => setIsLoading(false))
     }
