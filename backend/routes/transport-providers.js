@@ -95,6 +95,9 @@ router.post('/register', async (req, res) => {
         city: location.city,
         country: location.country
       };
+    } else if (location?.coordinates) {
+      // Skip location if coordinates are incomplete
+      console.log('⚠️ Skipping location - incomplete coordinates');
     }
     
     // Add optional fields if provided
