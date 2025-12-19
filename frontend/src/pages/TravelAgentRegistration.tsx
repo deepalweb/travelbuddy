@@ -377,15 +377,32 @@ export const TravelAgentRegistration: React.FC = () => {
 
             {/* Profile Photo */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Profile Photo URL</label>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Profile Photo</label>
               <input
-                type="url"
-                value={formData.profilePhoto}
-                onChange={(e) => setFormData({ ...formData, profilePhoto: e.target.value })}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                placeholder="https://example.com/your-photo.jpg"
+                type="file"
+                accept="image/*"
+                onChange={(e) => {
+                  const file = e.target.files?.[0]
+                  if (file) {
+                    if (file.size > 2 * 1024 * 1024) {
+                      setError('Image must be less than 2MB')
+                      return
+                    }
+                    const reader = new FileReader()
+                    reader.onloadend = () => {
+                      setFormData({ ...formData, profilePhoto: reader.result as string })
+                    }
+                    reader.readAsDataURL(file)
+                  }
+                }}
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
               />
-              <p className="text-xs text-gray-500 mt-1">Paste a link to your profile photo (optional)</p>
+              {formData.profilePhoto && (
+                <div className="mt-2">
+                  <img src={formData.profilePhoto} alt="Preview" className="w-24 h-24 rounded-full object-cover" />
+                </div>
+              )}
+              <p className="text-xs text-gray-500 mt-1">Upload your profile photo (max 2MB)</p>
             </div>
 
             {/* Description */}
