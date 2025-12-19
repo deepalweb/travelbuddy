@@ -71,6 +71,8 @@ export const CreateEventPage: React.FC = () => {
       };
       
       const token = localStorage.getItem('token');
+      console.log('Event data:', eventData);
+      console.log('Token:', token ? 'exists' : 'missing');
       const response = await fetch(`${apiUrl}/api/events`, {
         method: 'POST',
         headers: {

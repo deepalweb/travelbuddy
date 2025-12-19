@@ -85,52 +85,48 @@ router.post('/', requireAuth, async (req, res) => {
     const Event = getEvent();
     const User = getUser();
     if (!Event) return res.status(500).json({ error: 'Event model not available' });
+    if (!User) return res.status(500).json({ error: 'User model not available' });
 
-    // Get user from Firebase auth
-    let organizerId = req.user.uid;
-    let organizerName = req.user.email?.split('@')[0] || 'User';
+    console.log('Creating event for user:', req.user.uid);
 
-    // Try to get full user details from database
-    if (User) {
-      const user = await User.findOne({ firebaseUid: req.user.uid }).catch(() => null);
-      if (user) {
-        organizerId = user._id;
-        organizerName = user.username || user.fullName || organizerName;
-      } else {
-        // Create user if doesn't exist
-        const newUser = new User({
-          firebaseUid: req.user.uid,
-          username: req.user.email?.split('@')[0] || 'user-' + Date.now(),
-          email: req.user.email || `${req.user.uid}@temp.local`,
-          tier: 'free'
-        });
-        const savedUser = await newUser.save();
-        organizerId = savedUser._id;
-        organizerName = savedUser.username;
-      }
+    // Find or create user
+    let user = await User.findOne({ firebaseUid: req.user.uid });
+    if (!user) {
+      console.log('User not found, creating new user');
+      user = new User({
+        firebaseUid: req.user.uid,
+        username: req.user.email?.split('@')[0] || 'user-' + Date.now(),
+        email: req.user.email || `${req.user.uid}@temp.local`,
+        tier: 'free'
+      });
+      await user.save();
     }
+
+    console.log('User found/created:', user._id);
 
     const eventData = {
       ...req.body,
-      organizerId,
-      organizerName,
+      organizerId: user._id,
+      organizerName: user.username || user.fullName || user.email?.split('@')[0] || 'User',
       isFree: req.body.price === 0,
       status: 'published',
       attendees: 0,
       rating: 0
     };
 
+    console.log('Creating event with data:', JSON.stringify(eventData, null, 2));
     const event = new Event(eventData);
     await event.save();
+    console.log('Event created successfully:', event._id);
     
     res.status(201).json(event);
   } catch (error) {
-    console.error('Event creation error:', error);
+    console.error('❌ Event creation error:', error.message);
+    console.error('Stack:', error.stack);
     console.error('Request body:', JSON.stringify(req.body, null, 2));
     console.error('User:', req.user);
     res.status(500).json({ 
-      error: error.message, 
-      details: error.stack,
+      error: 'Internal server error',
       timestamp: new Date().toISOString(), 
       requestId: 'unknown' 
     });
