@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { Card, CardContent } from '../components/Card'
 import { Button } from '../components/Button'
 import { configService } from '../services/configService'
@@ -118,6 +118,7 @@ const verificationTypes = [
 ]
 
 export const TravelAgentsPage: React.FC = () => {
+  const navigate = useNavigate()
   const [apiBaseUrl, setApiBaseUrl] = useState('')
   const [agents, setAgents] = useState<TravelAgent[]>([])
   const [filteredAgents, setFilteredAgents] = useState<TravelAgent[]>([])
