@@ -70,7 +70,7 @@ export const CreateEventPage: React.FC = () => {
         isFree: formData.isFree
       };
       
-      const token = await user?.getIdToken();
+      const token = localStorage.getItem('token');
       const response = await fetch(`${apiUrl}/api/events`, {
         method: 'POST',
         headers: {
