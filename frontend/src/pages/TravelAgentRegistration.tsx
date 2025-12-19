@@ -23,6 +23,7 @@ interface FormData {
   consultationFee: string
   dayRate: string
   description: string
+  profilePhoto: string
   agreed: boolean
 }
 
@@ -54,6 +55,7 @@ export const TravelAgentRegistration: React.FC = () => {
     consultationFee: '0',
     dayRate: '',
     description: '',
+    profilePhoto: '',
     agreed: false
   })
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -371,6 +373,19 @@ export const TravelAgentRegistration: React.FC = () => {
                   required
                 />
               </div>
+            </div>
+
+            {/* Profile Photo */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Profile Photo URL</label>
+              <input
+                type="url"
+                value={formData.profilePhoto}
+                onChange={(e) => setFormData({ ...formData, profilePhoto: e.target.value })}
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                placeholder="https://example.com/your-photo.jpg"
+              />
+              <p className="text-xs text-gray-500 mt-1">Paste a link to your profile photo (optional)</p>
             </div>
 
             {/* Description */}

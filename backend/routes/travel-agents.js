@@ -47,7 +47,8 @@ router.post('/register', async (req, res) => {
       licenseNumber,
       consultationFee,
       dayRate,
-      description
+      description,
+      profilePhoto
     } = req.body;
 
     // Validation
@@ -101,6 +102,7 @@ router.post('/register', async (req, res) => {
       consultationFee: parseInt(consultationFee) || 0,
       dayRate: parseInt(dayRate),
       description,
+      profilePhoto: profilePhoto || '',
       verificationStatus: 'approved',
       isActive: true,
       verified: true,
