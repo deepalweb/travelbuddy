@@ -126,7 +126,14 @@ router.post('/', requireAuth, async (req, res) => {
     res.status(201).json(event);
   } catch (error) {
     console.error('Event creation error:', error);
-    res.status(500).json({ error: error.message, timestamp: new Date().toISOString(), requestId: 'unknown' });
+    console.error('Request body:', JSON.stringify(req.body, null, 2));
+    console.error('User:', req.user);
+    res.status(500).json({ 
+      error: error.message, 
+      details: error.stack,
+      timestamp: new Date().toISOString(), 
+      requestId: 'unknown' 
+    });
   }
 });
 
