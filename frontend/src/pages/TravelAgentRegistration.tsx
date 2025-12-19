@@ -86,10 +86,21 @@ export const TravelAgentRegistration: React.FC = () => {
     setIsSubmitting(true)
 
     try {
+      // Extract city and country from location address
+      const addressParts = formData.location.address.split(',').map(p => p.trim())
+      const country = addressParts[addressParts.length - 1] || 'Not specified'
+      const city = addressParts[0] || 'Not specified'
+      
+      const submitData = {
+        ...formData,
+        country,
+        city
+      }
+      
       const response = await fetch(`${apiBaseUrl}/api/travel-agents/register`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData)
+        body: JSON.stringify(submitData)
       })
 
       const data = await response.json()
