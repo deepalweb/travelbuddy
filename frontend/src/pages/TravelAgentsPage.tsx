@@ -565,7 +565,7 @@ export const TravelAgentsPage: React.FC = () => {
                             size="sm" 
                             variant="outline"
                             className="text-xs px-2 py-1"
-                            onClick={() => window.location.href = `/travel-agent-edit/${agent.id}`}
+                            onClick={() => alert('Edit feature coming soon! For now, you can delete and re-register.')}
                           >
                             Edit
                           </Button>
