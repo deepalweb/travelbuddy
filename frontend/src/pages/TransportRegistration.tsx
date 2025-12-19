@@ -89,8 +89,12 @@ export const TransportRegistration: React.FC = () => {
     setIsSubmitting(true)
 
     try {
+      const userId = localStorage.getItem('travelbuddy_userId') || `user_${Date.now()}`
+      localStorage.setItem('travelbuddy_userId', userId)
+      
       // Map new form fields to backend expected fields
       const backendData = {
+        userId,
         companyName: formData.companyName,
         ownerName: formData.ownerName,
         email: formData.email,

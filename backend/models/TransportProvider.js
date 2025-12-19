@@ -7,6 +7,7 @@ const transportProviderSchema = new mongoose.Schema({
   ownerName: { type: String, required: true },
   email: { type: String, required: true, unique: true },
   phone: { type: String, required: true },
+  userId: { type: String, required: true },
   address: { type: String, required: true },
   description: String,
   

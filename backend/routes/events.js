@@ -108,6 +108,7 @@ router.post('/', requireAuth, async (req, res) => {
       ...req.body,
       organizerId: user._id,
       organizerName: user.username || user.fullName || user.email?.split('@')[0] || 'User',
+      userId: req.body.userId || 'anonymous',
       isFree: req.body.price === 0,
       status: 'published',
       attendees: 0,
@@ -133,8 +134,8 @@ router.post('/', requireAuth, async (req, res) => {
   }
 });
 
-// Update event (requires auth + ownership)
-router.put('/:id', requireAuth, async (req, res) => {
+// Update event
+router.put('/:id/:userId', async (req, res) => {
   try {
     const Event = getEvent();
     if (!Event) return res.status(500).json({ error: 'Event model not available' });
@@ -142,8 +143,7 @@ router.put('/:id', requireAuth, async (req, res) => {
     const event = await Event.findById(req.params.id);
     if (!event) return res.status(404).json({ error: 'Event not found' });
 
-    // Check ownership
-    if (event.organizerId.toString() !== req.user.uid) {
+    if (event.userId !== req.params.userId) {
       return res.status(403).json({ error: 'Access denied' });
     }
 
@@ -157,8 +157,8 @@ router.put('/:id', requireAuth, async (req, res) => {
   }
 });
 
-// Delete event (requires auth + ownership)
-router.delete('/:id', requireAuth, async (req, res) => {
+// Delete event
+router.delete('/:id/:userId', async (req, res) => {
   try {
     const Event = getEvent();
     if (!Event) return res.status(500).json({ error: 'Event model not available' });
@@ -166,8 +166,7 @@ router.delete('/:id', requireAuth, async (req, res) => {
     const event = await Event.findById(req.params.id);
     if (!event) return res.status(404).json({ error: 'Event not found' });
 
-    // Check ownership
-    if (event.organizerId.toString() !== req.user.uid) {
+    if (event.userId !== req.params.userId) {
       return res.status(403).json({ error: 'Access denied' });
     }
 

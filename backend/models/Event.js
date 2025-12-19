@@ -22,6 +22,7 @@ const eventSchema = new mongoose.Schema({
   images: [String],
   organizerId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   organizerName: String,
+  userId: { type: String, required: true },
   capacity: Number,
   attendees: { type: Number, default: 0 },
   rating: { type: Number, default: 0 },

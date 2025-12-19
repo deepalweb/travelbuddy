@@ -70,16 +70,17 @@ export const CreateEventPage: React.FC = () => {
         isFree: formData.isFree
       };
       
+      const userId = localStorage.getItem('travelbuddy_userId') || `user_${Date.now()}`
+      localStorage.setItem('travelbuddy_userId', userId)
+      
       const token = localStorage.getItem('token');
-      console.log('Event data:', eventData);
-      console.log('Token:', token ? 'exists' : 'missing');
       const response = await fetch(`${apiUrl}/api/events`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
-        body: JSON.stringify(eventData)
+        body: JSON.stringify({ ...eventData, userId })
       });
       
       if (!response.ok) {

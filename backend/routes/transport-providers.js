@@ -79,6 +79,7 @@ router.post('/register', async (req, res) => {
       fleetSize: fleetSize || '1',
       vehicleTypes: Array.isArray(vehicleTypes) ? vehicleTypes : [vehicleTypes].filter(Boolean),
       serviceAreas: Array.isArray(serviceAreas) ? serviceAreas : [serviceAreas].filter(Boolean),
+      userId: req.body.userId || 'anonymous',
       verificationStatus: 'approved',
       isActive: true,
       approvedAt: new Date()
@@ -372,6 +373,52 @@ router.get('/nearby', async (req, res) => {
   } catch (error) {
     console.error('❌ Error fetching nearby providers:', error);
     res.status(500).json({ error: error.message });
+  }
+});
+
+// Update transport provider
+router.put('/:id/:userId', async (req, res) => {
+  try {
+    const { id, userId } = req.params;
+    
+    const provider = await TransportProvider.findById(id);
+    if (!provider) {
+      return res.status(404).json({ error: 'Provider not found' });
+    }
+    
+    if (provider.userId !== userId) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+    
+    const updateData = req.body;
+    delete updateData._id;
+    delete updateData.userId;
+    
+    const updated = await TransportProvider.findByIdAndUpdate(id, updateData, { new: true });
+    res.json({ success: true, provider: updated });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to update' });
+  }
+});
+
+// Delete transport provider
+router.delete('/:id/:userId', async (req, res) => {
+  try {
+    const { id, userId } = req.params;
+    
+    const provider = await TransportProvider.findById(id);
+    if (!provider) {
+      return res.status(404).json({ error: 'Provider not found' });
+    }
+    
+    if (provider.userId !== userId) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+    
+    await TransportProvider.findByIdAndDelete(id);
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to delete' });
   }
 });
 
