@@ -103,6 +103,7 @@ router.post('/register', async (req, res) => {
       dayRate: parseInt(dayRate),
       description,
       profilePhoto: profilePhoto || '',
+      userId: req.body.userId || 'anonymous',
       verificationStatus: 'approved',
       isActive: true,
       verified: true,
@@ -181,7 +182,8 @@ router.get('/', async (req, res) => {
       priceRange: `$${agent.consultationFee === 0 ? 'Free' : agent.consultationFee} consultation / $${agent.dayRate}/day`,
       responseTime: agent.responseTime,
       totalTrips: agent.totalTrips,
-      trustBadges: agent.trustBadges
+      trustBadges: agent.trustBadges,
+      userId: agent.userId
     }));
 
     res.json(formattedAgents);
@@ -302,22 +304,28 @@ router.get('/nearby', async (req, res) => {
 router.put('/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    const updateData = req.body;
+    const { userId } = req.body;
     
-    // Remove fields that shouldn't be updated directly
+    const agent = await TravelAgent.findById(id);
+    if (!agent) {
+      return res.status(404).json({ error: 'Agent not found' });
+    }
+    
+    if (agent.userId !== userId) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+    
+    const updateData = req.body;
     delete updateData._id;
     delete updateData.createdAt;
     delete updateData.verificationStatus;
+    delete updateData.userId;
     
     const updatedAgent = await TravelAgent.findByIdAndUpdate(
       id,
       updateData,
       { new: true, runValidators: true }
     );
-    
-    if (!updatedAgent) {
-      return res.status(404).json({ error: 'Agent not found' });
-    }
     
     res.json({
       success: true,
@@ -331,15 +339,20 @@ router.put('/:id', async (req, res) => {
 });
 
 // Delete travel agent profile
-router.delete('/:id', async (req, res) => {
+router.delete('/:id/:userId', async (req, res) => {
   try {
-    const { id } = req.params;
+    const { id, userId } = req.params;
     
-    const deletedAgent = await TravelAgent.findByIdAndDelete(id);
-    
-    if (!deletedAgent) {
+    const agent = await TravelAgent.findById(id);
+    if (!agent) {
       return res.status(404).json({ error: 'Agent not found' });
     }
+    
+    if (agent.userId !== userId) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+    
+    await TravelAgent.findByIdAndDelete(id);
     
     res.json({
       success: true,

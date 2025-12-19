@@ -13,6 +13,10 @@ const travelAgentSchema = new mongoose.Schema({
     lowercase: true,
     trim: true
   },
+  userId: {
+    type: String,
+    required: true
+  },
   phone: {
     type: String,
     required: true

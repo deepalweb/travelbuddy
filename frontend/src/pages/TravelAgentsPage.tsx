@@ -30,6 +30,7 @@ interface TravelAgent {
   totalTrips?: number
   trustBadges?: string[]
   profileCompletion?: number
+  userId?: string
 }
 
 const mockAgents: TravelAgent[] = [
@@ -558,34 +559,41 @@ export const TravelAgentsPage: React.FC = () => {
                       {agent.languages.length > 2 && <span>+{agent.languages.length - 2}</span>}
                     </div>
                     <div className="flex space-x-1">
-                      <Button 
-                        size="sm" 
-                        variant="outline"
-                        className="text-xs px-2 py-1"
-                        onClick={() => window.location.href = `/travel-agent-edit/${agent.id}`}
-                      >
-                        Edit
-                      </Button>
-                      <Button 
-                        size="sm" 
-                        variant="outline"
-                        className="text-xs px-2 py-1 text-red-600 hover:bg-red-50"
-                        onClick={async () => {
-                          if (confirm('Delete this profile?')) {
-                            try {
-                              const response = await fetch(`${apiBaseUrl}/api/travel-agents/${agent.id}`, { method: 'DELETE' })
-                              if (response.ok) {
-                                alert('Profile deleted')
-                                fetchAgents()
+                      {agent.userId === localStorage.getItem('travelbuddy_userId') && (
+                        <>
+                          <Button 
+                            size="sm" 
+                            variant="outline"
+                            className="text-xs px-2 py-1"
+                            onClick={() => window.location.href = `/travel-agent-edit/${agent.id}`}
+                          >
+                            Edit
+                          </Button>
+                          <Button 
+                            size="sm" 
+                            variant="outline"
+                            className="text-xs px-2 py-1 text-red-600 hover:bg-red-50"
+                            onClick={async () => {
+                              if (confirm('Delete this profile?')) {
+                                try {
+                                  const userId = localStorage.getItem('travelbuddy_userId')
+                                  const response = await fetch(`${apiBaseUrl}/api/travel-agents/${agent.id}/${userId}`, { method: 'DELETE' })
+                                  if (response.ok) {
+                                    alert('Profile deleted')
+                                    fetchAgents()
+                                  } else {
+                                    alert('Access denied')
+                                  }
+                                } catch (error) {
+                                  alert('Delete failed')
+                                }
                               }
-                            } catch (error) {
-                              alert('Delete failed')
-                            }
-                          }
-                        }}
-                      >
-                        Delete
-                      </Button>
+                            }}
+                          >
+                            Delete
+                          </Button>
+                        </>
+                      )}
                       <Button 
                         size="sm" 
                         className="text-xs px-2 py-1 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700"

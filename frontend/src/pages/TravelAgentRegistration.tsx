@@ -93,10 +93,15 @@ export const TravelAgentRegistration: React.FC = () => {
       const country = addressParts[addressParts.length - 1] || 'Not specified'
       const city = addressParts[0] || 'Not specified'
       
+      // Get userId from localStorage or generate one
+      const userId = localStorage.getItem('travelbuddy_userId') || `user_${Date.now()}`
+      localStorage.setItem('travelbuddy_userId', userId)
+      
       const submitData = {
         ...formData,
         country,
-        city
+        city,
+        userId
       }
       
       const response = await fetch(`${apiBaseUrl}/api/travel-agents/register`, {
