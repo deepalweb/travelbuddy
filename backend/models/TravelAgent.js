@@ -28,8 +28,8 @@ const travelAgentSchema = new mongoose.Schema({
   location: {
     address: String,
     coordinates: {
-      type: { type: String, enum: ['Point'], default: 'Point' },
-      coordinates: { type: [Number], index: '2dsphere' }
+      type: { type: String, enum: ['Point'] },
+      coordinates: [Number]
     },
     city: String,
     country: String
