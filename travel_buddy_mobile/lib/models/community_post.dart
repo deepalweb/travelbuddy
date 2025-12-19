@@ -23,6 +23,8 @@ class CommunityPost {
   final List<String>? mentionedUserIds;
   final double? rating; // For reviews
   final List<String> helpfulUserIds;
+  final PostLocation? postLocation;
+  double? distance;
 
   CommunityPost({
     required this.id,
@@ -47,6 +49,7 @@ class CommunityPost {
     this.mentionedUserIds,
     this.rating,
     this.helpfulUserIds = const [],
+    this.postLocation,
   });
 
   factory CommunityPost.fromJson(Map<String, dynamic> json) {
@@ -72,6 +75,7 @@ class CommunityPost {
       postType: PostType.fromString(json['category'] ?? json['postType'] ?? 'story'),
       hashtags: List<String>.from(json['tags'] ?? json['hashtags'] ?? []),
       metadata: json['metadata'],
+      postLocation: json['location'] != null && json['location'] is Map ? PostLocation.fromJson(json['location']) : null,
     );
   }
 
@@ -90,6 +94,31 @@ class CommunityPost {
       'isLiked': isLiked,
       'postType': postType.name,
       'metadata': metadata,
+      'postLocation': postLocation?.toJson(),
+    };
+  }
+}
+
+class PostLocation {
+  final String type;
+  final List<double> coordinates;
+  
+  PostLocation({
+    required this.type,
+    required this.coordinates,
+  });
+  
+  factory PostLocation.fromJson(Map<String, dynamic> json) {
+    return PostLocation(
+      type: json['type'] ?? 'Point',
+      coordinates: List<double>.from(json['coordinates'] ?? [0.0, 0.0]),
+    );
+  }
+  
+  Map<String, dynamic> toJson() {
+    return {
+      'type': type,
+      'coordinates': coordinates,
     };
   }
 }

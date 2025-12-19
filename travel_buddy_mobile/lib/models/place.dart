@@ -227,6 +227,12 @@ class Deal extends HiveObject {
 
   @HiveField(19)
   final String? currency;
+  
+  @HiveField(20)
+  final DealLocation? location;
+  
+  // Non-persisted field for distance calculation
+  double? distance;
 
   Deal({
     required this.id,
@@ -250,6 +256,7 @@ class Deal extends HiveObject {
     this.originalPrice,
     this.discountedPrice,
     this.currency,
+    this.location,
   });
 
   factory Deal.fromJson(Map<String, dynamic> json) {
@@ -295,6 +302,7 @@ class Deal extends HiveObject {
         originalPrice: _parsePrice(json['originalPrice']),
         discountedPrice: _parsePrice(json['discountedPrice']),
         currency: json['currency']?.toString(),
+        location: json['location'] != null ? DealLocation.fromJson(json['location']) : null,
       );
     } catch (e) {
       print('Error parsing Deal from JSON: $e');
@@ -320,6 +328,7 @@ class Deal extends HiveObject {
       'merchantId': merchantId,
       'price': price?.toJson(),
       'isPremium': isPremium,
+      'location': location?.toJson(),
     };
   }
   
@@ -331,5 +340,33 @@ class Deal extends HiveObject {
       return double.tryParse(numStr);
     }
     return null;
+  }
+}
+
+@HiveType(typeId: 21)
+class DealLocation extends HiveObject {
+  @HiveField(0)
+  final String type;
+  
+  @HiveField(1)
+  final List<double> coordinates;
+  
+  DealLocation({
+    required this.type,
+    required this.coordinates,
+  });
+  
+  factory DealLocation.fromJson(Map<String, dynamic> json) {
+    return DealLocation(
+      type: json['type'] ?? 'Point',
+      coordinates: List<double>.from(json['coordinates'] ?? [0.0, 0.0]),
+    );
+  }
+  
+  Map<String, dynamic> toJson() {
+    return {
+      'type': type,
+      'coordinates': coordinates,
+    };
   }
 }

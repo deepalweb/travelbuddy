@@ -1,7 +1,9 @@
 import 'dart:convert';
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:geolocator/geolocator.dart';
 import '../models/community_post.dart';
 import '../models/travel_enums.dart';
 import '../models/user.dart';
@@ -61,6 +63,24 @@ class CommunityProvider with ChangeNotifier {
         
         // Filter out locally deleted posts
         final filteredPosts = updatedPosts.where((post) => !_deletedPostIds.contains(post.id)).toList();
+        
+        // Calculate distance if location available
+        if (context != null) {
+          final appProvider = context.read<AppProvider>();
+          final location = appProvider.currentLocation;
+          if (location != null) {
+            for (var post in filteredPosts) {
+              if (post.postLocation?.coordinates != null && post.postLocation!.coordinates.length == 2) {
+                post.distance = _calculateDistance(
+                  location.latitude,
+                  location.longitude,
+                  post.postLocation!.coordinates[1],
+                  post.postLocation!.coordinates[0],
+                );
+              }
+            }
+          }
+        }
         
         if (refresh || _currentPage == 1) {
           // On refresh or first load, replace all posts with fresh backend data
@@ -611,5 +631,12 @@ class CommunityProvider with ChangeNotifier {
       DebugLogger.error('Failed to edit post: $e');
       return false;
     }
+  }
+  
+  double _calculateDistance(double lat1, double lon1, double lat2, double lon2) {
+    const p = 0.017453292519943295;
+    final a = 0.5 - math.cos((lat2 - lat1) * p) / 2 +
+        math.cos(lat1 * p) * math.cos(lat2 * p) * (1 - math.cos((lon2 - lon1) * p)) / 2;
+    return 12742 * math.asin(math.sqrt(a));
   }
 }

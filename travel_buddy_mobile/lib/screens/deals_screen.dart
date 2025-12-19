@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'dart:convert';
+import 'dart:math' as math;
 import '../providers/app_provider.dart';
 import '../constants/app_constants.dart';
 import '../models/place.dart';
@@ -35,7 +36,27 @@ class _DealsScreenState extends State<DealsScreen> {
     });
     
     try {
+      final appProvider = Provider.of<AppProvider>(context, listen: false);
+      final location = appProvider.currentLocation;
+      
       final deals = await DealsService.getActiveDeals();
+      
+      // Calculate distance and sort by proximity if location available
+      if (location != null) {
+        for (var deal in deals) {
+          if (deal.location?.coordinates != null && deal.location!.coordinates.length == 2) {
+            final distance = _calculateDistance(
+              location.latitude,
+              location.longitude,
+              deal.location!.coordinates[1],
+              deal.location!.coordinates[0],
+            );
+            deal.distance = distance;
+          }
+        }
+        deals.sort((a, b) => (a.distance ?? 999).compareTo(b.distance ?? 999));
+      }
+      
       setState(() {
         _deals = deals;
         _isLoading = false;
@@ -46,6 +67,13 @@ class _DealsScreenState extends State<DealsScreen> {
         _isLoading = false;
       });
     }
+  }
+  
+  double _calculateDistance(double lat1, double lon1, double lat2, double lon2) {
+    const p = 0.017453292519943295;
+    final a = 0.5 - math.cos((lat2 - lat1) * p) / 2 +
+        math.cos(lat1 * p) * math.cos(lat2 * p) * (1 - math.cos((lon2 - lon1) * p)) / 2;
+    return 12742 * math.asin(math.sqrt(a));
   }
   
 
@@ -268,6 +296,16 @@ class _DealsScreenState extends State<DealsScreen> {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
+                  if (deal.distance != null)
+                    Row(
+                      children: [
+                        const Icon(Icons.location_on, color: Colors.blue, size: 10),
+                        Text(
+                          ' ${deal.distance!.toStringAsFixed(1)}km away',
+                          style: const TextStyle(fontSize: 9, color: Colors.blue),
+                        ),
+                      ],
+                    ),
                   Row(
                     children: [
                       const Icon(Icons.local_offer, color: Colors.green, size: 12),

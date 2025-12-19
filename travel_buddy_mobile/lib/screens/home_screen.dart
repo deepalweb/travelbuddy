@@ -15,7 +15,7 @@ import '../models/trip.dart';
 import '../screens/language_assistant_screen.dart';
 import '../screens/deal_detail_screen.dart';
 import '../screens/trip_plan_detail_screen.dart';
-import '../screens/transport_screen.dart';
+import '../screens/transport_hub_screen.dart';
 import '../screens/travel_agent_screen.dart';
 import '../screens/events_screen.dart';
 import '../screens/place_details_screen.dart';
@@ -1373,7 +1373,7 @@ class _HomeScreenState extends State<HomeScreen> {
         Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (context) => const TransportScreen(),
+            builder: (context) => const TransportHubScreen(),
           ),
         );
         break;
@@ -2715,7 +2715,7 @@ class _HomeScreenState extends State<HomeScreen> {
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => const TransportScreen(),
+        builder: (context) => const TransportHubScreen(),
       ),
     );
   }

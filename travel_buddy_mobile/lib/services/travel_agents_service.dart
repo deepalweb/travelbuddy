@@ -2,76 +2,76 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 import '../config/environment.dart';
 
-class TransportProvider {
+class TravelAgent {
   final String id;
   final String name;
-  final String type;
   final String description;
-  final List<String> services;
+  final List<String> specializations;
   final double rating;
   final String phoneNumber;
   final String email;
-  final TransportLocation? location;
+  final String? website;
+  final AgentLocation? location;
   double? distance;
 
-  TransportProvider({
+  TravelAgent({
     required this.id,
     required this.name,
-    required this.type,
     required this.description,
-    required this.services,
+    required this.specializations,
     required this.rating,
     required this.phoneNumber,
     required this.email,
+    this.website,
     this.location,
   });
 
-  factory TransportProvider.fromJson(Map<String, dynamic> json) {
-    return TransportProvider(
+  factory TravelAgent.fromJson(Map<String, dynamic> json) {
+    return TravelAgent(
       id: json['_id'] ?? json['id'] ?? '',
       name: json['name'] ?? '',
-      type: json['type'] ?? 'transport',
       description: json['description'] ?? '',
-      services: List<String>.from(json['services'] ?? []),
+      specializations: List<String>.from(json['specializations'] ?? []),
       rating: (json['rating'] ?? 0.0).toDouble(),
       phoneNumber: json['phoneNumber'] ?? '',
       email: json['email'] ?? '',
-      location: json['location'] != null ? TransportLocation.fromJson(json['location']) : null,
+      website: json['website'],
+      location: json['location'] != null ? AgentLocation.fromJson(json['location']) : null,
     );
   }
 }
 
-class TransportLocation {
+class AgentLocation {
   final String type;
   final List<double> coordinates;
 
-  TransportLocation({required this.type, required this.coordinates});
+  AgentLocation({required this.type, required this.coordinates});
 
-  factory TransportLocation.fromJson(Map<String, dynamic> json) {
-    return TransportLocation(
+  factory AgentLocation.fromJson(Map<String, dynamic> json) {
+    return AgentLocation(
       type: json['type'] ?? 'Point',
       coordinates: List<double>.from(json['coordinates'] ?? [0.0, 0.0]),
     );
   }
 }
 
-class TransportService {
-  static Future<List<TransportProvider>> getNearbyTransport(double lat, double lng, {int radius = 20000}) async {
+class TravelAgentsService {
+  static Future<List<TravelAgent>> getNearbyAgents(double lat, double lng, {int radius = 20000}) async {
     try {
       final response = await http.get(
-        Uri.parse('${Environment.backendUrl}/api/transport-providers/nearby?lat=$lat&lng=$lng&radius=$radius'),
+        Uri.parse('${Environment.backendUrl}/api/travel-agents/nearby?lat=$lat&lng=$lng&radius=$radius'),
       ).timeout(const Duration(seconds: 10));
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
-        final providers = (data['providers'] as List)
-            .map((json) => TransportProvider.fromJson(json))
+        final agents = (data['agents'] as List)
+            .map((json) => TravelAgent.fromJson(json))
             .toList();
-        return providers;
+        return agents;
       }
       return [];
     } catch (e) {
-      print('❌ Transport service error: $e');
+      print('❌ Travel agents service error: $e');
       return [];
     }
   }

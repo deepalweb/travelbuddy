@@ -153,13 +153,14 @@ class DealAdapter extends TypeAdapter<Deal> {
       originalPrice: fields[17] as double?,
       discountedPrice: fields[18] as double?,
       currency: fields[19] as String?,
+      location: fields[20] as DealLocation?,
     );
   }
 
   @override
   void write(BinaryWriter writer, Deal obj) {
     writer
-      ..writeByte(20)
+      ..writeByte(21)
       ..writeByte(0)
       ..write(obj.id)
       ..writeByte(1)
@@ -199,7 +200,9 @@ class DealAdapter extends TypeAdapter<Deal> {
       ..writeByte(18)
       ..write(obj.discountedPrice)
       ..writeByte(19)
-      ..write(obj.currency);
+      ..write(obj.currency)
+      ..writeByte(20)
+      ..write(obj.location);
   }
 
   @override
@@ -209,6 +212,43 @@ class DealAdapter extends TypeAdapter<Deal> {
   bool operator ==(Object other) =>
       identical(this, other) ||
       other is DealAdapter &&
+          runtimeType == other.runtimeType &&
+          typeId == other.typeId;
+}
+
+class DealLocationAdapter extends TypeAdapter<DealLocation> {
+  @override
+  final int typeId = 21;
+
+  @override
+  DealLocation read(BinaryReader reader) {
+    final numOfFields = reader.readByte();
+    final fields = <int, dynamic>{
+      for (int i = 0; i < numOfFields; i++) reader.readByte(): reader.read(),
+    };
+    return DealLocation(
+      type: fields[0] as String,
+      coordinates: (fields[1] as List).cast<double>(),
+    );
+  }
+
+  @override
+  void write(BinaryWriter writer, DealLocation obj) {
+    writer
+      ..writeByte(2)
+      ..writeByte(0)
+      ..write(obj.type)
+      ..writeByte(1)
+      ..write(obj.coordinates);
+  }
+
+  @override
+  int get hashCode => typeId.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is DealLocationAdapter &&
           runtimeType == other.runtimeType &&
           typeId == other.typeId;
 }
