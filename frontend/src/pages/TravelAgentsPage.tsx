@@ -560,7 +560,11 @@ export const TravelAgentsPage: React.FC = () => {
                       {agent.languages.length > 2 && <span>+{agent.languages.length - 2}</span>}
                     </div>
                     <div className="flex space-x-1">
-                      {agent.userId === localStorage.getItem('travelbuddy_userId') && (
+                      {(() => {
+                        const currentUserId = localStorage.getItem('travelbuddy_userId')
+                        console.log('Agent userId:', agent.userId, 'Current userId:', currentUserId, 'Match:', agent.userId === currentUserId)
+                        return agent.userId === currentUserId
+                      })() && (
                         <>
                           <Button 
                             size="sm" 
