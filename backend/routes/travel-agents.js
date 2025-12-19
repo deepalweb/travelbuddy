@@ -30,6 +30,8 @@ router.use((req, res, next) => {
 // Register travel agent
 router.post('/register', async (req, res) => {
   try {
+    console.log('Travel agent registration request:', Object.keys(req.body));
+    
     const {
       fullName,
       email,
@@ -50,15 +52,38 @@ router.post('/register', async (req, res) => {
 
     // Validation
     if (!fullName || !email || !phone || !country || !city) {
-      return res.status(400).json({ error: 'Missing required fields' });
+      console.log('Missing basic fields:', { fullName, email, phone, country, city });
+      return res.status(400).json({ error: 'Missing required fields: fullName, email, phone, country, or city' });
     }
 
     if (!languages || languages.length === 0) {
+      console.log('Missing languages');
       return res.status(400).json({ error: 'Must select at least one language' });
     }
 
     if (!specializations || specializations.length === 0) {
+      console.log('Missing specializations');
       return res.status(400).json({ error: 'Must select at least one specialization' });
+    }
+    
+    if (!experience) {
+      console.log('Missing experience');
+      return res.status(400).json({ error: 'Experience is required' });
+    }
+    
+    if (!agencyType) {
+      console.log('Missing agencyType');
+      return res.status(400).json({ error: 'Agency type is required' });
+    }
+    
+    if (!dayRate) {
+      console.log('Missing dayRate');
+      return res.status(400).json({ error: 'Day rate is required' });
+    }
+    
+    if (!description) {
+      console.log('Missing description');
+      return res.status(400).json({ error: 'Description is required' });
     }
 
     const agentData = {
