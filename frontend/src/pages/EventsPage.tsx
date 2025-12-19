@@ -48,62 +48,38 @@ export const EventsPage: React.FC = () => {
   });
 
   useEffect(() => {
-    // Mock data - replace with API call
-    setEvents([
-      {
-        id: '1',
-        name: 'Summer Music Festival 2024',
-        description: 'The biggest music festival of the year featuring top artists',
-        category: 'music',
-        location: { city: 'Barcelona', country: 'Spain' },
-        date: '2024-07-15',
-        endDate: '2024-07-17',
-        time: '18:00',
-        price: 150,
-        currency: 'EUR',
-        image: 'https://images.unsplash.com/photo-1533174072545-7a4b6ad7a6c3?w=800',
-        rating: 4.8,
-        attendees: 5000,
-        organizer: 'Global Events Co.',
-        isTrending: true,
-        isVerified: true
-      },
-      {
-        id: '2',
-        name: 'Tokyo Food Festival',
-        description: 'Experience authentic Japanese cuisine from top chefs',
-        category: 'food',
-        location: { city: 'Tokyo', country: 'Japan' },
-        date: '2024-06-20',
-        time: '12:00',
-        price: 0,
-        currency: 'JPY',
-        image: 'https://images.unsplash.com/photo-1555939594-58d7cb561ad1?w=800',
-        rating: 4.9,
-        attendees: 3000,
-        organizer: 'Tokyo Tourism Board',
-        isFree: true,
-        isVerified: true
-      },
-      {
-        id: '3',
-        name: 'Tech Innovation Summit',
-        description: 'Leading tech conference with industry experts',
-        category: 'tech',
-        location: { city: 'San Francisco', country: 'USA' },
-        date: '2024-08-10',
-        time: '09:00',
-        price: 500,
-        currency: 'USD',
-        image: 'https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=800',
-        rating: 4.7,
-        attendees: 2000,
-        organizer: 'Tech Leaders Inc.',
-        isTrending: true,
-        isVerified: true
-      }
-    ]);
+    fetchEvents();
   }, []);
+
+  const fetchEvents = async () => {
+    try {
+      const response = await fetch('/api/events');
+      if (response.ok) {
+        const data = await response.json();
+        const formattedEvents = data.map((event: any) => ({
+          id: event._id,
+          name: event.name,
+          description: event.description,
+          category: event.category,
+          location: event.location,
+          date: event.date,
+          endDate: event.endDate,
+          time: event.time,
+          price: event.price,
+          currency: event.currency,
+          image: event.image || 'https://images.unsplash.com/photo-1533174072545-7a4b6ad7a6c3?w=800',
+          rating: event.rating || 0,
+          attendees: event.attendees || 0,
+          organizer: event.organizerName,
+          isFree: event.isFree,
+          isVerified: true
+        }));
+        setEvents(formattedEvents);
+      }
+    } catch (error) {
+      console.error('Failed to fetch events:', error);
+    }
+  };
 
   const filteredEvents = events.filter(event => {
     if (selectedCategory !== 'all' && event.category !== selectedCategory) return false;
