@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useParams } from 'react-router-dom'
 import { Check } from 'lucide-react'
 import { configService } from '../services/configService'
 import { LocationPicker } from '../components/LocationPicker'
@@ -34,8 +34,10 @@ const agencyTypes = ['Independent Guide', 'Travel Agency', 'Tour Operator', 'Con
 const experienceLevels = ['1-3 years', '3-7 years', '7-10 years', '10+ years']
 
 export const TravelAgentRegistration: React.FC = () => {
+  const { id } = useParams()
   const navigate = useNavigate()
   const [apiBaseUrl, setApiBaseUrl] = useState('')
+  const [loading, setLoading] = useState(!!id)
   const [formData, setFormData] = useState<FormData>({
     fullName: '',
     email: '',
@@ -65,6 +67,42 @@ export const TravelAgentRegistration: React.FC = () => {
   useEffect(() => {
     configService.getConfig().then(config => setApiBaseUrl(config.apiBaseUrl))
   }, [])
+
+  useEffect(() => {
+    if (apiBaseUrl && id) loadAgent()
+  }, [apiBaseUrl, id])
+
+  const loadAgent = async () => {
+    try {
+      const response = await fetch(`${apiBaseUrl}/api/travel-agents/${id}`)
+      if (response.ok) {
+        const agent = await response.json()
+        setFormData({
+          fullName: agent.fullName,
+          email: agent.email,
+          phone: agent.phone,
+          country: agent.country || '',
+          city: agent.city || '',
+          location: agent.location || { address: '', coordinates: { lat: 0, lng: 0 } },
+          languages: agent.languages,
+          experience: agent.experience,
+          specializations: agent.specializations,
+          agencyName: agent.agencyName || '',
+          agencyType: agent.agencyType,
+          licenseNumber: agent.licenseNumber || '',
+          consultationFee: agent.consultationFee?.toString() || '0',
+          dayRate: agent.dayRate?.toString() || '',
+          description: agent.description,
+          profilePhoto: agent.profilePhoto || '',
+          agreed: true
+        })
+      }
+    } catch (err) {
+      setError('Failed to load agent data')
+    } finally {
+      setLoading(false)
+    }
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -104,8 +142,11 @@ export const TravelAgentRegistration: React.FC = () => {
         userId
       }
       
-      const response = await fetch(`${apiBaseUrl}/api/travel-agents/register`, {
-        method: 'POST',
+      const url = id ? `${apiBaseUrl}/api/travel-agents/${id}` : `${apiBaseUrl}/api/travel-agents/register`
+      const method = id ? 'PUT' : 'POST'
+      
+      const response = await fetch(url, {
+        method,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(submitData)
       })
@@ -149,9 +190,9 @@ export const TravelAgentRegistration: React.FC = () => {
           <div className="mx-auto w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mb-6">
             <Check className="w-10 h-10 text-green-600" />
           </div>
-          <h2 className="text-3xl font-bold text-gray-900 mb-4">Registration Successful!</h2>
+          <h2 className="text-3xl font-bold text-gray-900 mb-4">{id ? 'Profile Updated!' : 'Registration Successful!'}</h2>
           <p className="text-gray-600 mb-4">
-            Welcome to TravelBuddy's global agent network! Your profile is now active.
+            {id ? 'Your changes have been saved successfully.' : 'Welcome to TravelBuddy\'s global agent network! Your profile is now active.'}
           </p>
           <div className="bg-green-50 rounded-lg p-4 mb-6">
             <h3 className="font-semibold text-green-900 mb-2">✅ You're All Set!</h3>
@@ -182,8 +223,8 @@ export const TravelAgentRegistration: React.FC = () => {
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 py-8 px-4">
       <div className="max-w-3xl mx-auto">
         <div className="text-center mb-8">
-          <h1 className="text-4xl font-bold text-gray-900 mb-4">🌍 Global Travel Agent Registration</h1>
-          <p className="text-xl text-gray-600">Join TravelBuddy's Worldwide Agent Network</p>
+          <h1 className="text-4xl font-bold text-gray-900 mb-4">{id ? '✏️ Edit Profile' : '🌍 Global Travel Agent Registration'}</h1>
+          <p className="text-xl text-gray-600">{id ? 'Update your information' : 'Join TravelBuddy\'s Worldwide Agent Network'}</p>
           <p className="text-sm text-gray-500 mt-2">Connect with travelers from 100+ countries</p>
         </div>
 
@@ -453,7 +494,7 @@ export const TravelAgentRegistration: React.FC = () => {
                 disabled={isSubmitting}
                 className="flex-1 px-8 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg hover:from-blue-700 hover:to-purple-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors font-semibold"
               >
-                {isSubmitting ? 'Submitting...' : 'Register as Agent'}
+                {isSubmitting ? (id ? 'Updating...' : 'Submitting...') : (id ? 'Update Profile' : 'Register as Agent')}
               </button>
             </div>
           </form>

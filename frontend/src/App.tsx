@@ -67,6 +67,7 @@ const AppContent: React.FC = () => {
             <Route path="/terms-of-service" element={<TermsOfServicePage />} />
             <Route path="/role-selection" element={<RoleSelectionPage />} />
             <Route path="/travel-agent-registration" element={<TravelAgentRegistration />} />
+            <Route path="/travel-agent-registration/:id" element={<TravelAgentRegistration />} />
             <Route path="/travel-agents" element={<TravelAgentsPage />} />
             <Route path="/event-organizer-registration" element={<EventOrganizerRegistration />} />
             <Route path="/events/create" element={<CreateEventPage />} />
