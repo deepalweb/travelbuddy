@@ -557,17 +557,41 @@ export const TravelAgentsPage: React.FC = () => {
                       <span>{agent.languages.slice(0, 2).join(', ')}</span>
                       {agent.languages.length > 2 && <span>+{agent.languages.length - 2}</span>}
                     </div>
-                    <div className="flex space-x-2">
-                      <Button size="sm" variant="outline" className="text-xs px-3 py-1">
-                        <MessageCircle className="w-3 h-3 mr-1" />
-                        Chat
+                    <div className="flex space-x-1">
+                      <Button 
+                        size="sm" 
+                        variant="outline"
+                        className="text-xs px-2 py-1"
+                        onClick={() => window.location.href = `/travel-agent-edit/${agent.id}`}
+                      >
+                        Edit
                       </Button>
                       <Button 
                         size="sm" 
-                        className="text-xs px-3 py-1 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700"
+                        variant="outline"
+                        className="text-xs px-2 py-1 text-red-600 hover:bg-red-50"
+                        onClick={async () => {
+                          if (confirm('Delete this profile?')) {
+                            try {
+                              const response = await fetch(`${apiBaseUrl}/api/travel-agents/${agent.id}`, { method: 'DELETE' })
+                              if (response.ok) {
+                                alert('Profile deleted')
+                                fetchAgents()
+                              }
+                            } catch (error) {
+                              alert('Delete failed')
+                            }
+                          }
+                        }}
+                      >
+                        Delete
+                      </Button>
+                      <Button 
+                        size="sm" 
+                        className="text-xs px-2 py-1 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700"
                         onClick={() => setSelectedAgent(agent)}
                       >
-                        View Profile
+                        View
                       </Button>
                     </div>
                   </div>

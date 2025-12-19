@@ -298,6 +298,59 @@ router.get('/nearby', async (req, res) => {
   }
 });
 
+// Update travel agent profile
+router.put('/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const updateData = req.body;
+    
+    // Remove fields that shouldn't be updated directly
+    delete updateData._id;
+    delete updateData.createdAt;
+    delete updateData.verificationStatus;
+    
+    const updatedAgent = await TravelAgent.findByIdAndUpdate(
+      id,
+      updateData,
+      { new: true, runValidators: true }
+    );
+    
+    if (!updatedAgent) {
+      return res.status(404).json({ error: 'Agent not found' });
+    }
+    
+    res.json({
+      success: true,
+      message: 'Profile updated successfully',
+      agent: updatedAgent
+    });
+  } catch (error) {
+    console.error('Update error:', error);
+    res.status(500).json({ error: 'Failed to update profile' });
+  }
+});
+
+// Delete travel agent profile
+router.delete('/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    const deletedAgent = await TravelAgent.findByIdAndDelete(id);
+    
+    if (!deletedAgent) {
+      return res.status(404).json({ error: 'Agent not found' });
+    }
+    
+    res.json({
+      success: true,
+      message: 'Profile deleted successfully'
+    });
+  } catch (error) {
+    console.error('Delete error:', error);
+    res.status(500).json({ error: 'Failed to delete profile' });
+  }
+});
+
 // Admin: Approve/reject agent
 router.put('/admin/approve/:agentId', async (req, res) => {
   try {
