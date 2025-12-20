@@ -22,7 +22,7 @@ interface Deal {
   distance?: number;
 }
 
-const API_BASE = import.meta.env.VITE_API_BASE_URL || 'https://travelbuddy-b2c6hgbbgeh4esdh.eastus2-01.azurewebsites.net'
+const API_BASE = (window as any).ENV?.VITE_API_BASE_URL || import.meta.env.VITE_API_BASE_URL || 'https://travelbuddy-b2c6hgbbgeh4esdh.eastus2-01.azurewebsites.net'
 
 export const dealsService = {
   async getDeals(businessType?: string, sortBy?: string, userLocation?: { lat: number; lng: number }): Promise<{ deals: Deal[]; newDealsCount: number }> {
