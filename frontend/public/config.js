@@ -1,7 +1,7 @@
 // Production configuration for Azure deployment
 window.ENV = {
-  VITE_API_BASE_URL: '#{VITE_API_BASE_URL}#',
-  NODE_ENV: '#{NODE_ENV}#',
+  VITE_API_BASE_URL: 'https://travelbuddy-b2c6hgbbgeh4esdh.eastus2-01.azurewebsites.net',
+  NODE_ENV: 'production',
   VITE_FIREBASE_API_KEY: '#{VITE_FIREBASE_API_KEY}#',
   VITE_FIREBASE_AUTH_DOMAIN: '#{VITE_FIREBASE_AUTH_DOMAIN}#',
   VITE_FIREBASE_PROJECT_ID: '#{VITE_FIREBASE_PROJECT_ID}#',
