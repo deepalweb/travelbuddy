@@ -336,8 +336,13 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   String _getLocationName(double lat, double lng) {
-    // Use offline geocoding service
-    return OfflineGeocodingService().getLocationName(lat, lng);
+    try {
+      // Use offline geocoding service
+      return OfflineGeocodingService().getLocationName(lat, lng);
+    } catch (e) {
+      print('Error getting location name: $e');
+      return 'Current Location';
+    }
   }
   
   Widget _buildWeatherInfo(AppProvider appProvider) {

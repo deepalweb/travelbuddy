@@ -38,7 +38,11 @@ void main() async {
     await ConnectivityService().initialize();
     
     // Initialize Offline Geocoding
-    await OfflineGeocodingService().initialize();
+    try {
+      await OfflineGeocodingService().initialize();
+    } catch (e) {
+      DebugLogger.error('Offline geocoding init failed: $e');
+    }
     
     // Test backend connectivity in production
     if (Environment.isProduction) {
