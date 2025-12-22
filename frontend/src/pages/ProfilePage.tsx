@@ -455,6 +455,52 @@ export const ProfilePage: React.FC = () => {
       </div>
 
       <div className="max-w-7xl mx-auto px-6 -mt-12 relative z-10">
+        {/* Role Switcher Widget */}
+        <Card className="bg-white shadow-lg mb-6 border border-gray-100">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-4">
+                <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center">
+                  <UserCheck className="w-6 h-6 text-blue-600" />
+                </div>
+                <div>
+                  <p className="text-sm text-gray-600">Active Role</p>
+                  <p className="text-xl font-bold text-gray-900">
+                    {user.activeRole === 'merchant' ? '🏪 Business Owner' :
+                     user.activeRole === 'transport_provider' ? '🚗 Transport Provider' :
+                     user.activeRole === 'travel_agent' ? '🧳 Travel Agent' : '✈️ Traveler'}
+                  </p>
+                </div>
+              </div>
+              <Button
+                variant="outline"
+                className="border-2"
+                onClick={() => navigate('/role-selection')}
+              >
+                Switch Role
+              </Button>
+            </div>
+            {(user.roles || []).length > 1 && (
+              <div className="mt-4 pt-4 border-t border-gray-200">
+                <p className="text-sm text-gray-600 mb-2">Available Roles:</p>
+                <div className="flex flex-wrap gap-2">
+                  {(user.roles || [user.role || 'user']).map(role => (
+                    <span key={role} className={`px-3 py-1 rounded-full text-sm ${
+                      role === user.activeRole 
+                        ? 'bg-blue-100 text-blue-700 font-semibold' 
+                        : 'bg-gray-100 text-gray-600'
+                    }`}>
+                      {role === 'merchant' ? '🏪 Business' :
+                       role === 'transport_provider' ? '🚗 Transport' :
+                       role === 'travel_agent' ? '🧳 Agent' : '✈️ Traveler'}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
         {/* Profile Completion Progress */}
         <Card className="bg-white shadow-lg mb-8 border border-gray-100">
           <CardContent className="p-6">
@@ -562,13 +608,15 @@ export const ProfilePage: React.FC = () => {
           {getRoleStats().map((stat, index) => {
             const Icon = stat.icon
             return (
-              <Card key={index} className="bg-white shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1 border border-gray-100">
-                <CardContent className="p-8 text-center">
-                  <div className={`w-24 h-24 ${stat.bgColor} rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-sm`}>
-                    <Icon className={`w-14 h-14 ${stat.iconColor}`} />
+              <Card key={index} className="bg-white shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1 border-2 border-gray-100">
+                <CardContent className="p-8">
+                  <div className="flex items-center justify-between mb-4">
+                    <div className={`w-16 h-16 ${stat.bgColor} rounded-2xl flex items-center justify-center`}>
+                      <Icon className={`w-9 h-9 ${stat.iconColor}`} />
+                    </div>
                   </div>
-                  <div className="text-5xl font-bold text-gray-900 mb-2">{stat.value}</div>
-                  <div className="text-gray-600 font-medium text-lg">{stat.label}</div>
+                  <div className="text-4xl font-bold text-gray-900 mb-1">{stat.value}</div>
+                  <div className="text-gray-600 font-semibold">{stat.label}</div>
                 </CardContent>
               </Card>
             )
@@ -581,10 +629,10 @@ export const ProfilePage: React.FC = () => {
           <Card className="bg-white shadow-lg border border-gray-100">
             <CardContent className="p-6">
               <div className="flex items-center space-x-4">
-                <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl flex items-center justify-center shadow-md">
+                <div className="w-16 h-16 bg-blue-100 rounded-2xl flex items-center justify-center">
                   {(() => {
                     const PersonalityIcon = getTravelPersonality().icon
-                    return <PersonalityIcon className="w-9 h-9 text-white" />
+                    return <PersonalityIcon className="w-9 h-9 text-blue-600" />
                   })()}
                 </div>
                 <div className="flex-1">
@@ -1022,22 +1070,20 @@ export const ProfilePage: React.FC = () => {
             
             {/* 4. Account Status & Security */}
             <Card className="bg-white shadow-lg overflow-hidden border border-gray-100">
-              <div className="bg-gradient-to-r from-green-500 to-emerald-600 p-6">
+              <CardHeader className="bg-green-50 border-b border-green-100">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center space-x-3">
-                    <div className="w-12 h-12 bg-white/20 backdrop-blur-sm rounded-xl flex items-center justify-center">
-                      <Shield className="w-7 h-7 text-white" />
+                    <div className="w-12 h-12 bg-green-100 rounded-xl flex items-center justify-center">
+                      <Shield className="w-7 h-7 text-green-600" />
                     </div>
                     <div>
-                      <h3 className="text-2xl font-bold text-white">Account Security</h3>
-                      <p className="text-green-100 text-sm">✓ Your account is secure</p>
+                      <h3 className="text-xl font-bold text-gray-900">Account Security</h3>
+                      <p className="text-green-600 text-sm font-medium">✓ Your account is secure</p>
                     </div>
                   </div>
-                  <div className="w-16 h-16 bg-white/10 backdrop-blur-sm rounded-full flex items-center justify-center">
-                    <CheckCircle className="w-8 h-8 text-white" />
-                  </div>
+                  <CheckCircle className="w-8 h-8 text-green-600" />
                 </div>
-              </div>
+              </CardHeader>
               <CardContent className="p-6">
                 <div className="space-y-4">
                   <div className="flex items-center justify-between p-4 bg-green-50 rounded-xl border border-green-200">
@@ -1103,7 +1149,7 @@ export const ProfilePage: React.FC = () => {
                 {/* Primary Actions */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <Button
-                    className="justify-start bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white h-14 shadow-md"
+                    className="justify-start bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white h-14"
                     onClick={() => setShowSubscriptionModal(true)}
                   >
                     <Crown className="w-6 h-6 mr-3" />
@@ -1171,15 +1217,6 @@ export const ProfilePage: React.FC = () => {
                 
                 {/* System Actions */}
                 <div className="pt-4 border-t border-gray-200 space-y-3">
-                  <Button
-                    variant="outline"
-                    className="w-full justify-start border-2 hover:bg-gray-50"
-                    onClick={() => navigate('/role-selection')}
-                  >
-                    <UserCheck className="w-5 h-5 mr-3" />
-                    Switch Role
-                  </Button>
-                  
                   <Button
                     variant="outline"
                     className="w-full justify-start border-2 hover:bg-gray-50"
