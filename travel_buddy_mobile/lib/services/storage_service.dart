@@ -402,7 +402,7 @@ class StorageService {
   Future<void> _cleanOldLocationCaches() async {
     final allMetaKeys = _prefs.getKeys().where((key) => key.endsWith('_metadata')).toList();
     
-    if (allMetaKeys.length <= 20) return; // Keep up to 20 locations
+    if (allMetaKeys.length <= 5) return; // Keep up to 5 locations
     
     // Sort by timestamp and remove oldest
     final keyTimestamps = <String, int>{};
@@ -423,7 +423,7 @@ class StorageService {
       ..sort((a, b) => keyTimestamps[a]!.compareTo(keyTimestamps[b]!));
     
     // Remove oldest caches
-    final keysToRemove = sortedKeys.take(sortedKeys.length - 20);
+    final keysToRemove = sortedKeys.take(sortedKeys.length - 5);
     for (final metaKey in keysToRemove) {
       final locationKey = metaKey.replaceAll('_metadata', '');
       

@@ -15,8 +15,6 @@ import 'models/place.dart';
 import 'services/storage_service.dart';
 import 'services/firebase_service.dart';
 import 'services/connectivity_test.dart';
-import 'services/connectivity_service.dart';
-import 'services/offline_geocoding_service.dart';
 import 'config/environment.dart';
 import 'utils/debug_logger.dart';
 
@@ -33,16 +31,6 @@ void main() async {
     
     // Initialize Firebase
     await FirebaseService.initializeFirebase();
-    
-    // Initialize Connectivity Service (non-blocking)
-    ConnectivityService().initialize().catchError((e) {
-      DebugLogger.error('Connectivity init failed: $e');
-    });
-    
-    // Initialize Offline Geocoding (non-blocking)
-    OfflineGeocodingService().initialize().catchError((e) {
-      DebugLogger.error('Offline geocoding init failed: $e');
-    });
     
     // Test backend connectivity in production
     if (Environment.isProduction) {
