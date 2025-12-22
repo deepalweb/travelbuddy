@@ -15,6 +15,8 @@ import 'models/place.dart';
 import 'services/storage_service.dart';
 import 'services/firebase_service.dart';
 import 'services/connectivity_test.dart';
+import 'services/connectivity_service.dart';
+import 'services/offline_geocoding_service.dart';
 import 'config/environment.dart';
 import 'utils/debug_logger.dart';
 
@@ -31,6 +33,12 @@ void main() async {
     
     // Initialize Firebase
     await FirebaseService.initializeFirebase();
+    
+    // Initialize Connectivity Service
+    await ConnectivityService().initialize();
+    
+    // Initialize Offline Geocoding
+    await OfflineGeocodingService().initialize();
     
     // Test backend connectivity in production
     if (Environment.isProduction) {
