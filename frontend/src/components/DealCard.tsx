@@ -129,13 +129,13 @@ export const DealCard: React.FC<DealCardProps> = ({ deal, onView, onClaim, onDel
           <img 
             src={deal.images[0]} 
             alt={deal.title}
-            className="w-full h-48 object-cover group-hover:scale-105 transition-transform duration-300"
+            className="w-full aspect-square object-cover group-hover:scale-105 transition-transform duration-300"
             onError={(e) => {
-              e.currentTarget.src = 'https://images.unsplash.com/photo-1555881400-74d7acaacd8b?w=400&h=300&fit=crop&auto=format&q=80'
+              e.currentTarget.src = 'https://images.unsplash.com/photo-1555881400-74d7acaacd8b?w=400&h=400&fit=crop&auto=format&q=80'
             }}
           />
         ) : (
-          <div className="w-full h-48 bg-gradient-to-br from-blue-100 to-purple-100 flex items-center justify-center">
+          <div className="w-full aspect-square bg-gradient-to-br from-blue-100 to-purple-100 flex items-center justify-center">
             <Star className="w-12 h-12 text-gray-400" />
           </div>
         )}
