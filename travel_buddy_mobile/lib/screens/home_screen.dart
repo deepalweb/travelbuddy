@@ -961,10 +961,12 @@ class _HomeScreenState extends State<HomeScreen> {
                         const SizedBox(width: 8),
                         Expanded(
                           child: Text(
-                            _getLocationName(
-                              appProvider.currentLocation!.latitude,
-                              appProvider.currentLocation!.longitude,
-                            ),
+                            appProvider.currentLocation != null
+                                ? _getLocationName(
+                                    appProvider.currentLocation!.latitude,
+                                    appProvider.currentLocation!.longitude,
+                                  )
+                                : 'Location not available',
                             style: TextStyle(
                               color: Colors.white.withOpacity(0.95),
                               fontSize: 15,
@@ -2500,10 +2502,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     if (appProvider.currentLocation != null)
-                      FutureBuilder<String>(
-                        future: _getLocationName(appProvider.currentLocation!.latitude, appProvider.currentLocation!.longitude),
-                        builder: (context, snapshot) => Row(children: [const Icon(Icons.location_on, color: Colors.grey, size: 16), const SizedBox(width: 4), Text(snapshot.data ?? 'Getting location...', style: const TextStyle(fontSize: 14))]),
-                      ),
+                      Row(children: [const Icon(Icons.location_on, color: Colors.grey, size: 16), const SizedBox(width: 4), Text(_getLocationName(appProvider.currentLocation!.latitude, appProvider.currentLocation!.longitude), style: const TextStyle(fontSize: 14))]),
                     const SizedBox(height: 20),
                     const Text('Weather Metrics', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                     const SizedBox(height: 12),
