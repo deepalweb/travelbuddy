@@ -73,9 +73,14 @@ export const DealsPage: React.FC = () => {
       const { deals: data, newDealsCount: newCount } = await dealsService.getDeals(selectedType, sortBy, userLocation)
       setDeals(data)
       setNewDealsCount(newCount)
+      if (data.length === 0) {
+        console.warn('⚠️ No deals returned from API')
+      }
     } catch (error) {
       console.error('❌ Error loading deals:', error)
       setDeals([])
+      // Show user-friendly error message
+      alert('Unable to load deals. Please check your internet connection and try again.')
     } finally {
       setLoading(false)
     }

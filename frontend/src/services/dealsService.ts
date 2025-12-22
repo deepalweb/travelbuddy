@@ -26,42 +26,60 @@ const API_BASE = (window as any).ENV?.VITE_API_BASE_URL || import.meta.env.VITE_
 
 export const dealsService = {
   async getDeals(businessType?: string, sortBy?: string, userLocation?: { lat: number; lng: number }): Promise<{ deals: Deal[]; newDealsCount: number }> {
-    const params = new URLSearchParams()
-    params.append('isActive', 'true')
-    params.append('_t', Date.now().toString())
-    if (businessType && businessType !== 'all') {
-      params.append('businessType', businessType)
-    }
-    if (sortBy) {
-      params.append('sort', sortBy)
-    }
-    if (userLocation) {
-      params.append('lat', userLocation.lat.toString())
-      params.append('lng', userLocation.lng.toString())
-    }
-    
-    const lastVisit = localStorage.getItem('lastDealsVisit')
-    if (lastVisit) {
-      params.append('lastVisit', lastVisit)
-    }
-    localStorage.setItem('lastDealsVisit', Date.now().toString())
-    
-    const url = `${API_BASE}/api/deals?${params}`
-    
-    const response = await fetch(url, {
-      credentials: 'include',
-      headers: {
-        'Accept': 'application/json',
-        'Cache-Control': 'no-cache, no-store, must-revalidate',
-        'Pragma': 'no-cache'
+    try {
+      const params = new URLSearchParams()
+      params.append('isActive', 'true')
+      params.append('_t', Date.now().toString())
+      if (businessType && businessType !== 'all') {
+        params.append('businessType', businessType)
       }
-    })
-    
-    if (!response.ok) {
-      throw new Error(`Failed to fetch deals: ${response.status}`)
+      if (sortBy) {
+        params.append('sort', sortBy)
+      }
+      if (userLocation) {
+        params.append('lat', userLocation.lat.toString())
+        params.append('lng', userLocation.lng.toString())
+      }
+      
+      const lastVisit = localStorage.getItem('lastDealsVisit')
+      if (lastVisit) {
+        params.append('lastVisit', lastVisit)
+      }
+      localStorage.setItem('lastDealsVisit', Date.now().toString())
+      
+      const url = `${API_BASE}/api/deals?${params}`
+      console.log('🔍 Fetching deals from:', url)
+      
+      const response = await fetch(url, {
+        credentials: 'include',
+        headers: {
+          'Accept': 'application/json',
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache'
+        }
+      })
+      
+      console.log('📥 Response status:', response.status, response.statusText)
+      
+      if (!response.ok) {
+        throw new Error(`Failed to fetch deals: ${response.status} ${response.statusText}`)
+      }
+      
+      const contentType = response.headers.get('content-type')
+      if (!contentType || !contentType.includes('application/json')) {
+        console.error('❌ Invalid content type:', contentType)
+        const text = await response.text()
+        console.error('Response body:', text.substring(0, 200))
+        throw new Error('Server returned HTML instead of JSON. API endpoint may be incorrect.')
+      }
+      
+      const data = await response.json()
+      return data
+    } catch (error) {
+      console.error('❌ Error in getDeals:', error)
+      // Return empty result instead of throwing
+      return { deals: [], newDealsCount: 0 }
     }
-    
-    return response.json()
   },
 
   async getTrendingDeals(): Promise<Deal[]> {
