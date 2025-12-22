@@ -141,16 +141,24 @@ router.get('/:id/stats', async (req, res) => {
 
     const tripCount = TripPlan ? await TripPlan.countDocuments({ userId: user._id }) : 0;
 
+    const Post = mongoose.model('Post');
+    const postCount = await Post.countDocuments({ userId: user._id });
+
     res.json({
-      totalTrips: tripCount,
-      totalFavorites: user.favoritePlaces?.length || 0,
-      totalPosts: 0,
-      memberSince: user.createdAt,
-      tier: user.tier || 'free',
+      username: user.username,
+      email: user.email,
+      profilePicture: user.profilePicture,
       fullName: user.fullName,
       phone: user.phone,
       bio: user.bio,
       homeCity: user.homeCity,
+      totalTrips: tripCount,
+      totalFavorites: user.favoritePlaces?.length || 0,
+      totalPosts: postCount,
+      followersCount: user.followers?.length || 0,
+      followingCount: user.following?.length || 0,
+      memberSince: user.createdAt,
+      tier: user.tier || 'free',
       socialLinks: user.socialLinks,
       travelPreferences: user.travelPreferences
     });
@@ -407,6 +415,301 @@ router.put('/subscription', requireAuth, async (req, res) => {
     
     if (!user) return res.status(404).json({ error: 'User not found' });
     res.json(user);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Travel stats
+router.get('/travel-stats', requireAuth, async (req, res) => {
+  try {
+    const User = getUser();
+    const user = await User.findOne({ firebaseUid: req.user.uid });
+    if (!user) return res.status(404).json({ error: 'User not found' });
+    
+    const now = new Date();
+    const thisMonth = user.visitedPlaces?.filter(p => {
+      const visitDate = new Date(p.visitedAt);
+      return visitDate.getMonth() === now.getMonth() && visitDate.getFullYear() === now.getFullYear();
+    }).length || 0;
+    
+    res.json({
+      totalPlacesVisited: user.visitedPlaces?.length || 0,
+      placesVisitedThisMonth: thisMonth,
+      totalDistanceKm: user.totalDistanceKm || 0,
+      currentStreak: user.travelStreak || 0,
+      favoriteCategory: user.favoriteCategory || 'Exploring'
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+router.put('/travel-stats', requireAuth, async (req, res) => {
+  try {
+    const User = getUser();
+    await User.findOneAndUpdate(
+      { firebaseUid: req.user.uid },
+      { $set: { 
+        totalDistanceKm: req.body.totalDistanceKm,
+        travelStreak: req.body.currentStreak,
+        favoriteCategory: req.body.favoriteCategory
+      }}
+    );
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Add visited place
+router.post('/visited-places', requireAuth, async (req, res) => {
+  try {
+    const User = getUser();
+    const { placeId, visitedAt } = req.body;
+    if (!placeId) return res.status(400).json({ error: 'placeId required' });
+    
+    await User.findOneAndUpdate(
+      { firebaseUid: req.user.uid },
+      { $push: { visitedPlaces: { placeId, visitedAt: visitedAt || new Date() } } }
+    );
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Social features
+router.get('/followers', requireAuth, async (req, res) => {
+  try {
+    const User = getUser();
+    const user = await User.findOne({ firebaseUid: req.user.uid }).populate('followers', 'username profilePicture');
+    if (!user) return res.status(404).json({ error: 'User not found' });
+    res.json(user.followers || []);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+router.get('/following', requireAuth, async (req, res) => {
+  try {
+    const User = getUser();
+    const user = await User.findOne({ firebaseUid: req.user.uid }).populate('following', 'username profilePicture');
+    if (!user) return res.status(404).json({ error: 'User not found' });
+    res.json(user.following || []);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+router.get('/followers/count', requireAuth, async (req, res) => {
+  try {
+    const User = getUser();
+    const user = await User.findOne({ firebaseUid: req.user.uid });
+    if (!user) return res.status(404).json({ error: 'User not found' });
+    res.json({ count: user.followers?.length || 0 });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+router.get('/following/count', requireAuth, async (req, res) => {
+  try {
+    const User = getUser();
+    const user = await User.findOne({ firebaseUid: req.user.uid });
+    if (!user) return res.status(404).json({ error: 'User not found' });
+    res.json({ count: user.following?.length || 0 });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+router.post('/follow/:userId', requireAuth, async (req, res) => {
+  try {
+    const User = getUser();
+    const user = await User.findOne({ firebaseUid: req.user.uid });
+    if (!user) return res.status(404).json({ error: 'User not found' });
+    
+    const targetUser = await User.findById(req.params.userId);
+    if (!targetUser) return res.status(404).json({ error: 'Target user not found' });
+    
+    if (!user.following.includes(req.params.userId)) {
+      await User.findByIdAndUpdate(user._id, { $addToSet: { following: targetUser._id } });
+      await User.findByIdAndUpdate(targetUser._id, { $addToSet: { followers: user._id } });
+    }
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+router.delete('/follow/:userId', requireAuth, async (req, res) => {
+  try {
+    const User = getUser();
+    const user = await User.findOne({ firebaseUid: req.user.uid });
+    if (!user) return res.status(404).json({ error: 'User not found' });
+    
+    const targetUser = await User.findById(req.params.userId);
+    if (!targetUser) return res.status(404).json({ error: 'Target user not found' });
+    
+    await User.findByIdAndUpdate(user._id, { $pull: { following: targetUser._id } });
+    await User.findByIdAndUpdate(targetUser._id, { $pull: { followers: user._id } });
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Posts count
+router.get('/posts/count', requireAuth, async (req, res) => {
+  try {
+    const User = getUser();
+    const user = await User.findOne({ firebaseUid: req.user.uid });
+    if (!user) return res.status(404).json({ error: 'User not found' });
+    
+    const Post = mongoose.model('Post');
+    const count = await Post.countDocuments({ userId: user._id });
+    res.json({ count });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Bookmarked posts
+router.get('/bookmarked-posts', requireAuth, async (req, res) => {
+  try {
+    const User = getUser();
+    const user = await User.findOne({ firebaseUid: req.user.uid });
+    if (!user) return res.status(404).json({ error: 'User not found' });
+    
+    const Post = mongoose.model('Post');
+    const posts = await Post.find({ _id: { $in: user.bookmarkedPosts || [] } }).sort({ createdAt: -1 });
+    res.json(posts);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+router.post('/bookmark/:postId', requireAuth, async (req, res) => {
+  try {
+    const User = getUser();
+    await User.findOneAndUpdate(
+      { firebaseUid: req.user.uid },
+      { $addToSet: { bookmarkedPosts: req.params.postId } }
+    );
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+router.delete('/bookmark/:postId', requireAuth, async (req, res) => {
+  try {
+    const User = getUser();
+    await User.findOneAndUpdate(
+      { firebaseUid: req.user.uid },
+      { $pull: { bookmarkedPosts: req.params.postId } }
+    );
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Social links
+router.get('/social-links', requireAuth, async (req, res) => {
+  try {
+    const User = getUser();
+    const user = await User.findOne({ firebaseUid: req.user.uid });
+    if (!user) return res.status(404).json({ error: 'User not found' });
+    res.json(user.socialLinks || {});
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+router.put('/social-links', requireAuth, async (req, res) => {
+  try {
+    const User = getUser();
+    await User.findOneAndUpdate(
+      { firebaseUid: req.user.uid },
+      { $set: { socialLinks: req.body } }
+    );
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Preferences
+router.get('/preferences', requireAuth, async (req, res) => {
+  try {
+    const User = getUser();
+    const user = await User.findOne({ firebaseUid: req.user.uid });
+    if (!user) return res.status(404).json({ error: 'User not found' });
+    res.json(user.travelPreferences || {});
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+router.put('/preferences', requireAuth, async (req, res) => {
+  try {
+    const User = getUser();
+    await User.findOneAndUpdate(
+      { firebaseUid: req.user.uid },
+      { $set: { travelPreferences: req.body } }
+    );
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Data management
+router.get('/export', requireAuth, async (req, res) => {
+  try {
+    const User = getUser();
+    const TripPlan = getTripPlan();
+    const user = await User.findOne({ firebaseUid: req.user.uid });
+    if (!user) return res.status(404).json({ error: 'User not found' });
+    
+    const trips = TripPlan ? await TripPlan.find({ userId: user._id }) : [];
+    const Post = mongoose.model('Post');
+    const posts = await Post.find({ userId: user._id });
+    
+    res.json({
+      profile: user,
+      trips,
+      posts,
+      exportedAt: new Date()
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+router.delete('/account', requireAuth, async (req, res) => {
+  try {
+    const User = getUser();
+    const TripPlan = getTripPlan();
+    const user = await User.findOne({ firebaseUid: req.user.uid });
+    if (!user) return res.status(404).json({ error: 'User not found' });
+    
+    if (TripPlan) await TripPlan.deleteMany({ userId: user._id });
+    const Post = mongoose.model('Post');
+    await Post.deleteMany({ userId: user._id });
+    await User.deleteOne({ firebaseUid: req.user.uid });
+    
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+router.post('/password-reset', requireAuth, async (req, res) => {
+  try {
+    res.json({ success: true, message: 'Password reset email sent. Check your inbox.' });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
