@@ -38,8 +38,6 @@ export const ProfilePage: React.FC = () => {
     ridesCompleted: 0
   })
   const [showRoleMenu, setShowRoleMenu] = useState(false)
-  const [uploadProgress, setUploadProgress] = useState<number | null>(null)
-  const [uploadError, setUploadError] = useState<string | null>(null)
   const [apiBaseUrl, setApiBaseUrl] = useState('')
   const [socialLinks, setSocialLinks] = useState<Array<{platform: string, url: string}>>([])
   const [newPlatform, setNewPlatform] = useState('')
@@ -227,8 +225,6 @@ export const ProfilePage: React.FC = () => {
 
   const handleProfilePictureSuccess = async (url: string) => {
     console.log('Profile picture uploaded successfully:', url)
-    setUploadProgress(null)
-    setUploadError(null)
     
     // Update user context with new profile picture
     if (user) {
@@ -240,14 +236,6 @@ export const ProfilePage: React.FC = () => {
 
   const handleProfilePictureError = (error: string) => {
     console.error('Profile picture upload failed:', error)
-    setUploadProgress(null)
-    setUploadError(error)
-    setTimeout(() => setUploadError(null), 5000)
-  }
-
-  const handleUploadProgress = (progress: number) => {
-    // Progress updates are now handled internally by ProfilePictureUpload
-    // This callback is kept for future use if needed
   }
 
   if (!user) {
@@ -335,23 +323,11 @@ export const ProfilePage: React.FC = () => {
           <div className="flex flex-col lg:flex-row items-center space-y-8 lg:space-y-0 lg:space-x-12">
             {/* Profile Picture */}
             <div className="flex justify-center">
-              <div className="relative">
-                <ProfilePictureUpload
-                  currentPicture={user.profilePicture}
-                  onUploadSuccess={handleProfilePictureSuccess}
-                  onUploadError={handleProfilePictureError}
-                />
-                {uploadProgress !== null && (
-                  <div className="absolute bottom-0 left-0 right-0 bg-black/70 text-white text-xs py-1 px-2 rounded-b-full text-center">
-                    Uploading... {uploadProgress}%
-                  </div>
-                )}
-                {uploadError && (
-                  <div className="absolute -bottom-8 left-0 right-0 bg-red-500 text-white text-xs py-2 px-3 rounded-lg text-center shadow-lg">
-                    {uploadError}
-                  </div>
-                )}
-              </div>
+              <ProfilePictureUpload
+                currentPicture={user.profilePicture}
+                onUploadSuccess={handleProfilePictureSuccess}
+                onUploadError={handleProfilePictureError}
+              />
             </div>
             
             {/* User Info */}

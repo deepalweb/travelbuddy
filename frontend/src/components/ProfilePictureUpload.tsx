@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { Camera, Upload, X, Check, User } from 'lucide-react';
+import { Camera, Upload, X, Check, User, AlertCircle, Loader2 } from 'lucide-react';
 import { configService } from '../services/configService';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -20,22 +20,34 @@ export const ProfilePictureUpload: React.FC<ProfilePictureUploadProps> = ({
   const [uploading, setUploading] = useState(false);
   const [preview, setPreview] = useState<string | null>(null);
   const [progress, setProgress] = useState(0);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
 
+    // Reset states
+    setError(null);
+    setSuccess(false);
+
     // Validate file type
     const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
     if (!allowedTypes.includes(file.type)) {
-      onUploadError?.('Please select a valid image file (JPEG, PNG, GIF, or WebP)');
+      const errorMsg = 'Please select a valid image file (JPEG, PNG, GIF, or WebP)';
+      setError(errorMsg);
+      onUploadError?.(errorMsg);
+      setTimeout(() => setError(null), 5000);
       return;
     }
 
     // Validate file size (5MB limit)
     if (file.size > 5 * 1024 * 1024) {
-      onUploadError?.('File size must be less than 5MB');
+      const errorMsg = 'File size must be less than 5MB';
+      setError(errorMsg);
+      onUploadError?.(errorMsg);
+      setTimeout(() => setError(null), 5000);
       return;
     }
 
@@ -99,18 +111,24 @@ export const ProfilePictureUpload: React.FC<ProfilePictureUploadProps> = ({
       const data = await response.json();
       
       if (data.success) {
+        setSuccess(true);
         onUploadSuccess?.(data.profilePicture);
-        setPreview(null);
-        setProgress(0);
+        setTimeout(() => {
+          setPreview(null);
+          setProgress(0);
+          setSuccess(false);
+        }, 2000);
       } else {
         throw new Error(data.error || 'Upload failed');
       }
     } catch (error) {
       console.error('Upload error:', error);
       const errorMessage = error instanceof Error ? error.message : 'Upload failed. Please try again.';
+      setError(errorMessage);
       onUploadError?.(errorMessage);
       setPreview(null);
       setProgress(0);
+      setTimeout(() => setError(null), 5000);
     } finally {
       setUploading(false);
       if (fileInputRef.current) {
@@ -138,24 +156,41 @@ export const ProfilePictureUpload: React.FC<ProfilePictureUploadProps> = ({
           <User className="w-20 h-20 text-white" />
         )}
         
+        {/* Upload Progress Overlay */}
         {uploading && (
-          <div className="absolute inset-0 bg-black bg-opacity-50 flex flex-col items-center justify-center rounded-full">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white mb-2"></div>
+          <div className="absolute inset-0 bg-black/70 flex flex-col items-center justify-center rounded-full">
+            <Loader2 className="w-10 h-10 text-white animate-spin mb-2" />
             {progress > 0 && (
-              <div className="text-white text-xs font-semibold">{progress}%</div>
+              <div className="text-white text-sm font-bold">{progress}%</div>
             )}
+            <div className="w-24 h-1 bg-white/30 rounded-full mt-2 overflow-hidden">
+              <div 
+                className="h-full bg-white transition-all duration-300"
+                style={{ width: `${progress}%` }}
+              />
+            </div>
+          </div>
+        )}
+        
+        {/* Success Overlay */}
+        {success && (
+          <div className="absolute inset-0 bg-green-500/90 flex flex-col items-center justify-center rounded-full animate-in fade-in duration-300">
+            <Check className="w-12 h-12 text-white mb-1" />
+            <span className="text-white text-sm font-semibold">Uploaded!</span>
           </div>
         )}
       </div>
       
       <button
         onClick={handleClick}
-        disabled={uploading}
+        disabled={uploading || success}
         className="absolute bottom-3 right-3 w-12 h-12 bg-white text-blue-600 rounded-full flex items-center justify-center shadow-lg hover:scale-110 transition-all duration-200 group-hover:bg-blue-50 disabled:opacity-50 disabled:cursor-not-allowed"
         title="Upload profile picture"
       >
-        {uploading ? (
-          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+        {success ? (
+          <Check className="w-6 h-6 text-green-600" />
+        ) : uploading ? (
+          <Loader2 className="w-5 h-5 animate-spin" />
         ) : (
           <Camera className="w-6 h-6" />
         )}
@@ -168,6 +203,22 @@ export const ProfilePictureUpload: React.FC<ProfilePictureUploadProps> = ({
         onChange={handleFileSelect}
         className="hidden"
       />
+      
+      {/* Error Message */}
+      {error && (
+        <div className="absolute -bottom-16 left-1/2 -translate-x-1/2 w-64 bg-red-500 text-white text-xs py-2 px-3 rounded-lg shadow-lg flex items-center space-x-2 animate-in slide-in-from-bottom-2 duration-300">
+          <AlertCircle className="w-4 h-4 flex-shrink-0" />
+          <span>{error}</span>
+        </div>
+      )}
+      
+      {/* Success Message */}
+      {success && !error && (
+        <div className="absolute -bottom-16 left-1/2 -translate-x-1/2 w-64 bg-green-500 text-white text-xs py-2 px-3 rounded-lg shadow-lg flex items-center space-x-2 animate-in slide-in-from-bottom-2 duration-300">
+          <Check className="w-4 h-4 flex-shrink-0" />
+          <span>Profile picture updated successfully!</span>
+        </div>
+      )}
     </div>
   );
 };
