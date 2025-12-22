@@ -10,8 +10,6 @@ import '../providers/app_provider.dart';
 import '../providers/language_provider.dart';
 import '../widgets/safe_widget.dart';
 import '../widgets/subscription_status_widget.dart';
-import '../widgets/offline_banner.dart';
-import '../services/offline_geocoding_service.dart';
 import '../models/travel_style.dart';
 import '../models/trip.dart';
 import '../screens/language_assistant_screen.dart';
@@ -335,9 +333,94 @@ class _HomeScreenState extends State<HomeScreen> {
     return 'Getting location name...';
   }
 
-  String _getLocationName(double lat, double lng) {
-    // Use offline geocoding service
-    return OfflineGeocodingService().getLocationName(lat, lng);
+  Future<String> _getLocationName(double lat, double lng) async {
+    // Create a cache key with rounded coordinates to avoid minor differences
+    final locationKey = '${lat.toStringAsFixed(4)}_${lng.toStringAsFixed(4)}';
+    
+    // Return cached result if available
+    if (_locationCache.containsKey(locationKey)) {
+      return _locationCache[locationKey]!;
+    }
+    
+    print('🔍 Geocoding: $lat, $lng');
+    
+    // Try Nominatim (OpenStreetMap) first - more accurate for Sri Lanka
+    try {
+      final osmUrl = 'https://nominatim.openstreetmap.org/reverse?format=json&lat=$lat&lon=$lng&zoom=18&addressdetails=1';
+      final osmResponse = await http.get(
+        Uri.parse(osmUrl),
+        headers: {'User-Agent': 'TravelBuddy-Mobile/1.0'},
+      );
+      
+      if (osmResponse.statusCode == 200) {
+        final osmData = json.decode(osmResponse.body);
+        final address = osmData['address'] ?? {};
+        
+        final suburb = address['suburb'] ?? '';
+        final city = address['city'] ?? address['town'] ?? address['village'] ?? '';
+        final country = address['country'] ?? '';
+        
+        print('🌍 OSM result: suburb=$suburb, city=$city, country=$country');
+        
+        if (suburb.isNotEmpty && country.isNotEmpty) {
+          final result = '$suburb, $country';
+          _locationCache[locationKey] = result;
+          return result;
+        } else if (city.isNotEmpty && country.isNotEmpty) {
+          final result = '$city, $country';
+          _locationCache[locationKey] = result;
+          return result;
+        }
+      }
+    } catch (e) {
+      print('⚠️ OSM geocoding failed: $e');
+    }
+    
+    // Fallback to BigDataCloud
+    try {
+      final url = 'https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=$lat&longitude=$lng&localityLanguage=en';
+      final response = await http.get(Uri.parse(url));
+      
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        final city = data['city'] ?? data['locality'] ?? '';
+        final country = data['countryName'] ?? '';
+        
+        print('📍 BigData result: city=$city, country=$country');
+        
+        if (city.isNotEmpty && country.isNotEmpty) {
+          final result = '$city, $country';
+          _locationCache[locationKey] = result;
+          return result;
+        }
+      }
+    } catch (e) {
+      print('❌ BigData geocoding error: $e');
+    }
+    
+    // Offline fallback for Sri Lankan coordinates
+    final result = _getOfflineLocationName(lat, lng);
+    _locationCache[locationKey] = result;
+    return result;
+  }
+
+  String _getOfflineLocationName(double lat, double lng) {
+    // Sri Lankan major cities/areas (approximate boundaries)
+    if (lat >= 6.88 && lat <= 6.92 && lng >= 79.90 && lng <= 79.92) {
+      return 'Sri Jayawardenepura Kotte, Sri Lanka';
+    } else if (lat >= 6.84 && lat <= 6.86 && lng >= 79.92 && lng <= 79.94) {
+      return 'Maharagama, Sri Lanka';
+    } else if (lat >= 6.90 && lat <= 6.96 && lng >= 79.84 && lng <= 79.88) {
+      return 'Colombo, Sri Lanka';
+    } else if (lat >= 7.28 && lat <= 7.32 && lng >= 80.62 && lng <= 80.66) {
+      return 'Kandy, Sri Lanka';
+    } else if (lat >= 6.04 && lat <= 6.08 && lng >= 80.21 && lng <= 80.25) {
+      return 'Galle, Sri Lanka';
+    } else if (lat >= 6.0 && lat <= 8.0 && lng >= 79.5 && lng <= 81.5) {
+      return 'Sri Lanka';
+    }
+    
+    return 'Current Location';
   }
   
   Widget _buildWeatherInfo(AppProvider appProvider) {
@@ -576,37 +659,30 @@ class _HomeScreenState extends State<HomeScreen> {
             ],
           ),
           body: SafeWidget(
-            child: Column(
-              children: [
-                const OfflineBanner(),
-                Expanded(
-                  child: RefreshIndicator(
-                    onRefresh: () async => _loadData(),
-                    child: SingleChildScrollView(
-                      padding: const EdgeInsets.all(16),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const SubscriptionStatusWidget(),
-                          _buildSearchBar(),
-                          const SizedBox(height: 16),
-                          _buildWelcomeCard(appProvider),
-                          const SizedBox(height: 16),
-                          _buildPlanTripCTA(),
-                          const SizedBox(height: 16),
-                          _buildInProgressTrips(appProvider),
-                          const SizedBox(height: 16),
-                          _buildQuickActions(appProvider),
-                          const SizedBox(height: 20),
-                          _buildMoreServices(appProvider),
-                          const SizedBox(height: 16),
-                          _buildNearbyPlaces(appProvider),
-                        ],
-                      ),
-                    ),
-                  ),
+            child: RefreshIndicator(
+              onRefresh: () async => _loadData(),
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const SubscriptionStatusWidget(),
+                    _buildSearchBar(),
+                    const SizedBox(height: 16),
+                    _buildWelcomeCard(appProvider),
+                    const SizedBox(height: 16),
+                    _buildPlanTripCTA(),
+                    const SizedBox(height: 16),
+                    _buildInProgressTrips(appProvider),
+                    const SizedBox(height: 16),
+                    _buildQuickActions(appProvider),
+                    const SizedBox(height: 20),
+                    _buildMoreServices(appProvider),
+                    const SizedBox(height: 16),
+                    _buildNearbyPlaces(appProvider),
+                  ],
                 ),
-              ],
+              ),
             ),
           ),
         );
@@ -960,20 +1036,25 @@ class _HomeScreenState extends State<HomeScreen> {
                         Icon(Icons.location_on, color: Colors.white.withOpacity(0.9), size: 18),
                         const SizedBox(width: 8),
                         Expanded(
-                          child: Text(
-                            appProvider.currentLocation != null
+                          child: FutureBuilder<String>(
+                            future: appProvider.currentLocation != null 
                                 ? _getLocationName(
                                     appProvider.currentLocation!.latitude,
                                     appProvider.currentLocation!.longitude,
                                   )
-                                : 'Location not available',
-                            style: TextStyle(
-                              color: Colors.white.withOpacity(0.95),
-                              fontSize: 15,
-                              fontWeight: FontWeight.w500,
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
+                                : Future.value('Location not available'),
+                            builder: (context, snapshot) {
+                              return Text(
+                                snapshot.data ?? _getCurrentLocationName(appProvider),
+                                style: TextStyle(
+                                  color: Colors.white.withOpacity(0.95),
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              );
+                            },
                           ),
                         ),
                       ],
@@ -2502,7 +2583,10 @@ class _HomeScreenState extends State<HomeScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     if (appProvider.currentLocation != null)
-                      Row(children: [const Icon(Icons.location_on, color: Colors.grey, size: 16), const SizedBox(width: 4), Text(_getLocationName(appProvider.currentLocation!.latitude, appProvider.currentLocation!.longitude), style: const TextStyle(fontSize: 14))]),
+                      FutureBuilder<String>(
+                        future: _getLocationName(appProvider.currentLocation!.latitude, appProvider.currentLocation!.longitude),
+                        builder: (context, snapshot) => Row(children: [const Icon(Icons.location_on, color: Colors.grey, size: 16), const SizedBox(width: 4), Text(snapshot.data ?? 'Getting location...', style: const TextStyle(fontSize: 14))]),
+                      ),
                     const SizedBox(height: 20),
                     const Text('Weather Metrics', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                     const SizedBox(height: 12),
