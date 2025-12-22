@@ -336,13 +336,8 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   String _getLocationName(double lat, double lng) {
-    try {
-      // Use offline geocoding service
-      return OfflineGeocodingService().getLocationName(lat, lng);
-    } catch (e) {
-      print('Error getting location name: $e');
-      return 'Current Location';
-    }
+    // Use offline geocoding service
+    return OfflineGeocodingService().getLocationName(lat, lng);
   }
   
   Widget _buildWeatherInfo(AppProvider appProvider) {
@@ -966,12 +961,10 @@ class _HomeScreenState extends State<HomeScreen> {
                         const SizedBox(width: 8),
                         Expanded(
                           child: Text(
-                            appProvider.currentLocation != null
-                                ? _getLocationName(
-                                    appProvider.currentLocation!.latitude,
-                                    appProvider.currentLocation!.longitude,
-                                  )
-                                : 'Location not available',
+                            _getLocationName(
+                              appProvider.currentLocation!.latitude,
+                              appProvider.currentLocation!.longitude,
+                            ),
                             style: TextStyle(
                               color: Colors.white.withOpacity(0.95),
                               fontSize: 15,
@@ -2507,7 +2500,10 @@ class _HomeScreenState extends State<HomeScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     if (appProvider.currentLocation != null)
-                      Row(children: [const Icon(Icons.location_on, color: Colors.grey, size: 16), const SizedBox(width: 4), Text(_getLocationName(appProvider.currentLocation!.latitude, appProvider.currentLocation!.longitude), style: const TextStyle(fontSize: 14))]),
+                      FutureBuilder<String>(
+                        future: _getLocationName(appProvider.currentLocation!.latitude, appProvider.currentLocation!.longitude),
+                        builder: (context, snapshot) => Row(children: [const Icon(Icons.location_on, color: Colors.grey, size: 16), const SizedBox(width: 4), Text(snapshot.data ?? 'Getting location...', style: const TextStyle(fontSize: 14))]),
+                      ),
                     const SizedBox(height: 20),
                     const Text('Weather Metrics', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                     const SizedBox(height: 12),

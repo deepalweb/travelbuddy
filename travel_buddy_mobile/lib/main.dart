@@ -34,15 +34,15 @@ void main() async {
     // Initialize Firebase
     await FirebaseService.initializeFirebase();
     
-    // Initialize Connectivity Service
-    await ConnectivityService().initialize();
+    // Initialize Connectivity Service (non-blocking)
+    ConnectivityService().initialize().catchError((e) {
+      DebugLogger.error('Connectivity init failed: $e');
+    });
     
-    // Initialize Offline Geocoding
-    try {
-      await OfflineGeocodingService().initialize();
-    } catch (e) {
+    // Initialize Offline Geocoding (non-blocking)
+    OfflineGeocodingService().initialize().catchError((e) {
       DebugLogger.error('Offline geocoding init failed: $e');
-    }
+    });
     
     // Test backend connectivity in production
     if (Environment.isProduction) {

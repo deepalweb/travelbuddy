@@ -18,6 +18,7 @@ class _OfflineBannerState extends State<OfflineBanner> {
     super.initState();
     _checkStatus();
     
+    // Listen to connectivity changes
     ConnectivityService().onlineStream.listen((isOnline) {
       if (mounted) {
         setState(() {
@@ -25,18 +26,24 @@ class _OfflineBannerState extends State<OfflineBanner> {
         });
         _updateQueueCount();
       }
+    }).onError((error) {
+      print('Connectivity stream error: $error');
     });
   }
 
   Future<void> _checkStatus() async {
-    final isOnline = await ConnectivityService().checkConnection();
-    final queueCount = await SyncQueueService().getQueueCount();
-    
-    if (mounted) {
-      setState(() {
-        _isOnline = isOnline;
-        _queueCount = queueCount;
-      });
+    try {
+      final isOnline = await ConnectivityService().checkConnection();
+      final queueCount = await SyncQueueService().getQueueCount();
+      
+      if (mounted) {
+        setState(() {
+          _isOnline = isOnline;
+          _queueCount = queueCount;
+        });
+      }
+    } catch (e) {
+      print('Error checking status: $e');
     }
   }
 

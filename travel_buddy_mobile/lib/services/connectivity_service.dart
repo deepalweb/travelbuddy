@@ -40,12 +40,17 @@ class ConnectivityService {
       final result = await _connectivity.checkConnectivity();
       if (result == ConnectivityResult.none) return false;
       
-      // Verify actual internet access
-      final response = await http.get(
-        Uri.parse('${Environment.backendUrl}/health'),
-      ).timeout(const Duration(seconds: 5));
-      
-      return response.statusCode == 200;
+      // Quick ping to backend (2 second timeout)
+      try {
+        final response = await http.get(
+          Uri.parse('${Environment.backendUrl}/health'),
+        ).timeout(const Duration(seconds: 2));
+        
+        return response.statusCode == 200;
+      } catch (_) {
+        // If backend unreachable, still consider online if has network
+        return true;
+      }
     } catch (e) {
       return false;
     }
