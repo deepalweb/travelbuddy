@@ -71,6 +71,9 @@ class _DealsScreenState extends State<DealsScreen> {
         limit: _dealsPerPage,
       );
       
+      // Check if loaded from cache (offline)
+      final isOffline = deals.isNotEmpty && _currentPage == 1;
+      
       // Calculate distance and sort by proximity if location available
       if (location != null) {
         for (var deal in deals) {

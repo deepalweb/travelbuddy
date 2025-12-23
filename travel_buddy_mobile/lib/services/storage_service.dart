@@ -18,6 +18,7 @@ class StorageService {
 
   late Box<CurrentUser> _userBox;
   late Box<Place> _placesBox;
+  late Box<Deal> _dealsBox;
   late Box<TripPlan> _tripPlansBox;
   late Box<OneDayItinerary> _itinerariesBox;
   late SharedPreferences _prefs;
@@ -43,6 +44,7 @@ class StorageService {
     try {
       _userBox = await Hive.openBox<CurrentUser>('users');
       _placesBox = await Hive.openBox<Place>('places');
+      _dealsBox = await Hive.openBox<Deal>('deals');
       _tripPlansBox = await Hive.openBox<TripPlan>('tripPlans');
       _itinerariesBox = await Hive.openBox<OneDayItinerary>('itineraries');
     } catch (e) {
@@ -130,6 +132,36 @@ class StorageService {
 
   Future<void> clearPlacesCache() async {
     await _placesBox.clear();
+  }
+
+  // Deals Cache
+  Future<void> cacheDeals(List<Deal> deals) async {
+    for (final deal in deals) {
+      await _dealsBox.put(deal.id, deal);
+    }
+    await _prefs.setString('deals_cache_time', DateTime.now().toIso8601String());
+  }
+
+  Future<List<Deal>> getCachedDeals() async {
+    return _dealsBox.values.toList();
+  }
+
+  Future<Deal?> getCachedDeal(String dealId) async {
+    return _dealsBox.get(dealId);
+  }
+
+  Future<void> clearDealsCache() async {
+    await _dealsBox.clear();
+    await _prefs.remove('deals_cache_time');
+  }
+  
+  Future<bool> isDealsCache Fresh({int maxAgeHours = 24}) async {
+    final cacheTime = _prefs.getString('deals_cache_time');
+    if (cacheTime == null) return false;
+    
+    final cached = DateTime.parse(cacheTime);
+    final age = DateTime.now().difference(cached);
+    return age.inHours < maxAgeHours;
   }
 
   // Trip Plans Storage

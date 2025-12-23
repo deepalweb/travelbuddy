@@ -1,6 +1,7 @@
 import 'package:dio/dio.dart';
 import '../config/environment.dart';
 import '../models/place.dart';
+import '../services/storage_service.dart';
 import 'dart:async';
 
 class DealsService {
@@ -124,6 +125,18 @@ class DealsService {
           
           if (deals.isNotEmpty) {
             print('✅ Successfully parsed ${deals.length} deals');
+            
+            // Cache deals for offline use (only first page)
+            if (page == 1) {
+              try {
+                final storageService = StorageService();
+                await storageService.cacheDeals(deals);
+                print('💾 Cached ${deals.length} deals for offline use');
+              } catch (e) {
+                print('⚠️ Failed to cache deals: $e');
+              }
+            }
+            
             return deals;
           }
         } catch (e) {
@@ -134,6 +147,21 @@ class DealsService {
       return [];
     } catch (e) {
       print('❌ Error fetching deals: $e');
+      
+      // Try to load from cache if offline (only for first page)
+      if (page == 1) {
+        try {
+          final storageService = StorageService();
+          final cachedDeals = await storageService.getCachedDeals();
+          if (cachedDeals.isNotEmpty) {
+            print('💾 Loaded ${cachedDeals.length} deals from cache (offline mode)');
+            return cachedDeals;
+          }
+        } catch (cacheError) {
+          print('❌ Cache error: $cacheError');
+        }
+      }
+      
       return [];
     }
   }
