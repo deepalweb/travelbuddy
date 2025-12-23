@@ -53,7 +53,7 @@ class CommunityProvider with ChangeNotifier {
       try {
         backendPosts = await CommunityApiService.getCommunityPosts(
           page: _currentPage,
-          limit: 20,
+          limit: 10,
           filter: filter,
           hashtag: hashtag,
         );
@@ -61,7 +61,7 @@ class CommunityProvider with ChangeNotifier {
         // Fallback to general API service
         backendPosts = await _apiService.getCommunityPosts(
           page: _currentPage,
-          limit: 20,
+          limit: 10,
         );
       }
 
@@ -101,7 +101,7 @@ class CommunityProvider with ChangeNotifier {
         }
         
         _posts.sort((a, b) => b.createdAt.compareTo(a.createdAt));
-        _hasMorePosts = backendPosts.length >= 20;
+        _hasMorePosts = backendPosts.length >= 10;
         _currentPage++;
         print('✅ Loaded ${backendPosts.length} posts from backend');
         
@@ -127,7 +127,7 @@ class CommunityProvider with ChangeNotifier {
   Future<void> _updateLocalCache() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      final postsJson = _posts.take(20).map((post) => jsonEncode({
+      final postsJson = _posts.take(10).map((post) => jsonEncode({
         'id': post.id,
         'userId': post.userId,
         'userName': post.userName,

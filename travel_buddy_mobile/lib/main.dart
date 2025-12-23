@@ -14,6 +14,7 @@ import 'theme/app_theme.dart';
 import 'models/place.dart';
 import 'services/storage_service.dart';
 import 'services/firebase_service.dart';
+import 'services/analytics_service.dart';
 import 'services/connectivity_service.dart';
 import 'services/offline_geocoding_service.dart';
 import 'services/connectivity_test.dart';
@@ -34,6 +35,9 @@ void main() async {
     // Initialize Firebase
     await FirebaseService.initializeFirebase();
     
+    // Initialize Analytics & Crashlytics
+    await AnalyticsService.initialize();
+    
     // Initialize Connectivity (non-blocking)
     ConnectivityService().initialize().catchError((e) {
       DebugLogger.error('Connectivity init failed: $e');
@@ -50,8 +54,9 @@ void main() async {
     }
     
     runApp(const TravelBuddyApp());
-  } catch (e) {
+  } catch (e, stackTrace) {
     DebugLogger.error('Initialization error: $e');
+    AnalyticsService.logError('App initialization failed', error: e, stackTrace: stackTrace);
     runApp(const ErrorApp());
   }
 }

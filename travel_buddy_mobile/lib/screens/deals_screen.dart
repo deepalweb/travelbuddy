@@ -7,6 +7,7 @@ import '../constants/app_constants.dart';
 import '../models/place.dart';
 import '../screens/deal_detail_screen.dart';
 import '../services/deals_service.dart';
+import '../services/analytics_service.dart';
 
 class DealsScreen extends StatefulWidget {
   const DealsScreen({super.key});
@@ -33,6 +34,7 @@ class _DealsScreenState extends State<DealsScreen> {
     super.initState();
     _scrollController.addListener(_onScroll);
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      AnalyticsService.logScreenView('deals_screen');
       _loadDeals();
     });
   }
@@ -542,6 +544,7 @@ class _DealsScreenState extends State<DealsScreen> {
   }
   
   void _showDealDetails(Deal deal) {
+    AnalyticsService.logViewItem(deal.id, deal.title, deal.businessType);
     Navigator.push(
       context,
       MaterialPageRoute(

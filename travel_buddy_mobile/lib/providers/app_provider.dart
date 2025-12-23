@@ -16,6 +16,8 @@ import '../models/personalized_suggestion.dart';
 import '../services/auth_service.dart';
 import '../services/api_service.dart';
 import '../services/auth_api_service.dart';
+import '../services/notification_service.dart';
+import '../services/analytics_service.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../services/storage_service.dart';
 import '../services/location_service.dart';
@@ -694,11 +696,19 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
         await _syncFirebaseUserWithBackend(user);
         await _loadUserData();
         
+        // Send FCM token to backend
+        await _sendFCMTokenToBackend();
+        
+        // Track login
+        AnalyticsService.logLogin('email');
+        AnalyticsService.setUserId(user.uid);
+        
         return true;
       }
       return false;
     } catch (e) {
       print('Sign in error: $e');
+      AnalyticsService.logError('Sign in failed', error: e);
       return false;
     } finally {
       _isLoading = false;
@@ -3544,6 +3554,20 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
       }
     } catch (e) {
       print('❌ Error ensuring user profile in backend: $e');
+    }
+  }
+  
+  Future<void> _sendFCMTokenToBackend() async {
+    try {
+      final fcmToken = await NotificationService.getToken();
+      if (fcmToken != null && _currentUser?.mongoId != null) {
+        await _apiService.updateUser({
+          'fcmToken': fcmToken,
+        });
+        print('✅ FCM token sent to backend');
+      }
+    } catch (e) {
+      print('⚠️ Failed to send FCM token: $e');
     }
   }
 }
