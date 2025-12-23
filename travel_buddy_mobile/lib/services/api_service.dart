@@ -286,13 +286,50 @@ class ApiService {
   
   Future<Map<String, dynamic>?> getUserByFirebaseUid(String firebaseUid) async {
     try {
-      final response = await _dio.get('/api/users/$firebaseUid');
+      print('🔍 Fetching user profile via sync endpoint');
+      
+      // Get Firebase token
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) {
+        print('❌ No Firebase user');
+        return null;
+      }
+      
+      final token = await user.getIdToken();
+      if (token == null) {
+        print('❌ No Firebase token');
+        return null;
+      }
+      
+      // Use the same sync endpoint as web app
+      final response = await _dio.post('/api/users/sync', 
+        data: {
+          'email': user.email,
+          'username': user.displayName ?? user.email?.split('@')[0],
+          'firebaseUid': user.uid,
+        },
+        options: Options(
+          headers: {
+            'Authorization': 'Bearer $token',
+          },
+        ),
+      );
+      
       if (response.statusCode == 200) {
+        print('✅ Got user data from sync endpoint');
+        print('   - fullName: ${response.data['fullName'] ?? "none"}');
+        print('   - profilePicture: ${response.data['profilePicture'] != null ? "${response.data['profilePicture'].toString().substring(0, math.min(50, response.data['profilePicture'].toString().length))}..." : "none"}');
+        print('   - phone: ${response.data['phone'] ?? "none"}');
         return Map<String, dynamic>.from(response.data);
       }
+      print('⚠️ Sync endpoint returned status: ${response.statusCode}');
       return null;
     } catch (e) {
-      print('Error getting user by Firebase UID: $e');
+      print('❌ Error syncing user profile: $e');
+      if (e is DioException) {
+        print('   - Status: ${e.response?.statusCode}');
+        print('   - Data: ${e.response?.data}');
+      }
       return null;
     }
   }
@@ -1073,7 +1110,7 @@ class ApiService {
       if (response.statusCode == 200 && response.data != null) {
         final data = response.data;
         if (data is Map) {
-          return (data as Map).entries.map((e) => {
+          return (data).entries.map((e) => {
             'platform': e.key.toString(),
             'url': e.value.toString(),
           }).toList();

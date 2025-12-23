@@ -3034,33 +3034,43 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
   Future<void> _loadUserData() async {
     final user = await AuthService.getCurrentUser();
     if (user != null) {
-      // Try to load from local storage first
-      final storedUser = await _storageService.getUser();
-      if (storedUser != null && storedUser.uid == user.uid) {
-        _currentUser = storedUser;
-        print('✅ Loaded user from local storage');
-      } else {
-        _currentUser = UserConverter.fromFirebaseUser(user);
-        print('✅ Loaded user from Firebase');
+      // ALWAYS fetch from backend first to get latest data
+      try {
+        final userByUid = await _apiService.getUserByFirebaseUid(user.uid);
+        if (userByUid != null) {
+          _currentUser = CurrentUser.fromJson(userByUid);
+          await _storageService.saveUser(_currentUser!);
+          print('✅ Loaded user from backend');
+          print('   - Full Name: ${_currentUser!.fullName ?? "none"}');
+          print('   - Profile Picture: ${_currentUser!.profilePicture != null ? "${_currentUser!.profilePicture!.substring(0, math.min(50, _currentUser!.profilePicture!.length))}..." : "none"}');
+          print('   - Phone: ${_currentUser!.phone ?? "none"}');
+        } else {
+          // Fallback to local storage
+          final storedUser = await _storageService.getUser();
+          if (storedUser != null && storedUser.uid == user.uid) {
+            _currentUser = storedUser;
+            print('⚠️ Backend fetch failed, using local storage');
+          } else {
+            _currentUser = UserConverter.fromFirebaseUser(user);
+            print('⚠️ No stored user, using Firebase data');
+          }
+        }
+      } catch (e) {
+        print('❌ Backend fetch error: $e');
+        // Fallback to local storage
+        final storedUser = await _storageService.getUser();
+        if (storedUser != null && storedUser.uid == user.uid) {
+          _currentUser = storedUser;
+          print('⚠️ Using local storage due to error');
+        } else {
+          _currentUser = UserConverter.fromFirebaseUser(user);
+          print('⚠️ Using Firebase data due to error');
+        }
       }
       _isAuthenticated = true;
       
       // Load user-specific data
       try {
-        // Fetch latest profile from backend to get profilePicture and other fields
-        try {
-          // First get mongoId by Firebase UID
-          final userByUid = await _apiService.getUserByFirebaseUid(_currentUser!.uid!);
-          if (userByUid != null) {
-            _currentUser = CurrentUser.fromJson(userByUid);
-            await _storageService.saveUser(_currentUser!);
-            print('✅ Synced user profile from backend (including profilePicture and fullName)');
-            print('   - Profile Picture: ${_currentUser!.profilePicture?.substring(0, 50) ?? "none"}...');
-            print('   - Full Name: ${_currentUser!.fullName ?? "none"}');
-          }
-        } catch (e) {
-          print('⚠️ Failed to fetch user profile from backend: $e');
-        }
         
         // DON'T reload trip plans here - already loaded in _loadCachedData
         print('⚠️ SKIPPING trip plans reload to preserve data');

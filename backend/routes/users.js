@@ -68,6 +68,18 @@ router.post('/sync', async (req, res) => {
   }
 });
 
+// Get user by Firebase UID (for mobile app sync)
+router.get('/firebase/:uid', async (req, res) => {
+  try {
+    const User = getUser();
+    const user = await User.findOne({ firebaseUid: req.params.uid });
+    if (!user) return res.status(404).json({ error: 'User not found' });
+    res.json(user);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Get profile
 router.get('/profile', requireAuth, async (req, res) => {
   try {

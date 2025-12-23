@@ -940,7 +940,9 @@ class _HomeScreenState extends State<HomeScreen> {
                               ),
                             ),
                             Text(
-                              appProvider.currentUser?.username ?? 'Traveler',
+                              appProvider.currentUser?.fullName?.isNotEmpty == true
+                                  ? appProvider.currentUser!.fullName!
+                                  : appProvider.currentUser?.username ?? 'Traveler',
                               style: const TextStyle(
                                 color: Colors.white,
                                 fontSize: 24,
@@ -2789,8 +2791,8 @@ class _HomeScreenState extends State<HomeScreen> {
       );
     }
     
+    // Handle base64 images (from mobile uploads)
     if (imageUrl.startsWith('data:image/')) {
-      // Handle base64 data URI
       try {
         final base64String = imageUrl.split(',')[1];
         final Uint8List bytes = base64Decode(base64String);
@@ -2824,8 +2826,10 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         );
       }
-    } else {
-      // Handle network URL
+    }
+    
+    // Handle full URLs (http/https)
+    if (imageUrl.startsWith('http://') || imageUrl.startsWith('https://')) {
       return Image.network(
         imageUrl,
         width: 50,
@@ -2862,6 +2866,48 @@ class _HomeScreenState extends State<HomeScreen> {
         },
       );
     }
+    
+    // Handle relative paths (from web uploads)
+    String fullUrl = imageUrl;
+    if (imageUrl.startsWith('/uploads/') || imageUrl.startsWith('uploads/')) {
+      fullUrl = '${Environment.backendUrl}$imageUrl';
+    }
+    
+    return Image.network(
+      fullUrl,
+      width: 50,
+      height: 50,
+      fit: BoxFit.cover,
+      loadingBuilder: (context, child, loadingProgress) {
+        if (loadingProgress == null) return child;
+        return Container(
+          width: 50,
+          height: 50,
+          color: Colors.white.withOpacity(0.1),
+          child: Center(
+            child: CircularProgressIndicator(
+              value: loadingProgress.expectedTotalBytes != null
+                  ? loadingProgress.cumulativeBytesLoaded / loadingProgress.expectedTotalBytes!
+                  : null,
+              strokeWidth: 2,
+              valueColor: AlwaysStoppedAnimation<Color>(Colors.white.withOpacity(0.8)),
+            ),
+          ),
+        );
+      },
+      errorBuilder: (context, error, stackTrace) {
+        return Container(
+          width: 50,
+          height: 50,
+          color: Colors.white.withOpacity(0.1),
+          child: Icon(
+            Icons.person,
+            color: Colors.white.withOpacity(0.8),
+            size: 24,
+          ),
+        );
+      },
+    );
   }
 }
 

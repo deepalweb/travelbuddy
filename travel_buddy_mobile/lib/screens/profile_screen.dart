@@ -42,6 +42,25 @@ class ProfileScreen extends StatelessWidget {
             title: const Text('Profile'),
             actions: [
               IconButton(
+                icon: const Icon(Icons.refresh),
+                tooltip: 'Refresh Profile',
+                onPressed: () async {
+                  final appProvider = context.read<AppProvider>();
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Refreshing profile...')),
+                  );
+                  await appProvider.initialize();
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Profile refreshed!'),
+                        backgroundColor: Colors.green,
+                      ),
+                    );
+                  }
+                },
+              ),
+              IconButton(
                 icon: Icon(
                   appProvider.isDarkMode ? Icons.light_mode : Icons.dark_mode,
                 ),
@@ -1233,19 +1252,28 @@ class _ProfilePicture extends StatelessWidget {
   Widget _buildProfileImage() {
     final profilePicture = user.profilePicture!;
     
+    print('🖼️ [PROFILE] Building profile image');
+    print('   - Length: ${profilePicture.length}');
+    print('   - First 100 chars: ${profilePicture.substring(0, profilePicture.length > 100 ? 100 : profilePicture.length)}');
+    
     try {
       if (profilePicture.startsWith('data:image')) {
+        print('✅ [PROFILE] Detected base64 image');
+        final base64String = profilePicture.split(',')[1];
+        print('   - Base64 length: ${base64String.length}');
         return Image.memory(
-          base64Decode(profilePicture.split(',')[1]),
+          base64Decode(base64String),
           width: radius * 2,
           height: radius * 2,
           fit: BoxFit.cover,
           errorBuilder: (context, error, stackTrace) {
             print('❌ [PROFILE] Base64 image error: $error');
+            print('   - Stack: $stackTrace');
             return _buildInitials();
           },
         );
       } else if (profilePicture.startsWith('http')) {
+        print('✅ [PROFILE] Detected network image');
         return Image.network(
           profilePicture,
           width: radius * 2,
@@ -1256,9 +1284,28 @@ class _ProfilePicture extends StatelessWidget {
             return _buildInitials();
           },
         );
+      } else if (profilePicture.startsWith('/uploads/') || profilePicture.startsWith('uploads/')) {
+        // Relative path from web app - construct full URL
+        final backendUrl = 'https://travelbuddy-b2c6hgbbgeh4esdh.eastus2-01.azurewebsites.net';
+        final fullUrl = profilePicture.startsWith('/') 
+            ? '$backendUrl$profilePicture'
+            : '$backendUrl/$profilePicture';
+        print('✅ [PROFILE] Detected relative path, constructing URL');
+        print('   - Full URL: $fullUrl');
+        return Image.network(
+          fullUrl,
+          width: radius * 2,
+          height: radius * 2,
+          fit: BoxFit.cover,
+          errorBuilder: (context, error, stackTrace) {
+            print('❌ [PROFILE] Network image error: $error');
+            return _buildInitials();
+          },
+        );
       } else {
         // Local file path - use placeholder instead
-        print('⚠️ [PROFILE] Local file detected, using initials: $profilePicture');
+        print('⚠️ [PROFILE] Unknown format, using initials');
+        print('   - Value: $profilePicture');
         return _buildInitials();
       }
     } catch (e) {
