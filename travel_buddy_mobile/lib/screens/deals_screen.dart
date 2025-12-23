@@ -113,7 +113,7 @@ class _DealsScreenState extends State<DealsScreen> {
                       selected: isSelected,
                       onSelected: (selected) {
                         setState(() => _selectedFilter = filter);
-                        _loadDeals();
+                        // Don't reload - just filter locally
                       },
                       backgroundColor: isSelected ? Color(AppConstants.colors['primary']!) : Colors.white,
                       selectedColor: Color(AppConstants.colors['primary']!),

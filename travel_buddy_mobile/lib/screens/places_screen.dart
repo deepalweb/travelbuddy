@@ -42,6 +42,12 @@ class _PlacesScreenState extends State<PlacesScreen> {
   }
   
   Future<void> _loadSectionedPlaces(AppProvider appProvider) async {
+    // Show cached data immediately while loading fresh data
+    if (appProvider.placeSections.isNotEmpty) {
+      print('✅ Using cached sections');
+      return;
+    }
+    
     // Ensure location is available first
     if (appProvider.currentLocation == null) {
       print('🔄 Getting location first...');

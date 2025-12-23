@@ -1850,16 +1850,12 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
     try {
       final placesService = PlacesService();
       
-      // Try batch loading first for better performance
+      // Load only essential categories first for faster initial load
       final categories = {
         'food': 'restaurants cafes bars coffee shops',
         'landmarks': 'tourist attractions monuments historical sites landmarks',
-        'culture': 'museums art galleries cultural centers theaters',
         'nature': 'parks gardens hiking trails nature spots',
         'shopping': 'shopping malls local markets bazaars shops',
-        'entertainment': 'cinema theater nightclub bar live music concert venue',
-        'photography': 'viewpoint scenic spot observation deck rooftop landmark',
-        'spa': 'spa wellness massage therapy beauty salon',
       };
       
       final batchResults = await placesService.fetchPlacesBatch(
@@ -3192,6 +3188,18 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
     _tripPlans = [];
     _itineraries = [];
     print('⚠️ Skipping cache - trip plans will load from backend only');
+    
+    // Load cached places for offline support
+    try {
+      final cachedPlaces = await _storageService.getCachedPlaces();
+      if (cachedPlaces.isNotEmpty) {
+        _places = cachedPlaces;
+        print('✅ Loaded ${cachedPlaces.length} cached places for offline mode');
+      }
+    } catch (e) {
+      print('❌ Error loading cached places: $e');
+    }
+    
     notifyListeners();
   }
 
@@ -3539,3 +3547,4 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
     }
   }
 }
+

@@ -88,10 +88,18 @@ router.get('/', async (req, res) => {
       query.businessType = businessType;
     }
     
-    let deals = await Deal.find(query)
-      .sort({ createdAt: -1 })
-      .limit(parseInt(limit))
-      .lean();
+    // Apply limit only if it's reasonable, otherwise get all
+    const limitValue = parseInt(limit);
+    const shouldLimit = limitValue < 500;
+    
+    let dealsQuery = Deal.find(query).sort({ createdAt: -1 });
+    if (shouldLimit) {
+      dealsQuery = dealsQuery.limit(limitValue);
+    }
+    
+    let deals = await dealsQuery.lean();
+    
+    console.log(`✅ Found ${deals.length} deals (limit: ${shouldLimit ? limitValue : 'none'}, query: ${JSON.stringify(query)});`);
     
     // AI-curate deals
     deals = deals.map(deal => {

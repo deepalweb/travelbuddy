@@ -23,16 +23,28 @@ class DealsService {
       final healthResponse = await _dio.get('/health').timeout(Duration(seconds: 10));
       print('✅ Health check: ${healthResponse.statusCode} - ${healthResponse.data}');
       
-      // Test deals endpoint
+      // Test deals endpoint with different limits
+      print('\n📊 Testing deals endpoint with limit=1000...');
       final dealsResponse = await _dio.get('/api/deals', queryParameters: {
         'isActive': 'true',
-        'limit': '1'
+        'limit': '1000'
       }).timeout(Duration(seconds: 10));
       
       print('✅ Deals endpoint: ${dealsResponse.statusCode}');
       print('📊 Response type: ${dealsResponse.data.runtimeType}');
       
-      if (dealsResponse.data is List) {
+      if (dealsResponse.data is Map) {
+        final dealsData = dealsResponse.data;
+        print('📊 Response keys: ${dealsData.keys.toList()}');
+        if (dealsData['deals'] is List) {
+          final List<dynamic> deals = dealsData['deals'];
+          print('📊 Total deals returned: ${deals.length}');
+          if (deals.isNotEmpty) {
+            print('📊 First deal: ${deals[0]['title']}');
+            print('📊 Last deal: ${deals[deals.length - 1]['title']}');
+          }
+        }
+      } else if (dealsResponse.data is List) {
         final List<dynamic> deals = dealsResponse.data;
         print('📊 Deals count: ${deals.length}');
         if (deals.isNotEmpty) {
@@ -47,19 +59,29 @@ class DealsService {
 
   static Future<List<Deal>> getActiveDeals() async {
     try {
-      print('🎯 Fetching deals from: ${Environment.backendUrl}/api/deals?isActive=true&limit=10');
+      print('🎯 Fetching ALL deals from: ${Environment.backendUrl}/api/deals');
+      print('📊 Query params: isActive=true, limit=1000');
       
       final response = await _dio.get('/api/deals', queryParameters: {
         'isActive': 'true',
-        'limit': '10'
+        'limit': '1000'  // High limit to get all deals
       }).timeout(Duration(seconds: 15));
       
       print('📡 Response status: ${response.statusCode}');
-      print('📡 Response headers: ${response.headers}');
+      print('📡 Response data type: ${response.data.runtimeType}');
       
       if (response.statusCode == 200 && response.data != null) {
         // Backend returns {deals: [...], newDealsCount: 0}
         final responseData = response.data;
+        print('📊 Response structure: ${responseData is Map ? "Map" : "List"}');
+        
+        if (responseData is Map) {
+          print('📊 Response keys: ${responseData.keys.toList()}');
+          if (responseData['deals'] != null) {
+            print('📊 Deals array length: ${(responseData['deals'] as List).length}');
+          }
+        }
+        
         final List<dynamic> data = responseData is Map && responseData['deals'] != null 
             ? responseData['deals'] 
             : (responseData is List ? responseData : []);
