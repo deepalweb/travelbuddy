@@ -4,53 +4,45 @@ import '../config/environment.dart';
 
 class TransportProvider {
   final String id;
-  final String name;
-  final String type;
+  final String companyName;
+  final String vehicleType;
   final String description;
   final List<String> services;
   final double rating;
-  final String phoneNumber;
+  final String phone;
   final String email;
-  final TransportLocation? location;
+  final String route;
+  final int price;
   double? distance;
 
   TransportProvider({
     required this.id,
-    required this.name,
-    required this.type,
+    required this.companyName,
+    required this.vehicleType,
     required this.description,
     required this.services,
     required this.rating,
-    required this.phoneNumber,
+    required this.phone,
     required this.email,
-    this.location,
+    required this.route,
+    required this.price,
   });
 
   factory TransportProvider.fromJson(Map<String, dynamic> json) {
+    final vehicleTypes = json['vehicleTypes'] != null ? List<String>.from(json['vehicleTypes']) : ['Transport'];
+    final serviceAreas = json['serviceAreas'] != null ? List<String>.from(json['serviceAreas']) : [];
+    
     return TransportProvider(
       id: json['_id'] ?? json['id'] ?? '',
-      name: json['name'] ?? '',
-      type: json['type'] ?? 'transport',
-      description: json['description'] ?? '',
-      services: List<String>.from(json['services'] ?? []),
-      rating: (json['rating'] ?? 0.0).toDouble(),
-      phoneNumber: json['phoneNumber'] ?? '',
+      companyName: json['companyName'] ?? '',
+      vehicleType: vehicleTypes.isNotEmpty ? vehicleTypes[0] : 'Transport',
+      description: json['description'] ?? 'Professional transport service',
+      services: vehicleTypes,
+      rating: 5.0,
+      phone: json['phone'] ?? '',
       email: json['email'] ?? '',
-      location: json['location'] != null ? TransportLocation.fromJson(json['location']) : null,
-    );
-  }
-}
-
-class TransportLocation {
-  final String type;
-  final List<double> coordinates;
-
-  TransportLocation({required this.type, required this.coordinates});
-
-  factory TransportLocation.fromJson(Map<String, dynamic> json) {
-    return TransportLocation(
-      type: json['type'] ?? 'Point',
-      coordinates: List<double>.from(json['coordinates'] ?? [0.0, 0.0]),
+      route: serviceAreas.length >= 2 ? '${serviceAreas[0]} - ${serviceAreas[1]}' : serviceAreas.isNotEmpty ? serviceAreas[0] : 'Various',
+      price: json['basePrice'] != null ? int.tryParse(json['basePrice'].toString().replaceAll(RegExp(r'[^0-9]'), '')) ?? 500 : 500,
     );
   }
 }
@@ -59,12 +51,19 @@ class TransportService {
   static Future<List<TransportProvider>> getNearbyTransport(double lat, double lng, {int radius = 20000}) async {
     try {
       final response = await http.get(
-        Uri.parse('${Environment.backendUrl}/api/transport-providers/nearby?lat=$lat&lng=$lng&radius=$radius'),
+        Uri.parse('${Environment.backendUrl}/api/transport-providers/services'),
       ).timeout(const Duration(seconds: 10));
+
+      print('🚗 Transport API Response: ${response.statusCode}');
+      print('🚗 Response body: ${response.body}');
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
-        final providers = (data['providers'] as List)
+        final providersList = data is List ? data : [];
+        
+        print('🚗 Found ${providersList.length} providers');
+        
+        final providers = (providersList as List)
             .map((json) => TransportProvider.fromJson(json))
             .toList();
         return providers;

@@ -32,21 +32,26 @@ class EventModel {
   });
 
   factory EventModel.fromJson(Map<String, dynamic> json) {
+    final location = json['location'];
+    final locationStr = location is Map 
+        ? '${location['city'] ?? ''}, ${location['country'] ?? ''}'
+        : location?.toString() ?? '';
+    
     return EventModel(
       id: json['_id']?.toString() ?? json['id']?.toString() ?? '',
-      title: json['title']?.toString() ?? '',
+      title: json['title']?.toString() ?? json['name']?.toString() ?? '',
       description: json['description']?.toString() ?? '',
       category: json['category']?.toString() ?? '',
       imageUrl: json['imageUrl']?.toString() ?? json['image']?.toString() ?? '',
-      location: json['location']?.toString() ?? '',
-      startDate: DateTime.parse(json['startDate'] ?? DateTime.now().toIso8601String()),
-      endDate: DateTime.parse(json['endDate'] ?? DateTime.now().toIso8601String()),
-      venue: json['venue']?.toString() ?? '',
-      ticketPrice: json['ticketPrice'] != null ? double.tryParse(json['ticketPrice'].toString()) : null,
+      location: locationStr,
+      startDate: DateTime.tryParse(json['startDate'] ?? json['date'] ?? '') ?? DateTime.now(),
+      endDate: DateTime.tryParse(json['endDate'] ?? json['date'] ?? '') ?? DateTime.now(),
+      venue: json['venue']?.toString() ?? (location is Map ? location['address']?.toString() : null) ?? locationStr,
+      ticketPrice: json['ticketPrice'] != null ? double.tryParse(json['ticketPrice'].toString()) : (json['price'] != null ? double.tryParse(json['price'].toString()) : null),
       ticketUrl: json['ticketUrl']?.toString(),
-      isFree: json['isFree'] ?? false,
+      isFree: json['isFree'] ?? (json['price'] == 0),
       tags: List<String>.from(json['tags'] ?? []),
-      organizer: json['organizer']?.toString() ?? '',
+      organizer: json['organizer']?.toString() ?? json['organizerName']?.toString() ?? '',
     );
   }
 }

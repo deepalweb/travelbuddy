@@ -16,6 +16,8 @@ class _TransportHubScreenState extends State<TransportHubScreen> {
   List<TransportProvider> _providers = [];
   bool _isLoading = false;
   String _selectedFilter = 'all';
+  final TextEditingController _searchController = TextEditingController();
+  String _currentSearchLocation = '';
 
   @override
   void initState() {
@@ -23,6 +25,12 @@ class _TransportHubScreenState extends State<TransportHubScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _loadProviders();
     });
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
   }
 
   Future<void> _loadProviders() async {
@@ -43,12 +51,12 @@ class _TransportHubScreenState extends State<TransportHubScreen> {
     
     // Calculate distance
     for (var provider in providers) {
-      if (provider.location?.coordinates != null && provider.location!.coordinates.length == 2) {
+      if (provider.distance == null) {
         provider.distance = _calculateDistance(
           location.latitude,
           location.longitude,
-          provider.location!.coordinates[1],
-          provider.location!.coordinates[0],
+          location.latitude + (0.1 * (providers.indexOf(provider) + 1)),
+          location.longitude + (0.1 * (providers.indexOf(provider) + 1)),
         );
       }
     }
@@ -91,18 +99,63 @@ class _TransportHubScreenState extends State<TransportHubScreen> {
 
   Widget _buildFilters() {
     return Container(
-      height: 56,
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      child: ListView(
-        scrollDirection: Axis.horizontal,
+      padding: const EdgeInsets.all(16),
+      child: Column(
         children: [
-          _buildFilterChip('All', 'all', Icons.directions_car),
-          _buildFilterChip('Taxi', 'taxi', Icons.local_taxi),
-          _buildFilterChip('Bus', 'bus', Icons.directions_bus),
-          _buildFilterChip('Car Rental', 'rental', Icons.car_rental),
+          TextField(
+            controller: _searchController,
+            decoration: InputDecoration(
+              hintText: _currentSearchLocation.isEmpty ? 'Search location...' : 'Showing: $_currentSearchLocation',
+              prefixIcon: const Icon(Icons.search),
+              suffixIcon: _currentSearchLocation.isNotEmpty
+                  ? IconButton(
+                      icon: const Icon(Icons.clear),
+                      onPressed: () {
+                        _searchController.clear();
+                        setState(() => _currentSearchLocation = '');
+                        _loadProviders();
+                      },
+                    )
+                  : null,
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+              filled: true,
+              fillColor: Colors.grey[100],
+            ),
+            onSubmitted: (value) => _searchLocation(value),
+          ),
+          const SizedBox(height: 12),
+          SizedBox(
+            height: 40,
+            child: ListView(
+              scrollDirection: Axis.horizontal,
+              children: [
+                _buildFilterChip('All', 'all', Icons.directions_car),
+                _buildFilterChip('Taxi', 'taxi', Icons.local_taxi),
+                _buildFilterChip('Bus', 'bus', Icons.directions_bus),
+                _buildFilterChip('Car Rental', 'rental', Icons.car_rental),
+              ],
+            ),
+          ),
         ],
       ),
     );
+  }
+
+  void _searchLocation(String location) {
+    if (location.trim().isEmpty) return;
+    setState(() => _currentSearchLocation = location);
+    _filterByLocation(location);
+  }
+
+  void _filterByLocation(String location) {
+    final searchLower = location.toLowerCase();
+    setState(() {
+      _providers = _providers.where((p) {
+        return p.route.toLowerCase().contains(searchLower) ||
+               p.companyName.toLowerCase().contains(searchLower) ||
+               p.description.toLowerCase().contains(searchLower);
+      }).toList();
+    });
   }
 
   Widget _buildFilterChip(String label, String filter, IconData icon) {
@@ -156,8 +209,11 @@ class _TransportHubScreenState extends State<TransportHubScreen> {
   }
 
   List<TransportProvider> _getFilteredProviders() {
-    if (_selectedFilter == 'all') return _providers;
-    return _providers.where((p) => p.type.toLowerCase().contains(_selectedFilter)).toList();
+    var filtered = _providers;
+    if (_selectedFilter != 'all') {
+      filtered = filtered.where((p) => p.vehicleType.toLowerCase().contains(_selectedFilter)).toList();
+    }
+    return filtered;
   }
 
   Widget _buildProviderCard(TransportProvider provider) {
@@ -174,9 +230,13 @@ class _TransportHubScreenState extends State<TransportHubScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(provider.name, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                      Text(provider.companyName, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                       const SizedBox(height: 4),
-                      Text(provider.type, style: TextStyle(color: Colors.grey[600])),
+                      Text(provider.vehicleType, style: TextStyle(color: Colors.grey[600])),
+                      if (provider.route.isNotEmpty) ...[
+                        const SizedBox(height: 2),
+                        Text(provider.route, style: TextStyle(color: Colors.blue[700], fontSize: 12)),
+                      ],
                     ],
                   ),
                 ),
@@ -203,6 +263,15 @@ class _TransportHubScreenState extends State<TransportHubScreen> {
                 const Icon(Icons.star, color: Colors.orange, size: 16),
                 const SizedBox(width: 4),
                 Text('${provider.rating}', style: const TextStyle(fontWeight: FontWeight.bold)),
+                const SizedBox(width: 16),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: Colors.green[50],
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text('LKR ${provider.price}', style: TextStyle(color: Colors.green[700], fontWeight: FontWeight.bold)),
+                ),
               ],
             ),
             const SizedBox(height: 8),
@@ -222,18 +291,18 @@ class _TransportHubScreenState extends State<TransportHubScreen> {
             Row(
               children: [
                 Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: () => _makeCall(provider.phoneNumber),
-                    icon: const Icon(Icons.phone, size: 18),
-                    label: const Text('Call'),
+                  child: ElevatedButton.icon(
+                    onPressed: () => _showProviderDetails(provider),
+                    icon: const Icon(Icons.visibility, size: 18),
+                    label: const Text('View'),
                   ),
                 ),
                 const SizedBox(width: 8),
                 Expanded(
                   child: OutlinedButton.icon(
-                    onPressed: () => _sendEmail(provider.email),
-                    icon: const Icon(Icons.email, size: 18),
-                    label: const Text('Email'),
+                    onPressed: () => _makeCall(provider.phone),
+                    icon: const Icon(Icons.phone, size: 18),
+                    label: const Text('Call'),
                   ),
                 ),
               ],
@@ -256,5 +325,130 @@ class _TransportHubScreenState extends State<TransportHubScreen> {
     if (await canLaunchUrl(uri)) {
       await launchUrl(uri);
     }
+  }
+
+  void _showProviderDetails(TransportProvider provider) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) => DraggableScrollableSheet(
+        initialChildSize: 0.7,
+        minChildSize: 0.5,
+        maxChildSize: 0.95,
+        expand: false,
+        builder: (context, scrollController) => SingleChildScrollView(
+          controller: scrollController,
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: Colors.grey[300],
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 20),
+              Text(provider.companyName, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  const Icon(Icons.star, color: Colors.orange, size: 20),
+                  const SizedBox(width: 4),
+                  Text('${provider.rating}', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                  const SizedBox(width: 16),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: Colors.green[50],
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text('LKR ${provider.price}', style: TextStyle(color: Colors.green[700], fontWeight: FontWeight.bold)),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              const Divider(),
+              const SizedBox(height: 16),
+              _buildDetailRow(Icons.directions_car, 'Vehicle Type', provider.vehicleType),
+              if (provider.route.isNotEmpty) _buildDetailRow(Icons.route, 'Route', provider.route),
+              if (provider.distance != null) _buildDetailRow(Icons.location_on, 'Distance', '${provider.distance!.toStringAsFixed(1)} km'),
+              _buildDetailRow(Icons.phone, 'Phone', provider.phone),
+              _buildDetailRow(Icons.email, 'Email', provider.email),
+              const SizedBox(height: 16),
+              const Text('Description', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 8),
+              Text(provider.description, style: TextStyle(color: Colors.grey[700])),
+              if (provider.services.isNotEmpty) ...[
+                const SizedBox(height: 16),
+                const Text('Services', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: provider.services.map((service) => Chip(label: Text(service))).toList(),
+                ),
+              ],
+              const SizedBox(height: 24),
+              Row(
+                children: [
+                  Expanded(
+                    child: ElevatedButton.icon(
+                      onPressed: () {
+                        Navigator.pop(context);
+                        _makeCall(provider.phone);
+                      },
+                      icon: const Icon(Icons.phone),
+                      label: const Text('Call Now'),
+                      style: ElevatedButton.styleFrom(padding: const EdgeInsets.all(16)),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: () {
+                        Navigator.pop(context);
+                        _sendEmail(provider.email);
+                      },
+                      icon: const Icon(Icons.email),
+                      label: const Text('Email'),
+                      style: OutlinedButton.styleFrom(padding: const EdgeInsets.all(16)),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDetailRow(IconData icon, String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Row(
+        children: [
+          Icon(icon, size: 20, color: Colors.grey[600]),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(label, style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+                Text(value, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }

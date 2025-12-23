@@ -36,6 +36,11 @@ class EventService {
         final data = json.decode(response.body);
         final List<dynamic> eventsList = data is List ? data : (data['events'] ?? []);
         
+        print('📦 Raw API response: ${eventsList.length} events');
+        if (eventsList.isNotEmpty) {
+          print('🔍 First event data: ${eventsList[0]}');
+        }
+        
         if (eventsList.isEmpty) {
           print('⚠️ API returned empty list, using mock data');
           return _getMockEvents();
@@ -43,6 +48,9 @@ class EventService {
         
         final events = eventsList.map((json) => EventModel.fromJson(json)).toList();
         print('✅ Using REAL API data: ${events.length} events');
+        if (events.isNotEmpty) {
+          print('🖼️ First event image URL: ${events[0].imageUrl}');
+        }
         return events;
       } else {
         print('⚠️ API returned ${response.statusCode}, using mock data');

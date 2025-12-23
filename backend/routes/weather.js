@@ -1,86 +1,85 @@
 const express = require('express');
 const router = express.Router();
+const axios = require('axios');
 
-// GET /api/weather/current?lat={lat}&lng={lng}
+// Get current weather using Google Weather API
 router.get('/current', async (req, res) => {
-  const { lat, lng } = req.query;
-  
-  if (!lat || !lng) {
-    return res.status(400).json({ error: 'Latitude and longitude required' });
-  }
-
   try {
-    const response = await fetch(
-      `https://weather.googleapis.com/v1/currentConditions:lookup?key=${process.env.GOOGLE_PLACES_API_KEY}&location.latitude=${lat}&location.longitude=${lng}`,
-      { headers: { 'X-Goog-FieldMask': 'temperature,humidity,windSpeed,weatherCode,cloudCover' } }
+    const { lat, lng } = req.query;
+    
+    if (!lat || !lng) {
+      return res.status(400).json({ error: 'Latitude and longitude required' });
+    }
+
+    const apiKey = process.env.GOOGLE_PLACES_API_KEY;
+    if (!apiKey) {
+      return res.status(500).json({ error: 'Google API key not configured' });
+    }
+
+    const response = await axios.post(
+      `https://weather.googleapis.com/v1/currentConditions:lookup?key=${apiKey}`,
+      {
+        location: {
+          latitude: parseFloat(lat),
+          longitude: parseFloat(lng)
+        },
+        languageCode: 'en'
+      }
     );
-    
-    if (!response.ok) throw new Error(`Weather API returned ${response.status}`);
-    
-    const data = await response.json();
-    const temp = data.temperature?.value || 28;
-    const condition = _mapWeatherCode(data.weatherCode);
+
+    const data = response.data;
     
     res.json({
-      temperature: temp,
-      condition: condition,
-      humidity: data.humidity?.value || 65,
+      temperature: Math.round(data.temperature?.value || 28),
+      condition: data.weatherCode?.toLowerCase() || 'sunny',
+      humidity: data.humidity || 65,
       windSpeed: data.windSpeed?.value || 12,
-      feelsLike: temp + 2,
-      cloudCover: data.cloudCover?.value || 20
+      uvIndex: data.uvIndex || 5,
+      feelsLike: Math.round(data.feelsLike?.value || data.temperature?.value || 28)
     });
   } catch (error) {
-    console.error('Weather API error:', error);
-    const hour = new Date().getHours();
-    res.json({
-      temperature: hour < 12 ? 22 : hour >= 18 ? 24 : 28,
-      condition: hour < 12 ? 'clear' : hour >= 18 ? 'cloudy' : 'sunny',
-      humidity: 65,
-      windSpeed: 12,
-      feelsLike: 30,
-      cloudCover: 20
-    });
+    console.error('Google Weather API error:', error.response?.data || error.message);
+    res.status(500).json({ error: 'Failed to fetch weather data' });
   }
 });
 
-// GET /api/weather/forecast?lat={lat}&lng={lng}
+// Get weather forecast using Google Weather API
 router.get('/forecast', async (req, res) => {
-  const { lat, lng } = req.query;
-  
-  if (!lat || !lng) {
-    return res.status(400).json({ error: 'Latitude and longitude required' });
-  }
-
   try {
-    const response = await fetch(
-      `https://weather.googleapis.com/v1/forecast:lookup?key=${process.env.GOOGLE_PLACES_API_KEY}&location.latitude=${lat}&location.longitude=${lng}`,
-      { headers: { 'X-Goog-FieldMask': 'hourlyForecasts.temperature,hourlyForecasts.weatherCode,hourlyForecasts.time' } }
+    const { lat, lng } = req.query;
+    
+    if (!lat || !lng) {
+      return res.status(400).json({ error: 'Latitude and longitude required' });
+    }
+
+    const apiKey = process.env.GOOGLE_PLACES_API_KEY;
+    if (!apiKey) {
+      return res.status(500).json({ error: 'Google API key not configured' });
+    }
+
+    const response = await axios.post(
+      `https://weather.googleapis.com/v1/forecast:lookup?key=${apiKey}`,
+      {
+        location: {
+          latitude: parseFloat(lat),
+          longitude: parseFloat(lng)
+        },
+        languageCode: 'en'
+      }
     );
-    
-    if (!response.ok) throw new Error(`Forecast API returned ${response.status}`);
-    
-    const data = await response.json();
-    const hourly = (data.hourlyForecasts || []).slice(0, 9).map(h => ({
-      time: h.time,
-      temperature: h.temperature?.value || 28,
-      condition: _mapWeatherCode(h.weatherCode)
-    }));
-    
+
+    const hourly = response.data.hourlyForecasts?.slice(0, 8).map(item => ({
+      time: new Date(item.time),
+      temperature: Math.round(item.temperature?.value || 28),
+      condition: item.weatherCode?.toLowerCase() || 'clear',
+      precipitation: item.precipitationProbability || 0
+    })) || [];
+
     res.json({ hourly });
   } catch (error) {
-    console.error('Forecast API error:', error);
-    res.json({ hourly: [] });
+    console.error('Google Weather forecast API error:', error.response?.data || error.message);
+    res.status(500).json({ error: 'Failed to fetch forecast data' });
   }
 });
-
-function _mapWeatherCode(code) {
-  if (!code) return 'sunny';
-  if (code >= 200 && code < 300) return 'rainy';
-  if (code >= 300 && code < 600) return 'rainy';
-  if (code >= 600 && code < 700) return 'snowy';
-  if (code >= 700 && code < 800) return 'cloudy';
-  if (code === 800) return 'sunny';
-  return 'cloudy';
-}
 
 module.exports = router;

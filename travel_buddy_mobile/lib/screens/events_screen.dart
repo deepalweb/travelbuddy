@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
@@ -132,19 +133,13 @@ class _EventsScreenState extends State<EventsScreen> {
           children: [
             Stack(
               children: [
-                Image.network(
-                  event.imageUrl,
-                  height: 180,
-                  width: double.infinity,
-                  fit: BoxFit.cover,
-                  errorBuilder: (context, error, stackTrace) {
-                    return Container(
-                      height: 180,
-                      color: Colors.grey[300],
-                      child: Icon(Icons.event, size: 48, color: Colors.grey[600]),
-                    );
-                  },
-                ),
+                event.imageUrl.isEmpty
+                    ? Container(
+                        height: 180,
+                        color: Colors.grey[300],
+                        child: Icon(Icons.event, size: 48, color: Colors.grey[600]),
+                      )
+                    : _buildEventImage(event.imageUrl, 180),
                 Positioned(
                   top: 12,
                   right: 12,
@@ -189,23 +184,23 @@ class _EventsScreenState extends State<EventsScreen> {
                   const SizedBox(height: 8),
                   Row(
                     children: [
-                      Icon(Icons.calendar_today, size: 14, color: Colors.grey[600]),
-                      const SizedBox(width: 4),
+                      Icon(Icons.calendar_today, size: 16, color: Colors.pink[700]),
+                      const SizedBox(width: 6),
                       Text(
-                        '${dateFormat.format(event.startDate)} - ${dateFormat.format(event.endDate)}',
-                        style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                        dateFormat.format(event.startDate),
+                        style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Colors.pink[700]),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 4),
+                  const SizedBox(height: 6),
                   Row(
                     children: [
-                      Icon(Icons.location_on, size: 14, color: Colors.grey[600]),
-                      const SizedBox(width: 4),
+                      Icon(Icons.location_on, size: 16, color: Colors.grey[700]),
+                      const SizedBox(width: 6),
                       Expanded(
                         child: Text(
                           event.venue,
-                          style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                          style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: Colors.grey[700]),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),
@@ -221,13 +216,27 @@ class _EventsScreenState extends State<EventsScreen> {
                           'LKR ${event.ticketPrice?.toStringAsFixed(0)}',
                           style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.pink[700]),
                         ),
-                      ElevatedButton(
-                        onPressed: () => _showEventDetails(event),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.pink[600],
-                          foregroundColor: Colors.white,
-                        ),
-                        child: const Text('View Details'),
+                      if (event.isFree) const Spacer(),
+                      Row(
+                        children: [
+                          ElevatedButton(
+                            onPressed: () => _showEventDetails(event),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.pink[600],
+                              foregroundColor: Colors.white,
+                            ),
+                            child: const Text('Details'),
+                          ),
+                          const SizedBox(width: 8),
+                          IconButton(
+                            onPressed: () => _openDirections(event),
+                            icon: const Icon(Icons.directions),
+                            style: IconButton.styleFrom(
+                              backgroundColor: Colors.blue[600],
+                              foregroundColor: Colors.white,
+                            ),
+                          ),
+                        ],
                       ),
                     ],
                   ),
@@ -331,19 +340,7 @@ class _EventsScreenState extends State<EventsScreen> {
                 const SizedBox(height: 20),
                 ClipRRect(
                   borderRadius: BorderRadius.circular(12),
-                  child: Image.network(
-                    event.imageUrl,
-                    height: 200,
-                    width: double.infinity,
-                    fit: BoxFit.cover,
-                    errorBuilder: (context, error, stackTrace) {
-                      return Container(
-                        height: 200,
-                        color: Colors.grey[300],
-                        child: Icon(Icons.event, size: 64, color: Colors.grey[600]),
-                      );
-                    },
-                  ),
+                  child: _buildEventImage(event.imageUrl, 200),
                 ),
                 const SizedBox(height: 16),
                 Text(event.title, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
@@ -357,11 +354,15 @@ class _EventsScreenState extends State<EventsScreen> {
                   child: Text(event.category, style: TextStyle(color: _getCategoryColor(event.category), fontWeight: FontWeight.bold)),
                 ),
                 const SizedBox(height: 16),
-                _buildDetailRow(Icons.calendar_today, 'Start', dateFormat.format(event.startDate)),
-                _buildDetailRow(Icons.event, 'End', dateFormat.format(event.endDate)),
+                _buildDetailRow(Icons.calendar_today, 'Date', dateFormat.format(event.startDate)),
+                const SizedBox(height: 8),
                 _buildDetailRow(Icons.location_on, 'Venue', event.venue),
+                const SizedBox(height: 8),
                 _buildDetailRow(Icons.place, 'Location', event.location),
+                const SizedBox(height: 8),
                 _buildDetailRow(Icons.person, 'Organizer', event.organizer),
+                if (!event.isFree)
+                  const SizedBox(height: 8),
                 if (!event.isFree)
                   _buildDetailRow(Icons.attach_money, 'Price', 'LKR ${event.ticketPrice?.toStringAsFixed(0)}'),
                 const SizedBox(height: 16),
@@ -393,6 +394,17 @@ class _EventsScreenState extends State<EventsScreen> {
                       minimumSize: const Size(double.infinity, 48),
                     ),
                   ),
+                const SizedBox(height: 8),
+                ElevatedButton.icon(
+                  onPressed: () => _openDirections(event),
+                  icon: const Icon(Icons.directions),
+                  label: const Text('Get Directions'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.blue[600],
+                    foregroundColor: Colors.white,
+                    minimumSize: const Size(double.infinity, 48),
+                  ),
+                ),
               ],
             ),
           ),
@@ -402,16 +414,22 @@ class _EventsScreenState extends State<EventsScreen> {
   }
 
   Widget _buildDetailRow(IconData icon, String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Row(
-        children: [
-          Icon(icon, size: 20, color: Colors.grey[600]),
-          const SizedBox(width: 8),
-          Text('$label: ', style: const TextStyle(fontWeight: FontWeight.w500)),
-          Expanded(child: Text(value)),
-        ],
-      ),
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(icon, size: 20, color: Colors.pink[700]),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(label, style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+              const SizedBox(height: 2),
+              Text(value, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
+            ],
+          ),
+        ),
+      ],
     );
   }
 
@@ -438,6 +456,56 @@ class _EventsScreenState extends State<EventsScreen> {
     final Uri uri = Uri.parse(url);
     if (await canLaunchUrl(uri)) {
       await launchUrl(uri);
+    }
+  }
+
+  Widget _buildEventImage(String imageUrl, double height) {
+    if (imageUrl.startsWith('data:image')) {
+      try {
+        final base64String = imageUrl.split(',')[1];
+        final bytes = base64Decode(base64String);
+        return Image.memory(
+          bytes,
+          height: height,
+          width: double.infinity,
+          fit: BoxFit.cover,
+          errorBuilder: (context, error, stackTrace) {
+            return Container(
+              height: height,
+              color: Colors.grey[300],
+              child: Icon(Icons.broken_image, size: 48, color: Colors.grey[600]),
+            );
+          },
+        );
+      } catch (e) {
+        return Container(
+          height: height,
+          color: Colors.grey[300],
+          child: Icon(Icons.broken_image, size: 48, color: Colors.grey[600]),
+        );
+      }
+    }
+    return Image.network(
+      imageUrl,
+      height: height,
+      width: double.infinity,
+      fit: BoxFit.cover,
+      errorBuilder: (context, error, stackTrace) {
+        return Container(
+          height: height,
+          color: Colors.grey[300],
+          child: Icon(Icons.broken_image, size: 48, color: Colors.grey[600]),
+        );
+      },
+    );
+  }
+
+  void _openDirections(EventModel event) async {
+    final query = Uri.encodeComponent(event.venue);
+    final url = 'https://www.google.com/maps/search/?api=1&query=$query';
+    final uri = Uri.parse(url);
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
     }
   }
 }
