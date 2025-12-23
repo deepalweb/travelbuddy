@@ -99,7 +99,9 @@ router.get('/', async (req, res) => {
     
     let deals = await dealsQuery.lean();
     
-    console.log(`✅ Found ${deals.length} deals (limit: ${shouldLimit ? limitValue : 'none'}, query: ${JSON.stringify(query)});`);
+    console.log(`✅ Found ${deals.length} deals (limit: ${shouldLimit ? limitValue : 'none'}, query: ${JSON.stringify(query)})`);
+    console.log(`📊 First 3 deals: ${deals.slice(0, 3).map(d => `${d.title} (${d.createdAt})`).join(', ')}`);
+    console.log(`📊 Last 3 deals: ${deals.slice(-3).map(d => `${d.title} (${d.createdAt})`).join(', ')}`);
     
     // AI-curate deals
     deals = deals.map(deal => {

@@ -61,6 +61,10 @@ class _DealsScreenState extends State<DealsScreen> {
         _deals = deals;
         _isLoading = false;
       });
+      
+      print('✅ Loaded ${deals.length} deals into state');
+      print('📊 First deal: ${deals.isNotEmpty ? deals.first.title : "none"}');
+      print('📊 Last deal: ${deals.isNotEmpty ? deals.last.title : "none"}');
     } catch (e) {
       setState(() {
         _error = e.toString();

@@ -60,12 +60,22 @@ class DealsService {
   static Future<List<Deal>> getActiveDeals() async {
     try {
       print('🎯 Fetching ALL deals from: ${Environment.backendUrl}/api/deals');
-      print('📊 Query params: isActive=true, limit=1000');
+      print('📊 Query params: isActive=true, limit=1000, timestamp cache buster');
       
-      final response = await _dio.get('/api/deals', queryParameters: {
-        'isActive': 'true',
-        'limit': '1000'  // High limit to get all deals
-      }).timeout(Duration(seconds: 15));
+      final response = await _dio.get('/api/deals', 
+        queryParameters: {
+          'isActive': 'true',
+          'limit': '1000',
+          '_t': DateTime.now().millisecondsSinceEpoch.toString()  // Cache buster
+        },
+        options: Options(
+          headers: {
+            'Cache-Control': 'no-cache, no-store, must-revalidate',
+            'Pragma': 'no-cache',
+            'Expires': '0'
+          }
+        )
+      ).timeout(Duration(seconds: 15));
       
       print('📡 Response status: ${response.statusCode}');
       print('📡 Response data type: ${response.data.runtimeType}');
