@@ -10,11 +10,17 @@ class CommunityApiService {
   // Get community posts from real backend
   static Future<List<community.CommunityPost>> getCommunityPosts({
     int page = 1, 
-    int limit = 10
+    int limit = 10,
+    String? filter,
+    String? hashtag,
   }) async {
     try {
+      var url = '$_baseUrl/api/community/posts?page=$page&limit=$limit';
+      if (filter != null) url += '&filter=$filter';
+      if (hashtag != null) url += '&hashtag=$hashtag';
+      
       final response = await http.get(
-        Uri.parse('$_baseUrl/api/community/posts?page=$page&limit=$limit'),
+        Uri.parse(url),
         headers: {'Content-Type': 'application/json'},
       );
 
