@@ -110,30 +110,71 @@ class ProfileScreen extends StatelessWidget {
                                     crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
                                       Text(
-                                        user?.username ?? 'Guest User',
+                                        user?.fullName ?? user?.username ?? 'Guest User',
                                         style: const TextStyle(
                                           fontSize: 20,
                                           fontWeight: FontWeight.bold,
                                         ),
                                       ),
-                                      const SizedBox(height: 4),
-                                      Container(
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 12,
-                                          vertical: 4,
+                                      const SizedBox(height: 2),
+                                      Text(
+                                        user?.email ?? '',
+                                        style: TextStyle(
+                                          fontSize: 13,
+                                          color: Colors.grey[600],
                                         ),
-                                        decoration: BoxDecoration(
-                                          color: Color(AppConstants.colors['primary']!).withOpacity(0.1),
-                                          borderRadius: BorderRadius.circular(12),
-                                        ),
-                                        child: Text(
-                                          '${user?.tier.name.toUpperCase() ?? 'FREE'} PLAN',
+                                      ),
+                                      if (user?.phone != null && user!.phone!.isNotEmpty) ...[
+                                        const SizedBox(height: 2),
+                                        Text(
+                                          user.phone!,
                                           style: TextStyle(
-                                            color: Color(AppConstants.colors['primary']!),
-                                            fontWeight: FontWeight.bold,
-                                            fontSize: 12,
+                                            fontSize: 13,
+                                            color: Colors.grey[600],
                                           ),
                                         ),
+                                      ],
+                                      const SizedBox(height: 6),
+                                      Row(
+                                        children: [
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 10,
+                                              vertical: 4,
+                                            ),
+                                            decoration: BoxDecoration(
+                                              color: Color(AppConstants.colors['primary']!).withOpacity(0.1),
+                                              borderRadius: BorderRadius.circular(12),
+                                            ),
+                                            child: Text(
+                                              '${user?.tier.name.toUpperCase() ?? 'FREE'} PLAN',
+                                              style: TextStyle(
+                                                color: Color(AppConstants.colors['primary']!),
+                                                fontWeight: FontWeight.bold,
+                                                fontSize: 11,
+                                              ),
+                                            ),
+                                          ),
+                                          const SizedBox(width: 8),
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 10,
+                                              vertical: 4,
+                                            ),
+                                            decoration: BoxDecoration(
+                                              color: Colors.purple.withOpacity(0.1),
+                                              borderRadius: BorderRadius.circular(12),
+                                            ),
+                                            child: const Text(
+                                              '✈️ Traveler',
+                                              style: TextStyle(
+                                                color: Colors.purple,
+                                                fontWeight: FontWeight.w600,
+                                                fontSize: 11,
+                                              ),
+                                            ),
+                                          ),
+                                        ],
                                       ),
                                     ],
                                   ),
