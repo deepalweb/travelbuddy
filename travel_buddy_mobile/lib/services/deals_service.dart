@@ -58,15 +58,20 @@ class DealsService {
   }
 
   static Future<List<Deal>> getActiveDeals() async {
+    return getDealsWithPagination(page: 1, limit: 1000);
+  }
+  
+  static Future<List<Deal>> getDealsWithPagination({required int page, required int limit}) async {
     try {
-      print('🎯 Fetching ALL deals from: ${Environment.backendUrl}/api/deals');
-      print('📊 Query params: isActive=true, limit=1000, timestamp cache buster');
+      final offset = (page - 1) * limit;
+      print('🎯 Fetching deals page $page (offset: $offset, limit: $limit)');
       
       final response = await _dio.get('/api/deals', 
         queryParameters: {
           'isActive': 'true',
-          'limit': '1000',
-          '_t': DateTime.now().millisecondsSinceEpoch.toString()  // Cache buster
+          'limit': limit.toString(),
+          'skip': offset.toString(),
+          '_t': DateTime.now().millisecondsSinceEpoch.toString()
         },
         options: Options(
           headers: {

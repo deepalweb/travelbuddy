@@ -20,26 +20,56 @@ class _DealsScreenState extends State<DealsScreen> {
   List<Deal> _deals = [];
   bool _isLoading = false;
   String? _error;
+  
+  // Pagination
+  int _currentPage = 1;
+  final int _dealsPerPage = 20;
+  bool _hasMoreDeals = true;
+  bool _isLoadingMore = false;
+  final ScrollController _scrollController = ScrollController();
 
   @override
   void initState() {
     super.initState();
+    _scrollController.addListener(_onScroll);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _loadDeals();
     });
   }
   
-  Future<void> _loadDeals() async {
-    setState(() {
-      _isLoading = true;
-      _error = null;
-    });
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+  
+  void _onScroll() {
+    if (_scrollController.position.pixels >= _scrollController.position.maxScrollExtent - 200) {
+      if (!_isLoadingMore && _hasMoreDeals) {
+        _loadMoreDeals();
+      }
+    }
+  }
+  
+  Future<void> _loadDeals({bool reset = true}) async {
+    if (reset) {
+      setState(() {
+        _isLoading = true;
+        _error = null;
+        _currentPage = 1;
+        _hasMoreDeals = true;
+        _deals.clear();
+      });
+    }
     
     try {
       final appProvider = Provider.of<AppProvider>(context, listen: false);
       final location = appProvider.currentLocation;
       
-      final deals = await DealsService.getActiveDeals();
+      final deals = await DealsService.getDealsWithPagination(
+        page: _currentPage,
+        limit: _dealsPerPage,
+      );
       
       // Calculate distance and sort by proximity if location available
       if (location != null) {
@@ -60,6 +90,7 @@ class _DealsScreenState extends State<DealsScreen> {
       setState(() {
         _deals = deals;
         _isLoading = false;
+        _hasMoreDeals = deals.length >= _dealsPerPage;
       });
       
       print('✅ Loaded ${deals.length} deals into state');
@@ -70,6 +101,53 @@ class _DealsScreenState extends State<DealsScreen> {
         _error = e.toString();
         _isLoading = false;
       });
+    }
+  }
+  
+  Future<void> _loadMoreDeals() async {
+    if (_isLoadingMore || !_hasMoreDeals) return;
+    
+    setState(() {
+      _isLoadingMore = true;
+    });
+    
+    try {
+      final appProvider = Provider.of<AppProvider>(context, listen: false);
+      final location = appProvider.currentLocation;
+      
+      _currentPage++;
+      final newDeals = await DealsService.getDealsWithPagination(
+        page: _currentPage,
+        limit: _dealsPerPage,
+      );
+      
+      // Calculate distance
+      if (location != null) {
+        for (var deal in newDeals) {
+          if (deal.location?.coordinates != null && deal.location!.coordinates.length == 2) {
+            final distance = _calculateDistance(
+              location.latitude,
+              location.longitude,
+              deal.location!.coordinates[1],
+              deal.location!.coordinates[0],
+            );
+            deal.distance = distance;
+          }
+        }
+      }
+      
+      setState(() {
+        _deals.addAll(newDeals);
+        _isLoadingMore = false;
+        _hasMoreDeals = newDeals.length >= _dealsPerPage;
+      });
+      
+      print('✅ Loaded ${newDeals.length} more deals (total: ${_deals.length})');
+    } catch (e) {
+      setState(() {
+        _isLoadingMore = false;
+      });
+      print('❌ Error loading more deals: $e');
     }
   }
   
@@ -132,8 +210,28 @@ class _DealsScreenState extends State<DealsScreen> {
               // Deals Content
               Expanded(
                 child: RefreshIndicator(
-                  onRefresh: _loadDeals,
-                  child: _buildDealsContent(),
+                  onRefresh: () => _loadDeals(reset: true),
+                  child: ListView(
+                    controller: _scrollController,
+                    children: [
+                      _buildDealsContent(),
+                      if (_isLoadingMore)
+                        const Padding(
+                          padding: EdgeInsets.all(16),
+                          child: Center(child: CircularProgressIndicator()),
+                        ),
+                      if (!_hasMoreDeals && _deals.isNotEmpty)
+                        const Padding(
+                          padding: EdgeInsets.all(16),
+                          child: Center(
+                            child: Text(
+                              'No more deals',
+                              style: TextStyle(color: Colors.grey),
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
                 ),
               ),
             ],
@@ -162,7 +260,7 @@ class _DealsScreenState extends State<DealsScreen> {
             Text(_error!, textAlign: TextAlign.center),
             const SizedBox(height: 16),
             ElevatedButton(
-              onPressed: _loadDeals,
+              onPressed: () => _loadDeals(reset: true),
               child: const Text('Retry'),
             ),
           ],
@@ -175,27 +273,30 @@ class _DealsScreenState extends State<DealsScreen> {
     if (filteredDeals.isNotEmpty) {
       print('🖼️ First deal images: ${filteredDeals.first.images}');
       print('🖼️ Images count: ${filteredDeals.first.images.length}');
-      return ListView(
+      return Padding(
         padding: const EdgeInsets.all(16),
-        children: [
-          Text(
-            '${_getDealsCategoryTitle()} (${filteredDeals.length})',
-            style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 16),
-          GridView.builder(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 2,
-              childAspectRatio: 0.8,
-              crossAxisSpacing: 12,
-              mainAxisSpacing: 12,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              '${_getDealsCategoryTitle()} (${filteredDeals.length})',
+              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
             ),
-            itemCount: filteredDeals.length,
-            itemBuilder: (context, index) => _buildDealCard(filteredDeals[index]),
-          ),
-        ],
+            const SizedBox(height: 16),
+            GridView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 2,
+                childAspectRatio: 0.8,
+                crossAxisSpacing: 12,
+                mainAxisSpacing: 12,
+              ),
+              itemCount: filteredDeals.length,
+              itemBuilder: (context, index) => _buildDealCard(filteredDeals[index]),
+            ),
+          ],
+        ),
       );
     }
 
