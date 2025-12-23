@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/community_post.dart';
+import '../models/community_post.dart' as community;
 import '../models/travel_enums.dart';
 import '../models/user.dart';
 import '../services/api_service.dart';
@@ -34,6 +35,12 @@ class CommunityProvider with ChangeNotifier {
       _currentPage = 1;
       _posts.clear();
       _hasMorePosts = true;
+    } else {
+      // Show cached posts immediately while loading
+      await _loadCachedPosts();
+      if (_posts.isNotEmpty) {
+        notifyListeners();
+      }
     }
 
     _isLoading = true;
@@ -140,6 +147,38 @@ class CommunityProvider with ChangeNotifier {
       await prefs.setInt('posts_cache_timestamp', DateTime.now().millisecondsSinceEpoch);
     } catch (e) {
       print('❌ Error updating local cache: $e');
+    }
+  }
+  
+  Future<void> _loadCachedPosts() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final cachedPosts = prefs.getStringList('local_posts') ?? [];
+      
+      if (cachedPosts.isEmpty) return;
+      
+      _posts = cachedPosts.map((postJson) {
+        final data = jsonDecode(postJson);
+        return community.CommunityPost(
+          id: data['id'],
+          userId: data['userId'],
+          userName: data['userName'],
+          userAvatar: data['userAvatar'],
+          content: data['content'],
+          images: List<String>.from(data['images'] ?? []),
+          location: data['location'],
+          createdAt: DateTime.parse(data['createdAt']),
+          likesCount: data['likesCount'],
+          commentsCount: data['commentsCount'],
+          isLiked: data['isLiked'],
+          postType: _getPostTypeFromString(data['postType']),
+          isSaved: data['isSaved'] ?? false,
+        );
+      }).toList();
+      
+      print('📦 Loaded ${_posts.length} posts from cache');
+    } catch (e) {
+      print('❌ Error loading cached posts: $e');
     }
   }
   
