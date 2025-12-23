@@ -27,7 +27,7 @@ class CommunityProvider with ChangeNotifier {
   String? get error => _error;
   bool get hasMorePosts => _hasMorePosts;
 
-  Future<void> loadPosts({bool refresh = false, BuildContext? context}) async {
+  Future<void> loadPosts({bool refresh = false, BuildContext? context, String? filter, String? hashtag}) async {
     if (_isLoading && !refresh) return;
 
     if (refresh) {
@@ -47,6 +47,8 @@ class CommunityProvider with ChangeNotifier {
         backendPosts = await CommunityApiService.getCommunityPosts(
           page: _currentPage,
           limit: 20,
+          filter: filter,
+          hashtag: hashtag,
         );
       } catch (e) {
         // Fallback to general API service

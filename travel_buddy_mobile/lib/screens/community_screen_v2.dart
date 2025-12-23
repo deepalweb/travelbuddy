@@ -16,6 +16,8 @@ class CommunityScreenV2 extends StatefulWidget {
 class _CommunityScreenV2State extends State<CommunityScreenV2> with SingleTickerProviderStateMixin {
   FeedFilter _selectedFilter = FeedFilter.recent;
   final List<String> _trendingHashtags = ['Travel', 'Adventure', 'Culture', 'Food', 'Photography', 'Beach'];
+  String? _selectedHashtag;
+  final TextEditingController _searchController = TextEditingController();
   
   @override
   void initState() {
@@ -23,6 +25,12 @@ class _CommunityScreenV2State extends State<CommunityScreenV2> with SingleTicker
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<CommunityProvider>().loadPosts(refresh: true, context: context);
     });
+  }
+  
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
   }
 
   @override
@@ -46,7 +54,7 @@ class _CommunityScreenV2State extends State<CommunityScreenV2> with SingleTicker
       actions: [
         IconButton(
           icon: const Icon(Icons.search, color: Colors.black, size: 26),
-          onPressed: () {},
+          onPressed: _showSearchDialog,
         ),
         IconButton(
           icon: const Icon(Icons.notifications_outlined, color: Colors.black, size: 26),
@@ -105,7 +113,7 @@ class _CommunityScreenV2State extends State<CommunityScreenV2> with SingleTicker
         ),
         onSelected: (selected) {
           setState(() => _selectedFilter = filter);
-          // TODO: Load filtered posts
+          _applyFilter();
         },
         backgroundColor: Colors.grey[100],
         selectedColor: Colors.blue[600],
@@ -128,9 +136,23 @@ class _CommunityScreenV2State extends State<CommunityScreenV2> with SingleTicker
             padding: const EdgeInsets.only(right: 8),
             child: ActionChip(
               label: Text('#${_trendingHashtags[index]}'),
-              onPressed: () {},
-              backgroundColor: Colors.blue[50],
-              labelStyle: TextStyle(color: Colors.blue[700], fontWeight: FontWeight.w500),
+              onPressed: () {
+                setState(() {
+                  _selectedHashtag = _selectedHashtag == _trendingHashtags[index] 
+                      ? null 
+                      : _trendingHashtags[index];
+                });
+                _applyFilter();
+              },
+              backgroundColor: _selectedHashtag == _trendingHashtags[index] 
+                  ? Colors.blue[600] 
+                  : Colors.blue[50],
+              labelStyle: TextStyle(
+                color: _selectedHashtag == _trendingHashtags[index] 
+                    ? Colors.white 
+                    : Colors.blue[700],
+                fontWeight: FontWeight.w500,
+              ),
               side: BorderSide.none,
             ),
           );
@@ -208,5 +230,83 @@ class _CommunityScreenV2State extends State<CommunityScreenV2> with SingleTicker
       label: const Text('Share Story'),
       backgroundColor: Colors.blue[600],
     );
+  }
+  
+  void _applyFilter() {
+    String? filterParam;
+    switch (_selectedFilter) {
+      case FeedFilter.popular:
+        filterParam = 'popular';
+        break;
+      case FeedFilter.trending:
+        filterParam = 'trending';
+        break;
+      case FeedFilter.nearby:
+        filterParam = 'nearby';
+        break;
+      default:
+        filterParam = null;
+    }
+    
+    context.read<CommunityProvider>().loadPosts(
+      refresh: true,
+      context: context,
+      filter: filterParam,
+      hashtag: _selectedHashtag,
+    );
+  }
+  
+  void _showSearchDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Search Posts'),
+        content: TextField(
+          controller: _searchController,
+          decoration: const InputDecoration(
+            hintText: 'Search by content, location, or user...',
+            prefixIcon: Icon(Icons.search),
+          ),
+          autofocus: true,
+          onSubmitted: (value) {
+            Navigator.pop(context);
+            _performSearch(value);
+          },
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(context);
+              _performSearch(_searchController.text);
+            },
+            child: const Text('Search'),
+          ),
+        ],
+      ),
+    );
+  }
+  
+  void _performSearch(String query) {
+    if (query.trim().isEmpty) return;
+    
+    // Filter posts locally by content, location, or username
+    final provider = context.read<CommunityProvider>();
+    final allPosts = provider.posts;
+    
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Searching for "$query"...')),
+    );
+    
+    // TODO: Implement backend search API
+    // For now, show message that search is coming soon
+    Future.delayed(const Duration(seconds: 1), () {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Search feature coming soon!')),
+      );
+    });
   }
 }
