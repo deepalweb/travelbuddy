@@ -357,9 +357,22 @@ class DealLocation extends HiveObject {
   });
   
   factory DealLocation.fromJson(Map<String, dynamic> json) {
+    // Handle nested coordinates structure from MongoDB
+    List<double> coords;
+    if (json['coordinates'] is Map) {
+      // MongoDB format: {type: "Point", coordinates: [lng, lat]}
+      final coordsMap = json['coordinates'] as Map<String, dynamic>;
+      coords = List<double>.from(coordsMap['coordinates'] ?? [0.0, 0.0]);
+    } else if (json['coordinates'] is List) {
+      // Direct array format
+      coords = List<double>.from(json['coordinates']);
+    } else {
+      coords = [0.0, 0.0];
+    }
+    
     return DealLocation(
       type: json['type'] ?? 'Point',
-      coordinates: List<double>.from(json['coordinates'] ?? [0.0, 0.0]),
+      coordinates: coords,
     );
   }
   
