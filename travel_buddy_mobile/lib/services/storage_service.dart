@@ -155,7 +155,7 @@ class StorageService {
     await _prefs.remove('deals_cache_time');
   }
   
-  Future<bool> isDealsCache Fresh({int maxAgeHours = 24}) async {
+  Future<bool> isDealsCacheFresh({int maxAgeHours = 24}) async {
     final cacheTime = _prefs.getString('deals_cache_time');
     if (cacheTime == null) return false;
     
