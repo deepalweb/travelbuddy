@@ -9,7 +9,7 @@ import '../widgets/place_card.dart';
 import '../widgets/route_progress_widget.dart';
 import '../screens/place_details_screen.dart';
 import '../screens/route_preferences_screen.dart';
-import '../screens/simple_route_map_screen.dart';
+import '../screens/route_map_screen.dart';
 
 class RoutePlanScreen extends StatefulWidget {
   final List<Place> places;
@@ -302,11 +302,11 @@ class _RoutePlanScreenState extends State<RoutePlanScreen> {
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => SimpleRouteMapScreen(
+        builder: (context) => RouteMapScreen(
           currentLocation: appProvider.currentLocation!,
           places: _sortedPlaces,
           title: widget.title,
-          transportMode: _preferences.transportMode,
+          preferences: _preferences,
         ),
       ),
     );

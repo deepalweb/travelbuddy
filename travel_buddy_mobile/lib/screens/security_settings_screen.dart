@@ -21,9 +21,16 @@ class _SecuritySettingsScreenState extends State<SecuritySettingsScreen> {
   }
 
   Future<void> _loadSettings() async {
-    final appProvider = context.read<AppProvider>();
-    final user = appProvider.currentUser;
-    // Load 2FA status from backend when available
+    try {
+      final settings = await ApiService().getSecuritySettings();
+      if (settings.isNotEmpty) {
+        setState(() {
+          twoFactorEnabled = settings['twoFactorEnabled'] ?? false;
+        });
+      }
+    } catch (e) {
+      // Use defaults
+    }
   }
 
   @override

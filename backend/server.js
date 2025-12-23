@@ -1236,6 +1236,10 @@ const userSchema = new mongoose.Schema({
     countriesVisited: { type: Number, default: 0 },
     totalDistance: { type: Number, default: 0 }
   },
+  visitedPlaces: [{ placeId: String, visitedAt: Date }],
+  totalDistanceKm: { type: Number, default: 0 },
+  travelStreak: { type: Number, default: 0 },
+  favoriteCategory: { type: String, default: 'Exploring' },
   
   // Profile-Based System
   profileType: { type: String, default: 'traveler', enum: ['traveler', 'business', 'service', 'creator'] },

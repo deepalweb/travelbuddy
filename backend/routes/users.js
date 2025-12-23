@@ -631,10 +631,12 @@ router.get('/social-links', requireAuth, async (req, res) => {
 router.put('/social-links', requireAuth, async (req, res) => {
   try {
     const User = getUser();
-    await User.findOneAndUpdate(
+    const user = await User.findOneAndUpdate(
       { firebaseUid: req.user.uid },
-      { $set: { socialLinks: req.body } }
+      { $set: { socialLinks: req.body } },
+      { new: true }
     );
+    if (!user) return res.status(404).json({ error: 'User not found' });
     res.json({ success: true });
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -656,10 +658,12 @@ router.get('/preferences', requireAuth, async (req, res) => {
 router.put('/preferences', requireAuth, async (req, res) => {
   try {
     const User = getUser();
-    await User.findOneAndUpdate(
+    const user = await User.findOneAndUpdate(
       { firebaseUid: req.user.uid },
-      { $set: { travelPreferences: req.body } }
+      { $set: { travelPreferences: req.body } },
+      { new: true }
     );
+    if (!user) return res.status(404).json({ error: 'User not found' });
     res.json({ success: true });
   } catch (error) {
     res.status(500).json({ error: error.message });

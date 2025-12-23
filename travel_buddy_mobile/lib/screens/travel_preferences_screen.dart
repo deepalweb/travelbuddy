@@ -39,10 +39,19 @@ class _TravelPreferencesScreenState extends State<TravelPreferencesScreen> {
   }
 
   Future<void> _loadPreferences() async {
-    final appProvider = context.read<AppProvider>();
-    final user = appProvider.currentUser;
-    // Load preferences from user data when backend supports it
-    // For now, use default values
+    try {
+      final prefs = await ApiService().getUserPreferences();
+      if (prefs.isNotEmpty) {
+        setState(() {
+          budgetRange = prefs['budgetRange'] ?? 'moderate';
+          travelPace = prefs['travelPace'] ?? 'moderate';
+          accessibility = prefs['accessibility'] ?? false;
+          interests = List<String>.from(prefs['interests'] ?? []);
+        });
+      }
+    } catch (e) {
+      // Use defaults
+    }
   }
 
   @override

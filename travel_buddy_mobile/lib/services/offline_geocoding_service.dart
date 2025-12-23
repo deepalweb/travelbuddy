@@ -26,16 +26,11 @@ class OfflineGeocodingService {
       return 'Current Location';
     }
 
-    // Find nearest city within 50km
     double minDistance = double.infinity;
     Map<String, dynamic>? nearestCity;
 
     for (final city in _cities!) {
-      final distance = _calculateDistance(
-        lat, lng,
-        city['lat'], city['lng'],
-      );
-
+      final distance = _calculateDistance(lat, lng, city['lat'], city['lng']);
       if (distance < minDistance) {
         minDistance = distance;
         nearestCity = city;
@@ -46,7 +41,6 @@ class OfflineGeocodingService {
       return '${nearestCity['name']}, ${nearestCity['country']}';
     }
 
-    // Fallback to country only if within 200km
     if (nearestCity != null && minDistance < 200) {
       return nearestCity['country'];
     }
@@ -55,7 +49,7 @@ class OfflineGeocodingService {
   }
 
   double _calculateDistance(double lat1, double lng1, double lat2, double lng2) {
-    const double earthRadius = 6371; // km
+    const double earthRadius = 6371;
     final double dLat = _degreesToRadians(lat2 - lat1);
     final double dLng = _degreesToRadians(lng2 - lng1);
     

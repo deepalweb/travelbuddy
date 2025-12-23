@@ -59,6 +59,9 @@ dependencies:
     sdk: flutter
   intl: ^0.20.2
   
+  # Connectivity
+  connectivity_plus: ^5.0.2
+  
   # Payment (PayPal integration to be added later)
   # flutter_paypal_checkout: ^0.1.2
 
@@ -72,6 +75,9 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+  
+  assets:
+    - assets/offline_cities.json
 
 flutter_launcher_icons:
   android: true

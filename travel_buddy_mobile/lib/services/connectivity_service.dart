@@ -1,8 +1,5 @@
 import 'dart:async';
 import 'package:connectivity_plus/connectivity_plus.dart';
-import 'package:http/http.dart' as http;
-import '../config/environment.dart';
-import 'sync_queue_service.dart';
 
 class ConnectivityService {
   static final ConnectivityService _instance = ConnectivityService._internal();
@@ -21,36 +18,16 @@ class ConnectivityService {
     _isOnline = await checkConnection();
     
     _subscription = _connectivity.onConnectivityChanged.listen((result) async {
-      final wasOffline = !_isOnline;
       _isOnline = await checkConnection();
       _controller.add(_isOnline);
-      
       print('📡 Connection: ${_isOnline ? "ONLINE" : "OFFLINE"}');
-      
-      // Trigger sync when coming back online
-      if (wasOffline && _isOnline) {
-        print('🔄 Connection restored, processing sync queue...');
-        await SyncQueueService().processQueue();
-      }
     });
   }
 
   Future<bool> checkConnection() async {
     try {
       final result = await _connectivity.checkConnectivity();
-      if (result == ConnectivityResult.none) return false;
-      
-      // Quick ping to backend (2 second timeout)
-      try {
-        final response = await http.get(
-          Uri.parse('${Environment.backendUrl}/health'),
-        ).timeout(const Duration(seconds: 2));
-        
-        return response.statusCode == 200;
-      } catch (_) {
-        // If backend unreachable, still consider online if has network
-        return true;
-      }
+      return result != ConnectivityResult.none;
     } catch (e) {
       return false;
     }

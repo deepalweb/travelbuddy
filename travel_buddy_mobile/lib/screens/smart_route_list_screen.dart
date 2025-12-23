@@ -3,7 +3,7 @@ import 'package:geolocator/geolocator.dart';
 import '../models/place.dart';
 import '../models/route_models.dart';
 import '../services/simple_smart_route_service.dart';
-import '../screens/simple_route_map_screen.dart';
+import '../screens/route_map_screen.dart';
 
 class SmartRouteListScreen extends StatefulWidget {
   final Position currentLocation;
@@ -466,11 +466,11 @@ class _SmartRouteListScreenState extends State<SmartRouteListScreen> {
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => SimpleRouteMapScreen(
+        builder: (context) => RouteMapScreen(
           currentLocation: widget.currentLocation,
           places: _routeResult!.places,
           title: widget.title,
-          transportMode: widget.preferences.transportMode,
+          preferences: widget.preferences,
         ),
       ),
     );

@@ -10,6 +10,7 @@ import '../providers/app_provider.dart';
 import '../providers/language_provider.dart';
 import '../widgets/safe_widget.dart';
 import '../widgets/subscription_status_widget.dart';
+import '../services/offline_geocoding_service.dart';
 import '../models/travel_style.dart';
 import '../models/trip.dart';
 import '../screens/language_assistant_screen.dart';
@@ -334,90 +335,28 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<String> _getLocationName(double lat, double lng) async {
-    // Create a cache key with rounded coordinates to avoid minor differences
-    final locationKey = '${lat.toStringAsFixed(4)}_${lng.toStringAsFixed(4)}';
-    
-    // Return cached result if available
-    if (_locationCache.containsKey(locationKey)) {
-      return _locationCache[locationKey]!;
+    // Try offline geocoding first (instant)
+    final offlineName = OfflineGeocodingService().getLocationName(lat, lng);
+    if (offlineName != 'Current Location') {
+      return offlineName;
     }
     
-    print('🔍 Geocoding: $lat, $lng');
-    
-    // Try Nominatim (OpenStreetMap) first - more accurate for Sri Lanka
-    try {
-      final osmUrl = 'https://nominatim.openstreetmap.org/reverse?format=json&lat=$lat&lon=$lng&zoom=18&addressdetails=1';
-      final osmResponse = await http.get(
-        Uri.parse(osmUrl),
-        headers: {'User-Agent': 'TravelBuddy-Mobile/1.0'},
-      );
-      
-      if (osmResponse.statusCode == 200) {
-        final osmData = json.decode(osmResponse.body);
-        final address = osmData['address'] ?? {};
-        
-        final suburb = address['suburb'] ?? '';
-        final city = address['city'] ?? address['town'] ?? address['village'] ?? '';
-        final country = address['country'] ?? '';
-        
-        print('🌍 OSM result: suburb=$suburb, city=$city, country=$country');
-        
-        if (suburb.isNotEmpty && country.isNotEmpty) {
-          final result = '$suburb, $country';
-          _locationCache[locationKey] = result;
-          return result;
-        } else if (city.isNotEmpty && country.isNotEmpty) {
-          final result = '$city, $country';
-          _locationCache[locationKey] = result;
-          return result;
-        }
-      }
-    } catch (e) {
-      print('⚠️ OSM geocoding failed: $e');
-    }
-    
-    // Fallback to BigDataCloud
+    // Fallback to online geocoding
     try {
       final url = 'https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=$lat&longitude=$lng&localityLanguage=en';
-      final response = await http.get(Uri.parse(url));
+      final response = await http.get(Uri.parse(url)).timeout(const Duration(seconds: 3));
       
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
         final city = data['city'] ?? data['locality'] ?? '';
         final country = data['countryName'] ?? '';
         
-        print('📍 BigData result: city=$city, country=$country');
-        
         if (city.isNotEmpty && country.isNotEmpty) {
-          final result = '$city, $country';
-          _locationCache[locationKey] = result;
-          return result;
+          return '$city, $country';
         }
       }
     } catch (e) {
-      print('❌ BigData geocoding error: $e');
-    }
-    
-    // Offline fallback for Sri Lankan coordinates
-    final result = _getOfflineLocationName(lat, lng);
-    _locationCache[locationKey] = result;
-    return result;
-  }
-
-  String _getOfflineLocationName(double lat, double lng) {
-    // Sri Lankan major cities/areas (approximate boundaries)
-    if (lat >= 6.88 && lat <= 6.92 && lng >= 79.90 && lng <= 79.92) {
-      return 'Sri Jayawardenepura Kotte, Sri Lanka';
-    } else if (lat >= 6.84 && lat <= 6.86 && lng >= 79.92 && lng <= 79.94) {
-      return 'Maharagama, Sri Lanka';
-    } else if (lat >= 6.90 && lat <= 6.96 && lng >= 79.84 && lng <= 79.88) {
-      return 'Colombo, Sri Lanka';
-    } else if (lat >= 7.28 && lat <= 7.32 && lng >= 80.62 && lng <= 80.66) {
-      return 'Kandy, Sri Lanka';
-    } else if (lat >= 6.04 && lat <= 6.08 && lng >= 80.21 && lng <= 80.25) {
-      return 'Galle, Sri Lanka';
-    } else if (lat >= 6.0 && lat <= 8.0 && lng >= 79.5 && lng <= 81.5) {
-      return 'Sri Lanka';
+      print('Online geocoding failed: $e');
     }
     
     return 'Current Location';

@@ -153,12 +153,7 @@ class ApiService {
   
   Future<int> _getUserPostsCount() async {
     try {
-      final posts = await getCommunityPosts(limit: 1000);
-      final user = FirebaseAuth.instance.currentUser;
-      if (user != null) {
-        return posts.where((post) => post.userId == user.uid).length;
-      }
-      return 0;
+      return await getUserPostsCount();
     } catch (e) {
       return 0;
     }
@@ -657,7 +652,7 @@ class ApiService {
     }
   }
 
-  Future<bool> toggleBookmark(String postId) async {
+  Future<bool> toggleBookmark(String postId, {bool isBookmarked = false}) async {
     try {
       final user = FirebaseAuth.instance.currentUser;
       if (user == null) {
@@ -665,7 +660,10 @@ class ApiService {
         return false;
       }
       
-      final response = await _dio.post('/api/posts/$postId/bookmark');
+      final response = isBookmarked 
+        ? await _dio.delete('/api/users/bookmark/$postId')
+        : await _dio.post('/api/users/bookmark/$postId');
+      
       if (response.statusCode == 200) {
         print('✅ Bookmark toggled successfully');
         return true;
@@ -1041,6 +1039,22 @@ class ApiService {
   }
 
   // Phase 1 Profile Enhancement APIs
+  Future<Map<String, dynamic>> getUserPreferences() async {
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) return {};
+      
+      final response = await _dio.get('/api/users/preferences');
+      if (response.statusCode == 200) {
+        return Map<String, dynamic>.from(response.data);
+      }
+      return {};
+    } catch (e) {
+      print('Error getting preferences: $e');
+      return {};
+    }
+  }
+
   Future<void> updateUserPreferences(Map<String, dynamic> preferences) async {
     try {
       await _dio.put('/api/users/preferences', data: preferences);
@@ -1052,9 +1066,19 @@ class ApiService {
 
   Future<List<Map<String, String>>> getSocialLinks() async {
     try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) return [];
+      
       final response = await _dio.get('/api/users/social-links');
       if (response.statusCode == 200 && response.data != null) {
-        return List<Map<String, String>>.from(response.data);
+        final data = response.data;
+        if (data is Map) {
+          return (data as Map).entries.map((e) => {
+            'platform': e.key.toString(),
+            'url': e.value.toString(),
+          }).toList();
+        }
+        return [];
       }
       return [];
     } catch (e) {
@@ -1065,16 +1089,33 @@ class ApiService {
 
   Future<void> updateSocialLinks(List<Map<String, String>> links) async {
     try {
-      await _dio.put('/api/users/social-links', data: {'links': links});
+      final linksMap = {for (var link in links) link['platform']!: link['url']!};
+      await _dio.put('/api/users/social-links', data: linksMap);
     } catch (e) {
       print('Error updating social links: $e');
       throw e;
     }
   }
 
+  Future<Map<String, dynamic>> getSecuritySettings() async {
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) return {};
+      
+      final response = await _dio.get('/api/users/security');
+      if (response.statusCode == 200) {
+        return Map<String, dynamic>.from(response.data);
+      }
+      return {};
+    } catch (e) {
+      print('Error getting security settings: $e');
+      return {};
+    }
+  }
+
   Future<void> update2FA(bool enabled) async {
     try {
-      await _dio.put('/api/users/2fa', data: {'enabled': enabled});
+      await _dio.put('/api/users/security', data: {'twoFactorEnabled': enabled});
     } catch (e) {
       print('Error updating 2FA: $e');
       throw e;
@@ -1092,9 +1133,12 @@ class ApiService {
 
   Future<Map<String, dynamic>> getPrivacySettings() async {
     try {
-      final response = await _dio.get('/api/users/privacy-settings');
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) return {};
+      
+      final response = await _dio.get('/api/users/profile');
       if (response.statusCode == 200) {
-        return Map<String, dynamic>.from(response.data);
+        return Map<String, dynamic>.from(response.data['privacySettings'] ?? {});
       }
       return {};
     } catch (e) {
@@ -1105,10 +1149,51 @@ class ApiService {
 
   Future<void> updatePrivacySettings(Map<String, dynamic> settings) async {
     try {
-      await _dio.put('/api/users/privacy-settings', data: settings);
+      await _dio.put('/api/users/privacy', data: settings);
     } catch (e) {
       print('Error updating privacy settings: $e');
       throw e;
+    }
+  }
+
+  Future<void> updateNotificationPreferences(Map<String, dynamic> preferences) async {
+    try {
+      await _dio.put('/api/users/notifications', data: preferences);
+    } catch (e) {
+      print('Error updating notification preferences: $e');
+      throw e;
+    }
+  }
+
+  Future<bool> addVisitedPlace(String placeId) async {
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) return false;
+      
+      final response = await _dio.post('/api/users/visited-places', data: {
+        'placeId': placeId,
+        'visitedAt': DateTime.now().toIso8601String(),
+      });
+      return response.statusCode == 200;
+    } catch (e) {
+      print('Error adding visited place: $e');
+      return false;
+    }
+  }
+
+  Future<int> getUserPostsCount() async {
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) return 0;
+      
+      final response = await _dio.get('/api/users/posts/count');
+      if (response.statusCode == 200) {
+        return response.data['count'] ?? 0;
+      }
+      return 0;
+    } catch (e) {
+      print('Error getting posts count: $e');
+      return 0;
     }
   }
 
