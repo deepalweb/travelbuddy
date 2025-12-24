@@ -225,8 +225,8 @@ router.get('/mobile/nearby', async (req, res) => {
       console.log(`🎯 Category filtered (${categoryFilter}): ${results.length} places`);
     }
     
-    // Apply mobile-optimized filtering (stricter quality)
-    results = PlacesOptimizer.filterQualityResults(results, { minRating: 3.5 });
+    // Apply mobile-optimized filtering (quality)
+    results = PlacesOptimizer.filterQualityResults(results, { minRating: 3.0 });
     results = PlacesOptimizer.enrichPlaceTypes(results);
     results = PlacesOptimizer.rankResults(results, searchLat, searchLng, query);
     

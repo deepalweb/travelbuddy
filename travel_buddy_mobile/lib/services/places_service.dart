@@ -91,9 +91,9 @@ class PlacesService {
           .timeout(const Duration(seconds: 8)); // Faster timeout
       
       if (realPlaces.length >= 10) { // If Google provides at least 10 places
-        // Strict quality filter for Google Maps-like experience
+        // Quality filter for Google Maps-like experience
         final qualityFiltered = realPlaces
-            .where((p) => p.rating >= 3.5 && _isWithinRadius(p, latitude, longitude, radius))
+            .where((p) => p.rating >= 3.0 && _isWithinRadius(p, latitude, longitude, radius))
             .toList();
         _updateCache(cacheKey, qualityFiltered);
         // Apply category filter if specified
@@ -149,7 +149,7 @@ class PlacesService {
       
       if (freshPlaces.length >= 10) {
         final filtered = freshPlaces
-            .where((p) => p.rating >= 3.5 && _isWithinRadius(p, lat, lng, radius))
+            .where((p) => p.rating >= 3.0 && _isWithinRadius(p, lat, lng, radius))
             .toList();
         _updateCache(cacheKey, filtered);
         DebugLogger.log('✅ Background refresh complete: ${filtered.length} places');
@@ -182,9 +182,9 @@ class PlacesService {
     
     final keywords = categoryKeywords[category.toLowerCase()]!;
     
-    // Filter places that match category keywords in name, types, or description
+    // Filter places that match category keywords in name, type, or description
     return places.where((place) {
-      final searchText = '${place.name} ${place.types.join(' ')} ${place.description}'.toLowerCase();
+      final searchText = '${place.name} ${place.type} ${place.description}'.toLowerCase();
       return keywords.any((keyword) => searchText.contains(keyword));
     }).toList();
   }
