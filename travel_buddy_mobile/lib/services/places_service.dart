@@ -49,15 +49,22 @@ class PlacesService {
     String? vibe,
     String? language,
     bool forceRefresh = false,
+    String? categoryFilter, // NEW: For post-processing filtering
   }) async {
-    final cacheKey = '${latitude.toStringAsFixed(2)}_${longitude.toStringAsFixed(2)}_$query';
+    // Always use "tourist attraction" as base query for best results
+    final baseQuery = 'tourist attraction';
+    final cacheKey = '${latitude.toStringAsFixed(2)}_${longitude.toStringAsFixed(2)}_$baseQuery';
     
     // INSTANT: Return cache immediately if available (Google Maps pattern)
     if (!forceRefresh && _isValidCache(cacheKey)) {
       DebugLogger.log('⚡ INSTANT: Showing ${_cache[cacheKey]!.length} cached places');
       // Refresh in background without blocking UI
-      _refreshCacheInBackground(latitude, longitude, query, radius, topN, cacheKey);
-      return _cache[cacheKey]!.take(topN).toList();
+      _refreshCacheInBackground(latitude, longitude, baseQuery, radius, topN, cacheKey);
+      // Apply category filter if specified
+      final filtered = categoryFilter != null 
+          ? _filterByCategory(_cache[cacheKey]!, categoryFilter, query)
+          : _cache[cacheKey]!;
+      return filtered.take(topN).toList();
     }
     
     // Rate limiting check
@@ -77,21 +84,24 @@ class PlacesService {
     
     try {
       // Primary: Google Places API for real, accurate data
-      DebugLogger.log('🔍 Fetching fresh places from Google API');
+      DebugLogger.log('🔍 Fetching fresh places from Google API (base: $baseQuery)');
       _lastApiCalls[cacheKey] = DateTime.now();
       await _incrementApiCall();
-      final realPlaces = await _fetchRealPlaces(latitude, longitude, query, radius, offset, topN)
+      final realPlaces = await _fetchRealPlaces(latitude, longitude, baseQuery, radius, offset, topN)
           .timeout(const Duration(seconds: 8)); // Faster timeout
       
       if (realPlaces.length >= 10) { // If Google provides at least 10 places
         // Strict quality filter for Google Maps-like experience
-        final filteredPlaces = realPlaces
+        final qualityFiltered = realPlaces
             .where((p) => p.rating >= 3.5 && _isWithinRadius(p, latitude, longitude, radius))
-            .take(topN)
             .toList();
-        _updateCache(cacheKey, filteredPlaces);
-        DebugLogger.log('✅ Got ${filteredPlaces.length} high-quality places from Google');
-        return filteredPlaces;
+        _updateCache(cacheKey, qualityFiltered);
+        // Apply category filter if specified
+        final categoryFiltered = categoryFilter != null
+            ? _filterByCategory(qualityFiltered, categoryFilter, query)
+            : qualityFiltered;
+        DebugLogger.log('✅ Got ${categoryFiltered.length} high-quality places from Google');
+        return categoryFiltered.take(topN).toList();
       }
       
       // Hybrid: Use Google + AI for gaps if Google has some results
@@ -133,14 +143,13 @@ class PlacesService {
   // Background refresh without blocking UI
   void _refreshCacheInBackground(double lat, double lng, String query, int radius, int topN, String cacheKey) async {
     try {
-      DebugLogger.log('🔄 Background refresh started');
+      DebugLogger.log('🔄 Background refresh started (base: tourist attraction)');
       final freshPlaces = await _fetchRealPlaces(lat, lng, query, radius, 0, topN)
           .timeout(const Duration(seconds: 8));
       
       if (freshPlaces.length >= 10) {
         final filtered = freshPlaces
             .where((p) => p.rating >= 3.5 && _isWithinRadius(p, lat, lng, radius))
-            .take(topN)
             .toList();
         _updateCache(cacheKey, filtered);
         DebugLogger.log('✅ Background refresh complete: ${filtered.length} places');
@@ -148,6 +157,36 @@ class PlacesService {
     } catch (e) {
       DebugLogger.log('⚠️ Background refresh failed: $e');
     }
+  }
+  
+  // Filter places by category keywords (post-processing)
+  List<Place> _filterByCategory(List<Place> places, String category, String originalQuery) {
+    // Category keyword mapping for filtering
+    final categoryKeywords = {
+      'restaurant': ['restaurant', 'cafe', 'food', 'dining', 'eatery'],
+      'hotel': ['hotel', 'hostel', 'accommodation', 'resort', 'lodging'],
+      'landmark': ['landmark', 'monument', 'attraction', 'historic'],
+      'museum': ['museum', 'gallery', 'art', 'cultural'],
+      'park': ['park', 'garden', 'nature', 'outdoor', 'beach'],
+      'entertainment': ['cinema', 'theater', 'entertainment', 'concert'],
+      'bar': ['bar', 'pub', 'nightclub', 'lounge', 'nightlife'],
+      'shopping': ['shopping', 'mall', 'market', 'store', 'boutique'],
+      'spa': ['spa', 'wellness', 'massage', 'beauty', 'salon'],
+      'viewpoint': ['viewpoint', 'scenic', 'observation', 'lookout', 'rooftop'],
+    };
+    
+    // If no specific category or "all", return all places
+    if (category == 'all' || !categoryKeywords.containsKey(category.toLowerCase())) {
+      return places;
+    }
+    
+    final keywords = categoryKeywords[category.toLowerCase()]!;
+    
+    // Filter places that match category keywords in name, types, or description
+    return places.where((place) {
+      final searchText = '${place.name} ${place.types.join(' ')} ${place.description}'.toLowerCase();
+      return keywords.any((keyword) => searchText.contains(keyword));
+    }).toList();
   }
   
   // Check if place is within radius (strict filtering)
@@ -264,9 +303,10 @@ class PlacesService {
   }
   
   Future<List<Place>> _fetchRealPlaces(double lat, double lng, String query, int radius, [int offset = 0, int limit = 60]) async {
-    // Use mobile-optimized endpoint for fast, quality results
-    final mobileUrl = '${Environment.backendUrl}/api/places/mobile/nearby?lat=$lat&lng=$lng&q=$query&radius=$radius&limit=$limit';
-    DebugLogger.log('🔍 Fetching: $query within ${radius}m');
+    // Always use "tourist attraction" as base query for comprehensive results
+    final baseQuery = 'tourist attraction';
+    final mobileUrl = '${Environment.backendUrl}/api/places/mobile/nearby?lat=$lat&lng=$lng&q=$baseQuery&radius=$radius&limit=$limit';
+    DebugLogger.log('🔍 Fetching: $baseQuery within ${radius}m (will filter by: $query)');
     
     try {
       final response = await _makeRequestWithRetry(() => http.get(
@@ -410,16 +450,17 @@ class PlacesService {
   }) async {
     if (latitude == null || longitude == null) return [];
     
-    print('🔍 Using Google Places API for accurate search results');
+    print('🔍 Using "tourist attraction" base query with category filter');
     return await fetchPlacesPipeline(
       latitude: latitude,
       longitude: longitude,
       query: query,
       radius: radius,
-      topN: 50, // Increased to get more AI results
+      topN: 50,
       userType: userType,
       vibe: vibe,
       language: language,
+      categoryFilter: category ?? query,
     );
   }
 
@@ -432,18 +473,17 @@ class PlacesService {
     String? vibe,
     String? language,
   }) async {
-    final query = category == 'all' ? 'points of interest' : category;
-    
-    print('🔍 Using Google Places API for accurate nearby search');
+    print('🔍 Using "tourist attraction" base query for nearby search');
     return await fetchPlacesPipeline(
       latitude: latitude,
       longitude: longitude,
-      query: query,
+      query: 'tourist attraction',
       radius: radius,
-      topN: 60, // Higher limit for better AI coverage
+      topN: 60,
       userType: userType,
       vibe: vibe,
       language: language,
+      categoryFilter: category == 'all' ? null : category,
     );
   }
   

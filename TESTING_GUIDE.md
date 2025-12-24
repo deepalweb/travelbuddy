@@ -1,293 +1,493 @@
-# Quick Testing Guide - Mobile App Profile Features
+# Testing Guide - Tourist Attraction Architecture
 
-## 🚀 Quick Start
+## 🧪 Complete Testing Checklist
 
-All features are ready to test. Follow this 15-minute testing flow:
+### Prerequisites
+- [ ] Backend server running on localhost:5000
+- [ ] Mobile app connected to backend
+- [ ] Google Places API key configured
+- [ ] Clear app cache before testing
+
+## 📱 Mobile App Tests
+
+### Test 1: Cold Start (No Cache)
+**Steps**:
+1. Clear app cache
+2. Open app
+3. Navigate to Places/Discovery screen
+
+**Expected Logs**:
+```
+🔍 Fetching: tourist attraction within 20000m
+✅ Got 60 places
+✅ Got 58 high-quality places from Google
+```
+
+**Expected UI**:
+- Loading skeleton for ~8 seconds
+- Then shows ~60 places
+- All categories visible
+- No errors
+
+**Pass Criteria**: ✅ Shows places within 10 seconds
 
 ---
 
-## 1️⃣ Social Links (3 mins)
+### Test 2: Warm Start (With Cache)
+**Steps**:
+1. Open app (cache exists from Test 1)
+2. Navigate to Places/Discovery screen
 
-**Path:** Settings → Social Links
-
+**Expected Logs**:
 ```
-✓ Tap "+" button
-✓ Select "Instagram" from dropdown
-✓ Enter URL: https://instagram.com/travelbuddy
-✓ Tap "Add"
-✓ Verify success snackbar appears
-✓ Close app → Reopen
-✓ Verify link still shows
-✓ Tap delete icon → Confirm removed
+⚡ INSTANT: Showing 58 cached places
+🔄 Background refresh started
 ```
 
-**Expected Backend Call:**
-```
-PUT /api/users/social-links
-Body: { "instagram": "https://instagram.com/travelbuddy" }
-```
+**Expected UI**:
+- Places appear INSTANTLY (0ms)
+- No loading skeleton
+- Background refresh happens silently
+
+**Pass Criteria**: ✅ Instant display (< 100ms)
 
 ---
 
-## 2️⃣ Travel Preferences (3 mins)
+### Test 3: Category Filter - Food
+**Steps**:
+1. Ensure cache exists
+2. Tap "Food" category chip
 
-**Path:** Settings → Travel Preferences
-
+**Expected Logs**:
 ```
-✓ Select Budget: "Luxury ($$$)"
-✓ Select Pace: "Fast-Paced"
-✓ Toggle "Accessibility Needs" ON
-✓ Select interests: Culture, Adventure, Food, Beach
-✓ Tap "Save Preferences"
-✓ Verify success snackbar
-✓ Close app → Reopen
-✓ Verify all selections persist
+⚡ INSTANT: Showing 58 cached places
+🎯 Category filtered (restaurant): 15 places
 ```
 
-**Expected Backend Call:**
+**Expected UI**:
+- Filter applies INSTANTLY
+- Shows only food-related places
+- No loading spinner
+- Count updates (e.g., "15 places")
+
+**Pass Criteria**: ✅ Instant filter (< 50ms)
+
+---
+
+### Test 4: Category Filter - Culture
+**Steps**:
+1. From Food category, tap "Culture"
+
+**Expected Logs**:
 ```
-PUT /api/users/preferences
-Body: {
-  "budgetRange": "luxury",
-  "travelPace": "fast",
-  "accessibility": true,
-  "interests": ["culture", "adventure", "food", "beach"]
+⚡ INSTANT: Showing 58 cached places
+🎯 Category filtered (museum): 10 places
+```
+
+**Expected UI**:
+- Filter applies INSTANTLY
+- Shows only museums/galleries
+- No loading spinner
+- Count updates
+
+**Pass Criteria**: ✅ Instant filter (< 50ms)
+
+---
+
+### Test 5: Category Filter - All
+**Steps**:
+1. From Culture category, tap "All"
+
+**Expected Logs**:
+```
+⚡ INSTANT: Showing 58 cached places
+```
+
+**Expected UI**:
+- Shows all 58 places
+- No loading spinner
+- Count shows total
+
+**Pass Criteria**: ✅ Shows all places instantly
+
+---
+
+### Test 6: Search with Category
+**Steps**:
+1. Select "Food" category
+2. Type "pizza" in search bar
+
+**Expected Behavior**:
+- Filters food places by "pizza" keyword
+- Shows only pizza restaurants
+- Instant results
+
+**Pass Criteria**: ✅ Combined filter works
+
+---
+
+### Test 7: Cache Expiry
+**Steps**:
+1. Wait 31 minutes (cache expiry = 30 min)
+2. Open app
+
+**Expected Logs**:
+```
+🔍 Fetching fresh places from Google API
+✅ Got 60 places
+```
+
+**Expected UI**:
+- Shows loading skeleton
+- Fetches fresh data
+- Updates cache
+
+**Pass Criteria**: ✅ Refreshes after 30 minutes
+
+---
+
+### Test 8: Background Refresh
+**Steps**:
+1. Open app with valid cache
+2. Wait for background refresh to complete
+3. Check if data updated
+
+**Expected Logs**:
+```
+⚡ INSTANT: Showing 58 cached places
+🔄 Background refresh started
+✅ Background refresh complete: 60 places
+```
+
+**Expected UI**:
+- No UI interruption
+- Data updates silently
+- User doesn't notice
+
+**Pass Criteria**: ✅ Silent background update
+
+---
+
+## 🖥️ Backend Tests
+
+### Test 9: Base Query Endpoint
+**Request**:
+```bash
+curl "http://localhost:5000/api/places/mobile/nearby?lat=6.9271&lng=79.8612&q=tourist+attraction&radius=20000&limit=60"
+```
+
+**Expected Response**:
+```json
+{
+  "status": "OK",
+  "results": [...60 places...],
+  "query": "tourist attraction",
+  "categoryFilter": "tourist attraction",
+  "location": { "lat": 6.9271, "lng": 79.8612 },
+  "radius": 20000
 }
 ```
 
----
-
-## 3️⃣ Security Settings (2 mins)
-
-**Path:** Settings → Security Settings
-
+**Expected Logs**:
 ```
-✓ Verify email displays correctly
-✓ Toggle "Two-Factor Authentication" ON
-✓ Verify success snackbar
-✓ See green info box appear
-✓ Close app → Reopen
-✓ Verify 2FA still ON
-✓ Tap "Change Password"
-✓ Tap "Send Email"
-✓ Verify success message
+🔍 Mobile places search: BASE="tourist attraction" FILTER="tourist attraction"
+🔍 Enhanced search returned: 60 raw results
+✅ Location filtered: 58 places within 40km
+✅ Mobile search returned 58 diverse places
 ```
 
-**Expected Backend Calls:**
-```
-GET /api/users/security
-Response: { "twoFactorEnabled": false, "emailVerified": true }
-
-PUT /api/users/security
-Body: { "twoFactorEnabled": true }
-
-POST /api/users/password-reset
-```
+**Pass Criteria**: ✅ Returns 50+ places
 
 ---
 
-## 4️⃣ Privacy & Notifications (3 mins)
-
-**Path:** Settings → Privacy & Notifications
-
-```
-✓ Change "Profile Visibility" to "Private"
-✓ Toggle "Hide Travel History" ON
-✓ Toggle "Hide Activity" ON
-✓ Toggle "Email Notifications" OFF
-✓ Toggle "Push Notifications" OFF
-✓ Close app → Reopen
-✓ Verify all settings persist
+### Test 10: Category Filter - Restaurant
+**Request**:
+```bash
+curl "http://localhost:5000/api/places/mobile/nearby?lat=6.9271&lng=79.8612&q=restaurant&radius=20000&limit=60"
 ```
 
-**Expected Backend Calls:**
-```
-PUT /api/users/privacy
-Body: {
-  "profileVisibility": "private",
-  "hideTravel": true,
-  "hideActivity": true
+**Expected Response**:
+```json
+{
+  "status": "OK",
+  "results": [...15 places...],
+  "query": "tourist attraction",
+  "categoryFilter": "restaurant",
+  "location": { "lat": 6.9271, "lng": 79.8612 },
+  "radius": 20000
 }
+```
 
-PUT /api/users/notifications
-Body: {
-  "emailNotifications": false,
-  "pushNotifications": false,
+**Expected Logs**:
+```
+🔍 Mobile places search: BASE="tourist attraction" FILTER="restaurant"
+🎯 Category filtered (restaurant): 14 places
+```
+
+**Pass Criteria**: ✅ Returns only food places
+
+---
+
+### Test 11: Category Filter - Museum
+**Request**:
+```bash
+curl "http://localhost:5000/api/places/mobile/nearby?lat=6.9271&lng=79.8612&q=museum&radius=20000&limit=60"
+```
+
+**Expected Response**:
+```json
+{
+  "status": "OK",
+  "results": [...10 places...],
+  "query": "tourist attraction",
+  "categoryFilter": "museum",
   ...
 }
 ```
 
----
-
-## 5️⃣ Bookmark Management (2 mins)
-
-**Path:** Community → Any Post
-
+**Expected Logs**:
 ```
-✓ Tap bookmark icon on a post
-✓ Verify icon changes to filled
-✓ Go to Profile → Bookmarked Posts
-✓ Verify post appears in list
-✓ Tap bookmark icon again
-✓ Verify post removed from list
+🎯 Category filtered (museum): 10 places
 ```
 
-**Expected Backend Calls:**
-```
-POST /api/users/bookmark/:postId
-DELETE /api/users/bookmark/:postId
-```
+**Pass Criteria**: ✅ Returns only museums/galleries
 
 ---
 
-## 6️⃣ Posts Count (1 min)
-
-**Path:** Profile Screen
-
-```
-✓ Open Profile
-✓ Check "Posts" count
-✓ Go to Community → Create Post
-✓ Submit a new post
-✓ Return to Profile
-✓ Verify count incremented by 1
+### Test 12: Invalid Category
+**Request**:
+```bash
+curl "http://localhost:5000/api/places/mobile/nearby?lat=6.9271&lng=79.8612&q=invalid_category&radius=20000&limit=60"
 ```
 
-**Expected Backend Call:**
-```
-GET /api/users/posts/count
-Response: { "count": 5 }
-```
+**Expected Behavior**:
+- Falls back to base query
+- Returns all places
+- No error
+
+**Pass Criteria**: ✅ Graceful fallback
 
 ---
 
-## 7️⃣ Visited Places (1 min)
+## 🔍 Integration Tests
 
-**Manual Test (requires code integration):**
+### Test 13: End-to-End Flow
+**Steps**:
+1. Clear all caches
+2. Open mobile app
+3. Wait for places to load
+4. Tap "Food" category
+5. Tap "Culture" category
+6. Tap "All" category
+7. Close and reopen app
 
-Add this to any place detail screen:
+**Expected Behavior**:
+- Initial load: 8 seconds
+- Category switches: instant
+- Reopen: instant (cache hit)
+
+**Pass Criteria**: ✅ Complete flow works smoothly
+
+---
+
+### Test 14: Multiple Locations
+**Steps**:
+1. Load places for Location A (e.g., Colombo)
+2. Move to Location B (e.g., Kandy)
+3. Load places for Location B
+4. Return to Location A
+
+**Expected Behavior**:
+- Each location has separate cache
+- Location A cache still valid
+- No mixing of results
+
+**Pass Criteria**: ✅ Location-specific caching works
+
+---
+
+### Test 15: Network Failure
+**Steps**:
+1. Disconnect internet
+2. Open app with valid cache
+
+**Expected Behavior**:
+- Shows cached places
+- No error message
+- Background refresh fails silently
+
+**Pass Criteria**: ✅ Graceful offline handling
+
+---
+
+## 📊 Performance Tests
+
+### Test 16: Cache Hit Performance
+**Metric**: Time to display places with valid cache
+
+**Target**: < 100ms
+**Acceptable**: < 200ms
+**Fail**: > 500ms
+
+**Measurement**:
 ```dart
-await ApiService().addVisitedPlace(place.id);
-```
-
-**Expected Backend Call:**
-```
-POST /api/users/visited-places
-Body: {
-  "placeId": "abc123",
-  "visitedAt": "2024-01-15T10:30:00Z"
-}
-```
-
-**Verify:**
-```
-✓ Check backend: User.visitedPlaces array has new entry
-✓ Check Profile → Travel Stats
-✓ Verify "Places Visited" count incremented
+final start = DateTime.now();
+final places = await fetchPlacesPipeline(...);
+final duration = DateTime.now().difference(start);
+print('Cache hit time: ${duration.inMilliseconds}ms');
 ```
 
 ---
 
-## 🐛 Common Issues & Fixes
+### Test 17: API Call Performance
+**Metric**: Time to fetch fresh places
 
-### Issue: "Authentication required" error
-**Fix:** Ensure user is logged in with valid Firebase token
+**Target**: < 8s
+**Acceptable**: < 10s
+**Fail**: > 15s
 
-### Issue: Settings don't persist after app restart
-**Fix:** Check backend response - should return `{ "success": true }`
-
-### Issue: Social links not loading
-**Fix:** Backend returns object `{}`, mobile expects array format - already handled in `getSocialLinks()`
-
-### Issue: 2FA toggle doesn't work
-**Fix:** Ensure using `/api/users/security` endpoint, not `/api/users/2fa`
-
----
-
-## ✅ Success Criteria
-
-All tests pass if:
-- ✅ No error snackbars appear
-- ✅ Success messages show after saves
-- ✅ Data persists after app restart
-- ✅ Backend logs show correct API calls
-- ✅ MongoDB shows updated user documents
-
----
-
-## 📊 Backend Verification
-
-Check MongoDB after testing:
-
-```javascript
-db.users.findOne({ firebaseUid: "your-test-user-uid" })
-```
-
-Should see:
-```json
-{
-  "socialLinks": { "instagram": "https://..." },
-  "travelPreferences": {
-    "budgetRange": "luxury",
-    "travelPace": "fast",
-    "accessibility": true,
-    "interests": ["culture", "adventure", "food", "beach"]
-  },
-  "twoFactorEnabled": true,
-  "privacySettings": {
-    "profileVisibility": "private",
-    "hideTravel": true,
-    "hideActivity": true
-  },
-  "notificationPreferences": {
-    "emailNotifications": false,
-    "pushNotifications": false
-  },
-  "bookmarkedPosts": ["postId1", "postId2"],
-  "visitedPlaces": [
-    { "placeId": "abc123", "visitedAt": "2024-01-15T10:30:00Z" }
-  ]
-}
-```
-
----
-
-## 🎯 Performance Check
-
-All API calls should complete in:
-- GET requests: < 200ms
-- PUT/POST requests: < 500ms
-- No network errors
-- Smooth UI transitions
-
----
-
-## 📱 Test Devices
-
-Recommended testing on:
-- Android emulator (API 30+)
-- iOS simulator (iOS 14+)
-- Real device (optional)
-
----
-
-## 🔧 Debug Mode
-
-Enable debug logging in `api_service.dart`:
+**Measurement**:
 ```dart
-print('🌐 API Call: $endpoint');
-print('📤 Request: $data');
-print('📥 Response: ${response.data}');
+final start = DateTime.now();
+final places = await _fetchRealPlaces(...);
+final duration = DateTime.now().difference(start);
+print('API call time: ${duration.inSeconds}s');
 ```
-
-All API calls already have debug prints enabled.
 
 ---
 
-## ✨ Next Steps After Testing
+### Test 18: Filter Performance
+**Metric**: Time to filter 60 places by category
 
-1. Fix any bugs found
-2. Add visited places tracking to place detail screens
-3. Update bookmark UI to pass `isBookmarked` state
-4. Consider adding loading skeletons
-5. Add offline support with local caching
+**Target**: < 50ms
+**Acceptable**: < 100ms
+**Fail**: > 200ms
+
+**Measurement**:
+```dart
+final start = DateTime.now();
+final filtered = _filterByCategory(places, 'restaurant', 'restaurant');
+final duration = DateTime.now().difference(start);
+print('Filter time: ${duration.inMilliseconds}ms');
+```
+
+---
+
+## 🐛 Edge Case Tests
+
+### Test 19: Empty Results
+**Steps**:
+1. Search in remote location (e.g., ocean)
+2. Check handling
+
+**Expected Behavior**:
+- Returns empty array
+- Shows "No places found" message
+- No crash
+
+**Pass Criteria**: ✅ Graceful empty state
+
+---
+
+### Test 20: Very Large Radius
+**Request**:
+```bash
+curl "http://localhost:5000/api/places/mobile/nearby?lat=6.9271&lng=79.8612&q=restaurant&radius=100000"
+```
+
+**Expected Behavior**:
+- Filters to 2x radius (200km)
+- Returns reasonable results
+- No timeout
+
+**Pass Criteria**: ✅ Handles large radius
+
+---
+
+### Test 21: Rapid Category Switching
+**Steps**:
+1. Tap "Food" → "Culture" → "Nature" → "Shopping" rapidly
+
+**Expected Behavior**:
+- All switches instant
+- No lag or freeze
+- Correct results each time
+
+**Pass Criteria**: ✅ Smooth rapid switching
+
+---
+
+## 📝 Test Results Template
+
+```
+Test Date: ___________
+Tester: ___________
+Environment: [ ] Dev [ ] Staging [ ] Production
+
+Mobile App Tests:
+[ ] Test 1: Cold Start - PASS / FAIL
+[ ] Test 2: Warm Start - PASS / FAIL
+[ ] Test 3: Filter Food - PASS / FAIL
+[ ] Test 4: Filter Culture - PASS / FAIL
+[ ] Test 5: Filter All - PASS / FAIL
+[ ] Test 6: Search + Category - PASS / FAIL
+[ ] Test 7: Cache Expiry - PASS / FAIL
+[ ] Test 8: Background Refresh - PASS / FAIL
+
+Backend Tests:
+[ ] Test 9: Base Query - PASS / FAIL
+[ ] Test 10: Filter Restaurant - PASS / FAIL
+[ ] Test 11: Filter Museum - PASS / FAIL
+[ ] Test 12: Invalid Category - PASS / FAIL
+
+Integration Tests:
+[ ] Test 13: End-to-End - PASS / FAIL
+[ ] Test 14: Multiple Locations - PASS / FAIL
+[ ] Test 15: Network Failure - PASS / FAIL
+
+Performance Tests:
+[ ] Test 16: Cache Hit < 100ms - PASS / FAIL
+[ ] Test 17: API Call < 8s - PASS / FAIL
+[ ] Test 18: Filter < 50ms - PASS / FAIL
+
+Edge Cases:
+[ ] Test 19: Empty Results - PASS / FAIL
+[ ] Test 20: Large Radius - PASS / FAIL
+[ ] Test 21: Rapid Switching - PASS / FAIL
+
+Overall Result: PASS / FAIL
+Notes: ___________________________________________
+```
+
+---
+
+## 🚀 Automated Testing Script
+
+```bash
+#!/bin/bash
+# test_places_api.sh
+
+echo "🧪 Testing Tourist Attraction Architecture"
+echo "=========================================="
+
+# Test 1: Base Query
+echo "Test 1: Base Query"
+curl -s "http://localhost:5000/api/places/mobile/nearby?lat=6.9271&lng=79.8612&q=tourist+attraction&radius=20000&limit=60" | jq '.status, .results | length'
+
+# Test 2: Restaurant Filter
+echo "Test 2: Restaurant Filter"
+curl -s "http://localhost:5000/api/places/mobile/nearby?lat=6.9271&lng=79.8612&q=restaurant&radius=20000&limit=60" | jq '.status, .categoryFilter, .results | length'
+
+# Test 3: Museum Filter
+echo "Test 3: Museum Filter"
+curl -s "http://localhost:5000/api/places/mobile/nearby?lat=6.9271&lng=79.8612&q=museum&radius=20000&limit=60" | jq '.status, .categoryFilter, .results | length'
+
+echo "=========================================="
+echo "✅ Tests Complete"
+```
+
+---
+
+**Testing Guide Version**: 1.0
+**Last Updated**: 2024
+**Status**: ✅ Ready for Testing

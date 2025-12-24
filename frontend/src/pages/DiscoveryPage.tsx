@@ -73,6 +73,8 @@ const DiscoveryPage: React.FC = () => {
 
   const [loading, setLoading] = useState(false)
   const [loadingMore, setLoadingMore] = useState(false)
+  const [loadingStage, setLoadingStage] = useState('')
+  const [loadingProgress, setLoadingProgress] = useState(0)
   const [searchQuery, setSearchQuery] = useState(globalSearchState.query)
   const [searchContext, setSearchContext] = useState(globalSearchState.context)
   const [hasMore, setHasMore] = useState(globalSearchState.places.length > 0)
@@ -122,16 +124,20 @@ const DiscoveryPage: React.FC = () => {
     
     if (isNewSearch) {
       setLoading(true)
+      setLoadingProgress(0)
+      setLoadingStage('Searching 50,000+ places...')
       setSearchQuery(query)
       
       // Check cache first
       const cached = searchCache.get(cacheKey)
       if (cached && (Date.now() - cached.timestamp) < CACHE_TTL) {
         console.log('🎯 Using cached results for:', query)
+        setLoadingStage('Loading from cache...')
+        setLoadingProgress(100)
         const allPlaces = cached.data
         setPlaces(allPlaces)
         setFilteredPlaces(applyFilters(allPlaces))
-        setSearchContext(cached.context)
+        setSearchContext(cached.context + ' (Cached)')
         setHasMore(true)
         setLoading(false)
         
@@ -152,7 +158,24 @@ const DiscoveryPage: React.FC = () => {
     
     try {
       console.log('🔄 Fetching new results for:', query)
+      
+      // Progress simulation
+      const progressInterval = setInterval(() => {
+        setLoadingProgress(prev => Math.min(prev + 10, 90))
+      }, 300)
+      
+      // Timeout warning
+      const timeoutWarning = setTimeout(() => {
+        setLoadingStage('Still searching... This is taking longer than usual')
+      }, 5000)
+      
+      setLoadingStage('Analyzing your search...')
       const results = await apiService.searchPlaces(query, { limit: 8 })
+      
+      clearInterval(progressInterval)
+      clearTimeout(timeoutWarning)
+      setLoadingProgress(100)
+      setLoadingStage(`Found ${results?.length || 0} amazing places!`)
       
       if (isNewSearch) {
         const newPlaces = results || []
@@ -183,14 +206,19 @@ const DiscoveryPage: React.FC = () => {
       setHasMore(true)
     } catch (error) {
       console.error('Search failed:', error)
+      setLoadingStage('Search failed. Please try again.')
       if (isNewSearch) {
         setPlaces([])
         setFilteredPlaces([])
         setSearchContext('Search failed. Please try again.')
       }
     } finally {
-      setLoading(false)
-      setLoadingMore(false)
+      setTimeout(() => {
+        setLoading(false)
+        setLoadingMore(false)
+        setLoadingProgress(0)
+        setLoadingStage('')
+      }, 500)
     }
   }
 
@@ -338,9 +366,19 @@ const DiscoveryPage: React.FC = () => {
         {loading && (
           <>
             <div className="text-center py-8">
-              <div className="inline-flex items-center">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mr-3"></div>
-                <span className="text-lg text-gray-600">AI is discovering amazing places for you...</span>
+              <div className="max-w-md mx-auto">
+                <div className="inline-flex items-center mb-4">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mr-3"></div>
+                  <span className="text-lg text-gray-700 font-medium">{loadingStage}</span>
+                </div>
+                {/* Progress Bar */}
+                <div className="w-full bg-gray-200 rounded-full h-2 mb-2">
+                  <div 
+                    className="bg-gradient-to-r from-blue-600 to-purple-600 h-2 rounded-full transition-all duration-300"
+                    style={{ width: `${loadingProgress}%` }}
+                  ></div>
+                </div>
+                <p className="text-sm text-gray-500">{loadingProgress}% complete</p>
               </div>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">

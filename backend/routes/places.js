@@ -138,46 +138,37 @@ router.get('/mobile/nearby', async (req, res) => {
       return res.status(400).json({ error: 'lat and lng are required' });
     }
 
-    const query = (q || '').toString().trim() || 'points of interest';
+    // ALWAYS use "tourist attraction" as base query for comprehensive results
+    const baseQuery = 'tourist attraction';
+    const categoryFilter = (q || '').toString().trim();
     const searchRadius = parseInt(radius, 10);
     const maxResults = parseInt(limit, 10);
     const skipResults = parseInt(offset, 10);
 
-    console.log(`🔍 Mobile places search: ${query} within ${searchRadius}m, limit: ${maxResults}`);
-
-    // Try simple nearby search first to test API
-    const testUrl = `https://maps.googleapis.com/maps/api/place/nearbysearch/json?location=${lat},${lng}&radius=${searchRadius}&type=establishment&key=${apiKey}`;
-    console.log(`🧪 Testing API with: ${testUrl.replace(apiKey, 'API_KEY_HIDDEN')}`);
-    
-    const testResponse = await fetch(testUrl);
-    const testData = await testResponse.json();
-    
-    console.log(`🧪 API Test Response: Status=${testData.status}, Results=${testData.results?.length || 0}`);
-    
-    if (testData.status !== 'OK') {
-      console.error(`❌ Google Places API Error: ${testData.status} - ${testData.error_message}`);
-      return res.status(502).json({ 
-        error: 'Google Places API Error', 
-        status: testData.status,
-        message: testData.error_message
-      });
-    }
+    console.log(`🔍 Mobile places search: BASE="${baseQuery}" FILTER="${categoryFilter}" within ${searchRadius}m, limit: ${maxResults}`);
 
     const enhancedSearch = new EnhancedPlacesSearch(apiKey);
     
-    // Use comprehensive search for better mobile results
+    // Use comprehensive search with base query
     let results = await enhancedSearch.searchPlacesComprehensive(
       parseFloat(lat), 
       parseFloat(lng), 
-      query, 
+      baseQuery, 
       searchRadius
     );
     
     console.log(`🔍 Enhanced search returned: ${results.length} raw results`);
     
     if (results.length === 0) {
-      console.warn('⚠️ Enhanced search returned 0 results, using test results');
-      results = testData.results || [];
+      console.warn('⚠️ Enhanced search returned 0 results');
+      return res.json({
+        status: 'OK',
+        results: [],
+        query: baseQuery,
+        categoryFilter: categoryFilter,
+        location: { lat: parseFloat(lat), lng: parseFloat(lng) },
+        radius: searchRadius
+      });
     }
     
     // Filter out results too far from search location (strict 2x radius check)
@@ -209,6 +200,31 @@ router.get('/mobile/nearby', async (req, res) => {
     
     console.log(`✅ Location filtered: ${results.length} places within ${maxDistanceKm}km`);
     
+    // Apply category filtering if specified (post-processing)
+    if (categoryFilter && categoryFilter !== 'all' && categoryFilter !== 'tourist attraction') {
+      const categoryKeywords = {
+        'restaurant': ['restaurant', 'cafe', 'food', 'dining', 'eatery'],
+        'hotel': ['hotel', 'hostel', 'accommodation', 'resort', 'lodging'],
+        'landmark': ['landmark', 'monument', 'attraction', 'historic'],
+        'museum': ['museum', 'gallery', 'art', 'cultural'],
+        'park': ['park', 'garden', 'nature', 'outdoor', 'beach'],
+        'entertainment': ['cinema', 'theater', 'entertainment', 'concert'],
+        'bar': ['bar', 'pub', 'nightclub', 'lounge', 'nightlife'],
+        'shopping': ['shopping', 'mall', 'market', 'store', 'boutique'],
+        'spa': ['spa', 'wellness', 'massage', 'beauty', 'salon'],
+        'viewpoint': ['viewpoint', 'scenic', 'observation', 'lookout', 'rooftop'],
+      };
+      
+      const keywords = categoryKeywords[categoryFilter.toLowerCase()] || [categoryFilter.toLowerCase()];
+      
+      results = results.filter(place => {
+        const searchText = `${place.name} ${place.types?.join(' ') || ''} ${place.description || ''}`.toLowerCase();
+        return keywords.some(keyword => searchText.includes(keyword));
+      });
+      
+      console.log(`🎯 Category filtered (${categoryFilter}): ${results.length} places`);
+    }
+    
     // Apply mobile-optimized filtering (stricter quality)
     results = PlacesOptimizer.filterQualityResults(results, { minRating: 3.5 });
     results = PlacesOptimizer.enrichPlaceTypes(results);
@@ -225,7 +241,8 @@ router.get('/mobile/nearby', async (req, res) => {
     res.json({
       status: 'OK',
       results: paginatedResults,
-      query: query,
+      query: baseQuery,
+      categoryFilter: categoryFilter,
       location: { lat: parseFloat(lat), lng: parseFloat(lng) },
       radius: searchRadius
     });
