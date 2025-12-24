@@ -6363,10 +6363,22 @@ try {
 // Admin routes - Enhanced with middleware
 try {
   const adminRouter = (await import('./routes/admin.js')).default;
+  if (!adminRouter) {
+    throw new Error('Admin router is undefined');
+  }
   app.use('/api/admin', adminRouter);
-  console.log('✅ Admin routes loaded with authentication');
+  console.log('✅ Admin routes loaded successfully');
+  console.log('📍 Admin endpoints available at /api/admin/*');
 } catch (error) {
-  console.error('❌ Failed to load admin routes:', error);
+  console.error('❌ CRITICAL: Failed to load admin routes:', error);
+  console.error('Stack trace:', error.stack);
+  app.all('/api/admin/*', (req, res) => {
+    res.status(503).json({ 
+      error: 'Admin routes failed to load', 
+      details: error.message,
+      timestamp: new Date().toISOString()
+    });
+  });
 }
 
 // Deals routes (Merchant + Admin only)

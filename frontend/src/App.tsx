@@ -24,7 +24,7 @@ import { checkFirebaseStatus } from './utils/firebaseStatus'
 import PrivacyPolicyPage from './pages/PrivacyPolicyPage'
 import TermsOfServicePage from './pages/TermsOfServicePage'
 import { NotFoundPage } from './pages/NotFoundPage'
-import EnhancedAdmin from './pages/EnhancedAdmin'
+import ComprehensiveAdmin from './pages/ComprehensiveAdmin'
 
 const AppContent: React.FC = () => {
   const { config, loading, error } = useConfig()
@@ -78,7 +78,7 @@ const AppContent: React.FC = () => {
             <Route path="/trips/:id" element={<TripDetailPage />} />
             <Route path="/places/:id" element={<PlaceDetailsPage />} />
             <Route path="/community/story/:id" element={<StoryDetailPage />} />
-            <Route path="/admin" element={<EnhancedAdmin />} />
+            <Route path="/admin" element={<ComprehensiveAdmin />} />
 
             <Route path="/*" element={<Layout />} />
             <Route path="*" element={<NotFoundPage />} />
