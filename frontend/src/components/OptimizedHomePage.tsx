@@ -1322,38 +1322,44 @@ export const OptimizedHomePage: React.FC = () => {
       
       {user && (
         <Suspense fallback={<SectionLoader />}>
-          <section className="py-20 bg-gradient-to-r from-purple-50 to-pink-50">
+          <section className="py-20 bg-gradient-to-r from-blue-50 to-purple-50">
             <div className="max-w-7xl mx-auto px-4">
               <div className="text-center mb-12">
                 <h2 className="text-4xl font-bold text-gray-900 mb-4">
-                  Recommended For Your Travel Style
+                  Welcome Back, {user.fullName?.split(' ')[0] || user.username || 'Explorer'}!
                 </h2>
                 <p className="text-xl text-gray-600">
-                  AI-powered suggestions based on your preferences and past trips
+                  Continue your journey or start planning your next adventure
                 </p>
               </div>
               <div className="grid md:grid-cols-3 gap-8">
-                <Card className="p-6 text-center hover:shadow-xl transition-all duration-300">
-                  <div className="w-16 h-16 bg-gradient-to-r from-blue-100 to-purple-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                    <Sparkles className="w-8 h-8 text-purple-600" />
-                  </div>
-                  <h3 className="text-lg font-bold text-gray-900 mb-2">Adventure Seeker</h3>
-                  <p className="text-gray-600">Hiking trails, extreme sports, and outdoor adventures</p>
-                </Card>
-                <Card className="p-6 text-center hover:shadow-xl transition-all duration-300">
-                  <div className="w-16 h-16 bg-gradient-to-r from-green-100 to-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                    <Heart className="w-8 h-8 text-green-600" />
-                  </div>
-                  <h3 className="text-lg font-bold text-gray-900 mb-2">Culture Explorer</h3>
-                  <p className="text-gray-600">Museums, local cuisine, and authentic experiences</p>
-                </Card>
-                <Card className="p-6 text-center hover:shadow-xl transition-all duration-300">
-                  <div className="w-16 h-16 bg-gradient-to-r from-yellow-100 to-orange-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                    <Star className="w-8 h-8 text-orange-600" />
-                  </div>
-                  <h3 className="text-lg font-bold text-gray-900 mb-2">Luxury Traveler</h3>
-                  <p className="text-gray-600">Premium hotels, fine dining, and exclusive experiences</p>
-                </Card>
+                <Link to="/trips">
+                  <Card className="p-6 text-center hover:shadow-xl transition-all duration-300 transform hover:-translate-y-2 cursor-pointer group">
+                    <div className="w-16 h-16 bg-gradient-to-r from-blue-100 to-blue-200 rounded-full flex items-center justify-center mx-auto mb-4 group-hover:scale-110 transition-transform duration-300">
+                      <Calendar className="w-8 h-8 text-blue-600" />
+                    </div>
+                    <h3 className="text-lg font-bold text-gray-900 mb-2 group-hover:text-blue-600 transition-colors duration-300">My Trips</h3>
+                    <p className="text-gray-600">View and manage your travel plans</p>
+                  </Card>
+                </Link>
+                <Link to="/places">
+                  <Card className="p-6 text-center hover:shadow-xl transition-all duration-300 transform hover:-translate-y-2 cursor-pointer group">
+                    <div className="w-16 h-16 bg-gradient-to-r from-green-100 to-green-200 rounded-full flex items-center justify-center mx-auto mb-4 group-hover:scale-110 transition-transform duration-300">
+                      <MapPin className="w-8 h-8 text-green-600" />
+                    </div>
+                    <h3 className="text-lg font-bold text-gray-900 mb-2 group-hover:text-green-600 transition-colors duration-300">Explore Places</h3>
+                    <p className="text-gray-600">Discover new destinations nearby</p>
+                  </Card>
+                </Link>
+                <Link to="/profile">
+                  <Card className="p-6 text-center hover:shadow-xl transition-all duration-300 transform hover:-translate-y-2 cursor-pointer group">
+                    <div className="w-16 h-16 bg-gradient-to-r from-purple-100 to-purple-200 rounded-full flex items-center justify-center mx-auto mb-4 group-hover:scale-110 transition-transform duration-300">
+                      <Heart className="w-8 h-8 text-purple-600" />
+                    </div>
+                    <h3 className="text-lg font-bold text-gray-900 mb-2 group-hover:text-purple-600 transition-colors duration-300">My Favorites</h3>
+                    <p className="text-gray-600">Access your saved places</p>
+                  </Card>
+                </Link>
               </div>
             </div>
           </section>
