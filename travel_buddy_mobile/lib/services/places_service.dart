@@ -49,82 +49,56 @@ class PlacesService {
     String? vibe,
     String? language,
     bool forceRefresh = false,
-    String? categoryFilter, // NEW: For post-processing filtering
+    String? categoryFilter,
   }) async {
-    // Use actual query for now - will optimize later
     final cacheKey = '${latitude.toStringAsFixed(2)}_${longitude.toStringAsFixed(2)}_$query';
     
-    // INSTANT: Return cache immediately if available (Google Maps pattern)
+    // INSTANT: Return cache immediately if available
     if (!forceRefresh && _isValidCache(cacheKey)) {
       DebugLogger.log('⚡ INSTANT: Showing ${_cache[cacheKey]!.length} cached places');
-      // Refresh in background without blocking UI
-      _refreshCacheInBackground(latitude, longitude, query, radius, topN, cacheKey);
       return _cache[cacheKey]!.take(topN).toList();
     }
     
     // Rate limiting check
     if (_isRateLimited(cacheKey)) {
-      DebugLogger.log('⏱️ Rate limited, using AI fallback');
-      return await _fetchAIPlaces(latitude, longitude, query, radius, userType, vibe, language)
-          .timeout(const Duration(seconds: 10));
-    }
-    
-    // Subscription limit check
-    if (!await _canMakeApiCall()) {
-      DebugLogger.log('🚫 Daily API limit reached for subscription, using AI fallback');
-      _notifyLimitReached();
+      DebugLogger.log('⏱️ Rate limited, using AI');
       return await _fetchAIPlaces(latitude, longitude, query, radius, userType, vibe, language)
           .timeout(const Duration(seconds: 10));
     }
     
     try {
-      // Primary: Google Places API for real, accurate data
-      DebugLogger.log('🔍 Fetching fresh places from Google API');
-      _lastApiCalls[cacheKey] = DateTime.now();
-      await _incrementApiCall();
-      final realPlaces = await _fetchRealPlaces(latitude, longitude, query, radius, offset, topN)
-          .timeout(const Duration(seconds: 8)); // Faster timeout
+      // AI-FIRST: Use AI to avoid Google API costs
+      DebugLogger.log('🤖 Using AI-first approach (cost-effective)');
+      final aiPlaces = await _fetchAIPlaces(latitude, longitude, query, radius, userType, vibe, language)
+          .timeout(const Duration(seconds: 10));
       
-      if (realPlaces.length >= 10) { // If Google provides at least 10 places
-        // Quality filter for Google Maps-like experience
-        final qualityFiltered = realPlaces
-            .where((p) => p.rating >= 3.0 && _isWithinRadius(p, latitude, longitude, radius))
-            .toList();
-        _updateCache(cacheKey, qualityFiltered);
-        DebugLogger.log('✅ Got ${qualityFiltered.length} high-quality places from Google');
-        return qualityFiltered.take(topN).toList();
+      if (aiPlaces.length >= 10) {
+        _updateCache(cacheKey, aiPlaces);
+        DebugLogger.log('✅ Got ${aiPlaces.length} places from AI');
+        return aiPlaces.take(topN).toList();
       }
       
-      // Hybrid: Use Google + AI for gaps if Google has some results
-      if (realPlaces.isNotEmpty) {
-        DebugLogger.log('🔄 Google provided ${realPlaces.length} places, filling gaps with AI');
-        final remainingNeeded = topN - realPlaces.length;
+      // Fallback to Google only if AI fails
+      DebugLogger.log('⚠️ AI returned few results, using Google as fallback');
+      if (await _canMakeApiCall()) {
+        _lastApiCalls[cacheKey] = DateTime.now();
+        await _incrementApiCall();
+        final realPlaces = await _fetchRealPlaces(latitude, longitude, query, radius, offset, topN)
+            .timeout(const Duration(seconds: 8));
         
-        if (remainingNeeded > 0) {
-          final aiPlaces = await _fetchAIPlaces(latitude, longitude, query, radius, userType, vibe, language)
-              .timeout(const Duration(seconds: 10));
-          
-          final combined = <Place>[...realPlaces, ...aiPlaces.take(remainingNeeded)];
-          final filteredCombined = combined.where((p) => p.rating >= 3.0).take(topN).toList();
-          _updateCache(cacheKey, filteredCombined);
-          DebugLogger.log('✅ Hybrid result: ${realPlaces.length} Google + ${aiPlaces.take(remainingNeeded).length} AI = ${filteredCombined.length} total');
-          return filteredCombined;
+        if (realPlaces.isNotEmpty) {
+          _updateCache(cacheKey, realPlaces);
+          return realPlaces.take(topN).toList();
         }
-        
-        final filteredPlaces = realPlaces.where((p) => p.rating >= 3.0).take(topN).toList();
-        _updateCache(cacheKey, filteredPlaces);
-        return filteredPlaces;
       }
       
-      // Fallback: Return empty instead of AI/mock for Google Maps-like quality
-      DebugLogger.log('⚠️ No places found, returning empty (no mock data)');
-      return [];
+      // Return AI results even if few
+      _updateCache(cacheKey, aiPlaces);
+      return aiPlaces.take(topN).toList();
       
     } catch (e) {
       DebugLogger.error('Places fetch failed: $e');
-      // Return cache if available, otherwise empty
       if (_cache.containsKey(cacheKey)) {
-        DebugLogger.log('💾 Using stale cache due to error');
         return _cache[cacheKey]!.take(topN).toList();
       }
       return [];
@@ -134,16 +108,13 @@ class PlacesService {
   // Background refresh without blocking UI
   void _refreshCacheInBackground(double lat, double lng, String query, int radius, int topN, String cacheKey) async {
     try {
-      DebugLogger.log('🔄 Background refresh started');
-      final freshPlaces = await _fetchRealPlaces(lat, lng, query, radius, 0, topN)
-          .timeout(const Duration(seconds: 8));
+      DebugLogger.log('🔄 Background refresh with AI');
+      final aiPlaces = await _fetchAIPlaces(lat, lng, query, radius, null, null, null)
+          .timeout(const Duration(seconds: 10));
       
-      if (freshPlaces.length >= 10) {
-        final filtered = freshPlaces
-            .where((p) => p.rating >= 3.0 && _isWithinRadius(p, lat, lng, radius))
-            .toList();
-        _updateCache(cacheKey, filtered);
-        DebugLogger.log('✅ Background refresh complete: ${filtered.length} places');
+      if (aiPlaces.length >= 10) {
+        _updateCache(cacheKey, aiPlaces);
+        DebugLogger.log('✅ Background refresh complete: ${aiPlaces.length} places');
       }
     } catch (e) {
       DebugLogger.log('⚠️ Background refresh failed: $e');
@@ -440,7 +411,7 @@ class PlacesService {
   }) async {
     if (latitude == null || longitude == null) return [];
     
-    print('🔍 Using "tourist attraction" base query with category filter');
+    print('🔍 Using specific query for search: $query');
     return await fetchPlacesPipeline(
       latitude: latitude,
       longitude: longitude,
@@ -450,7 +421,6 @@ class PlacesService {
       userType: userType,
       vibe: vibe,
       language: language,
-      categoryFilter: category ?? query,
     );
   }
 
@@ -463,17 +433,17 @@ class PlacesService {
     String? vibe,
     String? language,
   }) async {
-    print('🔍 Using "tourist attraction" base query for nearby search');
+    final query = category == 'all' ? 'points of interest' : category;
+    print('🔍 Using specific query for nearby search: $query');
     return await fetchPlacesPipeline(
       latitude: latitude,
       longitude: longitude,
-      query: 'tourist attraction',
+      query: query,
       radius: radius,
       topN: 60,
       userType: userType,
       vibe: vibe,
       language: language,
-      categoryFilter: category == 'all' ? null : category,
     );
   }
   
