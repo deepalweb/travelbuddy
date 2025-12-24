@@ -37,7 +37,7 @@ class PlacesService {
     'pro': 50,
   };
 
-  // Google Maps-style fast pipeline: Cache first, then refresh
+  // Hybrid approach: Google first, AI for subsequent
   Future<List<Place>> fetchPlacesPipeline({
     required double latitude,
     required double longitude,
@@ -53,9 +53,11 @@ class PlacesService {
   }) async {
     final cacheKey = '${latitude.toStringAsFixed(2)}_${longitude.toStringAsFixed(2)}_$query';
     
-    // INSTANT: Return cache immediately if available
+    // INSTANT: Return cache if available
     if (!forceRefresh && _isValidCache(cacheKey)) {
       DebugLogger.log('⚡ INSTANT: Showing ${_cache[cacheKey]!.length} cached places');
+      // Background refresh with AI (cheap)
+      _refreshCacheInBackground(latitude, longitude, query, radius, topN, cacheKey);
       return _cache[cacheKey]!.take(topN).toList();
     }
     
@@ -67,32 +69,39 @@ class PlacesService {
     }
     
     try {
-      // AI-FIRST: Use AI to avoid Google API costs
-      DebugLogger.log('🤖 Using AI-first approach (cost-effective)');
-      final aiPlaces = await _fetchAIPlaces(latitude, longitude, query, radius, userType, vibe, language)
-          .timeout(const Duration(seconds: 10));
-      
-      if (aiPlaces.length >= 10) {
-        _updateCache(cacheKey, aiPlaces);
-        DebugLogger.log('✅ Got ${aiPlaces.length} places from AI');
-        return aiPlaces.take(topN).toList();
-      }
-      
-      // Fallback to Google only if AI fails
-      DebugLogger.log('⚠️ AI returned few results, using Google as fallback');
+      // FIRST LOAD: Use Google Places (accurate, real data)
       if (await _canMakeApiCall()) {
+        DebugLogger.log('🔍 First load: Using Google Places (accurate)');
         _lastApiCalls[cacheKey] = DateTime.now();
         await _incrementApiCall();
+        
         final realPlaces = await _fetchRealPlaces(latitude, longitude, query, radius, offset, topN)
             .timeout(const Duration(seconds: 8));
         
+        if (realPlaces.length >= 10) {
+          final filtered = realPlaces
+              .where((p) => p.rating >= 3.0 && _isWithinRadius(p, latitude, longitude, radius))
+              .toList();
+          _updateCache(cacheKey, filtered);
+          DebugLogger.log('✅ Got ${filtered.length} real places from Google');
+          return filtered.take(topN).toList();
+        }
+        
+        // If Google returns few results, supplement with AI
         if (realPlaces.isNotEmpty) {
-          _updateCache(cacheKey, realPlaces);
-          return realPlaces.take(topN).toList();
+          final aiPlaces = await _fetchAIPlaces(latitude, longitude, query, radius, userType, vibe, language)
+              .timeout(const Duration(seconds: 10));
+          final combined = [...realPlaces, ...aiPlaces].take(topN).toList();
+          _updateCache(cacheKey, combined);
+          DebugLogger.log('✅ Hybrid: ${realPlaces.length} Google + ${aiPlaces.length} AI');
+          return combined;
         }
       }
       
-      // Return AI results even if few
+      // Fallback: Use AI if Google API limit reached
+      DebugLogger.log('💡 API limit reached, using AI');
+      final aiPlaces = await _fetchAIPlaces(latitude, longitude, query, radius, userType, vibe, language)
+          .timeout(const Duration(seconds: 10));
       _updateCache(cacheKey, aiPlaces);
       return aiPlaces.take(topN).toList();
       
