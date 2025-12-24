@@ -837,15 +837,14 @@ export const OptimizedHomePage: React.FC = () => {
         </div>
       </section>
 
-      {/* 3. Featured Destinations */}
       <section className="py-20 bg-gray-50">
         <div className="max-w-7xl mx-auto px-4">
           <div className="text-center mb-12">
             <h2 className="text-4xl font-bold text-gray-900 mb-4">
-              Best Places to Visit This Month
+              Trending Destinations
             </h2>
             <p className="text-xl text-gray-600">
-              AI-curated destinations perfect for {new Date().toLocaleString('default', { month: 'long' })}
+              Most popular places travelers are visiting right now
             </p>
           </div>
           
