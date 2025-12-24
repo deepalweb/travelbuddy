@@ -524,9 +524,18 @@ class _PlacesScreenState extends State<PlacesScreen> {
       child: Column(
         children: [
           if (appProvider.isPlacesLoading)
-            const Padding(
+            Padding(
               padding: EdgeInsets.all(16),
-              child: CircularProgressIndicator(),
+              child: Column(
+                children: [
+                  CircularProgressIndicator(),
+                  SizedBox(height: 8),
+                  Text(
+                    'Loading more places...',
+                    style: TextStyle(fontSize: 12, color: Colors.grey),
+                  ),
+                ],
+              ),
             )
           else
             ElevatedButton.icon(
@@ -810,40 +819,11 @@ class _PlacesScreenState extends State<PlacesScreen> {
   
   Widget _buildSectionedPlacesList(AppProvider appProvider) {
     if (appProvider.isSectionsLoading) {
+      // Google Maps-style skeleton loading
       return ListView.builder(
-        itemCount: 5,
-        itemBuilder: (context, index) => Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Container(
-                width: 150,
-                height: 20,
-                decoration: BoxDecoration(
-                  color: Colors.grey[300],
-                  borderRadius: BorderRadius.circular(4),
-                ),
-              ),
-              const SizedBox(height: 12),
-              SizedBox(
-                height: 200,
-                child: ListView.builder(
-                  scrollDirection: Axis.horizontal,
-                  itemCount: 3,
-                  itemBuilder: (context, i) => Container(
-                    width: 150,
-                    margin: const EdgeInsets.only(right: 12),
-                    decoration: BoxDecoration(
-                      color: Colors.grey[300],
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
+        padding: const EdgeInsets.all(16),
+        itemCount: 3,
+        itemBuilder: (context, index) => _buildSkeletonSection(),
       );
     }
     
@@ -946,7 +926,26 @@ class _PlacesScreenState extends State<PlacesScreen> {
   
   Widget _buildSearchResults(AppProvider appProvider) {
     if (appProvider.isPlacesLoading) {
-      return const Center(child: CircularProgressIndicator());
+      // Google Maps-style skeleton grid
+      return CustomScrollView(
+        slivers: [
+          SliverPadding(
+            padding: const EdgeInsets.all(16),
+            sliver: SliverGrid(
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 2,
+                childAspectRatio: 0.75,
+                crossAxisSpacing: 12,
+                mainAxisSpacing: 12,
+              ),
+              delegate: SliverChildBuilderDelegate(
+                (context, index) => _buildSkeletonCard(),
+                childCount: 6,
+              ),
+            ),
+          ),
+        ],
+      );
     }
 
     if (appProvider.placesError != null) {
@@ -1197,7 +1196,26 @@ class _PlacesScreenState extends State<PlacesScreen> {
 
   Widget _buildCategoryResults(AppProvider appProvider) {
     if (appProvider.isPlacesLoading) {
-      return const Center(child: CircularProgressIndicator());
+      // Google Maps-style skeleton grid
+      return CustomScrollView(
+        slivers: [
+          SliverPadding(
+            padding: const EdgeInsets.all(16),
+            sliver: SliverGrid(
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 2,
+                childAspectRatio: 0.75,
+                crossAxisSpacing: 12,
+                mainAxisSpacing: 12,
+              ),
+              delegate: SliverChildBuilderDelegate(
+                (context, index) => _buildSkeletonCard(),
+                childCount: 6,
+              ),
+            ),
+          ),
+        ],
+      );
     }
 
     if (appProvider.placesError != null) {
@@ -1378,5 +1396,87 @@ class _PlacesScreenState extends State<PlacesScreen> {
         print('❌ Azure backend is not responding - check if server is running');
       }
     }
+  }
+  
+  // Google Maps-style skeleton loaders
+  Widget _buildSkeletonCard() {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.grey[200],
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            flex: 3,
+            child: Container(
+              decoration: BoxDecoration(
+                color: Colors.grey[300],
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
+              ),
+            ),
+          ),
+          Expanded(
+            flex: 2,
+            child: Padding(
+              padding: const EdgeInsets.all(8),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    height: 12,
+                    width: double.infinity,
+                    decoration: BoxDecoration(
+                      color: Colors.grey[300],
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Container(
+                    height: 10,
+                    width: 80,
+                    decoration: BoxDecoration(
+                      color: Colors.grey[300],
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+  
+  Widget _buildSkeletonSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          height: 20,
+          width: 150,
+          margin: const EdgeInsets.only(bottom: 12),
+          decoration: BoxDecoration(
+            color: Colors.grey[300],
+            borderRadius: BorderRadius.circular(4),
+          ),
+        ),
+        SizedBox(
+          height: 200,
+          child: ListView.builder(
+            scrollDirection: Axis.horizontal,
+            itemCount: 3,
+            itemBuilder: (context, index) => Container(
+              width: 160,
+              margin: const EdgeInsets.only(right: 12),
+              child: _buildSkeletonCard(),
+            ),
+          ),
+        ),
+        const SizedBox(height: 24),
+      ],
+    );
   }
 }

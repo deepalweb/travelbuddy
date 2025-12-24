@@ -180,29 +180,37 @@ router.get('/mobile/nearby', async (req, res) => {
       results = testData.results || [];
     }
     
-    // Filter out results too far from search location (>100km = wrong location)
+    // Filter out results too far from search location (strict 2x radius check)
     const searchLat = parseFloat(lat);
     const searchLng = parseFloat(lng);
+    const maxDistanceKm = (searchRadius / 1000) * 2; // 2x radius as max
+    
     results = results.filter(place => {
       const placeLat = place.geometry?.location?.lat;
       const placeLng = place.geometry?.location?.lng;
       if (!placeLat || !placeLng) return false;
       
-      const distance = Math.sqrt(
-        Math.pow(placeLat - searchLat, 2) + Math.pow(placeLng - searchLng, 2)
-      ) * 111; // rough km conversion
+      // Haversine distance calculation
+      const R = 6371; // Earth radius in km
+      const dLat = (placeLat - searchLat) * Math.PI / 180;
+      const dLng = (placeLng - searchLng) * Math.PI / 180;
+      const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                Math.cos(searchLat * Math.PI / 180) * Math.cos(placeLat * Math.PI / 180) *
+                Math.sin(dLng/2) * Math.sin(dLng/2);
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+      const distance = R * c;
       
-      if (distance > 100) {
-        console.log(`🚫 Rejected ${place.name}: ${distance.toFixed(0)}km away (${placeLat}, ${placeLng})`);
+      if (distance > maxDistanceKm) {
+        console.log(`🚫 Rejected ${place.name}: ${distance.toFixed(1)}km away (max: ${maxDistanceKm}km)`);
         return false;
       }
       return true;
     });
     
-    console.log(`✅ Location filtered: ${results.length} places within 100km`);
+    console.log(`✅ Location filtered: ${results.length} places within ${maxDistanceKm}km`);
     
-    // Apply mobile-optimized filtering
-    results = PlacesOptimizer.filterQualityResults(results, { minRating: 3.0 });
+    // Apply mobile-optimized filtering (stricter quality)
+    results = PlacesOptimizer.filterQualityResults(results, { minRating: 3.5 });
     results = PlacesOptimizer.enrichPlaceTypes(results);
     results = PlacesOptimizer.rankResults(results, searchLat, searchLng, query);
     

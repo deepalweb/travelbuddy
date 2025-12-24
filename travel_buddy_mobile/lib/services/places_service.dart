@@ -22,8 +22,8 @@ class PlacesService {
   final Map<String, List<Place>> _cache = {};
   final Map<String, DateTime> _cacheTimestamps = {};
   final Map<String, DateTime> _lastApiCalls = {};
-  static const Duration _cacheExpiry = Duration(minutes: 15);
-  static const Duration _rateLimitDelay = Duration(seconds: 2);
+  static const Duration _cacheExpiry = Duration(minutes: 30); // Longer cache for better UX
+  static const Duration _rateLimitDelay = Duration(milliseconds: 500); // Faster rate limit
   
   // Subscription limits
   int _dailyApiCalls = 0;
@@ -37,7 +37,7 @@ class PlacesService {
     'pro': 50,
   };
 
-  // Google Places API First pipeline with AI fallback
+  // Google Maps-style fast pipeline: Cache first, then refresh
   Future<List<Place>> fetchPlacesPipeline({
     required double latitude,
     required double longitude,
@@ -48,14 +48,17 @@ class PlacesService {
     String? userType,
     String? vibe,
     String? language,
+    bool forceRefresh = false,
   }) async {
-    // Cache disabled - always fetch fresh data
-    // final cacheKey = '${latitude.toStringAsFixed(3)}_${longitude.toStringAsFixed(3)}_$query';
-    // if (_isValidCache(cacheKey)) {
-    //   DebugLogger.log('💾 Using cached places (${_cache[cacheKey]!.length} found) - API call avoided');
-    //   return _cache[cacheKey]!.take(topN).toList();
-    // }
-    final cacheKey = '${latitude.toStringAsFixed(3)}_${longitude.toStringAsFixed(3)}_$query';
+    final cacheKey = '${latitude.toStringAsFixed(2)}_${longitude.toStringAsFixed(2)}_$query';
+    
+    // INSTANT: Return cache immediately if available (Google Maps pattern)
+    if (!forceRefresh && _isValidCache(cacheKey)) {
+      DebugLogger.log('⚡ INSTANT: Showing ${_cache[cacheKey]!.length} cached places');
+      // Refresh in background without blocking UI
+      _refreshCacheInBackground(latitude, longitude, query, radius, topN, cacheKey);
+      return _cache[cacheKey]!.take(topN).toList();
+    }
     
     // Rate limiting check
     if (_isRateLimited(cacheKey)) {
@@ -74,16 +77,20 @@ class PlacesService {
     
     try {
       // Primary: Google Places API for real, accurate data
-      DebugLogger.log('🔍 Using Google Places API for real places data');
+      DebugLogger.log('🔍 Fetching fresh places from Google API');
       _lastApiCalls[cacheKey] = DateTime.now();
       await _incrementApiCall();
       final realPlaces = await _fetchRealPlaces(latitude, longitude, query, radius, offset, topN)
-          .timeout(const Duration(seconds: 15));
+          .timeout(const Duration(seconds: 8)); // Faster timeout
       
-      if (realPlaces.length >= (topN * 0.5)) { // If Google provides 50%+ of needed places
-        final filteredPlaces = realPlaces.where((p) => p.rating >= 3.0).take(topN).toList();
+      if (realPlaces.length >= 10) { // If Google provides at least 10 places
+        // Strict quality filter for Google Maps-like experience
+        final filteredPlaces = realPlaces
+            .where((p) => p.rating >= 3.5 && _isWithinRadius(p, latitude, longitude, radius))
+            .take(topN)
+            .toList();
         _updateCache(cacheKey, filteredPlaces);
-        DebugLogger.log('✅ Using Google Places API (${filteredPlaces.length} found) - Real places data');
+        DebugLogger.log('✅ Got ${filteredPlaces.length} high-quality places from Google');
         return filteredPlaces;
       }
       
@@ -108,26 +115,55 @@ class PlacesService {
         return filteredPlaces;
       }
       
-      // Fallback: AI if Google fails completely
-      DebugLogger.log('⚠️ Google Places failed, trying AI fallback');
-      final aiPlaces = await _fetchAIPlaces(latitude, longitude, query, radius, userType, vibe, language)
-          .timeout(const Duration(seconds: 15));
-      
-      if (aiPlaces.isNotEmpty) {
-        final filteredAI = aiPlaces.where((p) => p.rating >= 3.0).take(topN).toList();
-        _updateCache(cacheKey, filteredAI);
-        DebugLogger.log('✅ Using AI fallback (${filteredAI.length} places)');
-        return filteredAI;
-      }
-      
-      DebugLogger.log('⚠️ Both Google and AI failed, using mock data');
-      return _generateEnhancedMockPlaces(latitude, longitude, query, topN);
+      // Fallback: Return empty instead of AI/mock for Google Maps-like quality
+      DebugLogger.log('⚠️ No places found, returning empty (no mock data)');
+      return [];
       
     } catch (e) {
-      DebugLogger.error('Places pipeline failed: $e - using mock data fallback');
-      return _generateEnhancedMockPlaces(latitude, longitude, query, topN);
+      DebugLogger.error('Places fetch failed: $e');
+      // Return cache if available, otherwise empty
+      if (_cache.containsKey(cacheKey)) {
+        DebugLogger.log('💾 Using stale cache due to error');
+        return _cache[cacheKey]!.take(topN).toList();
+      }
+      return [];
     }
   }
+  
+  // Background refresh without blocking UI
+  void _refreshCacheInBackground(double lat, double lng, String query, int radius, int topN, String cacheKey) async {
+    try {
+      DebugLogger.log('🔄 Background refresh started');
+      final freshPlaces = await _fetchRealPlaces(lat, lng, query, radius, 0, topN)
+          .timeout(const Duration(seconds: 8));
+      
+      if (freshPlaces.length >= 10) {
+        final filtered = freshPlaces
+            .where((p) => p.rating >= 3.5 && _isWithinRadius(p, lat, lng, radius))
+            .take(topN)
+            .toList();
+        _updateCache(cacheKey, filtered);
+        DebugLogger.log('✅ Background refresh complete: ${filtered.length} places');
+      }
+    } catch (e) {
+      DebugLogger.log('⚠️ Background refresh failed: $e');
+    }
+  }
+  
+  // Check if place is within radius (strict filtering)
+  bool _isWithinRadius(Place place, double centerLat, double centerLng, int radiusMeters) {
+    const earthRadius = 6371000; // meters
+    final dLat = _toRadians(place.latitude - centerLat);
+    final dLng = _toRadians(place.longitude - centerLng);
+    final a = math.sin(dLat / 2) * math.sin(dLat / 2) +
+        math.cos(_toRadians(centerLat)) * math.cos(_toRadians(place.latitude)) *
+        math.sin(dLng / 2) * math.sin(dLng / 2);
+    final c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a));
+    final distance = earthRadius * c;
+    return distance <= radiusMeters;
+  }
+  
+  double _toRadians(double degrees) => degrees * math.pi / 180;
   
   // Enhanced AI Places using Gemini service
   Future<List<Place>> _fetchAIPlaces(double lat, double lng, String query, int radius, String? userType, String? vibe, String? language) async {
@@ -226,260 +262,54 @@ class PlacesService {
   }
   
   Future<List<Place>> _fetchRealPlaces(double lat, double lng, String query, int radius, [int offset = 0, int limit = 60]) async {
-    // Try mobile-optimized endpoint with limited results to reduce costs
+    // Use mobile-optimized endpoint for fast, quality results
     final mobileUrl = '${Environment.backendUrl}/api/places/mobile/nearby?lat=$lat&lng=$lng&q=$query&radius=$radius&limit=$limit';
-    print('🔍 Fetching places (mobile): $mobileUrl');
+    DebugLogger.log('🔍 Fetching: $query within ${radius}m');
     
     try {
-      final mobileResponse = await _makeRequestWithRetry(() => http.get(
+      final response = await _makeRequestWithRetry(() => http.get(
         Uri.parse(mobileUrl),
         headers: {'Content-Type': 'application/json'},
       ));
       
-      print('📡 Mobile API Response:');
-      print('   Status Code: ${mobileResponse.statusCode}');
-      print('   Headers: ${mobileResponse.headers}');
-      print('   Body Length: ${mobileResponse.body.length} chars');
-      print('   Raw Body: ${mobileResponse.body.substring(0, math.min(500, mobileResponse.body.length))}...');
-      
-      if (mobileResponse.statusCode == 200) {
-        final mobileData = json.decode(mobileResponse.body);
-        print('📱 Mobile API parsed response:');
-        print('   Type: ${mobileData.runtimeType}');
-        print('   Keys: ${mobileData is Map ? mobileData.keys.toList() : "Not a Map"}');
-        print('   Status: ${mobileData['status']}');
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
         
-        if (mobileData['status'] == 'OK' && mobileData['results'] != null) {
-          final List<dynamic> data = mobileData['results'];
-          print('✅ Got ${data.length} places from mobile API');
+        if (data['status'] == 'OK' && data['results'] != null) {
+          final List<dynamic> places = data['results'];
+          DebugLogger.log('✅ Got ${places.length} places');
           
-          if (data.isNotEmpty) {
-            print('📍 First place details:');
-            print('   Name: ${data.first['name']}');
-            print('   ID: ${data.first['place_id'] ?? data.first['id']}');
-            print('   Address: ${data.first['vicinity'] ?? data.first['formatted_address']}');
-            print('   Rating: ${data.first['rating']}');
-            print('   All keys: ${data.first.keys.toList()}');
-            return await _enrichPlaces(data).then((enriched) => 
-              enriched.map((json) => Place.fromJson(json)).toList());
-          }
-        } else {
-          print('❌ Mobile API returned status: ${mobileData['status']} or no results');
+          // Skip enrichment for speed - use raw Google data
+          return places.map((json) => Place.fromJson({
+            ...json,
+            'description': json['description'] ?? json['editorial_summary']?['overview'] ?? '',
+            'localTip': 'Check opening hours before visiting',
+            'handyPhrase': 'Hello, thank you!',
+          })).toList();
         }
-      } else {
-        print('❌ Mobile API HTTP error: ${mobileResponse.statusCode}');
-        print('❌ Mobile API response body: ${mobileResponse.body}');
       }
     } catch (e) {
-      print('⚠️ Mobile API failed, trying fallback: $e');
-    }
-    
-    // Fallback to original endpoint
-    final url = '${Environment.backendUrl}/api/places/nearby?lat=$lat&lng=$lng&q=$query&radius=$radius&offset=$offset';
-    print('🔍 Fetching places (fallback): $url');
-    
-    final response = await _makeRequestWithRetry(() => http.get(
-      Uri.parse(url),
-      headers: {'Content-Type': 'application/json'},
-    ));
-    
-    print('📡 Fallback API Response:');
-    print('   Status Code: ${response.statusCode}');
-    print('   Headers: ${response.headers}');
-    print('   Body Length: ${response.body.length} chars');
-    
-    if (response.statusCode == 200) {
-      final responseBody = response.body;
-      print('📡 Fallback API raw response: ${responseBody.substring(0, math.min(500, responseBody.length))}...');
-      
-      try {
-        final decoded = json.decode(responseBody);
-        print('📡 Fallback API parsed response:');
-        print('   Type: ${decoded.runtimeType}');
-        
-        // Handle both array and object responses
-        List<dynamic> data;
-        if (decoded is List) {
-          data = decoded;
-          print('   Format: Direct array with ${data.length} items');
-        } else if (decoded is Map && decoded['results'] != null) {
-          data = decoded['results'];
-          print('   Format: Object with results array (${data.length} items)');
-          print('   Object keys: ${decoded.keys.toList()}');
-        } else {
-          print('❌ Fallback API returned unexpected format: ${decoded.runtimeType}');
-          if (decoded is Map) {
-            print('   Available keys: ${decoded.keys.toList()}');
-          }
-          return [];
-        }
-        
-        print('✅ Got ${data.length} real places from fallback API');
-        
-        if (data.isNotEmpty) {
-          print('📍 First place from fallback:');
-          print('   Name: ${data.first['name']}');
-          print('   ID: ${data.first['place_id'] ?? data.first['id']}');
-          print('   Address: ${data.first['vicinity'] ?? data.first['formatted_address']}');
-          print('   Rating: ${data.first['rating']}');
-          print('   All keys: ${data.first.keys.toList()}');
-          final enrichedPlaces = await _enrichPlaces(data);
-          return enrichedPlaces.map((json) => Place.fromJson(json)).toList();
-        }
-      } catch (e) {
-        print('❌ Failed to parse fallback API response: $e');
-        print('❌ Raw response: $responseBody');
-      }
-    } else {
-      print('❌ Fallback API error (${response.statusCode}): ${response.body}');
+      DebugLogger.error('Mobile API failed: $e');
     }
     return [];
   }
   
   Future<http.Response> _makeRequestWithRetry(Future<http.Response> Function() request) async {
     try {
-      print('🌐 Making HTTP request...');
-      final response = await request().timeout(const Duration(seconds: 10));
-      print('🌐 Request completed: ${response.statusCode}');
-      return response;
+      return await request().timeout(const Duration(seconds: 8));
     } on SocketException catch (e) {
-      print('❌ Network error: $e');
+      DebugLogger.error('Network error: $e');
       throw Exception('Network error: $e');
     } on TimeoutException catch (e) {
-      print('❌ Request timeout: $e');
+      DebugLogger.error('Request timeout: $e');
       throw Exception('Request timeout: $e');
     } catch (e) {
-      print('❌ Request failed: $e');
+      DebugLogger.error('Request failed: $e');
       throw Exception('Request failed: $e');
     }
   }
 
-  Future<List<Map<String, dynamic>>> _enrichPlaces(List<dynamic> places) async {
-    try {
-      // Check enrichment cache first
-      final enrichResponse = await _makeRequestWithRetry(() => http.post(
-        Uri.parse('${Environment.backendUrl}/api/enrichment/batch'),
-        headers: {'Content-Type': 'application/json'},
-        body: json.encode({'items': places, 'lang': 'en'}),
-      ));
-      
-      if (enrichResponse.statusCode == 200) {
-        final enrichData = json.decode(enrichResponse.body);
-        final cached = enrichData['cached'] ?? {};
-        
-        // Apply enriched content to places
-        return places.map((place) {
-          final placeMap = Map<String, dynamic>.from(place);
-          final placeId = placeMap['place_id'] ?? placeMap['id'];
-          final enriched = Map<String, dynamic>.from(cached[placeId] ?? {});
-          
-          return {
-            ...placeMap,
-            'description': enriched['description'] ?? 'A great place to visit in the area.',
-            'localTip': enriched['localTip'] ?? 'Check opening hours before visiting.',
-            'handyPhrase': enriched['handyPhrase'] ?? 'Hello, thank you!',
-            'type': enriched['type'] ?? placeMap['types']?[0]?.toString().replaceAll('_', ' ') ?? 'Place',
-          };
-        }).toList();
-      }
-    } catch (e) {
-      print('⚠️ Enrichment failed: $e');
-    }
-    
-    // Return original places if enrichment fails
-    return places.map((place) => Map<String, dynamic>.from(place)).toList();
-  }
-  
-  Future<List<Place>> _fetchOptimizedPlaces(double lat, double lng, String query) async {
-    try {
-      final response = await _makeRequestWithRetry(() => http.get(
-        Uri.parse('${Environment.backendUrl}/api/places/search?lat=$lat&lng=$lng&q=$query'),
-        headers: {'Content-Type': 'application/json'},
-      ));
-      
-      if (response.statusCode == 200) {
-        final List<dynamic> data = json.decode(response.body);
-        return data.map((json) => Place.fromJson(json)).toList();
-      }
-    } catch (e) {
-      print('⚠️ Optimized places failed: $e');
-    }
-    return [];
-  }
-  
-  Future<List<Place>> _fetchBasicSearch(double lat, double lng, String query, int radius) async {
-    try {
-      final response = await _makeRequestWithRetry(() => http.get(
-        Uri.parse('${Environment.backendUrl}/api/places/search?lat=$lat&lng=$lng&q=$query&radius=$radius'),
-        headers: {'Content-Type': 'application/json'},
-      ));
-      
-      if (response.statusCode == 200) {
-        final List<dynamic> data = json.decode(response.body);
-        return data.map((json) => Place.fromJson(json)).toList();
-      }
-    } catch (e) {
-      print('⚠️ Basic search failed: $e');
-    }
-    return [];
-  }
-  
-  // Enhanced mock places generator with AI-like quality
-  List<Place> _generateEnhancedMockPlaces(double lat, double lng, String query, int count) {
-    print('💡 Using enhanced mock data to avoid API costs for: $query');
-    return _generateMockPlaces(lat, lng, query, count);
-  }
-  
-  // Mock places generator as final fallback
-  List<Place> _generateMockPlaces(double lat, double lng, String query, int count) {
-    print('⚠️ USING MOCK DATA - API failed for: $query');
-    print('🎭 Generating $count mock places as fallback');
-    
-    final mockPlaces = <Place>[];
-    final baseNames = {
-      'restaurant': ['Local Bistro', 'Corner Cafe', 'Garden Restaurant', 'City Grill'],
-      'attraction': ['Historic Center', 'City Museum', 'Central Park', 'Observation Deck'],
-      'hotel': ['Grand Hotel', 'Boutique Inn', 'City Lodge', 'Comfort Suites'],
-      'museum': ['Art Museum', 'History Museum', 'Science Center', 'Cultural Gallery'],
-      'park': ['Central Park', 'Riverside Gardens', 'City Green', 'Memorial Park'],
-    };
-    
-    String category = 'attraction';
-    if (query.toLowerCase().contains('restaurant')) {
-      category = 'restaurant';
-    } else if (query.toLowerCase().contains('hotel')) category = 'hotel';
-    else if (query.toLowerCase().contains('museum')) category = 'museum';
-    else if (query.toLowerCase().contains('park')) category = 'park';
-    
-    final names = baseNames[category] ?? baseNames['attraction']!;
-    
-    // Generate multiple variations of each base name for more variety
-    final expandedNames = <String>[];
-    for (final baseName in names) {
-      expandedNames.add(baseName);
-      expandedNames.add('$baseName Downtown');
-      expandedNames.add('$baseName Plaza');
-      expandedNames.add('New $baseName');
-    }
-    
-    for (int i = 0; i < count && i < expandedNames.length; i++) {
-      mockPlaces.add(Place(
-        id: 'mock_${DateTime.now().millisecondsSinceEpoch}_$i',
-        name: expandedNames[i],
-        address: 'Near your location',
-        latitude: lat + (i * 0.001),
-        longitude: lng + (i * 0.001),
-        rating: 4.0 + (i * 0.2),
-        type: category.replaceAll('_', ' ').split(' ').map((w) => w[0].toUpperCase() + w.substring(1)).join(' '),
-        photoUrl: '',
-        description: 'A popular local $category in the area',
-        localTip: 'Check opening hours before visiting',
-        handyPhrase: 'Hello, thank you!',
-      ));
-    }
-    
-    return mockPlaces;
-  }
+
   
   // Cache management
   bool _isValidCache(String key) {
