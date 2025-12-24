@@ -14,6 +14,7 @@ const navigationItems = [
   { id: 'discover', label: 'Destinations', icon: Globe, path: '/places' },
   { id: 'planner', label: 'Trip Planner', icon: MapPin, path: '/trips' },
   { id: 'deals', label: 'Deals', icon: Tag, path: '/deals' },
+  { id: 'news', label: 'News', icon: BookOpen, path: '/news' },
   { id: 'community', label: 'Community', icon: Users, path: '/community' },
   { 
     id: 'more', 

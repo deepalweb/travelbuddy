@@ -1,6 +1,6 @@
 import React, { useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
-import { Search, Bell, Home, Compass, Tag, Users, User, LogOut, Map, Crown } from 'lucide-react'
+import { Search, Bell, Home, Compass, Tag, Users, User, LogOut, Map, Crown, Newspaper } from 'lucide-react'
 import { useApp } from '../contexts/AppContext'
 import { useAuth } from '../contexts/AuthContext'
 import { Avatar } from './Avatar'
@@ -13,6 +13,7 @@ const navItems = [
   { id: 'discover', label: 'Discover', icon: Compass, path: '/discovery' },
   { id: 'trips', label: 'Trip Planning', icon: Map, path: '/trips' },
   { id: 'deals', label: 'Deals', icon: Tag, path: '/deals' },
+  { id: 'news', label: 'News', icon: Newspaper, path: '/news' },
   { id: 'community', label: 'Community', icon: Users, path: '/community' },
   { id: 'subscription', label: 'Plans', icon: Crown, path: '/subscription' },
   { id: 'profile', label: 'Profile', icon: User, path: '/profile' }

@@ -25,6 +25,7 @@ import PrivacyPolicyPage from './pages/PrivacyPolicyPage'
 import TermsOfServicePage from './pages/TermsOfServicePage'
 import { NotFoundPage } from './pages/NotFoundPage'
 import ComprehensiveAdmin from './pages/ComprehensiveAdmin'
+import TravelNewsPage from './pages/TravelNewsPage'
 
 const AppContent: React.FC = () => {
   const { config, loading, error } = useConfig()
@@ -78,6 +79,7 @@ const AppContent: React.FC = () => {
             <Route path="/trips/:id" element={<TripDetailPage />} />
             <Route path="/places/:id" element={<PlaceDetailsPage />} />
             <Route path="/community/story/:id" element={<StoryDetailPage />} />
+            <Route path="/news" element={<TravelNewsPage />} />
             <Route path="/admin" element={<ComprehensiveAdmin />} />
 
             <Route path="/*" element={<Layout />} />

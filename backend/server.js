@@ -999,6 +999,15 @@ try {
   console.error('❌ Failed to load AI routes:', error);
 }
 
+// Load travel news routes
+try {
+  const travelNewsRouter = (await import('./routes/travel-news.js')).default;
+  app.use('/api/travel-news', travelNewsRouter);
+  console.log('✅ Travel news routes loaded');
+} catch (error) {
+  console.error('❌ Failed to load travel news routes:', error);
+}
+
 // Load mobile places routes
 try {
   const mobilePlacesRouter = (await import('./routes/mobile-places.js')).default;
