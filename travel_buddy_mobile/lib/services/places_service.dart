@@ -87,14 +87,11 @@ class PlacesService {
           return filtered.take(topN).toList();
         }
         
-        // If Google returns few results, supplement with AI
+        // Return Google results even if few (better than wrong location AI)
         if (realPlaces.isNotEmpty) {
-          final aiPlaces = await _fetchAIPlaces(latitude, longitude, query, radius, userType, vibe, language)
-              .timeout(const Duration(seconds: 10));
-          final combined = [...realPlaces, ...aiPlaces].take(topN).toList();
-          _updateCache(cacheKey, combined);
-          DebugLogger.log('✅ Hybrid: ${realPlaces.length} Google + ${aiPlaces.length} AI');
-          return combined;
+          _updateCache(cacheKey, realPlaces);
+          DebugLogger.log('✅ Got ${realPlaces.length} places from Google (no AI supplement)');
+          return realPlaces.take(topN).toList();
         }
       }
       
