@@ -6402,7 +6402,6 @@ try {
 app.get('*', (req, res) => {
   // Skip API routes and static assets
   if (req.path.startsWith('/api') || 
-      req.path.startsWith('/admin') ||
       req.path.includes('.')) {
     return res.status(404).json({ error: 'Not found' });
   }
