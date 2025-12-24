@@ -152,11 +152,13 @@ class PlacesService {
   
   // Check if place is within radius (strict filtering)
   bool _isWithinRadius(Place place, double centerLat, double centerLng, int radiusMeters) {
+    if (place.latitude == null || place.longitude == null) return false;
+    
     const earthRadius = 6371000; // meters
-    final dLat = _toRadians(place.latitude - centerLat);
-    final dLng = _toRadians(place.longitude - centerLng);
+    final dLat = _toRadians(place.latitude! - centerLat);
+    final dLng = _toRadians(place.longitude! - centerLng);
     final a = math.sin(dLat / 2) * math.sin(dLat / 2) +
-        math.cos(_toRadians(centerLat)) * math.cos(_toRadians(place.latitude)) *
+        math.cos(_toRadians(centerLat)) * math.cos(_toRadians(place.latitude!)) *
         math.sin(dLng / 2) * math.sin(dLng / 2);
     final c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a));
     final distance = earthRadius * c;
