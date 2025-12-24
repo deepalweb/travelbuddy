@@ -138,22 +138,20 @@ router.get('/mobile/nearby', async (req, res) => {
       return res.status(400).json({ error: 'lat and lng are required' });
     }
 
-    // ALWAYS use "tourist attraction" as base query for comprehensive results
-    const baseQuery = 'tourist attraction';
-    const categoryFilter = (q || '').toString().trim();
+    const query = (q || '').toString().trim() || 'points of interest';
     const searchRadius = parseInt(radius, 10);
     const maxResults = parseInt(limit, 10);
     const skipResults = parseInt(offset, 10);
 
-    console.log(`🔍 Mobile places search: BASE="${baseQuery}" FILTER="${categoryFilter}" within ${searchRadius}m, limit: ${maxResults}`);
+    console.log(`🔍 Mobile places search: ${query} within ${searchRadius}m, limit: ${maxResults}`);
 
     const enhancedSearch = new EnhancedPlacesSearch(apiKey);
     
-    // Use comprehensive search with base query
+    // Use comprehensive search for better mobile results
     let results = await enhancedSearch.searchPlacesComprehensive(
       parseFloat(lat), 
       parseFloat(lng), 
-      baseQuery, 
+      query, 
       searchRadius
     );
     
@@ -164,8 +162,7 @@ router.get('/mobile/nearby', async (req, res) => {
       return res.json({
         status: 'OK',
         results: [],
-        query: baseQuery,
-        categoryFilter: categoryFilter,
+        query: query,
         location: { lat: parseFloat(lat), lng: parseFloat(lng) },
         radius: searchRadius
       });
@@ -200,31 +197,6 @@ router.get('/mobile/nearby', async (req, res) => {
     
     console.log(`✅ Location filtered: ${results.length} places within ${maxDistanceKm}km`);
     
-    // Apply category filtering if specified (post-processing)
-    if (categoryFilter && categoryFilter !== 'all' && categoryFilter !== 'tourist attraction') {
-      const categoryKeywords = {
-        'restaurant': ['restaurant', 'cafe', 'food', 'dining', 'eatery'],
-        'hotel': ['hotel', 'hostel', 'accommodation', 'resort', 'lodging'],
-        'landmark': ['landmark', 'monument', 'attraction', 'historic'],
-        'museum': ['museum', 'gallery', 'art', 'cultural'],
-        'park': ['park', 'garden', 'nature', 'outdoor', 'beach'],
-        'entertainment': ['cinema', 'theater', 'entertainment', 'concert'],
-        'bar': ['bar', 'pub', 'nightclub', 'lounge', 'nightlife'],
-        'shopping': ['shopping', 'mall', 'market', 'store', 'boutique'],
-        'spa': ['spa', 'wellness', 'massage', 'beauty', 'salon'],
-        'viewpoint': ['viewpoint', 'scenic', 'observation', 'lookout', 'rooftop'],
-      };
-      
-      const keywords = categoryKeywords[categoryFilter.toLowerCase()] || [categoryFilter.toLowerCase()];
-      
-      results = results.filter(place => {
-        const searchText = `${place.name} ${place.types?.join(' ') || ''} ${place.description || ''}`.toLowerCase();
-        return keywords.some(keyword => searchText.includes(keyword));
-      });
-      
-      console.log(`🎯 Category filtered (${categoryFilter}): ${results.length} places`);
-    }
-    
     // Apply mobile-optimized filtering (quality)
     results = PlacesOptimizer.filterQualityResults(results, { minRating: 3.0 });
     results = PlacesOptimizer.enrichPlaceTypes(results);
@@ -241,8 +213,7 @@ router.get('/mobile/nearby', async (req, res) => {
     res.json({
       status: 'OK',
       results: paginatedResults,
-      query: baseQuery,
-      categoryFilter: categoryFilter,
+      query: query,
       location: { lat: parseFloat(lat), lng: parseFloat(lng) },
       radius: searchRadius
     });

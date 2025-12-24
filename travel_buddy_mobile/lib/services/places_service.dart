@@ -51,20 +51,15 @@ class PlacesService {
     bool forceRefresh = false,
     String? categoryFilter, // NEW: For post-processing filtering
   }) async {
-    // Always use "tourist attraction" as base query for best results
-    final baseQuery = 'tourist attraction';
-    final cacheKey = '${latitude.toStringAsFixed(2)}_${longitude.toStringAsFixed(2)}_$baseQuery';
+    // Use actual query for now - will optimize later
+    final cacheKey = '${latitude.toStringAsFixed(2)}_${longitude.toStringAsFixed(2)}_$query';
     
     // INSTANT: Return cache immediately if available (Google Maps pattern)
     if (!forceRefresh && _isValidCache(cacheKey)) {
       DebugLogger.log('⚡ INSTANT: Showing ${_cache[cacheKey]!.length} cached places');
       // Refresh in background without blocking UI
-      _refreshCacheInBackground(latitude, longitude, baseQuery, radius, topN, cacheKey);
-      // Apply category filter if specified
-      final filtered = categoryFilter != null 
-          ? _filterByCategory(_cache[cacheKey]!, categoryFilter, query)
-          : _cache[cacheKey]!;
-      return filtered.take(topN).toList();
+      _refreshCacheInBackground(latitude, longitude, query, radius, topN, cacheKey);
+      return _cache[cacheKey]!.take(topN).toList();
     }
     
     // Rate limiting check
@@ -84,10 +79,10 @@ class PlacesService {
     
     try {
       // Primary: Google Places API for real, accurate data
-      DebugLogger.log('🔍 Fetching fresh places from Google API (base: $baseQuery)');
+      DebugLogger.log('🔍 Fetching fresh places from Google API');
       _lastApiCalls[cacheKey] = DateTime.now();
       await _incrementApiCall();
-      final realPlaces = await _fetchRealPlaces(latitude, longitude, baseQuery, radius, offset, topN)
+      final realPlaces = await _fetchRealPlaces(latitude, longitude, query, radius, offset, topN)
           .timeout(const Duration(seconds: 8)); // Faster timeout
       
       if (realPlaces.length >= 10) { // If Google provides at least 10 places
@@ -96,12 +91,8 @@ class PlacesService {
             .where((p) => p.rating >= 3.0 && _isWithinRadius(p, latitude, longitude, radius))
             .toList();
         _updateCache(cacheKey, qualityFiltered);
-        // Apply category filter if specified
-        final categoryFiltered = categoryFilter != null
-            ? _filterByCategory(qualityFiltered, categoryFilter, query)
-            : qualityFiltered;
-        DebugLogger.log('✅ Got ${categoryFiltered.length} high-quality places from Google');
-        return categoryFiltered.take(topN).toList();
+        DebugLogger.log('✅ Got ${qualityFiltered.length} high-quality places from Google');
+        return qualityFiltered.take(topN).toList();
       }
       
       // Hybrid: Use Google + AI for gaps if Google has some results
@@ -143,7 +134,7 @@ class PlacesService {
   // Background refresh without blocking UI
   void _refreshCacheInBackground(double lat, double lng, String query, int radius, int topN, String cacheKey) async {
     try {
-      DebugLogger.log('🔄 Background refresh started (base: tourist attraction)');
+      DebugLogger.log('🔄 Background refresh started');
       final freshPlaces = await _fetchRealPlaces(lat, lng, query, radius, 0, topN)
           .timeout(const Duration(seconds: 8));
       
@@ -303,10 +294,9 @@ class PlacesService {
   }
   
   Future<List<Place>> _fetchRealPlaces(double lat, double lng, String query, int radius, [int offset = 0, int limit = 60]) async {
-    // Always use "tourist attraction" as base query for comprehensive results
-    final baseQuery = 'tourist attraction';
-    final mobileUrl = '${Environment.backendUrl}/api/places/mobile/nearby?lat=$lat&lng=$lng&q=$baseQuery&radius=$radius&limit=$limit';
-    DebugLogger.log('🔍 Fetching: $baseQuery within ${radius}m (will filter by: $query)');
+    // Use the actual query for now - "tourist attraction" not returning results
+    final mobileUrl = '${Environment.backendUrl}/api/places/mobile/nearby?lat=$lat&lng=$lng&q=$query&radius=$radius&limit=$limit';
+    DebugLogger.log('🔍 Fetching: $query within ${radius}m');
     
     try {
       final response = await _makeRequestWithRetry(() => http.get(
