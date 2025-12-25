@@ -63,7 +63,7 @@ class TransportService {
         
         print('🚗 Found ${providersList.length} providers');
         
-        final providers = (providersList as List)
+        final providers = (providersList)
             .map((json) => TransportProvider.fromJson(json))
             .toList();
         return providers;

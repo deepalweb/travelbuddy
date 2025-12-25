@@ -1,5 +1,4 @@
 import 'package:firebase_messaging/firebase_messaging.dart';
-import 'package:flutter/material.dart';
 import '../services/analytics_service.dart';
 
 // Top-level function for background messages

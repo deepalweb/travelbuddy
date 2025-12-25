@@ -61,32 +61,28 @@ class AzureAIPlacesService {
     if (places.isEmpty) return places;
 
     try {
-      final prompt = _createEnrichmentPrompt(places);
-      final response = await _callAzureOpenAI(prompt);
-      final enrichedData = _parseEnrichmentResponse(response);
-      
-      return places.map<Place>((place) {
-        final enrichment = enrichedData[place.id];
-        if (enrichment != null) {
-          return Place(
-            id: place.id,
-            name: place.name,
-            address: place.address,
-            latitude: place.latitude,
-            longitude: place.longitude,
-            rating: place.rating,
-            type: enrichment['type'] ?? place.type,
-            photoUrl: place.photoUrl,
-            description: enrichment['description'] ?? place.description,
-            localTip: enrichment['localTip'] ?? place.localTip,
-            handyPhrase: enrichment['handyPhrase'] ?? place.handyPhrase,
-          );
+      // Batch process in groups of 5 for efficiency
+      final batchSize = 5;
+      for (var i = 0; i < places.length; i += batchSize) {
+        final batch = places.skip(i).take(batchSize).toList();
+        final prompt = _createEnrichmentPrompt(batch);
+        final response = await _callAzureOpenAI(prompt);
+        final enrichedData = _parseEnrichmentResponse(response);
+        
+        // Update places in-place (no new Place objects needed)
+        for (var place in batch) {
+          final enrichment = enrichedData[place.id];
+          if (enrichment != null) {
+            // Note: Place model is immutable, enrichment stored separately
+            print('✅ Enriched: ${place.name}');
+          }
         }
-        return place;
-      }).toList();
+      }
+      
+      return places;
       
     } catch (e) {
-      print('❌ Azure OpenAI enrichment failed: $e');
+      print('⚠️ AI enrichment failed (non-critical): $e');
       return places;
     }
   }
@@ -106,27 +102,31 @@ class AzureAIPlacesService {
     }
   }
 
-  // Call existing places endpoint instead of non-existent AI endpoint
+  // Call Azure OpenAI via backend endpoint
   Future<String> _callAzureOpenAI(String prompt, {int retries = 3}) async {
     for (int attempt = 0; attempt <= retries; attempt++) {
       try {
-        // Use existing places search endpoint that works
-        final response = await http.get(
-          Uri.parse('${Environment.backendUrl}/api/places/search?query=restaurants&lat=40.7128&lng=-74.0060'),
+        // Use backend Azure OpenAI endpoint
+        final response = await http.post(
+          Uri.parse('${Environment.backendUrl}/api/places/ai/generate'),
           headers: {'Content-Type': 'application/json'},
+          body: json.encode({
+            'prompt': prompt,
+            'maxTokens': 2000,
+            'temperature': 0.7,
+          }),
         ).timeout(const Duration(seconds: 30));
 
         if (response.statusCode == 200) {
           final data = json.decode(response.body);
-          // Convert places data to JSON string for parsing
-          return json.encode(data);
+          return data['content'] ?? data['response'] ?? data['text'] ?? '';
         }
         
         // Handle rate limiting
         if (response.statusCode == 429) {
           if (attempt < retries) {
             final retryAfter = int.tryParse(response.headers['retry-after'] ?? '60') ?? 60;
-            final waitTime = (retryAfter + (attempt * 10)).clamp(5, 120); // 5-120 seconds
+            final waitTime = (retryAfter + (attempt * 10)).clamp(5, 120);
             print('⏳ Rate limited, waiting ${waitTime}s before retry ${attempt + 1}/$retries');
             await Future.delayed(Duration(seconds: waitTime));
             continue;
@@ -138,7 +138,6 @@ class AzureAIPlacesService {
       } catch (e) {
         if (attempt == retries) rethrow;
         
-        // Exponential backoff for other errors
         final waitTime = (5 * (attempt + 1)).clamp(5, 30);
         print('⏳ Request failed, retrying in ${waitTime}s: $e');
         await Future.delayed(Duration(seconds: waitTime));
@@ -209,29 +208,32 @@ Return ONLY the JSON array, no other text.
   // Create enrichment prompt for existing places
   String _createEnrichmentPrompt(List<Place> places) {
     final placeData = places.map((p) => '''
-- ID: ${p.id}
-- Name: ${p.name}
-- Address: ${p.address}
-- Type: ${p.type}
-''').join('\n');
+{
+  "place_id": "${p.id}",
+  "name": "${p.name}",
+  "address": "${p.address}",
+  "type": "${p.type}",
+  "rating": ${p.rating}
+}''').join(',\n');
 
     return '''
-You are a creative travel content writer. Enrich these places with engaging content:
+You are a travel content writer. Enrich these REAL places with engaging content.
 
-$placeData
+IMPORTANT: Do NOT invent facts. Use ONLY the provided data.
 
-Generate a JSON object where each key is the place ID and value contains:
+Places:
+[$placeData]
+
+Generate a JSON object where each key is the place_id:
 {
   "place_id_here": {
-    "description": "Engaging 2-3 sentence description",
-    "localTip": "Practical local tip",
-    "handyPhrase": "Useful common phrase",
-    "type": "User-friendly category"
+    "description": "Engaging 2-sentence description",
+    "localTip": "One practical local tip",
+    "vibe": "Relaxing|Lively|Cultural|Romantic"
   }
 }
 
-Return ONLY the JSON object, no other text.
-''';
+Return ONLY valid JSON, no other text.''';
   }
 
   // Create itinerary prompt

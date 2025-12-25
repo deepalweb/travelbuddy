@@ -1003,6 +1003,9 @@ try {
 try {
   const travelNewsRouter = (await import('./routes/travel-news.js')).default;
   app.use('/api/travel-news', travelNewsRouter);
+
+  const placesEnrichmentRouter = (await import('./routes/places-enrichment.js')).default;
+  app.use('/api/places-enrichment', placesEnrichmentRouter);
   console.log('✅ Travel news routes loaded');
 } catch (error) {
   console.error('❌ Failed to load travel news routes:', error);

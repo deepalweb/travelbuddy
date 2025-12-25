@@ -53,14 +53,6 @@ class PlacesService {
   }) async {
     final cacheKey = '${latitude.toStringAsFixed(2)}_${longitude.toStringAsFixed(2)}_$query';
     
-    // INSTANT: Return cache if available
-    if (!forceRefresh && _isValidCache(cacheKey)) {
-      DebugLogger.log('⚡ INSTANT: Showing ${_cache[cacheKey]!.length} cached places');
-      // Background refresh with AI (cheap)
-      _refreshCacheInBackground(latitude, longitude, query, radius, topN, cacheKey);
-      return _cache[cacheKey]!.take(topN).toList();
-    }
-    
     // Rate limiting check
     if (_isRateLimited(cacheKey)) {
       DebugLogger.log('⏱️ Rate limited, using AI');
@@ -69,9 +61,9 @@ class PlacesService {
     }
     
     try {
-      // FIRST LOAD: Use Google Places (accurate, real data)
+      // Use Google Places (accurate, real data)
       if (await _canMakeApiCall()) {
-        DebugLogger.log('🔍 First load: Using Google Places (accurate)');
+        DebugLogger.log('🔍 Using Google Places (accurate)');
         _lastApiCalls[cacheKey] = DateTime.now();
         await _incrementApiCall();
         
@@ -82,15 +74,20 @@ class PlacesService {
           final filtered = realPlaces
               .where((p) => p.rating >= 3.0 && _isWithinRadius(p, latitude, longitude, radius))
               .toList();
+          
+          // Enrich with AI descriptions (async, non-blocking)
+          _enrichPlacesWithAI(filtered);
+          
           _updateCache(cacheKey, filtered);
           DebugLogger.log('✅ Got ${filtered.length} real places from Google');
           return filtered.take(topN).toList();
         }
         
-        // Return Google results even if few (better than wrong location AI)
+        // Return Google results with AI enrichment
         if (realPlaces.isNotEmpty) {
+          _enrichPlacesWithAI(realPlaces);
           _updateCache(cacheKey, realPlaces);
-          DebugLogger.log('✅ Got ${realPlaces.length} places from Google (no AI supplement)');
+          DebugLogger.log('✅ Got ${realPlaces.length} places from Google');
           return realPlaces.take(topN).toList();
         }
       }
@@ -111,19 +108,21 @@ class PlacesService {
     }
   }
   
-  // Background refresh without blocking UI
+  // Background refresh disabled
   void _refreshCacheInBackground(double lat, double lng, String query, int radius, int topN, String cacheKey) async {
+    // Disabled - not needed
+  }
+  
+  // Enrich real places with AI descriptions (non-blocking)
+  void _enrichPlacesWithAI(List<Place> places) async {
+    if (places.isEmpty) return;
+    
     try {
-      DebugLogger.log('🔄 Background refresh with AI');
-      final aiPlaces = await _fetchAIPlaces(lat, lng, query, radius, null, null, null)
-          .timeout(const Duration(seconds: 10));
-      
-      if (aiPlaces.length >= 10) {
-        _updateCache(cacheKey, aiPlaces);
-        DebugLogger.log('✅ Background refresh complete: ${aiPlaces.length} places');
-      }
+      DebugLogger.log('🤖 Enriching ${places.length} places with AI descriptions');
+      await _azureAIService.enrichPlaces(places);
+      DebugLogger.log('✅ AI enrichment complete');
     } catch (e) {
-      DebugLogger.log('⚠️ Background refresh failed: $e');
+      DebugLogger.log('⚠️ AI enrichment failed (non-critical): $e');
     }
   }
   
@@ -453,60 +452,15 @@ class PlacesService {
     );
   }
   
-  // AI-First batch fetch to minimize Google Places API usage
+  // Batch fetch using Google Places API
   Future<Map<String, List<Place>>> fetchPlacesBatch({
     required double latitude,
     required double longitude,
     required Map<String, String> categories,
     int radius = 20000,
   }) async {
-    try {
-      // Try AI batch endpoint first (cost-effective)
-      final aiBatchUrl = '${Environment.backendUrl}/api/places/ai/batch';
-      print('🤖 AI Batch fetching places: $aiBatchUrl');
-      
-      final response = await _makeRequestWithRetry(() => http.post(
-        Uri.parse(aiBatchUrl),
-        headers: {'Content-Type': 'application/json'},
-        body: json.encode({
-          'lat': latitude,
-          'lng': longitude,
-          'categories': categories.keys.toList(),
-          'userPreferences': {
-            'radius': radius ~/ 1000, // Convert to km
-            'limit': 15
-          }
-        }),
-      ));
-      
-      if (response.statusCode == 200) {
-        final batchData = json.decode(response.body);
-        if (batchData['status'] == 'OK' && batchData['results'] != null) {
-          final Map<String, dynamic> results = batchData['results'];
-          final Map<String, List<Place>> placesMap = {};
-          
-          for (final entry in results.entries) {
-            final categoryPlaces = (entry.value as List<dynamic>)
-                .map((json) => Place.fromJson({
-                  ...json,
-                  'ai_generated': true,
-                }))
-                .toList();
-            placesMap[entry.key] = categoryPlaces;
-            print('✅ AI ${entry.key}: ${categoryPlaces.length} places (Google API avoided)');
-          }
-          
-          return placesMap;
-        }
-      }
-      
-      print('⚠️ AI Batch failed, using individual AI requests');
-    } catch (e) {
-      print('❌ AI Batch error: $e');
-    }
-    
-    // Fallback: AI-first individual requests (still avoiding Google API)
     final Map<String, List<Place>> results = {};
+    
     for (final entry in categories.entries) {
       try {
         final places = await fetchPlacesPipeline(
@@ -517,9 +471,9 @@ class PlacesService {
           topN: 15,
         );
         results[entry.key] = places;
-        print('🔍 ${entry.key} using Google Places API for real data');
+        DebugLogger.log('✅ ${entry.key}: ${places.length} places');
       } catch (e) {
-        print('❌ Error fetching ${entry.key}: $e');
+        DebugLogger.error('Error fetching ${entry.key}: $e');
         results[entry.key] = [];
       }
     }
