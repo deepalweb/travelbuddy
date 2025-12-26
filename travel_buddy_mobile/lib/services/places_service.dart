@@ -52,24 +52,23 @@ class PlacesService {
     bool forceRefresh = false,
     String? categoryFilter,
   }) async {
-    // Use tourist attraction as base query for cost optimization
-    final baseQuery = 'tourist attraction';
+    // Use broad query for maximum results
+    final baseQuery = 'places to visit';
     final cacheKey = '${latitude.toStringAsFixed(2)}_${longitude.toStringAsFixed(2)}_$baseQuery';
     
-    // INSTANT: Return cache if available (30-min expiry) and not forcing refresh
-    if (!forceRefresh && _isValidCache(cacheKey)) {
-      DebugLogger.log('⚡ INSTANT: Cache hit (${_cache[cacheKey]!.length} places)');
-      final cached = _cache[cacheKey]!;
-      
-      // Filter by category if specified
-      if (categoryFilter != null && categoryFilter != 'all') {
-        final filtered = _filterByCategory(cached, categoryFilter, query);
-        DebugLogger.log('🎯 Filtered to $categoryFilter: ${filtered.length} places');
-        return filtered.take(topN).toList();
-      }
-      
-      return cached.take(topN).toList();
-    }
+    // CACHE DISABLED: Always fetch fresh until backend returns more places
+    // if (!forceRefresh && _isValidCache(cacheKey)) {
+    //   DebugLogger.log('⚡ INSTANT: Cache hit (${_cache[cacheKey]!.length} places)');
+    //   final cached = _cache[cacheKey]!;
+    //   
+    //   if (categoryFilter != null && categoryFilter != 'all') {
+    //     final filtered = _filterByCategory(cached, categoryFilter, query);
+    //     DebugLogger.log('🎯 Filtered to $categoryFilter: ${filtered.length} places');
+    //     return filtered.take(topN).toList();
+    //   }
+    //   
+    //   return cached.take(topN).toList();
+    // }
     
     // Rate limiting check
     if (_isRateLimited(cacheKey)) {

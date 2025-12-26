@@ -168,35 +168,6 @@ router.get('/mobile/nearby', async (req, res) => {
       });
     }
     
-    // Filter out results too far from search location (lenient 3x radius check)
-    const searchLat = parseFloat(lat);
-    const searchLng = parseFloat(lng);
-    const maxDistanceKm = (searchRadius / 1000) * 3; // 3x radius as max
-    
-    results = results.filter(place => {
-      const placeLat = place.geometry?.location?.lat;
-      const placeLng = place.geometry?.location?.lng;
-      if (!placeLat || !placeLng) return false;
-      
-      // Haversine distance calculation
-      const R = 6371; // Earth radius in km
-      const dLat = (placeLat - searchLat) * Math.PI / 180;
-      const dLng = (placeLng - searchLng) * Math.PI / 180;
-      const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
-                Math.cos(searchLat * Math.PI / 180) * Math.cos(placeLat * Math.PI / 180) *
-                Math.sin(dLng/2) * Math.sin(dLng/2);
-      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-      const distance = R * c;
-      
-      if (distance > maxDistanceKm) {
-        console.log(`🚫 Rejected ${place.name}: ${distance.toFixed(1)}km away (max: ${maxDistanceKm}km)`);
-        return false;
-      }
-      return true;
-    });
-    
-    console.log(`✅ Location filtered: ${results.length} places within ${maxDistanceKm}km`);
-    
     // Apply mobile-optimized filtering (quality)
     results = PlacesOptimizer.filterQualityResults(results, { minRating: 0 });
     results = PlacesOptimizer.enrichPlaceTypes(results);
