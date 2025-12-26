@@ -168,10 +168,10 @@ router.get('/mobile/nearby', async (req, res) => {
       });
     }
     
-    // Filter out results too far from search location (strict 2x radius check)
+    // Filter out results too far from search location (lenient 3x radius check)
     const searchLat = parseFloat(lat);
     const searchLng = parseFloat(lng);
-    const maxDistanceKm = (searchRadius / 1000) * 2; // 2x radius as max
+    const maxDistanceKm = (searchRadius / 1000) * 3; // 3x radius as max
     
     results = results.filter(place => {
       const placeLat = place.geometry?.location?.lat;
@@ -198,7 +198,7 @@ router.get('/mobile/nearby', async (req, res) => {
     console.log(`✅ Location filtered: ${results.length} places within ${maxDistanceKm}km`);
     
     // Apply mobile-optimized filtering (quality)
-    results = PlacesOptimizer.filterQualityResults(results, { minRating: 3.0 });
+    results = PlacesOptimizer.filterQualityResults(results, { minRating: 0 });
     results = PlacesOptimizer.enrichPlaceTypes(results);
     results = PlacesOptimizer.rankResults(results, searchLat, searchLng, query);
     

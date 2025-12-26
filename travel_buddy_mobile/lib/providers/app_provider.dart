@@ -1590,15 +1590,10 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
     _selectedCategory = category;
     _currentPage = 1;
     _hasMorePlaces = true;
-    _places.clear(); // Clear existing places
     notifyListeners();
     
-    // Load places with the selected category
-    if (category == 'all') {
-      loadPlaceSections(); // Load sections for 'all'
-    } else {
-      loadNearbyPlaces(); // Load filtered places for specific category
-    }
+    // Load places with the selected category filter
+    loadNearbyPlaces();
   }
   
   Future<void> loadMorePlaces() async {
@@ -1872,6 +1867,7 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
         longitude: _currentLocation!.longitude,
         categories: categories,
         radius: _selectedRadius,
+        forceRefresh: _placeSections.isEmpty,
       );
       
       // Convert batch results to sections

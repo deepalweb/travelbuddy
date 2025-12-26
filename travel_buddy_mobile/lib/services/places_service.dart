@@ -3,6 +3,7 @@ import 'dart:io';
 import 'dart:async';
 import 'dart:math' as math;
 import 'package:http/http.dart' as http;
+import 'package:hive/hive.dart';
 import '../models/place.dart';
 import '../config/environment.dart';
 import '../utils/debug_logger.dart';
@@ -37,7 +38,7 @@ class PlacesService {
     'pro': 50,
   };
 
-  // Hybrid approach: Google first, AI for subsequent
+  // Optimized: Cache + Tourist attraction base query
   Future<List<Place>> fetchPlacesPipeline({
     required double latitude,
     required double longitude,
@@ -51,26 +52,42 @@ class PlacesService {
     bool forceRefresh = false,
     String? categoryFilter,
   }) async {
-    final cacheKey = '${latitude.toStringAsFixed(2)}_${longitude.toStringAsFixed(2)}_$query';
+    // Use tourist attraction as base query for cost optimization
+    final baseQuery = 'tourist attraction';
+    final cacheKey = '${latitude.toStringAsFixed(2)}_${longitude.toStringAsFixed(2)}_$baseQuery';
+    
+    // INSTANT: Return cache if available (30-min expiry) and not forcing refresh
+    if (!forceRefresh && _isValidCache(cacheKey)) {
+      DebugLogger.log('⚡ INSTANT: Cache hit (${_cache[cacheKey]!.length} places)');
+      final cached = _cache[cacheKey]!;
+      
+      // Filter by category if specified
+      if (categoryFilter != null && categoryFilter != 'all') {
+        final filtered = _filterByCategory(cached, categoryFilter, query);
+        DebugLogger.log('🎯 Filtered to $categoryFilter: ${filtered.length} places');
+        return filtered.take(topN).toList();
+      }
+      
+      return cached.take(topN).toList();
+    }
     
     // Rate limiting check
     if (_isRateLimited(cacheKey)) {
-      DebugLogger.log('⏱️ Rate limited, using AI');
-      return await _fetchAIPlaces(latitude, longitude, query, radius, userType, vibe, language)
-          .timeout(const Duration(seconds: 10));
+      DebugLogger.log('⏱️ Rate limited, returning cached/empty');
+      return _cache[cacheKey]?.take(topN).toList() ?? [];
     }
     
     try {
-      // Use Google Places (accurate, real data)
+      // Fetch tourist attractions (single API call)
       if (await _canMakeApiCall()) {
-        DebugLogger.log('🔍 Using Google Places (accurate)');
+        DebugLogger.log('🔍 Fetching tourist attractions (base query)');
         _lastApiCalls[cacheKey] = DateTime.now();
         await _incrementApiCall();
         
-        final realPlaces = await _fetchRealPlaces(latitude, longitude, query, radius, offset, topN)
+        final realPlaces = await _fetchRealPlaces(latitude, longitude, baseQuery, radius, offset, 60)
             .timeout(const Duration(seconds: 8));
         
-        if (realPlaces.length >= 10) {
+        if (realPlaces.isNotEmpty) {
           final filtered = realPlaces
               .where((p) => p.rating >= 3.0 && _isWithinRadius(p, latitude, longitude, radius))
               .toList();
@@ -78,32 +95,46 @@ class PlacesService {
           // Enrich with AI descriptions (async, non-blocking)
           _enrichPlacesWithAI(filtered);
           
+          // Save to cache and offline storage
           _updateCache(cacheKey, filtered);
-          DebugLogger.log('✅ Got ${filtered.length} real places from Google');
+          _saveToOfflineStorage(cacheKey, filtered);
+          
+          DebugLogger.log('✅ Cached ${filtered.length} places (30-min expiry)');
+          
+          // Filter by category if specified
+          if (categoryFilter != null && categoryFilter != 'all') {
+            final categoryFiltered = _filterByCategory(filtered, categoryFilter, query);
+            return categoryFiltered.take(topN).toList();
+          }
+          
           return filtered.take(topN).toList();
-        }
-        
-        // Return Google results with AI enrichment
-        if (realPlaces.isNotEmpty) {
-          _enrichPlacesWithAI(realPlaces);
-          _updateCache(cacheKey, realPlaces);
-          DebugLogger.log('✅ Got ${realPlaces.length} places from Google');
-          return realPlaces.take(topN).toList();
         }
       }
       
-      // Fallback: Use AI if Google API limit reached
-      DebugLogger.log('💡 API limit reached, using AI');
-      final aiPlaces = await _fetchAIPlaces(latitude, longitude, query, radius, userType, vibe, language)
-          .timeout(const Duration(seconds: 10));
-      _updateCache(cacheKey, aiPlaces);
-      return aiPlaces.take(topN).toList();
+      // Fallback: Load from offline storage
+      DebugLogger.log('💾 Loading from offline storage');
+      final offline = await _loadFromOfflineStorage(cacheKey);
+      if (offline.isNotEmpty) {
+        _updateCache(cacheKey, offline);
+        return offline.take(topN).toList();
+      }
+      
+      return [];
       
     } catch (e) {
       DebugLogger.error('Places fetch failed: $e');
+      
+      // Try cache first
       if (_cache.containsKey(cacheKey)) {
         return _cache[cacheKey]!.take(topN).toList();
       }
+      
+      // Try offline storage
+      final offline = await _loadFromOfflineStorage(cacheKey);
+      if (offline.isNotEmpty) {
+        return offline.take(topN).toList();
+      }
+      
       return [];
     }
   }
@@ -128,28 +159,21 @@ class PlacesService {
   
   // Filter places by category keywords (post-processing)
   List<Place> _filterByCategory(List<Place> places, String category, String originalQuery) {
-    // Category keyword mapping for filtering
     final categoryKeywords = {
-      'restaurant': ['restaurant', 'cafe', 'food', 'dining', 'eatery'],
-      'hotel': ['hotel', 'hostel', 'accommodation', 'resort', 'lodging'],
-      'landmark': ['landmark', 'monument', 'attraction', 'historic'],
-      'museum': ['museum', 'gallery', 'art', 'cultural'],
-      'park': ['park', 'garden', 'nature', 'outdoor', 'beach'],
-      'entertainment': ['cinema', 'theater', 'entertainment', 'concert'],
-      'bar': ['bar', 'pub', 'nightclub', 'lounge', 'nightlife'],
-      'shopping': ['shopping', 'mall', 'market', 'store', 'boutique'],
-      'spa': ['spa', 'wellness', 'massage', 'beauty', 'salon'],
-      'viewpoint': ['viewpoint', 'scenic', 'observation', 'lookout', 'rooftop'],
+      'food': ['restaurant', 'cafe', 'coffee', 'bar', 'food', 'dining', 'eatery', 'bakery', 'bistro'],
+      'landmarks': ['landmark', 'monument', 'attraction', 'historic', 'tower', 'temple', 'church', 'mosque'],
+      'culture': ['museum', 'gallery', 'art', 'cultural', 'theater', 'theatre', 'auditorium'],
+      'nature': ['park', 'garden', 'nature', 'outdoor', 'beach', 'trail', 'hiking', 'forest'],
+      'shopping': ['shopping', 'mall', 'market', 'store', 'boutique', 'shop', 'bazaar'],
+      'spa': ['spa', 'wellness', 'massage', 'beauty', 'salon', 'therapy'],
     };
     
-    // If no specific category or "all", return all places
     if (category == 'all' || !categoryKeywords.containsKey(category.toLowerCase())) {
       return places;
     }
     
     final keywords = categoryKeywords[category.toLowerCase()]!;
     
-    // Filter places that match category keywords in name, type, or description
     return places.where((place) {
       final searchText = '${place.name} ${place.type} ${place.description}'.toLowerCase();
       return keywords.any((keyword) => searchText.contains(keyword));
@@ -270,9 +294,9 @@ class PlacesService {
   }
   
   Future<List<Place>> _fetchRealPlaces(double lat, double lng, String query, int radius, [int offset = 0, int limit = 60]) async {
-    // Use the actual query for now - "tourist attraction" not returning results
     final mobileUrl = '${Environment.backendUrl}/api/places/mobile/nearby?lat=$lat&lng=$lng&q=$query&radius=$radius&limit=$limit';
-    DebugLogger.log('🔍 Fetching: $query within ${radius}m');
+    DebugLogger.log('🔍 API: $query within ${radius}m (limit: $limit)');
+    DebugLogger.log('📍 Location: $lat, $lng');
     
     try {
       final response = await _makeRequestWithRetry(() => http.get(
@@ -285,9 +309,8 @@ class PlacesService {
         
         if (data['status'] == 'OK' && data['results'] != null) {
           final List<dynamic> places = data['results'];
-          DebugLogger.log('✅ Got ${places.length} places');
+          DebugLogger.log('✅ API returned ${places.length} places');
           
-          // Skip enrichment for speed - use raw Google data
           return places.map((json) => Place.fromJson({
             ...json,
             'description': json['description'] ?? json['editorial_summary']?['overview'] ?? '',
@@ -296,8 +319,9 @@ class PlacesService {
           })).toList();
         }
       }
+      DebugLogger.error('API returned status: ${response.statusCode}');
     } catch (e) {
-      DebugLogger.error('Mobile API failed: $e');
+      DebugLogger.error('API failed: $e');
     }
     return [];
   }
@@ -330,6 +354,46 @@ class PlacesService {
     _cacheTimestamps[key] = DateTime.now();
   }
   
+  // Offline storage using Hive
+  Future<void> _saveToOfflineStorage(String key, List<Place> places) async {
+    try {
+      // Store as JSON for multiple places
+      final jsonBox = await Hive.openBox('places_cache');
+      await jsonBox.put(key, places.map((p) => {
+        'id': p.id,
+        'name': p.name,
+        'type': p.type,
+        'rating': p.rating,
+        'address': p.address,
+        'photoUrl': p.photoUrl,
+        'description': p.description,
+        'localTip': p.localTip,
+        'latitude': p.latitude,
+        'longitude': p.longitude,
+      }).toList());
+      
+      DebugLogger.log('💾 Saved ${places.length} places to offline storage');
+    } catch (e) {
+      DebugLogger.log('⚠️ Offline storage failed: $e');
+    }
+  }
+  
+  Future<List<Place>> _loadFromOfflineStorage(String key) async {
+    try {
+      final jsonBox = await Hive.openBox('places_cache');
+      final data = jsonBox.get(key);
+      
+      if (data != null && data is List) {
+        final places = data.map((json) => Place.fromJson(json as Map<String, dynamic>)).toList();
+        DebugLogger.log('💾 Loaded ${places.length} places from offline storage');
+        return places;
+      }
+    } catch (e) {
+      DebugLogger.log('⚠️ Offline load failed: $e');
+    }
+    return [];
+  }
+  
   bool _isRateLimited(String key) {
     if (!_lastApiCalls.containsKey(key)) return false;
     return DateTime.now().difference(_lastApiCalls[key]!) < _rateLimitDelay;
@@ -338,7 +402,17 @@ class PlacesService {
   void clearCache() {
     _cache.clear();
     _cacheTimestamps.clear();
-    print('🗑️ Places cache cleared');
+    DebugLogger.log('🗑️ Memory cache cleared');
+  }
+  
+  Future<void> clearOfflineStorage() async {
+    try {
+      final jsonBox = await Hive.openBox('places_cache');
+      await jsonBox.clear();
+      DebugLogger.log('🗑️ Offline storage cleared');
+    } catch (e) {
+      DebugLogger.log('⚠️ Clear offline failed: $e');
+    }
   }
   
   // Subscription-based API limiting
@@ -452,33 +526,44 @@ class PlacesService {
     );
   }
   
-  // Batch fetch using Google Places API
+  // Optimized batch: Single API call + local filtering
   Future<Map<String, List<Place>>> fetchPlacesBatch({
     required double latitude,
     required double longitude,
     required Map<String, String> categories,
     int radius = 20000,
+    bool forceRefresh = false,
   }) async {
-    final Map<String, List<Place>> results = {};
-    
-    for (final entry in categories.entries) {
-      try {
-        final places = await fetchPlacesPipeline(
-          latitude: latitude,
-          longitude: longitude,
-          query: entry.value,
-          radius: radius,
-          topN: 15,
-        );
-        results[entry.key] = places;
-        DebugLogger.log('✅ ${entry.key}: ${places.length} places');
-      } catch (e) {
-        DebugLogger.error('Error fetching ${entry.key}: $e');
-        results[entry.key] = [];
+    try {
+      // Single API call for all tourist attractions
+      final allPlaces = await fetchPlacesPipeline(
+        latitude: latitude,
+        longitude: longitude,
+        query: 'tourist attraction',
+        radius: radius,
+        topN: 60,
+        forceRefresh: forceRefresh,
+      );
+      
+      if (allPlaces.isEmpty) {
+        DebugLogger.log('⚠️ No places found');
+        return {for (var key in categories.keys) key: <Place>[]};
       }
+      
+      // Filter locally by category
+      final Map<String, List<Place>> results = {};
+      for (final entry in categories.entries) {
+        final filtered = _filterByCategory(allPlaces, entry.key, entry.value);
+        results[entry.key] = filtered.take(15).toList();
+        DebugLogger.log('✅ ${entry.key}: ${filtered.length} places (filtered locally)');
+      }
+      
+      return results;
+      
+    } catch (e) {
+      DebugLogger.error('Batch fetch failed: $e');
+      return {for (var key in categories.keys) key: <Place>[]};
     }
-    
-    return results;
   }
 
   Future<List<Place>> getFavoritePlaces() async {

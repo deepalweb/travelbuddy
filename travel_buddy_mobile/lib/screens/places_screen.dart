@@ -34,10 +34,11 @@ class _PlacesScreenState extends State<PlacesScreen> {
   @override
   void initState() {
     super.initState();
-    // Load sectioned places when screen initializes
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final appProvider = Provider.of<AppProvider>(context, listen: false);
-      _loadSectionedPlaces(appProvider);
+      if (appProvider.currentLocation != null) {
+        appProvider.loadNearbyPlaces();
+      }
     });
   }
   
@@ -338,22 +339,18 @@ class _PlacesScreenState extends State<PlacesScreen> {
                 child: RefreshIndicator(
                   onRefresh: () async {
                     if (appProvider.showFavoritesOnly) {
-                      // Refresh favorites by reloading places
                       await appProvider.loadNearbyPlaces();
                     } else if (_searchController.text.isNotEmpty) {
                       await appProvider.performInstantSearch(_searchController.text.trim());
                     } else {
                       await appProvider.forceRefreshPlaces();
-                      await appProvider.loadPlaceSections();
                     }
                   },
                   child: appProvider.showFavoritesOnly
                       ? _buildFavoritesList(appProvider)
                       : _searchController.text.isNotEmpty 
                           ? _buildSearchResults(appProvider)
-                          : appProvider.selectedCategory != 'all'
-                              ? _buildCategoryResults(appProvider)
-                              : _buildSectionedPlacesList(appProvider),
+                          : _buildCategoryResults(appProvider),
                 ),
               ),
             ],
