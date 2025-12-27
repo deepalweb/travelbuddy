@@ -77,20 +77,24 @@ Rules:
       try {
         places = JSON.parse(jsonStr);
       } catch (parseError) {
-        console.error('❌ JSON parse failed, trying to fix...');
-        // Try to extract valid JSON objects one by one
-        const objectMatches = jsonStr.match(/\{[^{}]*\}/g);
-        if (objectMatches) {
-          places = objectMatches.map(obj => {
-            try {
-              return JSON.parse(obj);
-            } catch (e) {
-              return null;
-            }
-          }).filter(p => p !== null);
-          console.log(`✅ Recovered ${places.length} places from malformed JSON`);
-        } else {
-          console.error('❌ Could not recover any places');
+        console.error('❌ JSON parse failed, trying simpler approach...');
+        // Remove the cleanup that's breaking the JSON and try raw parse
+        try {
+          const rawMatch = content.match(/\[[\s\S]*\]/);
+          if (rawMatch) {
+            // Try parsing with minimal cleanup
+            let cleanJson = rawMatch[0]
+              .replace(/,\s*([}\]])/g, '$1')  // Remove trailing commas only
+              .replace(/\n/g, ' ');  // Remove newlines
+            places = JSON.parse(cleanJson);
+            console.log(`✅ Parsed with minimal cleanup: ${places.length} places`);
+          } else {
+            console.error('❌ Could not extract JSON array');
+            return [];
+          }
+        } catch (e2) {
+          console.error('❌ All parsing attempts failed');
+          console.error('Raw content sample:', content.substring(0, 500));
           return [];
         }
       }
