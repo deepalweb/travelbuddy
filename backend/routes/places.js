@@ -171,7 +171,7 @@ router.get('/mobile/nearby', async (req, res) => {
     // Apply mobile-optimized filtering (quality)
     results = PlacesOptimizer.filterQualityResults(results, { minRating: 0 });
     results = PlacesOptimizer.enrichPlaceTypes(results);
-    results = PlacesOptimizer.rankResults(results, searchLat, searchLng, query);
+    results = PlacesOptimizer.rankResults(results, parseFloat(lat), parseFloat(lng), query);
     
     // Ensure variety in results for mobile
     const diverseResults = PlacesOptimizer.ensureVariety(results, maxResults + skipResults);

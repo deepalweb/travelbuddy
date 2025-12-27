@@ -87,71 +87,12 @@ class _PlacesScreenState extends State<PlacesScreen> {
           ),
           body: Column(
             children: [
-              // Personalized Header (hide in favorites mode)
-              if (!appProvider.showFavoritesOnly)
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        _getPersonalizedGreeting(appProvider),
-                        style: const TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      if (appProvider.currentLocation != null)
-                        Padding(
-                          padding: const EdgeInsets.only(top: 4),
-                          child: Row(
-                            children: [
-                              Icon(Icons.location_on, size: 14, color: Colors.grey[600]),
-                              const SizedBox(width: 4),
-                              Text(
-                                '${appProvider.currentLocation!.latitude.toStringAsFixed(2)}, ${appProvider.currentLocation!.longitude.toStringAsFixed(2)}',
-                                style: TextStyle(fontSize: 12, color: Colors.grey[600]),
-                              ),
-                            ],
-                          ),
-                        ),
-                      const SizedBox(height: 8),
-                      if (_getSmartSuggestion().isNotEmpty)
-                        GestureDetector(
-                          onTap: () => _applySuggestionFilter(appProvider),
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                            decoration: BoxDecoration(
-                              color: Colors.blue[50],
-                              borderRadius: BorderRadius.circular(20),
-                              border: Border.all(color: Colors.blue[200]!),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Text(
-                                  _getSmartSuggestion(),
-                                  style: TextStyle(
-                                    fontSize: 13,
-                                    color: Colors.blue[700],
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                ),
-                                const SizedBox(width: 4),
-                                Icon(Icons.arrow_forward, size: 14, color: Colors.blue[700]),
-                              ],
-                            ),
-                          ),
-                        ),
-                    ],
-                  ),
-                ),
+              // Compact header - removed duplicate
               
-              // Search Bar (hide in favorites mode)
+              // Search Bar
               if (!appProvider.showFavoritesOnly)
                 Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                   child: SearchBarWidget(
                     controller: _searchController,
                     onSearch: (query) {
@@ -166,89 +107,16 @@ class _PlacesScreenState extends State<PlacesScreen> {
                   ),
                 ),
               
-              // Smart category filter with time-based suggestions (hide in favorites mode)
-              if (!appProvider.showFavoritesOnly)
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.center,
-                        children: [
-                          Text(
-                            'Categories',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w600,
-                              color: Color(AppConstants.colors['text']!),
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          if (_getTimeBasedSuggestion().isNotEmpty)
-                            Flexible(
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                decoration: BoxDecoration(
-                                  color: Colors.orange[100],
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                child: Text(
-                                  _getTimeBasedSuggestion(),
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    color: Colors.orange[800],
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
-                            ),
-                        ],
-                      ),
-                      const SizedBox(height: 12),
-                    ],
-                  ),
-                ),
+              // Compact category chips
               if (!appProvider.showFavoritesOnly)
                 SizedBox(
                   height: 40,
                   child: ListView.builder(
                     scrollDirection: Axis.horizontal,
                     padding: const EdgeInsets.symmetric(horizontal: 16),
-                    itemCount: AppConstants.placeCategories.length + 1,
+                    itemCount: AppConstants.placeCategories.length,
                     itemBuilder: (context, index) {
-                      // Open Now filter as first chip
-                      if (index == 0) {
-                        return Padding(
-                          padding: const EdgeInsets.only(right: 8),
-                          child: FilterChip(
-                            label: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(
-                                  Icons.access_time,
-                                  size: 14,
-                                  color: _showOpenOnly ? Colors.green[700] : Colors.grey[600],
-                                ),
-                                const SizedBox(width: 4),
-                                const Text('Open Now', style: TextStyle(fontSize: 13)),
-                              ],
-                            ),
-                            selected: _showOpenOnly,
-                            onSelected: (selected) {
-                              setState(() => _showOpenOnly = selected);
-                            },
-                            selectedColor: Colors.green[50],
-                            checkmarkColor: Colors.green[700],
-                            materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                            visualDensity: VisualDensity.compact,
-                          ),
-                        );
-                      }
-                      
-                      final category = AppConstants.placeCategories[index - 1];
+                      final category = AppConstants.placeCategories[index];
                       final isSelected = appProvider.selectedCategory == category['value'];
                       
                       return Padding(
@@ -256,7 +124,7 @@ class _PlacesScreenState extends State<PlacesScreen> {
                         child: FilterChip(
                           label: Text(
                             category['label']!,
-                            style: const TextStyle(fontSize: 13),
+                            style: const TextStyle(fontSize: 12),
                           ),
                           selected: isSelected,
                           onSelected: (selected) {
@@ -272,65 +140,25 @@ class _PlacesScreenState extends State<PlacesScreen> {
                   ),
                 ),
               
-              const SizedBox(height: 20),
+              const SizedBox(height: 8),
               
               // User guidance and helpful info
               if (appProvider.placeSections.isEmpty && !appProvider.isSectionsLoading)
                 Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  child: Column(
-                    children: [
-                      Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.all(20),
-                        decoration: BoxDecoration(
-                          color: Colors.blue[50],
-                          borderRadius: BorderRadius.circular(16),
-                          border: Border.all(color: Colors.blue[200]!),
-                        ),
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(Icons.info_outline, color: Colors.blue[600], size: 36),
-                            const SizedBox(height: 12),
-                            Text(
-                              'Discover Amazing Places',
-                              style: TextStyle(
-                                fontSize: 20,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.blue[800],
-                              ),
-                              textAlign: TextAlign.center,
-                            ),
-                            const SizedBox(height: 8),
-                            Text(
-                              'We\'ll show you personalized sections of places based on your interests and location.',
-                              textAlign: TextAlign.center,
-                              style: TextStyle(
-                                color: Colors.blue[700],
-                                fontSize: 14,
-                                height: 1.4,
-                              ),
-                            ),
-                          ],
-                        ),
+                  padding: const EdgeInsets.all(16),
+                  child: ElevatedButton.icon(
+                    onPressed: () => _loadSectionedPlaces(appProvider),
+                    icon: const Icon(Icons.explore, size: 20),
+                    label: const Text('Find Places'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Color(AppConstants.colors['primary']!),
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      minimumSize: const Size(double.infinity, 48),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
                       ),
-                      const SizedBox(height: 20),
-                      ElevatedButton.icon(
-                        onPressed: () => _loadSectionedPlaces(appProvider),
-                        icon: const Icon(Icons.explore, size: 20),
-                        label: const Text('Find Places'),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Color(AppConstants.colors['primary']!),
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(vertical: 14),
-                          minimumSize: const Size(double.infinity, 48),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                        ),
-                      ),
-                    ],
+                    ),
                   ),
                 ),
               
