@@ -14,15 +14,17 @@ export class AIPlacesGenerator {
       throw new Error('Azure OpenAI not configured');
     }
 
-    const prompt = `You are a travel expert. Generate ${limit} REAL places near latitude ${latitude}, longitude ${longitude} for category: "${category}".
+    const prompt = `You are a travel expert. Generate ${limit} DIFFERENT and UNIQUE REAL places near latitude ${latitude}, longitude ${longitude} for category: "${category}".
+
+IMPORTANT: Each place MUST be completely different with a unique name. NO DUPLICATES.
 
 Return ONLY a valid JSON array with this exact structure:
 [
   {
-    "place_id": "unique-real-google-place-id-if-known-or-generate-unique-id",
-    "name": "Real place name",
+    "place_id": "unique-id-${Date.now()}-1",
+    "name": "Unique Real Place Name 1",
     "formatted_address": "Full real address",
-    "geometry": { "location": { "lat": ${latitude}, "lng": ${longitude} } },
+    "geometry": { "location": { "lat": ${latitude + (Math.random() - 0.5) * 0.01}, "lng": ${longitude + (Math.random() - 0.5) * 0.01} } },
     "types": ["tourist_attraction", "point_of_interest"],
     "rating": 4.2,
     "user_ratings_total": 150,
@@ -35,7 +37,8 @@ Return ONLY a valid JSON array with this exact structure:
 
 Rules:
 - All places MUST be real and located near the coordinates
-- Include accurate addresses and coordinates
+- Each place MUST have a UNIQUE name - NO DUPLICATES
+- Include accurate addresses and slightly varied coordinates
 - Provide realistic ratings (3.5-5.0)
 - Make descriptions engaging and informative
 - No explanations, ONLY the JSON array`;
