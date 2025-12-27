@@ -52,8 +52,8 @@ class PlacesService {
     bool forceRefresh = false,
     String? categoryFilter,
   }) async {
-    // Use broad query for maximum results
-    final baseQuery = 'places to visit';
+    // Use simple but effective query - Google will understand context
+    final baseQuery = 'tourist attractions';
     final cacheKey = '${latitude.toStringAsFixed(2)}_${longitude.toStringAsFixed(2)}_$baseQuery';
     
     // CACHE DISABLED: Always fetch fresh until backend returns more places

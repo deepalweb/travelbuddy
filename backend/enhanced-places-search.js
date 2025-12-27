@@ -7,22 +7,45 @@ export class EnhancedPlacesSearch {
 
   async searchPlacesComprehensive(lat, lng, query, radius = 20000) {
     try {
-      // Use location bias instead of strict radius for better results (like Google Maps)
-      const url = `https://maps.googleapis.com/maps/api/place/textsearch/json?query=${encodeURIComponent(query)} in ${lat},${lng}&location=${lat},${lng}&radius=${radius}&key=${this.apiKey}`
+      let allResults = []
+      let nextPageToken = null
+      let pageCount = 0
+      const maxPages = 3 // Get up to 60 results (20 per page)
       
-      console.log(`🔍 Text Search: "${query}" near ${lat},${lng} (radius: ${radius}m)`)
+      do {
+        // Build URL with pagination
+        let url = `https://maps.googleapis.com/maps/api/place/textsearch/json?query=${encodeURIComponent(query)}&location=${lat},${lng}&radius=${radius}&key=${this.apiKey}`
+        
+        if (nextPageToken) {
+          url += `&pagetoken=${nextPageToken}`
+          // Google requires 2 second delay between paginated requests
+          await new Promise(resolve => setTimeout(resolve, 2000))
+        }
+        
+        console.log(`🔍 Text Search (page ${pageCount + 1}): "${query}" near ${lat},${lng}`)
+        
+        const response = await fetch(url)
+        const data = await response.json()
+        
+        if (data.status === 'OK' || data.status === 'ZERO_RESULTS') {
+          const results = data.results || []
+          allResults = allResults.concat(results)
+          console.log(`✅ Page ${pageCount + 1}: ${results.length} results (total: ${allResults.length})`)
+          
+          nextPageToken = data.next_page_token
+          pageCount++
+          
+          // Stop if no more pages or reached max
+          if (!nextPageToken || pageCount >= maxPages) break
+        } else {
+          console.warn(`⚠️ Text Search status: ${data.status}`)
+          break
+        }
+      } while (nextPageToken && pageCount < maxPages)
       
-      const response = await fetch(url)
-      const data = await response.json()
+      console.log(`✅ Total results from ${pageCount} pages: ${allResults.length}`)
+      return allResults
       
-      if (data.status === 'OK') {
-        console.log(`✅ Text Search returned ${data.results?.length || 0} results`)
-        return data.results || []
-      } else {
-        console.warn(`⚠️ Text Search status: ${data.status}`)
-      }
-      
-      return []
     } catch (error) {
       console.error('Enhanced places search error:', error)
       return []
