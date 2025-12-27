@@ -40,7 +40,7 @@ function getExperienceImage(type, placeName) {
 // AI-only place generation endpoint
 router.get('/ai-places/nearby', async (req, res) => {
   try {
-    const { lat, lng, category = 'tourist attractions', limit = 20 } = req.query;
+    const { lat, lng, category = 'tourist attractions', limit = 10 } = req.query;
 
     if (!lat || !lng) {
       return res.status(400).json({ error: 'lat and lng required' });
@@ -48,12 +48,19 @@ router.get('/ai-places/nearby', async (req, res) => {
 
     console.log(`🤖 AI-only places request: ${category} near ${lat}, ${lng}`);
 
-    const places = await AIPlacesGenerator.generatePlaces(
-      parseFloat(lat),
-      parseFloat(lng),
-      category,
-      parseInt(limit, 10)
-    );
+    let places = [];
+    try {
+      places = await AIPlacesGenerator.generatePlaces(
+        parseFloat(lat),
+        parseFloat(lng),
+        category,
+        parseInt(limit, 10)
+      );
+    } catch (aiError) {
+      console.error('⚠️ AI generation failed, using fallback:', aiError.message);
+      // Return empty array instead of error - mobile app will handle it
+      places = [];
+    }
 
     // Add experience-based images
     places.forEach(place => {
@@ -69,7 +76,7 @@ router.get('/ai-places/nearby', async (req, res) => {
     });
 
   } catch (error) {
-    console.error('❌ AI places generation error:', error);
+    console.error('❌ AI places route error:', error);
     res.status(500).json({
       error: 'Failed to generate places',
       details: error.message

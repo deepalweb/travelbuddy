@@ -48,16 +48,17 @@ Rules:
         model: process.env.AZURE_OPENAI_DEPLOYMENT_NAME,
         messages: [{ role: "user", content: prompt }],
         temperature: 0.7,
-        max_tokens: 1500,
-        timeout: 10000
+        max_tokens: 1500
       });
 
       const content = completion.choices[0].message.content;
+      console.log(`📝 AI response length: ${content.length} chars`);
       
       // Extract JSON array from response
       const jsonMatch = content.match(/\[[\s\S]*\]/);
       if (!jsonMatch) {
         console.error('❌ No JSON array found in AI response');
+        console.error('Response preview:', content.substring(0, 200));
         return [];
       }
       
@@ -86,7 +87,11 @@ Rules:
       return uniquePlaces;
       
     } catch (error) {
-      console.error('❌ AI generation failed:', error);
+      console.error('❌ AI generation failed:', error.message);
+      console.error('Error type:', error.constructor.name);
+      if (error.response) {
+        console.error('API response:', error.response.status, error.response.data);
+      }
       throw error;
     }
   }
