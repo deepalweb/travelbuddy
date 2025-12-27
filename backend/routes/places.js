@@ -121,13 +121,15 @@ router.get('/hybrid', async (req, res) => {
   }
 });
 
-// Enhanced Places Search endpoint specifically for mobile
+// 🔥 HYBRID ARCHITECTURE: Industry Standard
+// Layer 1: Google Places API (core discovery + place identity)
+// Layer 2: Azure OpenAI (AI enrichment)
+// Layer 3: Custom algorithm (categorization + ranking)
+// Layer 4: User data (personalization)
 router.get('/mobile/nearby', async (req, res) => {
   try {
-    const { lat, lng, q, radius = 25000, limit = 60, offset = 0 } = req.query;
+    const { lat, lng, q, radius = 25000, limit = 60, offset = 0, userId } = req.query;
     const apiKey = process.env.GOOGLE_PLACES_API_KEY;
-    
-    console.log(`🔍 Mobile API Key Check: ${apiKey ? 'Present' : 'Missing'} (length: ${apiKey?.length || 0})`);
     
     if (!apiKey) {
       console.error('❌ GOOGLE_PLACES_API_KEY not configured');
@@ -138,16 +140,15 @@ router.get('/mobile/nearby', async (req, res) => {
       return res.status(400).json({ error: 'lat and lng are required' });
     }
 
-    const query = (q || '').toString().trim() || 'points of interest';
+    const query = (q || '').toString().trim() || 'tourist attractions';
     const searchRadius = parseInt(radius, 10);
     const maxResults = parseInt(limit, 10);
     const skipResults = parseInt(offset, 10);
 
-    console.log(`🔍 Mobile places search: ${query} within ${searchRadius}m, limit: ${maxResults}`);
+    console.log(`🔥 HYBRID: ${query} within ${searchRadius}m`);
 
+    // LAYER 1: Google Places API (Core Discovery + Place Identity)
     const enhancedSearch = new EnhancedPlacesSearch(apiKey);
-    
-    // Use comprehensive search for better mobile results
     let results = await enhancedSearch.searchPlacesComprehensive(
       parseFloat(lat), 
       parseFloat(lng), 
@@ -155,10 +156,9 @@ router.get('/mobile/nearby', async (req, res) => {
       searchRadius
     );
     
-    console.log(`🔍 Enhanced search returned: ${results.length} raw results`);
+    console.log(`✅ Layer 1 (Google): ${results.length} places with real IDs`);
     
     if (results.length === 0) {
-      console.warn('⚠️ Enhanced search returned 0 results');
       return res.json({
         status: 'OK',
         results: [],
@@ -168,29 +168,37 @@ router.get('/mobile/nearby', async (req, res) => {
       });
     }
     
-    // Apply mobile-optimized filtering (quality)
+    // LAYER 2: AI Enrichment (Azure OpenAI) - Non-blocking
+    // Mobile app will call /ai/generate separately for descriptions
+    
+    // LAYER 3: Custom Algorithm (Categorization + Ranking)
     results = PlacesOptimizer.filterQualityResults(results, { minRating: 0 });
     results = PlacesOptimizer.enrichPlaceTypes(results);
     results = PlacesOptimizer.rankResults(results, parseFloat(lat), parseFloat(lng), query);
+    console.log(`✅ Layer 3 (Algorithm): Categorized and ranked`);
     
-    // Ensure variety in results for mobile
+    // LAYER 4: Personalization (User Data) - TODO: Add user preferences
+    // if (userId) {
+    //   results = await personalizeResults(results, userId);
+    // }
+    
+    // Ensure variety
     const diverseResults = PlacesOptimizer.ensureVariety(results, maxResults + skipResults);
-    
-    // Apply offset for pagination
     const paginatedResults = diverseResults.slice(skipResults, skipResults + maxResults);
     
-    console.log(`✅ Mobile search returned ${paginatedResults.length} diverse places (offset: ${skipResults})`);
+    console.log(`✅ HYBRID: ${paginatedResults.length} places ready`);
     
     res.json({
       status: 'OK',
       results: paginatedResults,
       query: query,
       location: { lat: parseFloat(lat), lng: parseFloat(lng) },
-      radius: searchRadius
+      radius: searchRadius,
+      architecture: 'hybrid'
     });
     
   } catch (error) {
-    console.error('❌ Mobile places search error:', error);
+    console.error('❌ Hybrid search error:', error);
     res.status(500).json({ 
       error: 'Failed to fetch places', 
       details: error.message 
