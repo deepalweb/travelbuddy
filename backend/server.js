@@ -990,6 +990,15 @@ try {
   console.error('❌ Failed to load AI places routes:', error);
 }
 
+// Load standalone AI places routes
+try {
+  const aiPlacesRouter = (await import('./routes/ai-places.js')).default;
+  app.use('/api', aiPlacesRouter);
+  console.log('✅ Standalone AI Places routes loaded');
+} catch (error) {
+  console.error('❌ Failed to load standalone AI places routes:', error);
+}
+
 // Load AI routes for community features
 try {
   const aiRouter = (await import('./routes/ai.js')).default;

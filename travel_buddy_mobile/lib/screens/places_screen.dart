@@ -89,6 +89,28 @@ class _PlacesScreenState extends State<PlacesScreen> {
             children: [
               // Compact header - removed duplicate
               
+              // Real or AI Toggle
+              if (!appProvider.showFavoritesOnly)
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: SegmentedButton<bool>(
+                          segments: const [
+                            ButtonSegment(value: true, label: Text('Real Places'), icon: Icon(Icons.place, size: 16)),
+                            ButtonSegment(value: false, label: Text('AI Places'), icon: Icon(Icons.auto_awesome, size: 16)),
+                          ],
+                          selected: {appProvider.useRealPlaces},
+                          onSelectionChanged: (Set<bool> selection) {
+                            appProvider.setPlacesSource(selection.first);
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              
               // Search Bar
               if (!appProvider.showFavoritesOnly)
                 Padding(

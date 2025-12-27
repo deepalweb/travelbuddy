@@ -105,6 +105,7 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
   bool _hasMorePlaces = true;
   int _currentPage = 1;
   bool _showFavoritesOnly = false;
+  bool _useRealPlaces = true; // true = Google Places, false = AI Places
 
   // Trips State
   List<TripPlan> _tripPlans = [];
@@ -150,6 +151,7 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
   bool get hasMorePlaces => _hasMorePlaces;
   int get currentPage => _currentPage;
   bool get showFavoritesOnly => _showFavoritesOnly;
+  bool get useRealPlaces => _useRealPlaces;
   
   List<TripPlan> get tripPlans => _tripPlans;
   List<OneDayItinerary> get itineraries => _itineraries;
@@ -1176,6 +1178,46 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
       final vibe = _getUserVibe();
       final language = _getUserLanguage();
       
+      // Check if using AI places or Real places
+      if (!_useRealPlaces) {
+        // AI Places Mode - fetch from AI endpoint
+        print('🤖 Fetching AI-generated places...');
+        try {
+          final response = await http.get(
+            Uri.parse('${Environment.backendUrl}/api/ai-places/nearby?lat=${_currentLocation!.latitude}&lng=${_currentLocation!.longitude}&radius=${_selectedRadius}&limit=10'),
+            headers: {'Content-Type': 'application/json'},
+          ).timeout(const Duration(seconds: 15));
+          
+          if (response.statusCode == 200) {
+            final data = json.decode(response.body);
+            final aiPlaces = (data['places'] as List).map((p) => Place(
+              id: p['id'] ?? 'ai_${DateTime.now().millisecondsSinceEpoch}',
+              name: p['name'] ?? 'Unknown Place',
+              address: p['address'] ?? 'Near your location',
+              latitude: (p['latitude'] as num?)?.toDouble() ?? _currentLocation!.latitude,
+              longitude: (p['longitude'] as num?)?.toDouble() ?? _currentLocation!.longitude,
+              rating: (p['rating'] as num?)?.toDouble() ?? 4.0,
+              type: p['type'] ?? 'restaurant',
+              photoUrl: p['photoUrl'] ?? '',
+              description: p['description'] ?? '',
+              localTip: p['localTip'] ?? '',
+              handyPhrase: p['handyPhrase'] ?? '',
+            )).toList();
+            
+            places = aiPlaces;
+            print('✅ Loaded ${places.length} AI-generated places');
+          } else {
+            print('❌ AI places API error: ${response.statusCode}');
+            places = [];
+          }
+        } catch (e) {
+          print('❌ AI places fetch failed: $e');
+          places = [];
+        }
+      } else {
+        // Real Places Mode - use Google Places API
+        print('🌍 Fetching real places from Google...');
+      
       if (searchQuery.isNotEmpty) {
         // Search query takes priority
         places = await placesService.fetchPlacesPipeline(
@@ -1366,6 +1408,7 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
           print('✅ Applied AI ranking to ${places.length} places');
         }
       }
+      } // End Real Places Mode
 
       // Filter by search relevance if this is a search query
       if (searchQuery.isNotEmpty) {
@@ -2352,6 +2395,15 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
   void clearFavoritesFilter() {
     _showFavoritesOnly = false;
     notifyListeners();
+  }
+
+  void setPlacesSource(bool useReal) {
+    _useRealPlaces = useReal;
+    _places.clear();
+    _currentPage = 1;
+    _hasMorePlaces = true;
+    notifyListeners();
+    loadNearbyPlaces();
   }
 
   List<Place> get filteredPlaces {
