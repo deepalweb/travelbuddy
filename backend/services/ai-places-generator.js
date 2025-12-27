@@ -105,12 +105,26 @@ Rules:
       const seen = new Set();
       const uniquePlaces = [];
       for (const place of places) {
+        // Log each place for debugging
+        console.log(`🔍 Place: ${JSON.stringify(place).substring(0, 100)}`);
+        
         const key = place.name?.toLowerCase().trim();
-        if (key && !seen.has(key)) {
+        if (!key) {
+          console.log(`⚠️ Skipping place with no name: ${JSON.stringify(place)}`);
+          continue;
+        }
+        
+        if (!seen.has(key)) {
           seen.add(key);
-          // Ensure unique ID
-          place.place_id = `ai_${Date.now()}_${uniquePlaces.length}`;
+          // Ensure unique ID and required fields
+          place.place_id = place.place_id || `ai_${Date.now()}_${uniquePlaces.length}`;
+          place.id = place.place_id;
+          place.latitude = place.geometry?.location?.lat || latitude;
+          place.longitude = place.geometry?.location?.lng || longitude;
+          place.address = place.formatted_address || 'Near your location';
           uniquePlaces.push(place);
+        } else {
+          console.log(`⚠️ Duplicate found: ${key}`);
         }
       }
       
