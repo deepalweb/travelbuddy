@@ -55,23 +55,15 @@ router.get('/ai-places/nearby', async (req, res) => {
       parseInt(limit, 10)
     );
 
-    // Deduplicate by name
-    const uniquePlaces = [];
-    const seen = new Set();
-    for (const place of places) {
-      const key = place.name?.toLowerCase().trim();
-      if (key && !seen.has(key)) {
-        seen.add(key);
-        // Add experience-based image
-        place.photoUrl = getExperienceImage(place.types?.[0] || category, place.name);
-        uniquePlaces.push(place);
-      }
-    }
+    // Add experience-based images
+    places.forEach(place => {
+      place.photoUrl = getExperienceImage(place.types?.[0] || category, place.name);
+    });
 
     res.json({
       status: 'OK',
       source: 'ai-generated',
-      results: uniquePlaces,
+      results: places,
       location: { lat: parseFloat(lat), lng: parseFloat(lng) },
       category: category
     });

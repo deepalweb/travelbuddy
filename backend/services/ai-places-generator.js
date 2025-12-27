@@ -65,13 +65,26 @@ Rules:
       let places = JSON.parse(jsonMatch[0]);
       
       // Handle if AI wraps in object (shouldn't happen now)
-      if (Array.isArray(places)) {
-        console.log(`✅ AI generated ${places.length} places`);
-        return places;
+      if (!Array.isArray(places)) {
+        console.error('❌ AI response is not an array');
+        return [];
       }
       
-      console.error('❌ AI response is not an array');
-      return [];
+      // Deduplicate by name (case-insensitive)
+      const seen = new Set();
+      const uniquePlaces = [];
+      for (const place of places) {
+        const key = place.name?.toLowerCase().trim();
+        if (key && !seen.has(key)) {
+          seen.add(key);
+          // Ensure unique ID
+          place.place_id = `ai_${Date.now()}_${uniquePlaces.length}`;
+          uniquePlaces.push(place);
+        }
+      }
+      
+      console.log(`✅ AI generated ${places.length} places, ${uniquePlaces.length} unique`);
+      return uniquePlaces;
       
     } catch (error) {
       console.error('❌ AI generation failed:', error);
