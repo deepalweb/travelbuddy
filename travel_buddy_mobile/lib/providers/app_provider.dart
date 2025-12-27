@@ -1190,7 +1190,8 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
           
           if (response.statusCode == 200) {
             final data = json.decode(response.body);
-            final aiPlaces = (data['places'] as List).map((p) => Place(
+            final aiPlacesData = data['results'] ?? data['places'] ?? [];
+            final aiPlaces = (aiPlacesData as List).map((p) => Place(
               id: p['id'] ?? 'ai_${DateTime.now().millisecondsSinceEpoch}',
               name: p['name'] ?? 'Unknown Place',
               address: p['address'] ?? 'Near your location',

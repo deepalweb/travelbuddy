@@ -47,19 +47,28 @@ Rules:
         model: process.env.AZURE_OPENAI_DEPLOYMENT_NAME,
         messages: [{ role: "user", content: prompt }],
         temperature: 0.7,
-        max_tokens: 4000,
-        response_format: { type: "json_object" }
+        max_tokens: 4000
       });
 
       const content = completion.choices[0].message.content;
-      let places = JSON.parse(content);
       
-      // Handle if AI wraps in object
-      if (places.places) places = places.places;
-      if (places.results) places = places.results;
+      // Extract JSON array from response
+      const jsonMatch = content.match(/\[[\s\S]*\]/);
+      if (!jsonMatch) {
+        console.error('❌ No JSON array found in AI response');
+        return [];
+      }
       
-      console.log(`✅ AI generated ${places.length} places`);
-      return places;
+      let places = JSON.parse(jsonMatch[0]);
+      
+      // Handle if AI wraps in object (shouldn't happen now)
+      if (Array.isArray(places)) {
+        console.log(`✅ AI generated ${places.length} places`);
+        return places;
+      }
+      
+      console.error('❌ AI response is not an array');
+      return [];
       
     } catch (error) {
       console.error('❌ AI generation failed:', error);
