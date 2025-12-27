@@ -83,12 +83,12 @@ class PlacesService {
         _lastApiCalls[cacheKey] = DateTime.now();
         await _incrementApiCall();
         
-        final realPlaces = await _fetchRealPlaces(latitude, longitude, baseQuery, radius, offset, 60)
+        final realPlaces = await _fetchRealPlaces(latitude, longitude, baseQuery, radius, offset, 150)
             .timeout(const Duration(seconds: 8));
         
         if (realPlaces.isNotEmpty) {
           final filtered = realPlaces
-              .where((p) => p.rating >= 3.0 && _isWithinRadius(p, latitude, longitude, radius))
+              .where((p) => p.rating >= 2.5 && _isWithinRadius(p, latitude, longitude, radius))
               .toList();
           
           // Enrich with AI descriptions (async, non-blocking)
