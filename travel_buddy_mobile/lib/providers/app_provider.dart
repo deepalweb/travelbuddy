@@ -1663,7 +1663,7 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
       case 'entertainment':
         return isEvening ? _expandKeywords(['nightclub', 'bar', 'live music']) : _expandKeywords(['cinema', 'theater', 'entertainment']);
       case 'photography':
-        return _expandKeywords(['viewpoint', 'scenic spot', 'landmark']);
+        return _expandKeywords(['viewpoint', 'landmark']);
       case 'spa':
         return _expandKeywords(['spa', 'wellness']);
       case 'all':
@@ -1729,7 +1729,7 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
           break;
         case 'viewpoint':
         case 'scenic spot':
-          expanded.addAll(['viewpoint', 'scenic spot', 'observation deck', 'rooftop', 'pier', 'lookout']);
+          expanded.addAll(['viewpoint', 'observation deck']);
           break;
         default:
           expanded.add(keyword);

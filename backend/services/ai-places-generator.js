@@ -16,32 +16,30 @@ export class AIPlacesGenerator {
 
     const prompt = `You are a travel expert. Generate ${limit} DIFFERENT and UNIQUE REAL places near latitude ${latitude}, longitude ${longitude} for category: "${category}".
 
-IMPORTANT: Each place MUST be completely different with a unique name. NO DUPLICATES.
+IMPORTANT: Each place MUST be completely different with a unique name. NO DUPLICATES. Keep descriptions SHORT (1-2 sentences max).
 
-Return ONLY a valid JSON array with this exact structure:
+Return ONLY a valid JSON array:
 [
   {
-    "place_id": "unique-id-${Date.now()}-1",
-    "name": "Unique Real Place Name 1",
-    "formatted_address": "Full real address",
+    "place_id": "unique-id-1",
+    "name": "Unique Place Name",
+    "formatted_address": "Address",
     "geometry": { "location": { "lat": ${latitude + (Math.random() - 0.5) * 0.01}, "lng": ${longitude + (Math.random() - 0.5) * 0.01} } },
-    "types": ["tourist_attraction", "point_of_interest"],
+    "types": ["tourist_attraction"],
     "rating": 4.2,
     "user_ratings_total": 150,
-    "description": "Engaging 2-3 sentence description",
-    "localTip": "Useful insider tip",
-    "handyPhrase": "Common phrase tourists use here",
+    "description": "Short 1-2 sentence description",
+    "localTip": "Quick tip",
+    "handyPhrase": "Useful phrase",
     "category": "attraction"
   }
 ]
 
 Rules:
-- All places MUST be real and located near the coordinates
-- Each place MUST have a UNIQUE name - NO DUPLICATES
-- Include accurate addresses and slightly varied coordinates
-- Provide realistic ratings (3.5-5.0)
-- Make descriptions engaging and informative
-- No explanations, ONLY the JSON array`;
+- All places MUST be real and near coordinates
+- Each MUST have UNIQUE name - NO DUPLICATES
+- Keep ALL text SHORT
+- ONLY return JSON array, no explanations`;
 
     try {
       console.log(`🤖 AI generating ${limit} places for ${category} near ${latitude}, ${longitude}`);
@@ -50,7 +48,8 @@ Rules:
         model: process.env.AZURE_OPENAI_DEPLOYMENT_NAME,
         messages: [{ role: "user", content: prompt }],
         temperature: 0.7,
-        max_tokens: 4000
+        max_tokens: 1500,
+        timeout: 10000
       });
 
       const content = completion.choices[0].message.content;
