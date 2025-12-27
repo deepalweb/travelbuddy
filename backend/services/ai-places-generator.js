@@ -54,15 +54,46 @@ Rules:
       const content = completion.choices[0].message.content;
       console.log(`📝 AI response length: ${content.length} chars`);
       
-      // Extract JSON array from response
-      const jsonMatch = content.match(/\[[\s\S]*\]/);
+      // Extract JSON array from response - be more lenient
+      let jsonMatch = content.match(/\[[\s\S]*\]/);
       if (!jsonMatch) {
         console.error('❌ No JSON array found in AI response');
         console.error('Response preview:', content.substring(0, 200));
         return [];
       }
       
-      let places = JSON.parse(jsonMatch[0]);
+      let jsonStr = jsonMatch[0];
+      
+      // Clean up common JSON issues
+      jsonStr = jsonStr
+        .replace(/\n/g, ' ')  // Remove newlines
+        .replace(/\r/g, '')   // Remove carriage returns
+        .replace(/\t/g, ' ')  // Remove tabs
+        .replace(/\\/g, '')   // Remove backslashes that aren't escaping quotes
+        .replace(/"([^"]*)"/g, (match, p1) => `"${p1.replace(/"/g, "'")}"`)  // Fix nested quotes
+        .replace(/,\s*([}\]])/g, '$1');  // Remove trailing commas
+      
+      let places;
+      try {
+        places = JSON.parse(jsonStr);
+      } catch (parseError) {
+        console.error('❌ JSON parse failed, trying to fix...');
+        // Try to extract valid JSON objects one by one
+        const objectMatches = jsonStr.match(/\{[^{}]*\}/g);
+        if (objectMatches) {
+          places = objectMatches.map(obj => {
+            try {
+              return JSON.parse(obj);
+            } catch (e) {
+              return null;
+            }
+          }).filter(p => p !== null);
+          console.log(`✅ Recovered ${places.length} places from malformed JSON`);
+        } else {
+          console.error('❌ Could not recover any places');
+          return [];
+        }
+      }
       
       // Handle if AI wraps in object (shouldn't happen now)
       if (!Array.isArray(places)) {
