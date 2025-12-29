@@ -717,6 +717,41 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
     }
   }
 
+  Future<bool> signInWithGoogle() async {
+    _isLoading = true;
+    notifyListeners();
+
+    try {
+      await _storageService.initialize();
+      
+      final userCredential = await AuthService.signInWithGoogle();
+      if (userCredential == null) return false;
+      
+      final user = userCredential.user;
+      if (user != null) {
+        _currentUser = UserConverter.fromFirebaseUser(user);
+        _isAuthenticated = true;
+        
+        await _syncFirebaseUserWithBackend(user);
+        await _loadUserData();
+        await _sendFCMTokenToBackend();
+        
+        AnalyticsService.logLogin('google');
+        AnalyticsService.setUserId(user.uid);
+        
+        return true;
+      }
+      return false;
+    } catch (e) {
+      print('Google Sign in error: $e');
+      AnalyticsService.logError('Google Sign in failed', error: e);
+      return false;
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
+
   Future<bool> signUp(String email, String password, String username) async {
     return await register(email, password, username);
   }
