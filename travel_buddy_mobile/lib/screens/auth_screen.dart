@@ -274,11 +274,7 @@ class _AuthScreenState extends State<AuthScreen> {
                         height: 50,
                         child: OutlinedButton.icon(
                           onPressed: _isLoading ? null : _signInWithGoogle,
-                          icon: Image.network(
-                            'https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg',
-                            height: 20,
-                            width: 20,
-                          ),
+                          icon: const Icon(Icons.g_mobiledata, size: 24),
                           label: const Text('Continue with Google'),
                         ),
                       ),
