@@ -53,6 +53,7 @@ Rules:
 
       const content = completion.choices[0].message.content;
       console.log(`📝 AI response length: ${content.length} chars`);
+      console.log(`📝 First 300 chars:`, content.substring(0, 300));
       
       // Extract JSON array from response - be more lenient
       let jsonMatch = content.match(/\[[\s\S]*\]/);
@@ -105,30 +106,38 @@ Rules:
         return [];
       }
       
-      // Deduplicate by name (case-insensitive)
+      // Deduplicate by name (case-insensitive) and transform to mobile format
       const seen = new Set();
       const uniquePlaces = [];
       for (const place of places) {
-        // Log each place for debugging
-        console.log(`🔍 Place: ${JSON.stringify(place).substring(0, 100)}`);
-        
         const key = place.name?.toLowerCase().trim();
         if (!key) {
-          console.log(`⚠️ Skipping place with no name: ${JSON.stringify(place)}`);
+          console.log(`⚠️ Skipping place with no name`);
           continue;
         }
         
         if (!seen.has(key)) {
           seen.add(key);
-          // Ensure unique ID and required fields
-          place.place_id = place.place_id || `ai_${Date.now()}_${uniquePlaces.length}`;
-          place.id = place.place_id;
-          place.latitude = place.geometry?.location?.lat || latitude;
-          place.longitude = place.geometry?.location?.lng || longitude;
-          place.address = place.formatted_address || 'Near your location';
-          uniquePlaces.push(place);
+          
+          // Transform to mobile app format
+          const mobilePlace = {
+            id: `ai_${Date.now()}_${uniquePlaces.length}`,
+            name: place.name,
+            address: place.formatted_address || 'Near your location',
+            latitude: place.geometry?.location?.lat || latitude,
+            longitude: place.geometry?.location?.lng || longitude,
+            rating: place.rating || 4.0,
+            type: place.types?.[0] || place.category || 'tourist_attraction',
+            photoUrl: '', // Will be added by route
+            description: place.description || '',
+            localTip: place.localTip || '',
+            handyPhrase: place.handyPhrase || ''
+          };
+          
+          uniquePlaces.push(mobilePlace);
+          console.log(`✅ Added: ${mobilePlace.name}`);
         } else {
-          console.log(`⚠️ Duplicate found: ${key}`);
+          console.log(`⚠️ Duplicate: ${key}`);
         }
       }
       

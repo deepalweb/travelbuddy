@@ -56,6 +56,7 @@ router.get('/ai-places/nearby', async (req, res) => {
         category,
         parseInt(limit, 10)
       );
+      console.log(`✅ AI generator returned ${places.length} places`);
     } catch (aiError) {
       console.error('⚠️ AI generation failed, using fallback:', aiError.message);
       // Return empty array instead of error - mobile app will handle it
@@ -64,8 +65,10 @@ router.get('/ai-places/nearby', async (req, res) => {
 
     // Add experience-based images
     places.forEach(place => {
-      place.photoUrl = getExperienceImage(place.types?.[0] || category, place.name);
+      place.photoUrl = getExperienceImage(place.type || category, place.name);
     });
+    
+    console.log(`📤 Returning ${places.length} places to mobile app`);
 
     res.json({
       status: 'OK',
