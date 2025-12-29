@@ -65,37 +65,24 @@ Rules:
       
       let jsonStr = jsonMatch[0];
       
-      // Clean up common JSON issues
-      jsonStr = jsonStr
-        .replace(/\n/g, ' ')  // Remove newlines
-        .replace(/\r/g, '')   // Remove carriage returns
-        .replace(/\t/g, ' ')  // Remove tabs
-        .replace(/\\/g, '')   // Remove backslashes that aren't escaping quotes
-        .replace(/"([^"]*)"/g, (match, p1) => `"${p1.replace(/"/g, "'")}"`)  // Fix nested quotes
-        .replace(/,\s*([}\]])/g, '$1');  // Remove trailing commas
-      
+      // Try direct parse first - AI usually returns clean JSON
       let places;
       try {
         places = JSON.parse(jsonStr);
+        console.log(`✅ Direct parse successful: ${places.length} places`);
       } catch (parseError) {
-        console.error('❌ JSON parse failed, trying simpler approach...');
-        // Remove the cleanup that's breaking the JSON and try raw parse
+        console.error('❌ Direct parse failed, trying cleanup...');
+        // Only do minimal cleanup if direct parse fails
         try {
-          const rawMatch = content.match(/\[[\s\S]*\]/);
-          if (rawMatch) {
-            // Try parsing with minimal cleanup
-            let cleanJson = rawMatch[0]
-              .replace(/,\s*([}\]])/g, '$1')  // Remove trailing commas only
-              .replace(/\n/g, ' ');  // Remove newlines
-            places = JSON.parse(cleanJson);
-            console.log(`✅ Parsed with minimal cleanup: ${places.length} places`);
-          } else {
-            console.error('❌ Could not extract JSON array');
-            return [];
-          }
+          let cleanJson = jsonStr
+            .replace(/,\s*([}\]])/g, '$1')  // Remove trailing commas
+            .replace(/\n/g, ' ')  // Remove newlines
+            .replace(/\r/g, '');  // Remove carriage returns
+          places = JSON.parse(cleanJson);
+          console.log(`✅ Parsed with cleanup: ${places.length} places`);
         } catch (e2) {
-          console.error('❌ All parsing attempts failed');
-          console.error('Raw content sample:', content.substring(0, 500));
+          console.error('❌ All parsing failed');
+          console.error('Parse error:', e2.message);
           return [];
         }
       }
