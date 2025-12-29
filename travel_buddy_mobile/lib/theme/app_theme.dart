@@ -30,6 +30,18 @@ class AppTheme {
   static const double radiusLg = 16.0;
   static const double radiusXl = 24.0;
   
+  // Padding
+  static const EdgeInsets paddingL = EdgeInsets.all(24.0);
+  
+  // Text Styles (static getters for compatibility)
+  static const TextStyle titleLarge = TextStyle(fontSize: 32, fontWeight: FontWeight.bold);
+  static const TextStyle bodyMedium = TextStyle(fontSize: 14);
+  static const TextStyle bodySmall = TextStyle(fontSize: 12);
+  
+  // Colors (aliases for compatibility)
+  static const Color primaryColor = primary;
+  static const Color secondaryTextColor = textSecondary;
+  
   // Theme Data
   static ThemeData get lightTheme {
     return ThemeData(
