@@ -2,12 +2,13 @@
 
 ## ✅ Security Fixes Complete
 - HTTPS-only (cleartext disabled)
-- ProGuard obfuscation enabled
-- Code shrinking enabled
+- ~~ProGuard obfuscation enabled~~ (Disabled for initial release - can enable later)
+- ~~Code shrinking enabled~~ (Disabled for initial release - can enable later)
 - Target SDK 35
 - **Background location permission removed**
 - **Foreground service permissions removed**
 - **Privacy policy created**
+- **Release AAB built successfully** ✅
 
 ## 🚨 Critical Actions Required
 
