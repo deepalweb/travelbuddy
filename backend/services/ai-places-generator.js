@@ -48,7 +48,7 @@ Rules:
         model: process.env.AZURE_OPENAI_DEPLOYMENT_NAME,
         messages: [{ role: "user", content: prompt }],
         temperature: 0.7,
-        max_tokens: 1500
+        max_tokens: 3000
       });
 
       const content = completion.choices[0].message.content;
@@ -83,6 +83,7 @@ Rules:
         } catch (e2) {
           console.error('❌ All parsing failed');
           console.error('Parse error:', e2.message);
+          console.error('JSON ends at:', jsonStr.substring(jsonStr.length - 100));
           return [];
         }
       }
