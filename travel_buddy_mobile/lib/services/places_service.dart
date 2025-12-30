@@ -38,7 +38,7 @@ class PlacesService {
     'pro': 50,
   };
 
-  // Optimized: Cache + Tourist attraction base query
+  // Optimized: Cache + Category-specific queries
   Future<List<Place>> fetchPlacesPipeline({
     required double latitude,
     required double longitude,
@@ -52,38 +52,24 @@ class PlacesService {
     bool forceRefresh = false,
     String? categoryFilter,
   }) async {
-    // Use simple but effective query - Google will understand context
-    final baseQuery = 'tourist attractions';
-    final cacheKey = '${latitude.toStringAsFixed(2)}_${longitude.toStringAsFixed(2)}_$baseQuery';
+    // Use actual query instead of hardcoded 'tourist attractions'
+    final cacheKey = '${latitude.toStringAsFixed(2)}_${longitude.toStringAsFixed(2)}_$query';
     
-    // CACHE DISABLED: Always fetch fresh until backend returns more places
-    // if (!forceRefresh && _isValidCache(cacheKey)) {
-    //   DebugLogger.log('⚡ INSTANT: Cache hit (${_cache[cacheKey]!.length} places)');
-    //   final cached = _cache[cacheKey]!;
-    //   
-    //   if (categoryFilter != null && categoryFilter != 'all') {
-    //     final filtered = _filterByCategory(cached, categoryFilter, query);
-    //     DebugLogger.log('🎯 Filtered to $categoryFilter: ${filtered.length} places');
-    //     return filtered.take(topN).toList();
-    //   }
-    //   
-    //   return cached.take(topN).toList();
-    // }
-    
-    // Rate limiting check
-    if (_isRateLimited(cacheKey)) {
-      DebugLogger.log('⏱️ Rate limited, returning cached/empty');
-      return _cache[cacheKey]?.take(topN).toList() ?? [];
+    // Check cache first
+    if (!forceRefresh && _isValidCache(cacheKey)) {
+      DebugLogger.log('⚡ Cache hit (${_cache[cacheKey]!.length} places)');
+      final cached = _cache[cacheKey]!;
+      return cached.skip(offset).take(topN).toList();
     }
     
     try {
-      // Fetch tourist attractions (single API call)
+      // Fetch places with actual query
       if (await _canMakeApiCall()) {
-        DebugLogger.log('🔍 Fetching tourist attractions (base query)');
+        DebugLogger.log('🔍 Fetching: $query');
         _lastApiCalls[cacheKey] = DateTime.now();
         await _incrementApiCall();
         
-        final realPlaces = await _fetchRealPlaces(latitude, longitude, baseQuery, radius, offset, 150)
+        final realPlaces = await _fetchRealPlaces(latitude, longitude, query, radius, 0, 150)
             .timeout(const Duration(seconds: 8));
         
         if (realPlaces.isNotEmpty) {
@@ -98,15 +84,9 @@ class PlacesService {
           _updateCache(cacheKey, filtered);
           _saveToOfflineStorage(cacheKey, filtered);
           
-          DebugLogger.log('✅ Cached ${filtered.length} places (30-min expiry)');
+          DebugLogger.log('✅ Cached ${filtered.length} places');
           
-          // Filter by category if specified
-          if (categoryFilter != null && categoryFilter != 'all') {
-            final categoryFiltered = _filterByCategory(filtered, categoryFilter, query);
-            return categoryFiltered.take(topN).toList();
-          }
-          
-          return filtered.take(topN).toList();
+          return filtered.skip(offset).take(topN).toList();
         }
       }
       
@@ -115,7 +95,7 @@ class PlacesService {
       final offline = await _loadFromOfflineStorage(cacheKey);
       if (offline.isNotEmpty) {
         _updateCache(cacheKey, offline);
-        return offline.take(topN).toList();
+        return offline.skip(offset).take(topN).toList();
       }
       
       return [];
@@ -125,13 +105,13 @@ class PlacesService {
       
       // Try cache first
       if (_cache.containsKey(cacheKey)) {
-        return _cache[cacheKey]!.take(topN).toList();
+        return _cache[cacheKey]!.skip(offset).take(topN).toList();
       }
       
       // Try offline storage
       final offline = await _loadFromOfflineStorage(cacheKey);
       if (offline.isNotEmpty) {
-        return offline.take(topN).toList();
+        return offline.skip(offset).take(topN).toList();
       }
       
       return [];
