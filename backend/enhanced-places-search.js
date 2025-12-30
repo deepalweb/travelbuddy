@@ -10,7 +10,7 @@ export class EnhancedPlacesSearch {
       let allResults = []
       let nextPageToken = null
       let pageCount = 0
-      const maxPages = 3 // Get up to 60 results (20 per page)
+      const maxPages = 6 // Get up to 120 results (20 per page)
       
       do {
         // Build URL with pagination

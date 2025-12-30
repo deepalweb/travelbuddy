@@ -128,7 +128,7 @@ router.get('/hybrid', async (req, res) => {
 // Layer 4: User data (personalization)
 router.get('/mobile/nearby', async (req, res) => {
   try {
-    const { lat, lng, q, radius = 25000, limit = 60, offset = 0, userId } = req.query;
+    const { lat, lng, q, radius = 25000, limit = 150, offset = 0, userId } = req.query;
     const apiKey = process.env.GOOGLE_PLACES_API_KEY;
     
     if (!apiKey) {

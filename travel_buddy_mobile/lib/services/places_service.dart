@@ -383,7 +383,11 @@ class PlacesService {
       final data = jsonBox.get(key);
       
       if (data != null && data is List) {
-        final places = data.map((json) => Place.fromJson(json as Map<String, dynamic>)).toList();
+        final places = data.map((json) {
+          // Fix type cast issue
+          final Map<String, dynamic> jsonMap = Map<String, dynamic>.from(json as Map);
+          return Place.fromJson(jsonMap);
+        }).toList();
         DebugLogger.log('💾 Loaded ${places.length} places from offline storage');
         return places;
       }

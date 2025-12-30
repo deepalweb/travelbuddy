@@ -84,8 +84,18 @@ export class PlacesOptimizer {
       const category = place.category || 'general'
       categories[category] = (categories[category] || 0) + 1
       
-      if (categories[category] <= 3 && result.length < maxResults) {
+      // Allow up to 20 per category for better variety
+      if (categories[category] <= 20 && result.length < maxResults) {
         result.push(place)
+      }
+    }
+    
+    // If we still have room, add remaining places
+    if (result.length < maxResults) {
+      for (const place of places) {
+        if (!result.includes(place) && result.length < maxResults) {
+          result.push(place)
+        }
       }
     }
     
