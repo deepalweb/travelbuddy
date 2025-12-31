@@ -35,7 +35,9 @@ class PlaceCard extends StatelessWidget {
   }
 
   Widget _buildCompactCard(BuildContext context) {
-    return Column(
+    return SizedBox(
+      height: 200,
+      child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Expanded(
@@ -157,6 +159,7 @@ class PlaceCard extends StatelessWidget {
           ),
         ),
       ],
+    ),
     );
   }
 

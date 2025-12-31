@@ -20,6 +20,10 @@ import '../screens/transport_hub_screen.dart';
 import '../screens/travel_agent_screen.dart';
 import '../screens/events_screen.dart';
 import '../screens/place_details_screen.dart';
+import '../screens/category_places_screen.dart';
+import '../widgets/category_section.dart';
+import '../services/places_service.dart';
+import '../models/place.dart';
 import '../config/environment.dart';
 
 
@@ -617,6 +621,8 @@ class _HomeScreenState extends State<HomeScreen> {
                     _buildQuickActions(appProvider),
                     const SizedBox(height: 20),
                     _buildMoreServices(appProvider),
+                    const SizedBox(height: 16),
+                    _buildCategoryPlaces(appProvider),
                     const SizedBox(height: 16),
                     _buildNearbyPlaces(appProvider),
                   ],
@@ -1335,6 +1341,55 @@ class _HomeScreenState extends State<HomeScreen> {
         );
         break;
     }
+  }
+
+  Widget _buildCategoryPlaces(AppProvider appProvider) {
+    final categories = [
+      {'name': 'Food & Dining', 'query': 'restaurants cafes'},
+      {'name': 'Landmarks', 'query': 'tourist attractions landmarks'},
+      {'name': 'Culture', 'query': 'museums galleries'},
+      {'name': 'Nature', 'query': 'parks gardens beaches'},
+      {'name': 'Shopping', 'query': 'shopping malls markets'},
+      {'name': 'Nightlife', 'query': 'bars clubs nightlife'},
+    ];
+
+    if (appProvider.currentLocation == null) {
+      return const SizedBox.shrink();
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Explore by Category',
+          style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+        ),
+        const SizedBox(height: 16),
+        ...categories.map((category) {
+          return FutureBuilder<List<Place>>(
+            future: PlacesService().fetchPlacesPipeline(
+              latitude: appProvider.currentLocation!.latitude,
+              longitude: appProvider.currentLocation!.longitude,
+              query: category['query'] as String,
+              topN: 5,
+            ),
+            builder: (context, snapshot) {
+              if (!snapshot.hasData || snapshot.data!.isEmpty) {
+                return const SizedBox.shrink();
+              }
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 20),
+                child: CategorySection(
+                  title: category['name'] as String,
+                  query: category['query'] as String,
+                  places: snapshot.data!,
+                ),
+              );
+            },
+          );
+        }).toList(),
+      ],
+    );
   }
 
   Widget _buildNearbyPlaces(AppProvider appProvider) {

@@ -139,12 +139,12 @@ class _PlaceDetailsScreenState extends State<PlaceDetailsScreen> with TickerProv
     if (data['photos'] != null) {
       final photos = data['photos'] as List;
       _photoGallery = photos
-          .take(3) // Limit to 3 photos only
+          .take(1) // Only 1 photo
           .map((photo) => '${AppConstants.baseUrl}/api/places/photo?ref=${Uri.encodeComponent(photo['photo_reference'])}&w=600')
           .toList();
       
       _photoAttributions = photos
-          .take(3)
+          .take(1)
           .expand((photo) => (photo['html_attributions'] as List? ?? []))
           .map((attr) => attr.toString())
           .toSet()
@@ -194,7 +194,9 @@ class _PlaceDetailsScreenState extends State<PlaceDetailsScreen> with TickerProv
         final isFavorite = appProvider.favoriteIds.contains(widget.place.id);
         
         return Scaffold(
-          body: CustomScrollView(
+          body: Stack(
+            children: [
+              CustomScrollView(
             slivers: [
               SliverAppBar(
                 expandedHeight: 300,
@@ -440,77 +442,32 @@ class _PlaceDetailsScreenState extends State<PlaceDetailsScreen> with TickerProv
                       
                       const SizedBox(height: 20),
                       
-                      // About Section
-                      if (widget.place.description.isNotEmpty) ..._buildSection(
+                      // About Section (Always show)
+                      ..._buildSection(
                         'About',
                         Icons.info_outline,
                         _buildExpandableDescription(),
                       ),
                       
-                      // Local Tip Section
+                      // Consolidated AI Features Section
                       ..._buildSection(
-                        'Local Tip',
-                        Icons.lightbulb_outline,
-                        _buildLocalTipSection(),
+                        'AI Assistant',
+                        Icons.auto_awesome,
+                        _buildConsolidatedAISection(),
                       ),
                       
-
-                      
-                      // AI Assistant Section
-                      ..._buildSection(
-                        'Ask AI Assistant',
-                        Icons.psychology,
-                        _buildAISection(),
-                      ),
-                      
-                      // Business Details
+                      // Business Details (Collapsible)
                       if (_placeDetails != null) ..._buildSection(
                         'Business Details',
                         Icons.business,
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            if (_placeDetails!['business_status'] != null)
-                              _buildDetailRow('Status', _placeDetails!['business_status']),
-                            if (_placeDetails!['price_level'] != null)
-                              _buildDetailRow('Price Level', _getPriceLevelText(_placeDetails!['price_level'])),
-                            if (_placeDetails!['opening_hours'] != null) ...[
-                              _buildDetailRow('Currently', 
-                                _placeDetails!['opening_hours']['open_now'] == true ? '🟢 Open' : '🔴 Closed'),
-                              if (_placeDetails!['opening_hours']['weekday_text'] != null) ...[
-                                const SizedBox(height: 8),
-                                const Text('Opening Hours:', style: TextStyle(fontWeight: FontWeight.bold)),
-                                const SizedBox(height: 4),
-                                ..._buildOpeningHours(_placeDetails!['opening_hours']['weekday_text']),
-                              ],
-                            ],
-                            if (_placeDetails!['types'] != null) ...[
-                              const SizedBox(height: 8),
-                              const Text('Categories:', style: TextStyle(fontWeight: FontWeight.bold)),
-                              const SizedBox(height: 4),
-                              Wrap(
-                                spacing: 4,
-                                children: (_placeDetails!['types'] as List)
-                                    .take(5)
-                                    .map((type) => Chip(
-                                      label: Text(
-                                        type.toString().replaceAll('_', ' ').toUpperCase(),
-                                        style: const TextStyle(fontSize: 10),
-                                      ),
-                                      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                                    ))
-                                    .toList(),
-                              ),
-                            ],
-                          ],
-                        ),
+                        _buildCollapsibleBusinessDetails(),
                       ),
                       
-                      // Reviews Section
+                      // Reviews Section (Collapsible)
                       ..._buildSection(
                         'Reviews',
                         Icons.star_outline,
-                        _buildReviewsSection(),
+                        _buildCollapsibleReviews(),
                       ),
                       
                       // Nearby Places Section
@@ -558,86 +515,7 @@ class _PlaceDetailsScreenState extends State<PlaceDetailsScreen> with TickerProv
                         ),
                       ),
                       
-                      const SizedBox(height: 20),
-                      
-                      // Enhanced Action Buttons
-                      Column(
-                        children: [
-                          Row(
-                            children: [
-                              Expanded(
-                                child: ElevatedButton.icon(
-                                  onPressed: () => _getDirections(),
-                                  icon: const Icon(Icons.directions),
-                                  label: const Text('Directions'),
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: Color(AppConstants.colors['primary']!),
-                                    foregroundColor: Colors.white,
-                                    padding: const EdgeInsets.symmetric(vertical: 14),
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(12),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              if (widget.place.phoneNumber != null || _placeDetails?['formatted_phone_number'] != null)
-                                Expanded(
-                                  child: ElevatedButton.icon(
-                                    onPressed: () => _launchUrl('tel:${widget.place.phoneNumber ?? _placeDetails!['formatted_phone_number']}'),
-                                    icon: const Icon(Icons.phone),
-                                    label: const Text('Call'),
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: Colors.green,
-                                      foregroundColor: Colors.white,
-                                      padding: const EdgeInsets.symmetric(vertical: 14),
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(12),
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                            ],
-                          ),
-                          const SizedBox(height: 8),
-                          Row(
-                            children: [
-                              Expanded(
-                                child: OutlinedButton.icon(
-                                  onPressed: _sharePlace,
-                                  icon: const Icon(Icons.share),
-                                  label: const Text('Share'),
-                                  style: OutlinedButton.styleFrom(
-                                    padding: const EdgeInsets.symmetric(vertical: 12),
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(12),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: OutlinedButton.icon(
-                                  onPressed: () {
-                                    showDialog(
-                                      context: context,
-                                      builder: (context) => AddToTripDialog(place: widget.place),
-                                    );
-                                  },
-                                  icon: const Icon(Icons.add),
-                                  label: const Text('Add Trip'),
-                                  style: OutlinedButton.styleFrom(
-                                    padding: const EdgeInsets.symmetric(vertical: 12),
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(12),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
+                      const SizedBox(height: 80), // Space for floating button
                     ],
                   ),
                 ),
@@ -650,7 +528,75 @@ class _PlaceDetailsScreenState extends State<PlaceDetailsScreen> with TickerProv
               ),
             ],
           ),
-        );
+          // Floating Action Buttons
+          Positioned(
+            bottom: 0,
+            left: 0,
+            right: 0,
+            child: Container(
+              decoration: BoxDecoration(
+                color: Colors.white,
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.1),
+                    blurRadius: 10,
+                    offset: const Offset(0, -2),
+                  ),
+                ],
+              ),
+              padding: EdgeInsets.fromLTRB(16, 12, 16, MediaQuery.of(context).padding.bottom + 12),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: ElevatedButton.icon(
+                      onPressed: () => _getDirections(),
+                      icon: const Icon(Icons.directions, size: 20),
+                      label: const Text('Directions'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Color(AppConstants.colors['primary']!),
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: ElevatedButton.icon(
+                      onPressed: () => showDialog(
+                        context: context,
+                        builder: (context) => AddToTripDialog(place: widget.place),
+                      ),
+                      icon: const Icon(Icons.add, size: 20),
+                      label: const Text('Add to Trip'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.green,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  IconButton(
+                    onPressed: _sharePlace,
+                    icon: const Icon(Icons.share),
+                    style: IconButton.styleFrom(
+                      backgroundColor: Colors.grey[200],
+                      padding: const EdgeInsets.all(14),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          ],
+        ),
+      );
       },
     );
   }
@@ -769,6 +715,247 @@ class _PlaceDetailsScreenState extends State<PlaceDetailsScreen> with TickerProv
             child: Text('View all ${_reviews.length} reviews'),
           ),
       ],
+    );
+  }
+  
+  Widget _buildConsolidatedAISection() {
+    return Column(
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: OutlinedButton.icon(
+                onPressed: () => _showAIBottomSheet('insights'),
+                icon: const Icon(Icons.lightbulb_outline, size: 18),
+                label: const Text('Local Tips'),
+                style: OutlinedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: OutlinedButton.icon(
+                onPressed: () => _showAIBottomSheet('ask'),
+                icon: const Icon(Icons.psychology, size: 18),
+                label: const Text('Ask AI'),
+                style: OutlinedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+  
+  void _showAIBottomSheet(String type) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) => Padding(
+        padding: EdgeInsets.only(
+          bottom: MediaQuery.of(context).viewInsets.bottom,
+        ),
+        child: Container(
+          padding: const EdgeInsets.all(20),
+          child: type == 'insights' ? _buildInsightsContent() : _buildAskAIContent(),
+        ),
+      ),
+    );
+  }
+  
+  Widget _buildInsightsContent() {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Icon(Icons.lightbulb, color: Colors.orange[700]),
+            const SizedBox(width: 8),
+            const Text('Local Tips & Insights', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+          ],
+        ),
+        const SizedBox(height: 16),
+        if (_isLoadingLocalTip)
+          const Center(child: CircularProgressIndicator())
+        else if (_aiLocalTip != null)
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.orange[50],
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.orange[200]!),
+            ),
+            child: Text(_aiLocalTip!, style: const TextStyle(height: 1.5)),
+          )
+        else
+          ElevatedButton.icon(
+            onPressed: () {
+              Navigator.pop(context);
+              _generateLocalTip();
+            },
+            icon: const Icon(Icons.auto_awesome),
+            label: const Text('Generate Tips'),
+          ),
+      ],
+    );
+  }
+  
+  Widget _buildAskAIContent() {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Row(
+          children: [
+            Icon(Icons.psychology, color: Color(AppConstants.colors['accent']!)),
+            const SizedBox(width: 8),
+            const Text('Ask AI Assistant', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+          ],
+        ),
+        const SizedBox(height: 16),
+        TextField(
+          controller: _questionController,
+          decoration: const InputDecoration(
+            hintText: 'Ask anything about this place...',
+            border: OutlineInputBorder(),
+          ),
+          maxLines: 3,
+          autofocus: true,
+        ),
+        const SizedBox(height: 12),
+        SizedBox(
+          width: double.infinity,
+          child: ElevatedButton.icon(
+            onPressed: _isAskingAI ? null : _askAI,
+            icon: _isAskingAI 
+                ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                : const Icon(Icons.send),
+            label: Text(_isAskingAI ? 'Asking...' : 'Ask'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Color(AppConstants.colors['accent']!),
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(vertical: 14),
+            ),
+          ),
+        ),
+        if (_aiResponse != null) ...[
+          const SizedBox(height: 16),
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.blue[50],
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Text(_aiResponse!, style: const TextStyle(height: 1.5)),
+          ),
+        ],
+      ],
+    );
+  }
+  
+  Widget _buildCollapsibleBusinessDetails() {
+    bool isExpanded = false;
+    return StatefulBuilder(
+      builder: (context, setState) {
+        return Column(
+          children: [
+            InkWell(
+              onTap: () => setState(() => isExpanded = !isExpanded),
+              child: Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.grey[100],
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Row(
+                  children: [
+                    const Text('Tap to view details', style: TextStyle(fontWeight: FontWeight.w500)),
+                    const Spacer(),
+                    Icon(isExpanded ? Icons.expand_less : Icons.expand_more),
+                  ],
+                ),
+              ),
+            ),
+            if (isExpanded) ...[
+              const SizedBox(height: 12),
+              if (_placeDetails!['business_status'] != null)
+                _buildDetailRow('Status', _placeDetails!['business_status']),
+              if (_placeDetails!['price_level'] != null)
+                _buildDetailRow('Price Level', _getPriceLevelText(_placeDetails!['price_level'])),
+              if (_placeDetails!['opening_hours'] != null) ...[
+                _buildDetailRow('Currently', 
+                  _placeDetails!['opening_hours']['open_now'] == true ? '🟢 Open' : '🔴 Closed'),
+                if (_placeDetails!['opening_hours']['weekday_text'] != null) ...[
+                  const SizedBox(height: 8),
+                  const Text('Opening Hours:', style: TextStyle(fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 4),
+                  ..._buildOpeningHours(_placeDetails!['opening_hours']['weekday_text']),
+                ],
+              ],
+              if (_placeDetails!['types'] != null) ...[
+                const SizedBox(height: 8),
+                const Text('Categories:', style: TextStyle(fontWeight: FontWeight.bold)),
+                const SizedBox(height: 4),
+                Wrap(
+                  spacing: 4,
+                  children: (_placeDetails!['types'] as List)
+                      .take(5)
+                      .map((type) => Chip(
+                        label: Text(
+                          type.toString().replaceAll('_', ' ').toUpperCase(),
+                          style: const TextStyle(fontSize: 10),
+                        ),
+                        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      ))
+                      .toList(),
+                ),
+              ],
+            ],
+          ],
+        );
+      },
+    );
+  }
+  
+  Widget _buildCollapsibleReviews() {
+    bool isExpanded = false;
+    return StatefulBuilder(
+      builder: (context, setState) {
+        return Column(
+          children: [
+            InkWell(
+              onTap: () => setState(() => isExpanded = !isExpanded),
+              child: Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.grey[100],
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Row(
+                  children: [
+                    Text(
+                      _reviews.isEmpty ? 'No reviews yet' : '${_reviews.length} reviews',
+                      style: const TextStyle(fontWeight: FontWeight.w500),
+                    ),
+                    const Spacer(),
+                    Icon(isExpanded ? Icons.expand_less : Icons.expand_more),
+                  ],
+                ),
+              ),
+            ),
+            if (isExpanded) ...[
+              const SizedBox(height: 12),
+              _buildReviewsSection(),
+            ],
+          ],
+        );
+      },
     );
   }
   
@@ -1130,49 +1317,52 @@ class _PlaceDetailsScreenState extends State<PlaceDetailsScreen> with TickerProv
           ),
         ),
         
-        // Google Editorial Summary
-        if (_placeDetails != null && _placeDetails!['editorial_summary'] != null) ...[
-          const SizedBox(height: 12),
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: Colors.blue[50],
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: Colors.blue[200]!),
-            ),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Icon(Icons.info, color: Colors.blue[600], size: 20),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Google Summary',
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          color: Colors.blue[800],
-                          fontSize: 12,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        _placeDetails!['editorial_summary']['overview'] ?? '',
-                        style: TextStyle(
-                          fontSize: 13,
-                          color: Colors.blue[700],
-                          height: 1.4,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
+        // Place Summary Section (Always visible)
+        const SizedBox(height: 12),
+        Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: Colors.blue[50],
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: Colors.blue[200]!),
           ),
-        ],
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(Icons.info, color: Colors.blue[600], size: 20),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      _placeDetails?['editorial_summary'] != null ? 'Google Summary' : 'Place Summary',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: Colors.blue[800],
+                        fontSize: 12,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      _placeDetails?['editorial_summary']?['overview'] ?? 
+                      (_enhancedDescription != null && _enhancedDescription!.length > 100
+                        ? _enhancedDescription!.substring(0, 150) + '...'
+                        : widget.place.description.isNotEmpty 
+                          ? widget.place.description
+                          : 'A ${widget.place.type} located at ${widget.place.address}.'),
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: Colors.blue[700],
+                        height: 1.4,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
         
         // Quick Facts Section
         const SizedBox(height: 12),

@@ -24,7 +24,7 @@ class _CategoryPlacesScreenState extends State<CategoryPlacesScreen> {
   bool _isLoading = false;
   bool _isLoadingMore = false;
   int _currentOffset = 0;
-  final int _pageSize = 10;
+  final int _pageSize = 5; // Changed from 10 to 5
   bool _hasMore = true;
   Position? _currentPosition;
 
@@ -203,12 +203,13 @@ class _CategoryPlacesScreenState extends State<CategoryPlacesScreen> {
                         padding: const EdgeInsets.all(16),
                         child: _isLoadingMore
                             ? const CircularProgressIndicator()
-                            : ElevatedButton(
+                            : ElevatedButton.icon(
                                 onPressed: _loadMorePlaces,
+                                icon: const Icon(Icons.add),
+                                label: Text('Load 5 More (${_places.length} shown)'),
                                 style: ElevatedButton.styleFrom(
                                   minimumSize: const Size(double.infinity, 48),
                                 ),
-                                child: const Text('Load More'),
                               ),
                       ),
                   ],

@@ -23,7 +23,7 @@ class PlacesService {
   final Map<String, List<Place>> _cache = {};
   final Map<String, DateTime> _cacheTimestamps = {};
   final Map<String, DateTime> _lastApiCalls = {};
-  static const Duration _cacheExpiry = Duration(minutes: 30); // Longer cache for better UX
+  static const Duration _cacheExpiry = Duration(hours: 1); // Increased from 30 min to 1 hour
   static const Duration _rateLimitDelay = Duration(milliseconds: 500); // Faster rate limit
   
   // Subscription limits
@@ -88,14 +88,6 @@ class PlacesService {
           
           return filtered.skip(offset).take(topN).toList();
         }
-      }
-      
-      // Fallback: Load from offline storage
-      DebugLogger.log('💾 Loading from offline storage');
-      final offline = await _loadFromOfflineStorage(cacheKey);
-      if (offline.isNotEmpty) {
-        _updateCache(cacheKey, offline);
-        return offline.skip(offset).take(topN).toList();
       }
       
       return [];
@@ -276,6 +268,7 @@ class PlacesService {
     final mobileUrl = '${Environment.backendUrl}/api/places/mobile/nearby?lat=$lat&lng=$lng&q=$query&radius=$radius&limit=$limit';
     DebugLogger.log('🔍 API: $query within ${radius}m (limit: $limit)');
     DebugLogger.log('📍 Location: $lat, $lng');
+    DebugLogger.log('🌐 URL: $mobileUrl');
     
     try {
       final response = await _makeRequestWithRetry(() => http.get(
@@ -283,8 +276,12 @@ class PlacesService {
         headers: {'Content-Type': 'application/json'},
       ));
       
+      DebugLogger.log('📡 Response status: ${response.statusCode}');
+      DebugLogger.log('📦 Response body: ${response.body.substring(0, math.min(500, response.body.length))}');
+      
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
+        DebugLogger.log('📦 Backend response: status=${data['status']}, results=${data['results']?.length ?? 0}');
         
         if (data['status'] == 'OK' && data['results'] != null) {
           final List<dynamic> places = data['results'];
@@ -296,9 +293,12 @@ class PlacesService {
             'localTip': 'Check opening hours before visiting',
             'handyPhrase': 'Hello, thank you!',
           })).toList();
+        } else {
+          DebugLogger.error('Backend returned status: ${data['status']}, message: ${data['message']}');
         }
+      } else {
+        DebugLogger.error('API HTTP error: ${response.statusCode}');
       }
-      DebugLogger.error('API returned status: ${response.statusCode}');
     } catch (e) {
       DebugLogger.error('API failed: $e');
     }
@@ -362,9 +362,8 @@ class PlacesService {
       final jsonBox = await Hive.openBox('places_cache');
       final data = jsonBox.get(key);
       
-      if (data != null && data is List) {
+      if (data != null && data is List && data.isNotEmpty) {
         final places = data.map((json) {
-          // Fix type cast issue
           final Map<String, dynamic> jsonMap = Map<String, dynamic>.from(json as Map);
           return Place.fromJson(jsonMap);
         }).toList();
@@ -403,7 +402,9 @@ class PlacesService {
     _resetDailyCountIfNeeded();
     final userTier = await _getUserSubscriptionTier();
     final limit = _subscriptionLimits[userTier] ?? _subscriptionLimits['free']!;
-    return _dailyApiCalls < limit;
+    final canCall = _dailyApiCalls < limit;
+    DebugLogger.log('📊 API limit check: tier=$userTier, used=$_dailyApiCalls, limit=$limit, canCall=$canCall');
+    return canCall;
   }
   
   Future<void> _incrementApiCall() async {

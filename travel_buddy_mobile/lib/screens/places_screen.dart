@@ -11,6 +11,7 @@ import '../utils/api_debouncer.dart';
 import 'place_details_screen.dart';
 import 'subscription_plans_screen.dart';
 import 'route_plan_screen.dart';
+import 'category_places_screen.dart';
 
 class PlacesScreen extends StatefulWidget {
   const PlacesScreen({super.key});
@@ -23,11 +24,20 @@ class _PlacesScreenState extends State<PlacesScreen> {
   final TextEditingController _searchController = TextEditingController();
   final _searchDebouncer = ApiDebouncer(delay: Duration(milliseconds: 500));
   bool _showOpenOnly = false;
+  
+  // Category lazy loading state
+  final Map<String, List<dynamic>> _categoryPlaces = {};
+  final Map<String, bool> _categoryLoading = {};
+  int _currentCategoryIndex = 0;
+  final List<String> _categories = ['food', 'landmarks', 'culture', 'nature', 'shopping', 'spa'];
+  final ScrollController _scrollController = ScrollController();
+  bool _isLoadingCategory = false; // Prevent duplicate loads
 
   @override
   void dispose() {
     _searchController.dispose();
     _searchDebouncer.dispose();
+    _scrollController.dispose();
     super.dispose();
   }
 
@@ -37,9 +47,49 @@ class _PlacesScreenState extends State<PlacesScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final appProvider = Provider.of<AppProvider>(context, listen: false);
       if (appProvider.currentLocation != null) {
-        appProvider.loadNearbyPlaces();
+        _loadAllCategories();
       }
     });
+  }
+  
+  Future<void> _loadAllCategories() async {
+    final appProvider = context.read<AppProvider>();
+    if (appProvider.currentLocation == null) {
+      await appProvider.getCurrentLocation();
+    }
+    
+    setState(() => _isLoadingCategory = true);
+    
+    for (final category in _categories) {
+      final query = _getCategoryQuery(category);
+      final places = await PlacesService().fetchPlacesPipeline(
+        latitude: appProvider.currentLocation!.latitude,
+        longitude: appProvider.currentLocation!.longitude,
+        query: query,
+        radius: appProvider.selectedRadius,
+        topN: 2,
+      );
+      
+      if (places.isNotEmpty) {
+        setState(() {
+          _categoryPlaces[category] = places;
+        });
+      }
+    }
+    
+    setState(() => _isLoadingCategory = false);
+  }
+  
+  String _getCategoryQuery(String category) {
+    final queries = {
+      'food': 'restaurants cafes',
+      'landmarks': 'tourist attractions landmarks',
+      'culture': 'museums galleries',
+      'nature': 'parks gardens beaches',
+      'shopping': 'shopping malls markets',
+      'spa': 'spa wellness',
+    };
+    return queries[category] ?? 'points of interest';
   }
   
   Future<void> _loadSectionedPlaces(AppProvider appProvider) async {
@@ -89,28 +139,6 @@ class _PlacesScreenState extends State<PlacesScreen> {
             children: [
               // Compact header - removed duplicate
               
-              // Real or AI Toggle
-              if (!appProvider.showFavoritesOnly)
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: SegmentedButton<bool>(
-                          segments: const [
-                            ButtonSegment(value: true, label: Text('Real Places'), icon: Icon(Icons.place, size: 16)),
-                            ButtonSegment(value: false, label: Text('AI Places'), icon: Icon(Icons.auto_awesome, size: 16)),
-                          ],
-                          selected: {appProvider.useRealPlaces},
-                          onSelectionChanged: (Set<bool> selection) {
-                            appProvider.setPlacesSource(selection.first);
-                          },
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              
               // Search Bar
               if (!appProvider.showFavoritesOnly)
                 Padding(
@@ -125,39 +153,6 @@ class _PlacesScreenState extends State<PlacesScreen> {
                           appProvider.clearSearchAndShowSections();
                         }
                       });
-                    },
-                  ),
-                ),
-              
-              // Compact category chips
-              if (!appProvider.showFavoritesOnly)
-                SizedBox(
-                  height: 40,
-                  child: ListView.builder(
-                    scrollDirection: Axis.horizontal,
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    itemCount: AppConstants.placeCategories.length,
-                    itemBuilder: (context, index) {
-                      final category = AppConstants.placeCategories[index];
-                      final isSelected = appProvider.selectedCategory == category['value'];
-                      
-                      return Padding(
-                        padding: const EdgeInsets.only(right: 8),
-                        child: FilterChip(
-                          label: Text(
-                            category['label']!,
-                            style: const TextStyle(fontSize: 12),
-                          ),
-                          selected: isSelected,
-                          onSelected: (selected) {
-                            appProvider.setSelectedCategory(category['value']!);
-                          },
-                          selectedColor: Color(AppConstants.colors['primary']!).withValues(alpha: 0.2),
-                          checkmarkColor: Color(AppConstants.colors['primary']!),
-                          materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                          visualDensity: VisualDensity.compact,
-                        ),
-                      );
                     },
                   ),
                 ),
@@ -193,7 +188,11 @@ class _PlacesScreenState extends State<PlacesScreen> {
                     } else if (_searchController.text.isNotEmpty) {
                       await appProvider.performInstantSearch(_searchController.text.trim());
                     } else {
-                      await appProvider.forceRefreshPlaces();
+                      // Refresh categories
+                      setState(() {
+                        _categoryPlaces.clear();
+                      });
+                      await _loadAllCategories();
                     }
                   },
                   child: appProvider.showFavoritesOnly
@@ -644,9 +643,11 @@ class _PlacesScreenState extends State<PlacesScreen> {
                     child: ElevatedButton(
                       onPressed: () {
                         Navigator.pop(context);
-                        // Clear search and reload with new filters
-                        _searchController.clear();
-                        appProvider.loadNearbyPlaces();
+                        // Reload categories with new radius
+                        setState(() {
+                          _categoryPlaces.clear();
+                        });
+                        _loadAllCategories();
                       },
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Color(AppConstants.colors['primary']!),
@@ -1042,139 +1043,111 @@ class _PlacesScreenState extends State<PlacesScreen> {
   }
 
   Widget _buildCategoryResults(AppProvider appProvider) {
-    if (appProvider.isPlacesLoading) {
-      // Google Maps-style skeleton grid
-      return CustomScrollView(
-        slivers: [
-          SliverPadding(
-            padding: const EdgeInsets.all(16),
-            sliver: SliverGrid(
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 2,
-                childAspectRatio: 0.75,
-                crossAxisSpacing: 12,
-                mainAxisSpacing: 12,
-              ),
-              delegate: SliverChildBuilderDelegate(
-                (context, index) => _buildSkeletonCard(),
-                childCount: 6,
-              ),
-            ),
-          ),
-        ],
-      );
+    if (_isLoadingCategory && _categoryPlaces.isEmpty) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    
+    if (_categoryPlaces.isEmpty) {
+      return _buildEmptyState(appProvider);
     }
 
-    if (appProvider.placesError != null) {
-      return _buildErrorState(appProvider);
-    }
-
-    // Filter by Open Now if enabled
-    final filteredPlaces = _showOpenOnly
-        ? appProvider.places.where((p) => p.isOpenNow == true).toList()
-        : appProvider.places;
-
-    if (filteredPlaces.isEmpty) {
-      return ListView(
-        physics: const AlwaysScrollableScrollPhysics(),
-        children: [
-          SizedBox(height: MediaQuery.of(context).size.height * 0.3),
-          Center(
-            child: Column(
+    return ListView.builder(
+      physics: const AlwaysScrollableScrollPhysics(),
+      padding: const EdgeInsets.all(16),
+      itemCount: _categoryPlaces.length,
+      itemBuilder: (context, index) {
+        
+        final category = _categoryPlaces.keys.elementAt(index);
+        final places = _categoryPlaces[category]!;
+        final displayPlaces = places.take(2).toList();
+        
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
               children: [
-                const Icon(Icons.category_outlined, size: 64, color: Colors.grey),
-                const SizedBox(height: 16),
+                _getCategoryIcon(category),
+                const SizedBox(width: 8),
                 Text(
-                  'No ${_getCategoryDisplayName(appProvider.selectedCategory)} found nearby',
-                  style: const TextStyle(fontSize: 18, color: Colors.grey),
+                  _getCategoryDisplayName(category),
+                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                 ),
-                const SizedBox(height: 8),
-                const Text('Try expanding search radius or choose different category'),
-                const SizedBox(height: 16),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    ElevatedButton.icon(
-                      onPressed: () => appProvider.setSelectedCategory('all'),
-                      icon: const Icon(Icons.clear),
-                      label: const Text('Show All'),
-                    ),
-                    const SizedBox(width: 12),
-                    ElevatedButton.icon(
-                      onPressed: () => appProvider.loadNearbyPlaces(),
-                      icon: const Icon(Icons.refresh),
-                      label: const Text('Try Again'),
-                    ),
-                  ],
+                const Spacer(),
+                TextButton(
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => CategoryPlacesScreen(
+                          title: _getCategoryDisplayName(category),
+                          query: _getCategoryQuery(category),
+                        ),
+                      ),
+                    );
+                  },
+                  child: const Text('See More'),
                 ),
               ],
             ),
-          ),
-        ],
-      );
-    }
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // Category results header
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      _getCategoryDisplayName(appProvider.selectedCategory),
-                      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                    ),
-                  ),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: Colors.blue[50],
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Text(
-                      '${filteredPlaces.length} found',
-                      style: TextStyle(
-                        color: Colors.blue[700],
-                        fontWeight: FontWeight.w600,
-                        fontSize: 13,
+            const SizedBox(height: 12),
+            SizedBox(
+              height: 220,
+              child: Row(
+                children: displayPlaces.map((place) {
+                  return Expanded(
+                    child: Padding(
+                      padding: EdgeInsets.only(
+                        right: displayPlaces.indexOf(place) == 0 ? 12 : 0,
                       ),
-                    ),
-                  ),
-                ],
-              ),
-              if (_showOpenOnly)
-                Padding(
-                  padding: const EdgeInsets.only(top: 8),
-                  child: Wrap(
-                    spacing: 8,
-                    children: [
-                      Chip(
-                        label: const Text('Open Now', style: TextStyle(fontSize: 12)),
-                        deleteIcon: const Icon(Icons.close, size: 16),
-                        onDeleted: () {
-                          setState(() => _showOpenOnly = false);
-                          appProvider.loadNearbyPlaces();
+                      child: PlaceCard(
+                        place: place,
+                        compact: true,
+                        isFavorite: appProvider.favoriteIds.contains(place.id),
+                        onFavoriteToggle: () async {
+                          final success = await appProvider.toggleFavorite(place.id);
+                          if (!success && mounted) {
+                            _showUpgradeDialog(context);
+                          }
                         },
-                        backgroundColor: Colors.green[50],
+                        onTap: () {
+                          Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (context) => PlaceDetailsScreen(place: place),
+                            ),
+                          );
+                        },
                       ),
-                    ],
-                  ),
-                ),
-            ],
-          ),
-        ),
-        // Category results list
-        Expanded(
-          child: _buildPlacesListViewFiltered(filteredPlaces),
-        ),
-      ],
+                    ),
+                  );
+                }).toList(),
+              ),
+            ),
+            const SizedBox(height: 24),
+          ],
+        );
+      },
     );
+  }
+  
+  List<dynamic> _filterPlacesByCategory(List<dynamic> places, String category) {
+    if (category == 'all') return places;
+    
+    final categoryKeywords = {
+      'food': ['restaurant', 'cafe', 'coffee', 'bar', 'food', 'dining', 'eatery', 'bakery', 'bistro'],
+      'landmarks': ['landmark', 'monument', 'attraction', 'historic', 'tower', 'temple', 'church', 'mosque', 'tourist'],
+      'culture': ['museum', 'gallery', 'art', 'cultural', 'theater', 'theatre', 'auditorium'],
+      'nature': ['park', 'garden', 'nature', 'outdoor', 'beach', 'trail', 'hiking', 'forest'],
+      'shopping': ['shopping', 'mall', 'market', 'store', 'boutique', 'shop', 'bazaar'],
+      'spa': ['spa', 'wellness', 'massage', 'beauty', 'salon', 'therapy'],
+    };
+    
+    final keywords = categoryKeywords[category] ?? [];
+    if (keywords.isEmpty) return places;
+    
+    return places.where((place) {
+      final searchText = '${place.name} ${place.type} ${place.description}'.toLowerCase();
+      return keywords.any((keyword) => searchText.contains(keyword));
+    }).toList();
   }
   
   String _getCategoryDisplayName(String category) {
@@ -1188,6 +1161,22 @@ class _PlacesScreenState extends State<PlacesScreen> {
       'all': 'All Places'
     };
     return categoryMap[category] ?? category.toUpperCase();
+  }
+  
+  Widget _getCategoryIcon(String category) {
+    final iconMap = {
+      'food': Icons.restaurant,
+      'landmarks': Icons.location_city,
+      'culture': Icons.museum,
+      'nature': Icons.park,
+      'shopping': Icons.shopping_bag,
+      'spa': Icons.spa,
+    };
+    return Icon(
+      iconMap[category] ?? Icons.place,
+      color: Color(AppConstants.colors['primary']!),
+      size: 24,
+    );
   }
 
   void _openRoutePlanOld(AppProvider appProvider) {
