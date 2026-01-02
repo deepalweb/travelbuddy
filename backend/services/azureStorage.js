@@ -14,8 +14,8 @@ if (connectionString) {
     blobServiceClient = BlobServiceClient.fromConnectionString(connectionString);
     containerClient = blobServiceClient.getContainerClient(containerName);
     
-    // Create container if it doesn't exist
-    containerClient.createIfNotExists({ access: 'blob' })
+    // Create container if it doesn't exist (private access, no public blob access)
+    containerClient.createIfNotExists()
       .then(() => console.log('✅ Azure Blob Storage initialized'))
       .catch(err => console.error('❌ Failed to create container:', err.message));
   } catch (error) {
