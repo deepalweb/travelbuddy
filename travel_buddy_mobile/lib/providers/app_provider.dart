@@ -922,10 +922,16 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
       
       if (cleanData.isEmpty) return;
       
-      await _apiService.updateUserProfile(cleanData);
-      print('? Profile synced to backend: ${cleanData.keys.join(", ")}');
+      print('🔄 Syncing to backend: ${cleanData.keys.join(", ")}');
+      
+      try {
+        await _apiService.updateUserProfile(cleanData);
+        print('✅ Profile synced to backend successfully');
+      } catch (e) {
+        print('❌ Backend sync error: $e');
+      }
     } catch (e) {
-      print('?? Backend sync failed: $e');
+      print('❌ Backend sync failed: $e');
     }
   }
 

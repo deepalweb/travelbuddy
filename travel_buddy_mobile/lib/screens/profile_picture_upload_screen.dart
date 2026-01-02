@@ -52,26 +52,32 @@ class _ProfilePictureUploadScreenState extends State<ProfilePictureUploadScreen>
       final bytes = await _selectedImage!.readAsBytes();
       final base64Image = 'data:image/jpeg;base64,${base64Encode(bytes)}';
 
-      // Simulate progress
-      for (int i = 0; i <= 100; i += 20) {
-        await Future.delayed(const Duration(milliseconds: 100));
-        if (mounted) setState(() => _uploadProgress = i / 100);
-      }
+      setState(() => _uploadProgress = 0.5);
 
-      await context.read<AppProvider>().updateUserProfile(
+      final success = await context.read<AppProvider>().updateUserProfile(
         profilePicture: base64Image,
       );
 
+      setState(() => _uploadProgress = 1.0);
+
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Profile picture updated!'),
-            backgroundColor: Colors.green,
-          ),
-        );
-        Navigator.pop(context);
+        if (success) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Profile picture updated!'),
+              backgroundColor: Colors.green,
+            ),
+          );
+          Navigator.pop(context);
+        } else {
+          setState(() {
+            _errorMessage = 'Upload failed. Please try again.';
+            _isUploading = false;
+          });
+        }
       }
     } catch (e) {
+      print('❌ Upload error: $e');
       setState(() {
         _errorMessage = 'Upload failed: $e';
         _isUploading = false;

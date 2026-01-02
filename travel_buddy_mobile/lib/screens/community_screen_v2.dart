@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/community_provider.dart';
+import '../providers/app_provider.dart';
 import '../widgets/enhanced_story_card.dart';
 import 'create_post_screen.dart';
 
@@ -79,7 +80,7 @@ class _CommunityScreenV2State extends State<CommunityScreenV2> with SingleTicker
             });
           },
         ),
-        if (!_isSearching) ..[
+        if (!_isSearching)
           Stack(
             children: [
               IconButton(
@@ -105,8 +106,7 @@ class _CommunityScreenV2State extends State<CommunityScreenV2> with SingleTicker
               ),
             ],
           ),
-          const SizedBox(width: 8),
-        ],
+        const SizedBox(width: 8),
       ],
     );
   }

@@ -725,9 +725,7 @@ class ApiService {
       final user = FirebaseAuth.instance.currentUser;
       if (user == null) return null;
       
-      // Use the same userId format as existing posts
       final response = await _dio.post('/api/community/posts', data: {
-        'userId': '507f1f77bcf86cd799439011', // Use consistent test user ID
         'content': {
           'text': content,
           'images': images,
