@@ -346,6 +346,18 @@ router.put('/:id', flexAuth, async (req, res) => {
 router.delete('/:id', flexAuth, async (req, res) => {
   try {
     const Post = mongoose.model('Post');
+    const post = await Post.findById(req.params.id);
+    
+    if (!post) {
+      return res.status(404).json({ error: 'Post not found' });
+    }
+    
+    // Check if user owns this post
+    const userId = req.user?.uid;
+    if (!userId || post.userId.toString() !== userId) {
+      return res.status(403).json({ error: 'You can only delete your own posts' });
+    }
+    
     await Post.findByIdAndDelete(req.params.id);
     res.json({ success: true });
   } catch (error) {

@@ -230,6 +230,8 @@ class _CommunityScreenV2State extends State<CommunityScreenV2> with SingleTicker
                 onUserTap: () => _showUserProfile(posts[index].userId),
                 onReport: () => _reportPost(posts[index]),
                 onDelete: () => _handleDelete(posts[index]),
+                currentUserId: context.read<AppProvider>().currentUser?.mongoId ?? 
+                              context.read<AppProvider>().currentUser?.uid,
               );
             },
             childCount: posts.length + (provider.hasMorePosts && _searchQuery.isEmpty ? 1 : 0),

@@ -14,6 +14,7 @@ class EnhancedStoryCard extends StatelessWidget {
   final VoidCallback? onUserTap;
   final VoidCallback? onReport;
   final VoidCallback? onDelete;
+  final String? currentUserId;
 
   const EnhancedStoryCard({
     super.key, 
@@ -24,6 +25,7 @@ class EnhancedStoryCard extends StatelessWidget {
     this.onUserTap,
     this.onReport,
     this.onDelete,
+    this.currentUserId,
   });
 
   @override
@@ -119,7 +121,7 @@ class EnhancedStoryCard extends StatelessWidget {
             _formatTime(post.createdAt),
             style: TextStyle(color: Colors.grey[500], fontSize: 12),
           ),
-          if (onReport != null || onDelete != null)
+          if (onReport != null || (onDelete != null && currentUserId != null && post.userId == currentUserId))
             PopupMenuButton<String>(
               icon: Icon(Icons.more_vert, color: Colors.grey[600]),
               onSelected: (value) {
@@ -127,7 +129,7 @@ class EnhancedStoryCard extends StatelessWidget {
                 if (value == 'delete' && onDelete != null) onDelete!();
               },
               itemBuilder: (context) => [
-                if (onDelete != null)
+                if (onDelete != null && currentUserId != null && post.userId == currentUserId)
                   const PopupMenuItem(
                     value: 'delete',
                     child: Row(

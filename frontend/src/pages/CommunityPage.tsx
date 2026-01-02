@@ -488,6 +488,7 @@ export const CommunityPage: React.FC = () => {
                         story={story}
                         onLike={handleLike}
                         onDelete={handleDelete}
+                        currentUserId="507f1f77bcf86cd799439011"
                       />
                     </div>
                   ))
