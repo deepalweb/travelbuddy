@@ -1,6 +1,6 @@
 import React, { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Heart, MessageCircle, MapPin, Calendar, MoreHorizontal, ExternalLink } from 'lucide-react'
+import { Heart, MessageCircle, MapPin, Calendar, MoreHorizontal, ExternalLink, Trash2, Edit } from 'lucide-react'
 
 interface Story {
   _id: string;
@@ -28,10 +28,12 @@ interface Story {
 interface StoryCardProps {
   story: Story;
   onLike: (storyId: string) => void;
+  onDelete?: (storyId: string) => void;
 }
 
-export const StoryCard: React.FC<StoryCardProps> = ({ story, onLike }) => {
+export const StoryCard: React.FC<StoryCardProps> = ({ story, onLike, onDelete }) => {
   const [showComments, setShowComments] = useState(false)
+  const [showMenu, setShowMenu] = useState(false)
   const navigate = useNavigate()
 
   const formatDate = (dateString: string) => {
@@ -71,9 +73,31 @@ export const StoryCard: React.FC<StoryCardProps> = ({ story, onLike }) => {
             </div>
           </div>
         </div>
-        <button className="p-2 hover:bg-gray-100 rounded-full transition-colors">
-          <MoreHorizontal className="w-4 h-4 text-gray-500" />
-        </button>
+        <div className="relative">
+          <button 
+            onClick={() => setShowMenu(!showMenu)}
+            className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+          >
+            <MoreHorizontal className="w-4 h-4 text-gray-500" />
+          </button>
+          
+          {showMenu && (
+            <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-10">
+              <button
+                onClick={() => {
+                  if (confirm('Delete this post?')) {
+                    onDelete?.(story._id)
+                  }
+                  setShowMenu(false)
+                }}
+                className="w-full px-4 py-2 text-left text-red-600 hover:bg-red-50 flex items-center space-x-2"
+              >
+                <Trash2 className="w-4 h-4" />
+                <span>Delete Post</span>
+              </button>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Content */}
