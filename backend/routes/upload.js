@@ -1,41 +1,17 @@
 import express from 'express';
 import multer from 'multer';
-import path from 'path';
-import fs from 'fs';
-import { fileURLToPath } from 'url';
 import { requireAuth } from '../middleware/auth.js';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+import { uploadToAzure, deleteFromAzure } from '../services/azureStorage.js';
 
 const router = express.Router();
 
-// Ensure uploads directory exists
-const uploadsDir = path.join(__dirname, '../uploads/profiles');
-if (!fs.existsSync(uploadsDir)) {
-  fs.mkdirSync(uploadsDir, { recursive: true });
-}
-
-// Configure multer for profile picture uploads
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, uploadsDir);
-  },
-  filename: (req, file, cb) => {
-    const userId = req.user?.uid || 'anonymous';
-    const timestamp = Date.now();
-    const ext = path.extname(file.originalname).toLowerCase();
-    const uniqueName = `${userId}-${timestamp}${ext}`;
-    cb(null, uniqueName);
-  }
-});
-
+// Configure multer for memory storage (Azure upload)
 const upload = multer({
-  storage,
+  storage: multer.memoryStorage(),
   limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit
   fileFilter: (req, file, cb) => {
     const allowedTypes = /jpeg|jpg|png|gif|webp/;
-    const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
+    const extname = allowedTypes.test(file.originalname.toLowerCase());
     const mimetype = allowedTypes.test(file.mimetype);
     
     if (mimetype && extname) {
@@ -52,7 +28,7 @@ router.post('/profile-picture', requireAuth, upload.single('profilePicture'), as
     console.log('📸 Profile picture upload request:', {
       user: req.user?.uid,
       userId: req.headers['x-user-id'],
-      file: req.file ? { name: req.file.filename, size: req.file.size } : 'none'
+      file: req.file ? { name: req.file.originalname, size: req.file.size } : 'none'
     });
 
     if (!req.file) {
@@ -68,12 +44,17 @@ router.post('/profile-picture', requireAuth, upload.single('profilePicture'), as
       return res.status(500).json({ error: 'User model not available' });
     }
 
-    const profilePictureUrl = `/uploads/profiles/${req.file.filename}`;
+    // Upload to Azure Blob Storage
+    const profilePictureUrl = await uploadToAzure(req.file.buffer, req.file.originalname, 'profiles');
     
     // Use authenticated user's Firebase UID
     const searchCriteria = { firebaseUid: req.user.uid };
     
     console.log('🔍 Searching for user with:', searchCriteria);
+    
+    // Get old profile picture URL for cleanup
+    const existingUser = await User.findOne(searchCriteria);
+    const oldProfilePicture = existingUser?.profilePicture;
     
     // Update user profile with new picture URL
     const user = await User.findOneAndUpdate(
@@ -87,12 +68,21 @@ router.post('/profile-picture', requireAuth, upload.single('profilePicture'), as
       return res.status(404).json({ error: 'User not found' });
     }
 
+    // Delete old profile picture from Azure if it exists
+    if (oldProfilePicture && oldProfilePicture.includes('blob.core.windows.net')) {
+      try {
+        await deleteFromAzure(oldProfilePicture);
+        console.log('🗑️ Deleted old profile picture from Azure');
+      } catch (err) {
+        console.warn('⚠️ Failed to delete old profile picture:', err.message);
+      }
+    }
+
     console.log('✅ Profile picture updated successfully:', profilePictureUrl);
 
     res.json({
       success: true,
       profilePicture: profilePictureUrl,
-      filename: req.file.filename,
       fileSize: req.file.size,
       mimeType: req.file.mimetype
     });
@@ -102,21 +92,7 @@ router.post('/profile-picture', requireAuth, upload.single('profilePicture'), as
   }
 });
 
-// Get uploaded file
-router.get('/profiles/:filename', (req, res) => {
-  try {
-    const filename = req.params.filename;
-    const filePath = path.join(uploadsDir, filename);
-    
-    if (!fs.existsSync(filePath)) {
-      return res.status(404).json({ error: 'File not found' });
-    }
-    
-    res.sendFile(filePath);
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
+
 
 // Delete profile picture
 router.delete('/profile-picture', requireAuth, async (req, res) => {
@@ -131,12 +107,13 @@ router.delete('/profile-picture', requireAuth, async (req, res) => {
       return res.status(404).json({ error: 'User not found' });
     }
 
-    // Delete old file if it exists
-    if (user.profilePicture && user.profilePicture.startsWith('/uploads/profiles/')) {
-      const filename = path.basename(user.profilePicture);
-      const filePath = path.join(uploadsDir, filename);
-      if (fs.existsSync(filePath)) {
-        fs.unlinkSync(filePath);
+    // Delete from Azure if it exists
+    if (user.profilePicture && user.profilePicture.includes('blob.core.windows.net')) {
+      try {
+        await deleteFromAzure(user.profilePicture);
+        console.log('🗑️ Deleted profile picture from Azure');
+      } catch (err) {
+        console.warn('⚠️ Failed to delete from Azure:', err.message);
       }
     }
 

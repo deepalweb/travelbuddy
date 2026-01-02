@@ -115,7 +115,7 @@ export const StoryCard: React.FC<StoryCardProps> = ({ story, onLike }) => {
       </div>
 
       {/* Images */}
-      {story.images && story.images.length > 0 && (
+      {story.images && story.images.length > 0 && story.images.filter(img => img && img.trim()).length > 0 && (
         <div className="px-6 pb-6">
           {story.images.length === 1 ? (
             <img 

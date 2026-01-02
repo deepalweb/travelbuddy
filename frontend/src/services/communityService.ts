@@ -46,11 +46,14 @@ const API_BASE = import.meta.env.VITE_API_URL || 'https://travelbuddylk.com/api'
 
 // Transform backend post to frontend story format
 const transformPost = (post: any): Story => {
+  const images = post.content?.images || post.images || []
+  console.log('🖼️ Transforming post images:', { postId: post._id, images, contentImages: post.content?.images, directImages: post.images })
+  
   return {
     _id: post._id,
     title: post.content?.title || post.title || 'Untitled Story',
     content: post.content?.text || post.content || '',
-    images: post.content?.images || post.images || [],
+    images: images.filter((img: string) => img && img.trim()),
     author: {
       username: post.username || post.author?.username || 'Anonymous',
       profilePicture: post.profilePicture || post.author?.profilePicture
