@@ -1,4 +1,4 @@
-import { BlobServiceClient } from '@azure/storage-blob';
+import { BlobServiceClient, generateBlobSASQueryParameters, BlobSASPermissions, StorageSharedKeyCredential } from '@azure/storage-blob';
 import multer from 'multer';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -7,6 +7,15 @@ const containerName = process.env.AZURE_STORAGE_CONTAINER_NAME || 'travelbuddy-i
 
 let blobServiceClient;
 let containerClient;
+let accountName;
+let accountKey;
+
+// Parse connection string to get account name and key
+if (connectionString) {
+  const parts = connectionString.split(';');
+  accountName = parts.find(p => p.startsWith('AccountName='))?.split('=')[1];
+  accountKey = parts.find(p => p.startsWith('AccountKey='))?.split('=')[1];
+}
 
 // Initialize Azure Blob Storage
 if (connectionString) {
@@ -14,7 +23,7 @@ if (connectionString) {
     blobServiceClient = BlobServiceClient.fromConnectionString(connectionString);
     containerClient = blobServiceClient.getContainerClient(containerName);
     
-    // Create container if it doesn't exist (private access, no public blob access)
+    // Create container if it doesn't exist (private access)
     containerClient.createIfNotExists()
       .then(() => console.log('✅ Azure Blob Storage initialized'))
       .catch(err => console.error('❌ Failed to create container:', err.message));
@@ -54,8 +63,18 @@ export async function uploadToAzure(file) {
     blobHTTPHeaders: { blobContentType: file.mimetype }
   });
 
-  console.log('✅ Blob uploaded:', blockBlobClient.url);
-  return blockBlobClient.url;
+  // Generate SAS token for private access (valid for 10 years)
+  const sasToken = generateBlobSASQueryParameters({
+    containerName,
+    blobName,
+    permissions: BlobSASPermissions.parse('r'), // read only
+    startsOn: new Date(),
+    expiresOn: new Date(new Date().valueOf() + 315360000000) // 10 years
+  }, new StorageSharedKeyCredential(accountName, accountKey)).toString();
+
+  const urlWithSAS = `${blockBlobClient.url}?${sasToken}`;
+  console.log('✅ Blob uploaded with SAS token');
+  return urlWithSAS;
 }
 
 // Delete from Azure Blob Storage
