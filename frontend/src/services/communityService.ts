@@ -167,8 +167,10 @@ export const communityService = {
   },
 
   async createStory(storyData: CreateStoryData): Promise<Story> {
+    console.log('📤 Creating story with images:', storyData.images)
+    
     const postData = {
-      userId: '507f1f77bcf86cd799439011', // Valid ObjectId
+      userId: '507f1f77bcf86cd799439011',
       content: {
         title: storyData.title,
         text: storyData.content,
@@ -184,6 +186,8 @@ export const communityService = {
         comments: 0
       }
     }
+    
+    console.log('📦 Post data being sent:', JSON.stringify(postData, null, 2))
     
     const response = await fetch(`${API_BASE}/posts/community`, {
       method: 'POST',
@@ -201,6 +205,8 @@ export const communityService = {
     }
     
     const post = await response.json()
+    console.log('✅ Created post response:', post)
+    console.log('🖼️ Post images in response:', post.content?.images, post.images)
     return transformPost(post)
   },
 

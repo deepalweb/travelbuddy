@@ -123,8 +123,9 @@ export const StoryCard: React.FC<StoryCardProps> = ({ story, onLike }) => {
               alt={story.title}
               className="w-full h-64 object-cover rounded-lg"
               onError={(e) => {
-                e.currentTarget.style.display = 'none'
                 console.error('Failed to load image:', story.images[0])
+                console.log('Story data:', { id: story._id, images: story.images })
+                e.currentTarget.style.display = 'none'
               }}
             />
           ) : (
