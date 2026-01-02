@@ -20,6 +20,7 @@ class _CommunityScreenV2State extends State<CommunityScreenV2> with SingleTicker
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
   List<dynamic> _filteredPosts = [];
+  bool _isSearching = false;
   
   @override
   void initState() {
@@ -49,57 +50,94 @@ class _CommunityScreenV2State extends State<CommunityScreenV2> with SingleTicker
     return AppBar(
       backgroundColor: Colors.white,
       elevation: 0.5,
-      title: const Text(
-        'Community',
-        style: TextStyle(color: Colors.black, fontSize: 22, fontWeight: FontWeight.w700),
-      ),
+      title: _isSearching
+          ? TextField(
+              controller: _searchController,
+              autofocus: true,
+              decoration: const InputDecoration(
+                hintText: 'Search posts...',
+                border: InputBorder.none,
+                hintStyle: TextStyle(color: Colors.grey),
+              ),
+              style: const TextStyle(color: Colors.black, fontSize: 16),
+              onChanged: (value) => setState(() => _searchQuery = value),
+            )
+          : const Text(
+              'Community',
+              style: TextStyle(color: Colors.black, fontSize: 22, fontWeight: FontWeight.w700),
+            ),
       actions: [
         IconButton(
-          icon: const Icon(Icons.search, color: Colors.black, size: 26),
-          onPressed: _showSearchDialog,
+          icon: Icon(_isSearching ? Icons.close : Icons.search, color: Colors.black, size: 26),
+          onPressed: () {
+            setState(() {
+              _isSearching = !_isSearching;
+              if (!_isSearching) {
+                _searchQuery = '';
+                _searchController.clear();
+              }
+            });
+          },
         ),
-        Stack(
-          children: [
-            IconButton(
-              icon: const Icon(Icons.notifications_outlined, color: Colors.black, size: 26),
-              onPressed: _showNotifications,
-            ),
-            Positioned(
-              right: 8,
-              top: 8,
-              child: Container(
-                padding: const EdgeInsets.all(4),
-                decoration: const BoxDecoration(
-                  color: Colors.red,
-                  shape: BoxShape.circle,
-                ),
-                constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
-                child: const Text(
-                  '3',
-                  style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
-                  textAlign: TextAlign.center,
+        if (!_isSearching) ..[
+          Stack(
+            children: [
+              IconButton(
+                icon: const Icon(Icons.notifications_outlined, color: Colors.black, size: 26),
+                onPressed: _showNotifications,
+              ),
+              Positioned(
+                right: 8,
+                top: 8,
+                child: Container(
+                  padding: const EdgeInsets.all(4),
+                  decoration: const BoxDecoration(
+                    color: Colors.red,
+                    shape: BoxShape.circle,
+                  ),
+                  constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
+                  child: const Text(
+                    '3',
+                    style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+                    textAlign: TextAlign.center,
+                  ),
                 ),
               ),
-            ),
-          ],
-        ),
-        const SizedBox(width: 8),
+            ],
+          ),
+          const SizedBox(width: 8),
+        ],
       ],
     );
   }
 
   Widget _buildBody() {
-    return CustomScrollView(
-      slivers: [
-        // Filter Tabs
-        SliverToBoxAdapter(child: _buildFilterTabs()),
-        
-        // Hashtag Chips
-        SliverToBoxAdapter(child: _buildHashtagChips()),
-        
-        // Feed
-        _buildFeed(),
-      ],
+    return RefreshIndicator(
+      onRefresh: () => context.read<CommunityProvider>().loadPosts(refresh: true, context: context),
+      child: CustomScrollView(
+        slivers: [
+          // Filter Tabs
+          SliverToBoxAdapter(child: _buildFilterTabs()),
+          
+          // Hashtag Chips
+          SliverToBoxAdapter(child: _buildHashtagChips()),
+          
+          // Loading indicator for filter changes
+          Consumer<CommunityProvider>(
+            builder: (context, provider, child) {
+              if (provider.isLoading && provider.posts.isNotEmpty) {
+                return const SliverToBoxAdapter(
+                  child: LinearProgressIndicator(minHeight: 2),
+                );
+              }
+              return const SliverToBoxAdapter(child: SizedBox.shrink());
+            },
+          ),
+          
+          // Feed
+          _buildFeed(),
+        ],
+      ),
     );
   }
 
@@ -230,6 +268,7 @@ class _CommunityScreenV2State extends State<CommunityScreenV2> with SingleTicker
                 onUserTap: () => _showUserProfile(posts[index].userId),
                 onReport: () => _reportPost(posts[index]),
                 onDelete: () => _handleDelete(posts[index]),
+                onEdit: () => _handleEdit(posts[index]),
                 currentUserId: context.read<AppProvider>().currentUser?.mongoId ?? 
                               context.read<AppProvider>().currentUser?.uid,
               );
@@ -300,52 +339,7 @@ class _CommunityScreenV2State extends State<CommunityScreenV2> with SingleTicker
     );
   }
   
-  void _showSearchDialog() {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Search Posts'),
-        content: TextField(
-          controller: _searchController,
-          decoration: const InputDecoration(
-            hintText: 'Search by content, location, or user...',
-            prefixIcon: Icon(Icons.search),
-          ),
-          autofocus: true,
-          onSubmitted: (value) {
-            Navigator.pop(context);
-            _performSearch(value);
-          },
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.pop(context);
-              _performSearch(_searchController.text);
-            },
-            child: const Text('Search'),
-          ),
-        ],
-      ),
-    );
-  }
-  
-  void _performSearch(String query) {
-    if (query.trim().isEmpty) {
-      setState(() => _searchQuery = '');
-      return;
-    }
-    
-    setState(() => _searchQuery = query.trim());
-    
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Searching for "$query"...'), duration: const Duration(seconds: 1)),
-    );
-  }
+
   
   void _handleLike(dynamic post) {
     ScaffoldMessenger.of(context).showSnackBar(
@@ -353,7 +347,9 @@ class _CommunityScreenV2State extends State<CommunityScreenV2> with SingleTicker
     );
   }
   
-  void _handleComment(dynamic post) {
+  void _handleComment(dynamic post) async {
+    final commentController = TextEditingController();
+    
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -367,6 +363,7 @@ class _CommunityScreenV2State extends State<CommunityScreenV2> with SingleTicker
               const Text('Add Comment', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
               const SizedBox(height: 16),
               TextField(
+                controller: commentController,
                 decoration: const InputDecoration(
                   hintText: 'Write a comment...',
                   border: OutlineInputBorder(),
@@ -376,11 +373,33 @@ class _CommunityScreenV2State extends State<CommunityScreenV2> with SingleTicker
               ),
               const SizedBox(height: 16),
               ElevatedButton(
-                onPressed: () {
+                onPressed: () async {
+                  final text = commentController.text.trim();
+                  if (text.isEmpty) return;
+                  
                   Navigator.pop(context);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Comment posted!')),
-                  );
+                  
+                  try {
+                    final currentUser = context.read<AppProvider>().currentUser;
+                    final success = await context.read<CommunityProvider>().addComment(
+                      postId: post.id,
+                      content: text,
+                      userId: currentUser?.mongoId ?? currentUser?.uid,
+                      username: currentUser?.username ?? 'User',
+                    );
+                    
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text(success ? 'Comment posted!' : 'Failed to post comment')),
+                      );
+                    }
+                  } catch (e) {
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('Error: $e')),
+                      );
+                    }
+                  }
                 },
                 child: const Text('Post Comment'),
               ),
@@ -501,6 +520,76 @@ class _CommunityScreenV2State extends State<CommunityScreenV2> with SingleTicker
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text('Post reported for: $reason. Thank you for keeping our community safe.')),
     );
+  }
+  
+  void _handleEdit(dynamic post) async {
+    final contentController = TextEditingController(text: post.content);
+    final locationController = TextEditingController(text: post.location);
+    
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Edit Post'),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: contentController,
+                decoration: const InputDecoration(
+                  labelText: 'Content',
+                  border: OutlineInputBorder(),
+                ),
+                maxLines: 4,
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: locationController,
+                decoration: const InputDecoration(
+                  labelText: 'Location',
+                  border: OutlineInputBorder(),
+                  prefixIcon: Icon(Icons.location_on),
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+    
+    if (result == true) {
+      try {
+        final success = await context.read<CommunityProvider>().editPost(
+          postId: post.id,
+          content: contentController.text.trim(),
+          location: locationController.text.trim(),
+          images: post.images,
+          hashtags: post.hashtags,
+        );
+        
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(success ? 'Post updated successfully' : 'Failed to update post')),
+          );
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Error: $e')),
+          );
+        }
+      }
+    }
   }
   
   void _handleDelete(dynamic post) async {

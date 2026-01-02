@@ -127,7 +127,7 @@ class CommunityProvider with ChangeNotifier {
   Future<void> _updateLocalCache() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      final postsJson = _posts.take(10).map((post) => jsonEncode({
+      final postsJson = _posts.take(20).map((post) => jsonEncode({
         'id': post.id,
         'userId': post.userId,
         'userName': post.userName,
@@ -145,6 +145,7 @@ class CommunityProvider with ChangeNotifier {
       
       await prefs.setStringList('local_posts', postsJson);
       await prefs.setInt('posts_cache_timestamp', DateTime.now().millisecondsSinceEpoch);
+      await prefs.setInt('posts_cache_version', 2); // Version for cache invalidation
     } catch (e) {
       print('❌ Error updating local cache: $e');
     }
@@ -153,6 +154,21 @@ class CommunityProvider with ChangeNotifier {
   Future<void> _loadCachedPosts() async {
     try {
       final prefs = await SharedPreferences.getInstance();
+      
+      // Check cache version and age
+      final cacheVersion = prefs.getInt('posts_cache_version') ?? 1;
+      final cacheTimestamp = prefs.getInt('posts_cache_timestamp') ?? 0;
+      final cacheAge = DateTime.now().millisecondsSinceEpoch - cacheTimestamp;
+      final maxCacheAge = 30 * 60 * 1000; // 30 minutes
+      
+      // Invalidate old or outdated cache
+      if (cacheVersion < 2 || cacheAge > maxCacheAge) {
+        print('🗑️ Cache expired or outdated, clearing...');
+        await prefs.remove('local_posts');
+        await prefs.remove('posts_cache_timestamp');
+        return;
+      }
+      
       final cachedPosts = prefs.getStringList('local_posts') ?? [];
       
       if (cachedPosts.isEmpty) return;
@@ -176,7 +192,7 @@ class CommunityProvider with ChangeNotifier {
         );
       }).toList();
       
-      print('📦 Loaded ${_posts.length} posts from cache');
+      print('📦 Loaded ${_posts.length} posts from cache (age: ${(cacheAge / 60000).toStringAsFixed(1)}min)');
     } catch (e) {
       print('❌ Error loading cached posts: $e');
     }
@@ -609,6 +625,53 @@ class CommunityProvider with ChangeNotifier {
     if (hasChanges) {
       notifyListeners();
       print('✅ Updated ${_posts.where((p) => p.userId == user.mongoId || p.userId == user.uid).length} posts with new profile data');
+    }
+  }
+
+  // Add comment
+  Future<bool> addComment({
+    required String postId,
+    required String content,
+    String? userId,
+    String? username,
+  }) async {
+    try {
+      final comment = await CommunityApiService.addComment(
+        postId,
+        content,
+        userId: userId,
+      );
+
+      if (comment != null) {
+        // Update post comments count
+        final postIndex = _posts.indexWhere((post) => post.id == postId);
+        if (postIndex != -1) {
+          final post = _posts[postIndex];
+          _posts[postIndex] = CommunityPost(
+            id: post.id,
+            userId: post.userId,
+            userName: post.userName,
+            userAvatar: post.userAvatar,
+            content: post.content,
+            images: post.images,
+            location: post.location,
+            createdAt: post.createdAt,
+            likesCount: post.likesCount,
+            commentsCount: post.commentsCount + 1,
+            isLiked: post.isLiked,
+            postType: post.postType,
+            hashtags: post.hashtags,
+            metadata: post.metadata,
+            isSaved: post.isSaved,
+          );
+          notifyListeners();
+        }
+        return true;
+      }
+      return false;
+    } catch (e) {
+      DebugLogger.error('Failed to add comment: $e');
+      return false;
     }
   }
 

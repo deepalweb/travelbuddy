@@ -14,6 +14,7 @@ class EnhancedStoryCard extends StatelessWidget {
   final VoidCallback? onUserTap;
   final VoidCallback? onReport;
   final VoidCallback? onDelete;
+  final VoidCallback? onEdit;
   final String? currentUserId;
 
   const EnhancedStoryCard({
@@ -25,6 +26,7 @@ class EnhancedStoryCard extends StatelessWidget {
     this.onUserTap,
     this.onReport,
     this.onDelete,
+    this.onEdit,
     this.currentUserId,
   });
 
@@ -121,14 +123,26 @@ class EnhancedStoryCard extends StatelessWidget {
             _formatTime(post.createdAt),
             style: TextStyle(color: Colors.grey[500], fontSize: 12),
           ),
-          if (onReport != null || (onDelete != null && currentUserId != null && post.userId == currentUserId))
+          if (onReport != null || (onDelete != null && currentUserId != null && post.userId == currentUserId) || (onEdit != null && currentUserId != null && post.userId == currentUserId))
             PopupMenuButton<String>(
               icon: Icon(Icons.more_vert, color: Colors.grey[600]),
               onSelected: (value) {
                 if (value == 'report' && onReport != null) onReport!();
                 if (value == 'delete' && onDelete != null) onDelete!();
+                if (value == 'edit' && onEdit != null) onEdit!();
               },
               itemBuilder: (context) => [
+                if (onEdit != null && currentUserId != null && post.userId == currentUserId)
+                  const PopupMenuItem(
+                    value: 'edit',
+                    child: Row(
+                      children: [
+                        Icon(Icons.edit, size: 16, color: Colors.blue),
+                        SizedBox(width: 8),
+                        Text('Edit', style: TextStyle(color: Colors.blue)),
+                      ],
+                    ),
+                  ),
                 if (onDelete != null && currentUserId != null && post.userId == currentUserId)
                   const PopupMenuItem(
                     value: 'delete',
@@ -198,6 +212,39 @@ class EnhancedStoryCard extends StatelessWidget {
   }
 
   Widget _buildImage() {
+    // Show video if available
+    if (post.videos.isNotEmpty) {
+      return Container(
+        height: 250,
+        color: Colors.black,
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            const Icon(Icons.play_circle_outline, size: 64, color: Colors.white),
+            Positioned(
+              bottom: 8,
+              right: 8,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: Colors.black54,
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: const Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.videocam, size: 14, color: Colors.white),
+                    SizedBox(width: 4),
+                    Text('Video', style: TextStyle(color: Colors.white, fontSize: 12)),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+    
     if (post.images.isEmpty) {
       return Container(
         height: 200,
@@ -311,48 +358,85 @@ class EnhancedStoryCard extends StatelessWidget {
   Widget _buildActions(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.all(12),
-      child: Row(
+      child: Column(
         children: [
-          _buildActionButton(
-            icon: post.isLiked ? Icons.favorite : Icons.favorite_border,
-            label: post.likesCount.toString(),
-            color: post.isLiked ? Colors.red : Colors.grey[700]!,
-            onTap: () {
-              _handleLike(context);
-              onLike?.call();
-            },
-          ),
-          const SizedBox(width: 16),
-          _buildActionButton(
-            icon: Icons.chat_bubble_outline,
-            label: post.commentsCount.toString(),
-            color: Colors.grey[700]!,
-            onTap: () {
-              if (onComment != null) {
-                onComment!();
-              } else {
-                _openStoryDetail(context);
-              }
-            },
-          ),
-          const SizedBox(width: 16),
-          _buildActionButton(
-            icon: Icons.share_outlined,
-            label: 'Share',
-            color: Colors.grey[700]!,
-            onTap: onShare ?? () {},
-          ),
-          const Spacer(),
-          IconButton(
-            icon: Icon(
-              post.isSaved ? Icons.bookmark : Icons.bookmark_border,
-              color: post.isSaved ? Colors.blue[600] : Colors.grey[700],
+          // Analytics row
+          if (post.viewsCount > 0 || post.sharesCount > 0)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Row(
+                children: [
+                  if (post.viewsCount > 0) ...[
+                    Icon(Icons.visibility, size: 14, color: Colors.grey[600]),
+                    const SizedBox(width: 4),
+                    Text(
+                      _formatCount(post.viewsCount),
+                      style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                    ),
+                    const SizedBox(width: 16),
+                  ],
+                  if (post.sharesCount > 0) ...[
+                    Icon(Icons.share, size: 14, color: Colors.grey[600]),
+                    const SizedBox(width: 4),
+                    Text(
+                      _formatCount(post.sharesCount),
+                      style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                    ),
+                  ],
+                ],
+              ),
             ),
-            onPressed: () => _handleBookmark(context),
+          // Action buttons row
+          Row(
+            children: [
+              _buildActionButton(
+                icon: post.isLiked ? Icons.favorite : Icons.favorite_border,
+                label: _formatCount(post.likesCount),
+                color: post.isLiked ? Colors.red : Colors.grey[700]!,
+                onTap: () {
+                  _handleLike(context);
+                  onLike?.call();
+                },
+              ),
+              const SizedBox(width: 16),
+              _buildActionButton(
+                icon: Icons.chat_bubble_outline,
+                label: _formatCount(post.commentsCount),
+                color: Colors.grey[700]!,
+                onTap: () {
+                  if (onComment != null) {
+                    onComment!();
+                  } else {
+                    _openStoryDetail(context);
+                  }
+                },
+              ),
+              const SizedBox(width: 16),
+              _buildActionButton(
+                icon: Icons.share_outlined,
+                label: 'Share',
+                color: Colors.grey[700]!,
+                onTap: onShare ?? () {},
+              ),
+              const Spacer(),
+              IconButton(
+                icon: Icon(
+                  post.isSaved ? Icons.bookmark : Icons.bookmark_border,
+                  color: post.isSaved ? Colors.blue[600] : Colors.grey[700],
+                ),
+                onPressed: () => _handleBookmark(context),
+              ),
+            ],
           ),
         ],
       ),
     );
+  }
+  
+  String _formatCount(int count) {
+    if (count >= 1000000) return '${(count / 1000000).toStringAsFixed(1)}M';
+    if (count >= 1000) return '${(count / 1000).toStringAsFixed(1)}K';
+    return count.toString();
   }
 
   Widget _buildActionButton({
