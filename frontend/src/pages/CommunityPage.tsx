@@ -173,6 +173,8 @@ export const CommunityPage: React.FC = () => {
     try {
       await communityService.deleteStory(storyId)
       setStories(stories.filter(s => s._id !== storyId))
+      // Force refresh to sync with backend
+      setTimeout(() => loadCommunityData(true), 500)
     } catch (error) {
       console.error('Failed to delete story:', error)
       alert('Failed to delete story')
