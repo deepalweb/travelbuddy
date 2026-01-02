@@ -13,6 +13,7 @@ class EnhancedStoryCard extends StatelessWidget {
   final VoidCallback? onShare;
   final VoidCallback? onUserTap;
   final VoidCallback? onReport;
+  final VoidCallback? onDelete;
 
   const EnhancedStoryCard({
     super.key, 
@@ -22,6 +23,7 @@ class EnhancedStoryCard extends StatelessWidget {
     this.onShare,
     this.onUserTap,
     this.onReport,
+    this.onDelete,
   });
 
   @override
@@ -117,23 +119,36 @@ class EnhancedStoryCard extends StatelessWidget {
             _formatTime(post.createdAt),
             style: TextStyle(color: Colors.grey[500], fontSize: 12),
           ),
-          if (onReport != null)
+          if (onReport != null || onDelete != null)
             PopupMenuButton<String>(
               icon: Icon(Icons.more_vert, color: Colors.grey[600]),
               onSelected: (value) {
-                if (value == 'report') onReport!();
+                if (value == 'report' && onReport != null) onReport!();
+                if (value == 'delete' && onDelete != null) onDelete!();
               },
               itemBuilder: (context) => [
-                const PopupMenuItem(
-                  value: 'report',
-                  child: Row(
-                    children: [
-                      Icon(Icons.flag, size: 16, color: Colors.red),
-                      SizedBox(width: 8),
-                      Text('Report', style: TextStyle(color: Colors.red)),
-                    ],
+                if (onDelete != null)
+                  const PopupMenuItem(
+                    value: 'delete',
+                    child: Row(
+                      children: [
+                        Icon(Icons.delete, size: 16, color: Colors.red),
+                        SizedBox(width: 8),
+                        Text('Delete', style: TextStyle(color: Colors.red)),
+                      ],
+                    ),
                   ),
-                ),
+                if (onReport != null)
+                  const PopupMenuItem(
+                    value: 'report',
+                    child: Row(
+                      children: [
+                        Icon(Icons.flag, size: 16, color: Colors.orange),
+                        SizedBox(width: 8),
+                        Text('Report'),
+                      ],
+                    ),
+                  ),
               ],
             ),
         ],

@@ -229,6 +229,7 @@ class _CommunityScreenV2State extends State<CommunityScreenV2> with SingleTicker
                 onShare: () => _handleShare(posts[index]),
                 onUserTap: () => _showUserProfile(posts[index].userId),
                 onReport: () => _reportPost(posts[index]),
+                onDelete: () => _handleDelete(posts[index]),
               );
             },
             childCount: posts.length + (provider.hasMorePosts && _searchQuery.isEmpty ? 1 : 0),
@@ -498,6 +499,44 @@ class _CommunityScreenV2State extends State<CommunityScreenV2> with SingleTicker
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text('Post reported for: $reason. Thank you for keeping our community safe.')),
     );
+  }
+  
+  void _handleDelete(dynamic post) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete Post'),
+        content: const Text('Are you sure you want to delete this post? This action cannot be undone.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+    
+    if (confirm == true) {
+      try {
+        await context.read<CommunityProvider>().deletePost(post.id);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Post deleted successfully')),
+          );
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Failed to delete post: $e')),
+          );
+        }
+      }
+    }
   }
   
   void _showNotifications() {
