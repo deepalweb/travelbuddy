@@ -38,17 +38,23 @@ export const upload = multer({
 
 // Upload to Azure Blob Storage
 export async function uploadToAzure(file) {
+  console.log('🔵 uploadToAzure called:', { hasContainer: !!containerClient, fileName: file.originalname });
+  
   if (!containerClient) {
+    console.error('❌ Azure Blob Storage not configured. Check AZURE_STORAGE_CONNECTION_STRING');
     throw new Error('Azure Blob Storage not configured');
   }
 
   const blobName = `${uuidv4()}-${file.originalname}`;
+  console.log('💾 Uploading blob:', blobName);
+  
   const blockBlobClient = containerClient.getBlockBlobClient(blobName);
 
   await blockBlobClient.uploadData(file.buffer, {
     blobHTTPHeaders: { blobContentType: file.mimetype }
   });
 
+  console.log('✅ Blob uploaded:', blockBlobClient.url);
   return blockBlobClient.url;
 }
 
