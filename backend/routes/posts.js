@@ -1,5 +1,6 @@
 import express from 'express';
 import mongoose from 'mongoose';
+import { notifyLike, notifyComment } from '../services/notificationHelper.js';
 
 const router = express.Router();
 
@@ -149,6 +150,11 @@ router.post('/:id/like', flexAuth, async (req, res) => {
     } else {
       post.likedBy.push(likerKey);
       post.engagement.likes = (post.engagement.likes || 0) + 1;
+      
+      // Create notification for post owner
+      if (post.userId && post.userId.toString() !== likerKey) {
+        notifyLike(post.userId, username || 'Someone', req.params.id).catch(() => {});
+      }
     }
     
     await post.save();
@@ -218,6 +224,11 @@ router.post('/:id/comments', flexAuth, async (req, res) => {
     
     await post.save();
     
+    // Create notification for post owner
+    if (post.userId && post.userId.toString() !== commentUserId) {
+      notifyComment(post.userId, username || 'Someone', req.params.id).catch(() => {});
+    }
+    
     return res.json({ 
       success: true, 
       comments: post.commentsList, 
@@ -239,6 +250,41 @@ router.get('/:id/comments', async (req, res) => {
     return res.json({ 
       comments: post.commentsList || [], 
       count: post.engagement?.comments || 0 
+    });
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
+// Like/Unlike a comment
+router.post('/:postId/comments/:commentId/like', flexAuth, async (req, res) => {
+  try {
+    const Post = mongoose.model('Post');
+    const { userId, username } = req.body || {};
+    const post = await Post.findById(req.params.postId);
+    if (!post) return res.status(404).json({ error: 'Post not found' });
+
+    const comment = post.commentsList.id(req.params.commentId);
+    if (!comment) return res.status(404).json({ error: 'Comment not found' });
+
+    const likerKey = (userId || req.user?.uid || username || 'anon').toString();
+    const hasLiked = comment.likedBy?.includes(likerKey);
+
+    if (hasLiked) {
+      comment.likedBy = comment.likedBy.filter((k) => k !== likerKey);
+      comment.likes = Math.max(0, (comment.likes || 0) - 1);
+    } else {
+      if (!comment.likedBy) comment.likedBy = [];
+      comment.likedBy.push(likerKey);
+      comment.likes = (comment.likes || 0) + 1;
+    }
+    
+    await post.save();
+    return res.json({
+      success: true,
+      liked: !hasLiked,
+      likes: comment.likes,
+      commentId: comment._id
     });
   } catch (error) {
     res.status(400).json({ error: error.message });

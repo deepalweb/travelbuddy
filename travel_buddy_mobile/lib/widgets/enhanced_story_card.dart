@@ -1,14 +1,28 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../models/community_post.dart';
 import '../providers/community_provider.dart';
 import '../screens/story_detail_screen.dart';
 
 class EnhancedStoryCard extends StatelessWidget {
   final CommunityPost post;
+  final VoidCallback? onLike;
+  final VoidCallback? onComment;
+  final VoidCallback? onShare;
+  final VoidCallback? onUserTap;
+  final VoidCallback? onReport;
 
-  const EnhancedStoryCard({super.key, required this.post});
+  const EnhancedStoryCard({
+    super.key, 
+    required this.post,
+    this.onLike,
+    this.onComment,
+    this.onShare,
+    this.onUserTap,
+    this.onReport,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -46,30 +60,55 @@ class EnhancedStoryCard extends StatelessWidget {
       padding: const EdgeInsets.all(12),
       child: Row(
         children: [
-          _buildAvatar(),
+          GestureDetector(
+            onTap: onUserTap,
+            child: _buildAvatar(),
+          ),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  post.userName,
-                  style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
+                GestureDetector(
+                  onTap: onUserTap,
+                  child: Text(
+                    post.userName,
+                    style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
+                  ),
                 ),
                 if (post.location.isNotEmpty)
-                  Row(
-                    children: [
-                      Icon(Icons.location_on, size: 12, color: Colors.grey[600]),
-                      const SizedBox(width: 4),
-                      Expanded(
-                        child: Text(
-                          post.location,
-                          style: TextStyle(color: Colors.grey[600], fontSize: 12),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
+                  GestureDetector(
+                    onTap: () => _showLocationDetails(context),
+                    child: Container(
+                      margin: const EdgeInsets.only(top: 4),
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: Colors.blue[50],
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: Colors.blue[200]!, width: 1),
                       ),
-                    ],
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.location_on, size: 14, color: Colors.blue[700]),
+                          const SizedBox(width: 4),
+                          Flexible(
+                            child: Text(
+                              post.location,
+                              style: TextStyle(
+                                color: Colors.blue[700],
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          const SizedBox(width: 4),
+                          Icon(Icons.arrow_forward_ios, size: 10, color: Colors.blue[700]),
+                        ],
+                      ),
+                    ),
                   ),
               ],
             ),
@@ -78,6 +117,25 @@ class EnhancedStoryCard extends StatelessWidget {
             _formatTime(post.createdAt),
             style: TextStyle(color: Colors.grey[500], fontSize: 12),
           ),
+          if (onReport != null)
+            PopupMenuButton<String>(
+              icon: Icon(Icons.more_vert, color: Colors.grey[600]),
+              onSelected: (value) {
+                if (value == 'report') onReport!();
+              },
+              itemBuilder: (context) => [
+                const PopupMenuItem(
+                  value: 'report',
+                  child: Row(
+                    children: [
+                      Icon(Icons.flag, size: 16, color: Colors.red),
+                      SizedBox(width: 8),
+                      Text('Report', style: TextStyle(color: Colors.red)),
+                    ],
+                  ),
+                ),
+              ],
+            ),
         ],
       ),
     );
@@ -242,21 +300,30 @@ class EnhancedStoryCard extends StatelessWidget {
             icon: post.isLiked ? Icons.favorite : Icons.favorite_border,
             label: post.likesCount.toString(),
             color: post.isLiked ? Colors.red : Colors.grey[700]!,
-            onTap: () => _handleLike(context),
+            onTap: () {
+              _handleLike(context);
+              onLike?.call();
+            },
           ),
           const SizedBox(width: 16),
           _buildActionButton(
             icon: Icons.chat_bubble_outline,
             label: post.commentsCount.toString(),
             color: Colors.grey[700]!,
-            onTap: () => _openStoryDetail(context),
+            onTap: () {
+              if (onComment != null) {
+                onComment!();
+              } else {
+                _openStoryDetail(context);
+              }
+            },
           ),
           const SizedBox(width: 16),
           _buildActionButton(
             icon: Icons.share_outlined,
             label: 'Share',
             color: Colors.grey[700]!,
-            onTap: () {},
+            onTap: onShare ?? () {},
           ),
           const Spacer(),
           IconButton(
@@ -326,6 +393,70 @@ class EnhancedStoryCard extends StatelessWidget {
       context,
       MaterialPageRoute(
         builder: (context) => StoryDetailScreen(post: post),
+      ),
+    );
+  }
+  
+  void _showLocationDetails(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      builder: (context) => Container(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.location_on, color: Colors.blue[700], size: 28),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    post.location,
+                    style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 20),
+            ListTile(
+              leading: const Icon(Icons.map, color: Colors.blue),
+              title: const Text('View on Map'),
+              onTap: () async {
+                Navigator.pop(context);
+                final url = 'https://maps.google.com/?q=${Uri.encodeComponent(post.location)}';
+                if (await canLaunchUrl(Uri.parse(url))) {
+                  await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
+                }
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.search, color: Colors.green),
+              title: const Text('Find Posts from this Location'),
+              onTap: () {
+                Navigator.pop(context);
+                // Use search query instead of location parameter
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('Search "${post.location}" in the search bar to find posts from this location'),
+                    duration: const Duration(seconds: 3),
+                  ),
+                );
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.directions, color: Colors.orange),
+              title: const Text('Get Directions'),
+              onTap: () async {
+                Navigator.pop(context);
+                final url = 'https://maps.google.com/maps?daddr=${Uri.encodeComponent(post.location)}';
+                if (await canLaunchUrl(Uri.parse(url))) {
+                  await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
+                }
+              },
+            ),
+          ],
+        ),
       ),
     );
   }

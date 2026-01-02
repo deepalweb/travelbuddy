@@ -123,16 +123,14 @@ class _CategoryPlacesScreenState extends State<CategoryPlacesScreen> {
                                   Container(
                                     height: 200,
                                     color: Colors.grey[300],
-                                    child: place.photoUrl != null
-                                        ? Image.network(
+                                    child: Image.network(
                                             place.photoUrl!,
                                             fit: BoxFit.cover,
                                             width: double.infinity,
                                             errorBuilder: (_, __, ___) => const Center(
                                               child: Icon(Icons.place, size: 60),
                                             ),
-                                          )
-                                        : const Center(child: Icon(Icons.place, size: 60)),
+                                          ),
                                   ),
                                   // Details
                                   Padding(

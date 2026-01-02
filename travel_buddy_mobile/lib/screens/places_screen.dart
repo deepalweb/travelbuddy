@@ -157,6 +157,41 @@ class _PlacesScreenState extends State<PlacesScreen> {
                   ),
                 ),
               
+              // Filter Chips
+              if (!appProvider.showFavoritesOnly && _searchController.text.isEmpty)
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      children: [
+                        FilterChip(
+                          label: const Text('Price: Any'),
+                          selected: false,
+                          onSelected: (selected) => _showPriceFilter(context),
+                          avatar: const Icon(Icons.attach_money, size: 16),
+                        ),
+                        const SizedBox(width: 8),
+                        FilterChip(
+                          label: const Text('Rating: 4.0+'),
+                          selected: false,
+                          onSelected: (selected) => _showRatingFilter(context),
+                          avatar: const Icon(Icons.star, size: 16),
+                        ),
+                        const SizedBox(width: 8),
+                        FilterChip(
+                          label: const Text('Open Now'),
+                          selected: _showOpenOnly,
+                          onSelected: (selected) {
+                            setState(() => _showOpenOnly = selected);
+                          },
+                          avatar: const Icon(Icons.access_time, size: 16),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              
               const SizedBox(height: 8),
               
               // User guidance and helpful info
@@ -207,6 +242,72 @@ class _PlacesScreenState extends State<PlacesScreen> {
 
         );
       },
+    );
+  }
+  
+  void _showPriceFilter(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      builder: (context) => Container(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('Price Range', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 16),
+            ListTile(
+              title: const Text('\$ - Budget'),
+              onTap: () => Navigator.pop(context),
+            ),
+            ListTile(
+              title: const Text('\$\$ - Moderate'),
+              onTap: () => Navigator.pop(context),
+            ),
+            ListTile(
+              title: const Text('\$\$\$ - Expensive'),
+              onTap: () => Navigator.pop(context),
+            ),
+            ListTile(
+              title: const Text('Any Price'),
+              onTap: () => Navigator.pop(context),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+  
+  void _showRatingFilter(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      builder: (context) => Container(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('Minimum Rating', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 16),
+            ListTile(
+              title: const Text('⭐⭐⭐⭐⭐ 5.0'),
+              onTap: () => Navigator.pop(context),
+            ),
+            ListTile(
+              title: const Text('⭐⭐⭐⭐ 4.0+'),
+              onTap: () => Navigator.pop(context),
+            ),
+            ListTile(
+              title: const Text('⭐⭐⭐ 3.0+'),
+              onTap: () => Navigator.pop(context),
+            ),
+            ListTile(
+              title: const Text('Any Rating'),
+              onTap: () => Navigator.pop(context),
+            ),
+          ],
+        ),
+      ),
     );
   }
 

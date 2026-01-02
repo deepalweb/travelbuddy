@@ -167,6 +167,7 @@ router.get('/:id/stats', async (req, res) => {
       totalTrips: tripCount,
       totalFavorites: user.favoritePlaces?.length || 0,
       totalPosts: postCount,
+      totalVisited: user.visitedPlaces?.length || 0,
       followersCount: user.followers?.length || 0,
       followingCount: user.following?.length || 0,
       memberSince: user.createdAt,

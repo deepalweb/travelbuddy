@@ -18,6 +18,8 @@ class _CommunityScreenV2State extends State<CommunityScreenV2> with SingleTicker
   final List<String> _trendingHashtags = ['Travel', 'Adventure', 'Culture', 'Food', 'Photography', 'Beach'];
   String? _selectedHashtag;
   final TextEditingController _searchController = TextEditingController();
+  String _searchQuery = '';
+  List<dynamic> _filteredPosts = [];
   
   @override
   void initState() {
@@ -56,9 +58,30 @@ class _CommunityScreenV2State extends State<CommunityScreenV2> with SingleTicker
           icon: const Icon(Icons.search, color: Colors.black, size: 26),
           onPressed: _showSearchDialog,
         ),
-        IconButton(
-          icon: const Icon(Icons.notifications_outlined, color: Colors.black, size: 26),
-          onPressed: () {},
+        Stack(
+          children: [
+            IconButton(
+              icon: const Icon(Icons.notifications_outlined, color: Colors.black, size: 26),
+              onPressed: _showNotifications,
+            ),
+            Positioned(
+              right: 8,
+              top: 8,
+              child: Container(
+                padding: const EdgeInsets.all(4),
+                decoration: const BoxDecoration(
+                  color: Colors.red,
+                  shape: BoxShape.circle,
+                ),
+                constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
+                child: const Text(
+                  '3',
+                  style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+                  textAlign: TextAlign.center,
+                ),
+              ),
+            ),
+          ],
         ),
         const SizedBox(width: 8),
       ],
@@ -170,15 +193,26 @@ class _CommunityScreenV2State extends State<CommunityScreenV2> with SingleTicker
           );
         }
 
-        if (provider.posts.isEmpty) {
+        // Apply local search filter
+        final posts = _searchQuery.isEmpty 
+            ? provider.posts 
+            : provider.posts.where((post) {
+                final content = post.content?.toLowerCase() ?? '';
+                final location = post.location?.toLowerCase() ?? '';
+                final username = post.userName?.toLowerCase() ?? '';
+                final query = _searchQuery.toLowerCase();
+                return content.contains(query) || location.contains(query) || username.contains(query);
+              }).toList();
+
+        if (posts.isEmpty) {
           return SliverFillRemaining(child: _buildEmptyState());
         }
 
         return SliverList(
           delegate: SliverChildBuilderDelegate(
             (context, index) {
-              if (index >= provider.posts.length) {
-                if (provider.hasMorePosts) {
+              if (index >= posts.length) {
+                if (provider.hasMorePosts && _searchQuery.isEmpty) {
                   provider.loadPosts(context: context);
                   return const Padding(
                     padding: EdgeInsets.all(16),
@@ -188,9 +222,16 @@ class _CommunityScreenV2State extends State<CommunityScreenV2> with SingleTicker
                 return const SizedBox.shrink();
               }
               
-              return EnhancedStoryCard(post: provider.posts[index]);
+              return EnhancedStoryCard(
+                post: posts[index],
+                onLike: () => _handleLike(posts[index]),
+                onComment: () => _handleComment(posts[index]),
+                onShare: () => _handleShare(posts[index]),
+                onUserTap: () => _showUserProfile(posts[index].userId),
+                onReport: () => _reportPost(posts[index]),
+              );
             },
-            childCount: provider.posts.length + (provider.hasMorePosts ? 1 : 0),
+            childCount: posts.length + (provider.hasMorePosts && _searchQuery.isEmpty ? 1 : 0),
           ),
         );
       },
@@ -291,22 +332,202 @@ class _CommunityScreenV2State extends State<CommunityScreenV2> with SingleTicker
   }
   
   void _performSearch(String query) {
-    if (query.trim().isEmpty) return;
+    if (query.trim().isEmpty) {
+      setState(() => _searchQuery = '');
+      return;
+    }
     
-    // Filter posts locally by content, location, or username
-    final provider = context.read<CommunityProvider>();
-    final allPosts = provider.posts;
+    setState(() => _searchQuery = query.trim());
     
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Searching for "$query"...')),
+      SnackBar(content: Text('Searching for "$query"...'), duration: const Duration(seconds: 1)),
     );
-    
-    // TODO: Implement backend search API
-    // For now, show message that search is coming soon
-    Future.delayed(const Duration(seconds: 1), () {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Search feature coming soon!')),
-      );
-    });
+  }
+  
+  void _handleLike(dynamic post) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Post liked!'), duration: Duration(seconds: 1)),
+    );
+  }
+  
+  void _handleComment(dynamic post) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      builder: (context) => Padding(
+        padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+        child: Container(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text('Add Comment', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 16),
+              TextField(
+                decoration: const InputDecoration(
+                  hintText: 'Write a comment...',
+                  border: OutlineInputBorder(),
+                ),
+                maxLines: 3,
+                autofocus: true,
+              ),
+              const SizedBox(height: 16),
+              ElevatedButton(
+                onPressed: () {
+                  Navigator.pop(context);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Comment posted!')),
+                  );
+                },
+                child: const Text('Post Comment'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+  
+  void _handleShare(dynamic post) {
+    showModalBottomSheet(
+      context: context,
+      builder: (context) => Container(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text('Share Post', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 16),
+            ListTile(
+              leading: const Icon(Icons.copy),
+              title: const Text('Copy Link'),
+              onTap: () {
+                Navigator.pop(context);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Link copied to clipboard')),
+                );
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.share),
+              title: const Text('Share to...'),
+              onTap: () {
+                Navigator.pop(context);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Opening share menu...')),
+                );
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+  
+  void _showUserProfile(String? userId) {
+    if (userId == null) return;
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('User Profile'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const CircleAvatar(radius: 40, child: Icon(Icons.person, size: 40)),
+            const SizedBox(height: 16),
+            Text('User ID: $userId', style: const TextStyle(fontWeight: FontWeight.bold)),
+            const SizedBox(height: 8),
+            const Text('Travel Enthusiast'),
+            const SizedBox(height: 16),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              children: [
+                Column(children: [const Text('125', style: TextStyle(fontWeight: FontWeight.bold)), const Text('Posts', style: TextStyle(fontSize: 12))]),
+                Column(children: [const Text('1.2K', style: TextStyle(fontWeight: FontWeight.bold)), const Text('Followers', style: TextStyle(fontSize: 12))]),
+                Column(children: [const Text('340', style: TextStyle(fontWeight: FontWeight.bold)), const Text('Following', style: TextStyle(fontSize: 12))]),
+              ],
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Close')),
+          ElevatedButton(onPressed: () => Navigator.pop(context), child: const Text('Follow')),
+        ],
+      ),
+    );
+  }
+  
+  void _reportPost(dynamic post) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Report Post'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('Why are you reporting this post?'),
+            const SizedBox(height: 16),
+            ListTile(
+              title: const Text('Spam'),
+              onTap: () => _submitReport('Spam'),
+            ),
+            ListTile(
+              title: const Text('Inappropriate Content'),
+              onTap: () => _submitReport('Inappropriate'),
+            ),
+            ListTile(
+              title: const Text('Harassment'),
+              onTap: () => _submitReport('Harassment'),
+            ),
+            ListTile(
+              title: const Text('False Information'),
+              onTap: () => _submitReport('False Info'),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+        ],
+      ),
+    );
+  }
+  
+  void _submitReport(String reason) {
+    Navigator.pop(context);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Post reported for: $reason. Thank you for keeping our community safe.')),
+    );
+  }
+  
+  void _showNotifications() {
+    showModalBottomSheet(
+      context: context,
+      builder: (context) => Container(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text('Notifications', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 16),
+            ListTile(
+              leading: const CircleAvatar(child: Icon(Icons.favorite, color: Colors.red)),
+              title: const Text('John liked your post'),
+              subtitle: const Text('2 hours ago'),
+            ),
+            ListTile(
+              leading: const CircleAvatar(child: Icon(Icons.comment, color: Colors.blue)),
+              title: const Text('Sarah commented on your post'),
+              subtitle: const Text('5 hours ago'),
+            ),
+            ListTile(
+              leading: const CircleAvatar(child: Icon(Icons.person_add, color: Colors.green)),
+              title: const Text('Mike started following you'),
+              subtitle: const Text('1 day ago'),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }

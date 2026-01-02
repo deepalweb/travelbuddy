@@ -84,14 +84,12 @@ class CategorySection extends StatelessWidget {
                                   Container(
                                     height: 120,
                                     color: Colors.grey[300],
-                                    child: place.photoUrl != null
-                                        ? Image.network(
+                                    child: Image.network(
                                             place.photoUrl!,
                                             fit: BoxFit.cover,
                                             width: double.infinity,
                                             errorBuilder: (_, __, ___) => const Icon(Icons.place, size: 50),
-                                          )
-                                        : const Center(child: Icon(Icons.place, size: 50)),
+                                          ),
                                   ),
                                   // Details
                                   Padding(

@@ -1065,6 +1065,15 @@ try {
   console.error('❌ Failed to load posts routes:', error);
 }
 
+// Load notifications routes
+try {
+  const notificationsRouter = (await import('./routes/notifications.js')).default;
+  app.use('/api/notifications', notificationsRouter);
+  console.log('✅ Notifications routes loaded');
+} catch (error) {
+  console.error('❌ Failed to load notifications routes:', error);
+}
+
 
 
 // Payment routes (Stripe scaffold) - mount only when explicitly enabled to allow
@@ -1386,6 +1395,15 @@ try {
   console.log('✅ Upload routes loaded');
 } catch (error) {
   console.error('❌ Failed to load upload routes:', error);
+}
+
+// Load image upload routes for Azure
+try {
+  const imageUploadRouter = (await import('./routes/imageUpload.js')).default;
+  app.use('/api/images', imageUploadRouter);
+  console.log('✅ Image upload routes loaded');
+} catch (error) {
+  console.error('❌ Failed to load image upload routes:', error);
 }
 
 // Serve uploaded files

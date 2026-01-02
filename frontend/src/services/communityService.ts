@@ -66,28 +66,47 @@ const transformPost = (post: any): Story => {
 }
 
 export const communityService = {
-  async getStories(filter: string = 'recent'): Promise<Story[]> {
+  async getStories(filter: string = 'recent', cursor: string | null = null): Promise<Story[]> {
     try {
-      console.log('🔍 Fetching stories from:', `${API_BASE}/posts/community`)
-      const response = await fetch(`${API_BASE}/posts/community?limit=20`)
+      const url = cursor 
+        ? `${API_BASE}/posts/community?limit=20&cursor=${encodeURIComponent(cursor)}`
+        : `${API_BASE}/posts/community?limit=20`
+      
+      console.log('🔍 Fetching stories from:', url)
+      const response = await fetch(url)
       console.log('📡 Response status:', response.status)
-      if (!response.ok) throw new Error('Failed to fetch stories')
+      
+      if (!response.ok) {
+        // Try alternative endpoint
+        const altUrl = cursor
+          ? `${API_BASE}/community/posts?limit=20&cursor=${encodeURIComponent(cursor)}`
+          : `${API_BASE}/community/posts?limit=20`
+        console.log('🔄 Trying alternative endpoint:', altUrl)
+        const altResponse = await fetch(altUrl)
+        if (!altResponse.ok) throw new Error(`Failed to fetch stories: ${response.status}`)
+        const posts = await altResponse.json()
+        console.log('✅ Fetched posts from alt endpoint:', posts.length)
+        return posts.map(transformPost)
+      }
+      
       const posts = await response.json()
       console.log('✅ Fetched posts:', posts.length)
       
       let stories = posts.map(transformPost)
       
-      // Sort based on filter
-      if (filter === 'popular') {
-        stories.sort((a, b) => b.likes - a.likes)
-      } else if (filter === 'trending') {
-        stories.sort((a, b) => (b.likes + b.comments) - (a.likes + a.comments))
+      // Sort based on filter (only for initial load)
+      if (!cursor) {
+        if (filter === 'popular') {
+          stories.sort((a, b) => b.likes - a.likes)
+        } else if (filter === 'trending') {
+          stories.sort((a, b) => (b.likes + b.comments) - (a.likes + a.comments))
+        }
       }
       
       return stories
     } catch (error) {
-      console.error('Error fetching stories:', error)
-      return []
+      console.error('❌ Error fetching stories:', error)
+      throw error // Re-throw to let component handle it
     }
   },
 
@@ -107,33 +126,41 @@ export const communityService = {
   async getTopTravelers(): Promise<TopTraveler[]> {
     try {
       const response = await fetch(`${API_BASE}/posts/community`)
-      if (!response.ok) throw new Error('Failed to fetch travelers')
+      if (!response.ok) {
+        // Try alternative endpoint
+        const altResponse = await fetch(`${API_BASE}/community/posts`)
+        if (!altResponse.ok) return []
+        const posts = await altResponse.json()
+        return this.calculateTopTravelers(posts)
+      }
       const posts = await response.json()
-      
-      // Group posts by username and calculate stats
-      const userStats: { [key: string]: TopTraveler } = {}
-      
-      posts.forEach((post: any) => {
-        const username = post.username || post.author?.username || 'Anonymous'
-        if (!userStats[username]) {
-          userStats[username] = {
-            username,
-            profilePicture: post.profilePicture || post.author?.profilePicture,
-            storiesCount: 0,
-            totalLikes: 0
-          }
-        }
-        userStats[username].storiesCount++
-        userStats[username].totalLikes += post.engagement?.likes || post.likes || 0
-      })
-      
-      return Object.values(userStats)
-        .sort((a, b) => b.totalLikes - a.totalLikes)
-        .slice(0, 5)
+      return this.calculateTopTravelers(posts)
     } catch (error) {
       console.error('Error fetching top travelers:', error)
       return []
     }
+  },
+
+  calculateTopTravelers(posts: any[]): TopTraveler[] {
+    const userStats: { [key: string]: TopTraveler } = {}
+    
+    posts.forEach((post: any) => {
+      const username = post.username || post.author?.username || 'Anonymous'
+      if (!userStats[username]) {
+        userStats[username] = {
+          username,
+          profilePicture: post.profilePicture || post.author?.profilePicture,
+          storiesCount: 0,
+          totalLikes: 0
+        }
+      }
+      userStats[username].storiesCount++
+      userStats[username].totalLikes += post.engagement?.likes || post.likes || 0
+    })
+    
+    return Object.values(userStats)
+      .sort((a, b) => b.totalLikes - a.totalLikes)
+      .slice(0, 5)
   },
 
   async createStory(storyData: CreateStoryData): Promise<Story> {
@@ -218,6 +245,16 @@ export const communityService = {
 
   async generateAITags(title: string, content: string): Promise<string[]> {
     return this.getFallbackTags(title, content)
+  },
+
+  async deleteStory(storyId: string): Promise<void> {
+    const response = await fetch(`${API_BASE}/posts/${storyId}`, {
+      method: 'DELETE',
+      headers: {
+        'x-user-id': '507f1f77bcf86cd799439011'
+      }
+    })
+    if (!response.ok) throw new Error('Failed to delete story')
   },
 
   getFallbackTags(title: string, content: string): string[] {

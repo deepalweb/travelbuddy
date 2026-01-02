@@ -1,180 +1,203 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
+import { Bell, Heart, MessageCircle, UserPlus, Tag, CheckCheck } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
-import { Card, CardContent, CardHeader, CardTitle } from '../components/Card'
-import { Button } from '../components/Button'
-import { Bell, Mail, MessageSquare, MapPin, Calendar, Save } from 'lucide-react'
+
+interface Notification {
+  _id: string
+  type: 'like' | 'comment' | 'follow' | 'deal' | 'system'
+  title: string
+  message: string
+  isRead: boolean
+  createdAt: string
+  relatedId?: string
+  relatedType?: string
+}
+
+const API_BASE = import.meta.env.VITE_API_URL || 'https://travelbuddylk.com/api'
 
 export const NotificationsPage: React.FC = () => {
   const { user } = useAuth()
-  const [settings, setSettings] = useState({
-    email: {
-      tripUpdates: true,
-      deals: false,
-      newsletter: true,
-      reminders: true
-    },
-    push: {
-      tripUpdates: true,
-      deals: true,
-      messages: true,
-      location: false
-    },
-    frequency: 'daily'
-  })
-  const [loading, setLoading] = useState(false)
+  const [notifications, setNotifications] = useState<Notification[]>([])
+  const [loading, setLoading] = useState(true)
+  const [filter, setFilter] = useState<'all' | 'unread'>('all')
 
-  const handleSave = async () => {
+  useEffect(() => {
+    if (user) {
+      fetchNotifications()
+    }
+  }, [user])
+
+  const fetchNotifications = async () => {
+    if (!user) return
     setLoading(true)
-    // Save notification settings logic here
-    setTimeout(() => setLoading(false), 1000)
-  }
-
-  const toggleSetting = (category: 'email' | 'push', setting: string) => {
-    setSettings(prev => ({
-      ...prev,
-      [category]: {
-        ...prev[category],
-        [setting]: !prev[category][setting as keyof typeof prev[category]]
+    try {
+      const response = await fetch(`${API_BASE}/notifications?limit=50`, {
+        headers: { 'x-user-id': user.uid }
+      })
+      if (response.ok) {
+        const data = await response.json()
+        setNotifications(data)
       }
-    }))
+    } catch (error) {
+      console.error('Failed to fetch notifications:', error)
+    } finally {
+      setLoading(false)
+    }
   }
 
-  if (!user) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">Not Logged In</h2>
-          <p className="text-gray-600">Please log in to manage your notifications</p>
-        </div>
-      </div>
-    )
+  const markAsRead = async (notificationId: string) => {
+    try {
+      await fetch(`${API_BASE}/notifications/${notificationId}/read`, {
+        method: 'PUT',
+        headers: { 'x-user-id': user?.uid || '' }
+      })
+      setNotifications(notifications.map(n => 
+        n._id === notificationId ? { ...n, isRead: true } : n
+      ))
+    } catch (error) {
+      console.error('Failed to mark as read:', error)
+    }
   }
+
+  const markAllAsRead = async () => {
+    try {
+      await fetch(`${API_BASE}/notifications/read-all`, {
+        method: 'PUT',
+        headers: { 'x-user-id': user?.uid || '' }
+      })
+      setNotifications(notifications.map(n => ({ ...n, isRead: true })))
+    } catch (error) {
+      console.error('Failed to mark all as read:', error)
+    }
+  }
+
+  const getIcon = (type: string) => {
+    switch (type) {
+      case 'like': return <Heart className="w-5 h-5 text-red-500" />
+      case 'comment': return <MessageCircle className="w-5 h-5 text-blue-500" />
+      case 'follow': return <UserPlus className="w-5 h-5 text-green-500" />
+      case 'deal': return <Tag className="w-5 h-5 text-purple-500" />
+      default: return <Bell className="w-5 h-5 text-gray-500" />
+    }
+  }
+
+  const getTimeAgo = (date: string) => {
+    const seconds = Math.floor((new Date().getTime() - new Date(date).getTime()) / 1000)
+    if (seconds < 60) return 'just now'
+    if (seconds < 3600) return `${Math.floor(seconds / 60)} minutes ago`
+    if (seconds < 86400) return `${Math.floor(seconds / 3600)} hours ago`
+    if (seconds < 604800) return `${Math.floor(seconds / 86400)} days ago`
+    return new Date(date).toLocaleDateString()
+  }
+
+  const filteredNotifications = filter === 'unread' 
+    ? notifications.filter(n => !n.isRead)
+    : notifications
+
+  const unreadCount = notifications.filter(n => !n.isRead).length
 
   return (
     <div className="min-h-screen bg-gray-50 py-8">
       <div className="max-w-4xl mx-auto px-4">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">Notifications</h1>
-          <p className="text-gray-600">Manage how you receive updates</p>
-        </div>
-
-        <div className="space-y-6">
-          {/* Email Notifications */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center">
-                <Mail className="w-5 h-5 mr-2" />
-                Email Notifications
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {[
-                { key: 'tripUpdates', label: 'Trip Updates', desc: 'Get notified about your trip plans and changes', icon: MapPin },
-                { key: 'deals', label: 'Deals & Offers', desc: 'Special offers and discounts on travel', icon: Bell },
-                { key: 'newsletter', label: 'Newsletter', desc: 'Weekly travel tips and destination guides', icon: Mail },
-                { key: 'reminders', label: 'Trip Reminders', desc: 'Reminders about upcoming trips', icon: Calendar }
-              ].map(({ key, label, desc, icon: Icon }) => (
-                <div key={key} className="flex items-center justify-between p-3 border border-gray-200 rounded-lg">
-                  <div className="flex items-center space-x-3">
-                    <Icon className="w-5 h-5 text-gray-500" />
-                    <div>
-                      <p className="font-medium text-gray-900">{label}</p>
-                      <p className="text-sm text-gray-500">{desc}</p>
-                    </div>
-                  </div>
-                  <label className="relative inline-flex items-center cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={settings.email[key as keyof typeof settings.email]}
-                      onChange={() => toggleSetting('email', key)}
-                      className="sr-only peer"
-                    />
-                    <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-                  </label>
-                </div>
-              ))}
-            </CardContent>
-          </Card>
-
-          {/* Push Notifications */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center">
-                <Bell className="w-5 h-5 mr-2" />
-                Push Notifications
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {[
-                { key: 'tripUpdates', label: 'Trip Updates', desc: 'Real-time updates about your trips', icon: MapPin },
-                { key: 'deals', label: 'Flash Deals', desc: 'Time-sensitive travel deals', icon: Bell },
-                { key: 'messages', label: 'Messages', desc: 'Messages from travel agents and support', icon: MessageSquare },
-                { key: 'location', label: 'Location-based', desc: 'Suggestions based on your current location', icon: MapPin }
-              ].map(({ key, label, desc, icon: Icon }) => (
-                <div key={key} className="flex items-center justify-between p-3 border border-gray-200 rounded-lg">
-                  <div className="flex items-center space-x-3">
-                    <Icon className="w-5 h-5 text-gray-500" />
-                    <div>
-                      <p className="font-medium text-gray-900">{label}</p>
-                      <p className="text-sm text-gray-500">{desc}</p>
-                    </div>
-                  </div>
-                  <label className="relative inline-flex items-center cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={settings.push[key as keyof typeof settings.push]}
-                      onChange={() => toggleSetting('push', key)}
-                      className="sr-only peer"
-                    />
-                    <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-                  </label>
-                </div>
-              ))}
-            </CardContent>
-          </Card>
-
-          {/* Frequency */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Notification Frequency</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-2">
-                {[
-                  { value: 'instant', label: 'Instant', desc: 'Get notified immediately' },
-                  { value: 'daily', label: 'Daily Digest', desc: 'Once per day summary' },
-                  { value: 'weekly', label: 'Weekly Summary', desc: 'Weekly roundup of updates' }
-                ].map(({ value, label, desc }) => (
-                  <label key={value} className="flex items-center p-3 border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50">
-                    <input
-                      type="radio"
-                      name="frequency"
-                      value={value}
-                      checked={settings.frequency === value}
-                      onChange={(e) => setSettings({...settings, frequency: e.target.value})}
-                      className="mr-3"
-                    />
-                    <div>
-                      <p className="font-medium text-gray-900">{label}</p>
-                      <p className="text-sm text-gray-500">{desc}</p>
-                    </div>
-                  </label>
-                ))}
+        {/* Header */}
+        <div className="bg-white rounded-xl shadow-lg border border-gray-100 p-6 mb-6">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center space-x-3">
+              <div className="p-3 bg-purple-100 rounded-lg">
+                <Bell className="w-6 h-6 text-purple-600" />
               </div>
-            </CardContent>
-          </Card>
+              <div>
+                <h1 className="text-2xl font-bold text-gray-900">Notifications</h1>
+                <p className="text-sm text-gray-600">
+                  {unreadCount > 0 ? `${unreadCount} unread` : 'All caught up!'}
+                </p>
+              </div>
+            </div>
+            {unreadCount > 0 && (
+              <button
+                onClick={markAllAsRead}
+                className="flex items-center space-x-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
+              >
+                <CheckCheck className="w-4 h-4" />
+                <span>Mark all read</span>
+              </button>
+            )}
+          </div>
+
+          {/* Filters */}
+          <div className="flex space-x-2">
+            <button
+              onClick={() => setFilter('all')}
+              className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                filter === 'all'
+                  ? 'bg-purple-600 text-white'
+                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+              }`}
+            >
+              All ({notifications.length})
+            </button>
+            <button
+              onClick={() => setFilter('unread')}
+              className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                filter === 'unread'
+                  ? 'bg-purple-600 text-white'
+                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+              }`}
+            >
+              Unread ({unreadCount})
+            </button>
+          </div>
         </div>
 
-        <div className="mt-8">
-          <Button
-            onClick={handleSave}
-            disabled={loading}
-            className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2"
-          >
-            <Save className="w-4 h-4 mr-2" />
-            {loading ? 'Saving...' : 'Save Settings'}
-          </Button>
-        </div>
+        {/* Notifications List */}
+        {loading ? (
+          <div className="bg-white rounded-xl shadow-lg border border-gray-100 p-12 text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mx-auto"></div>
+            <p className="text-gray-600 mt-4">Loading notifications...</p>
+          </div>
+        ) : filteredNotifications.length === 0 ? (
+          <div className="bg-white rounded-xl shadow-lg border border-gray-100 p-12 text-center">
+            <Bell className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+            <h3 className="text-xl font-bold text-gray-900 mb-2">
+              {filter === 'unread' ? 'No unread notifications' : 'No notifications yet'}
+            </h3>
+            <p className="text-gray-600">
+              {filter === 'unread' 
+                ? 'All caught up! Check back later for new updates.'
+                : 'When you get notifications, they\'ll show up here.'}
+            </p>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {filteredNotifications.map((notification) => (
+              <div
+                key={notification._id}
+                onClick={() => !notification.isRead && markAsRead(notification._id)}
+                className={`bg-white rounded-xl shadow-sm border border-gray-100 p-4 hover:shadow-md transition-all cursor-pointer ${
+                  !notification.isRead ? 'border-l-4 border-l-purple-600 bg-purple-50' : ''
+                }`}
+              >
+                <div className="flex items-start space-x-4">
+                  <div className="flex-shrink-0 mt-1">
+                    {getIcon(notification.type)}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <p className="font-semibold text-gray-900">{notification.title}</p>
+                        <p className="text-gray-600 mt-1">{notification.message}</p>
+                        <p className="text-sm text-gray-400 mt-2">{getTimeAgo(notification.createdAt)}</p>
+                      </div>
+                      {!notification.isRead && (
+                        <div className="w-2 h-2 bg-purple-600 rounded-full ml-2 mt-2"></div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   )

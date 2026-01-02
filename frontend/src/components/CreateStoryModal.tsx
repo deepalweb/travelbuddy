@@ -41,21 +41,36 @@ export const CreateStoryModal: React.FC<CreateStoryModalProps> = ({ onClose, onS
     country: ''
   })
   const [images, setImages] = useState<string[]>([])
+  const [uploading, setUploading] = useState(false)
   const [tags, setTags] = useState<string[]>([])
   const [loading, setLoading] = useState(false)
 
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files
-    if (files) {
-      Array.from(files).forEach(file => {
-        const reader = new FileReader()
-        reader.onload = (event) => {
-          if (event.target?.result) {
-            setImages(prev => [...prev, event.target!.result as string])
-          }
-        }
-        reader.readAsDataURL(file)
+    if (!files || files.length === 0) return
+
+    setUploading(true)
+    try {
+      const formData = new FormData()
+      Array.from(files).slice(0, 2 - images.length).forEach(file => {
+        formData.append('images', file)
       })
+
+      const API_BASE = import.meta.env.VITE_API_URL || 'https://travelbuddylk.com/api'
+      const response = await fetch(`${API_BASE}/images/upload-multiple`, {
+        method: 'POST',
+        body: formData
+      })
+
+      if (!response.ok) throw new Error('Upload failed')
+      
+      const data = await response.json()
+      setImages(prev => [...prev, ...data.urls].slice(0, 2))
+    } catch (error) {
+      console.error('Failed to upload images:', error)
+      alert('Failed to upload images. Please try again.')
+    } finally {
+      setUploading(false)
     }
   }
 
@@ -226,7 +241,7 @@ export const CreateStoryModal: React.FC<CreateStoryModalProps> = ({ onClose, onS
           {/* Image Upload */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Photos
+              Photos (Max 2)
             </label>
             <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-purple-400 transition-colors">
               <input
@@ -234,13 +249,25 @@ export const CreateStoryModal: React.FC<CreateStoryModalProps> = ({ onClose, onS
                 multiple
                 accept="image/*"
                 onChange={handleImageUpload}
+                disabled={uploading || images.length >= 2}
                 className="hidden"
                 id="image-upload"
               />
-              <label htmlFor="image-upload" className="cursor-pointer">
-                <Camera className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                <p className="text-gray-600 mb-2">Click to upload photos</p>
-                <p className="text-sm text-gray-500">PNG, JPG up to 10MB each</p>
+              <label htmlFor="image-upload" className={`cursor-pointer ${images.length >= 2 ? 'opacity-50 cursor-not-allowed' : ''}`}>
+                {uploading ? (
+                  <div className="flex flex-col items-center">
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mb-4"></div>
+                    <p className="text-gray-600">Uploading...</p>
+                  </div>
+                ) : (
+                  <>
+                    <Camera className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                    <p className="text-gray-600 mb-2">
+                      {images.length >= 2 ? 'Maximum 2 photos reached' : 'Click to upload photos'}
+                    </p>
+                    <p className="text-sm text-gray-500">PNG, JPG up to 10MB each</p>
+                  </>
+                )}
               </label>
             </div>
 

@@ -115,13 +115,17 @@ export const StoryCard: React.FC<StoryCardProps> = ({ story, onLike }) => {
       </div>
 
       {/* Images */}
-      {story.images.length > 0 && (
+      {story.images && story.images.length > 0 && (
         <div className="px-6 pb-6">
           {story.images.length === 1 ? (
             <img 
               src={story.images[0]} 
               alt={story.title}
               className="w-full h-64 object-cover rounded-lg"
+              onError={(e) => {
+                e.currentTarget.style.display = 'none'
+                console.error('Failed to load image:', story.images[0])
+              }}
             />
           ) : (
             <div className="grid grid-cols-2 gap-2">
@@ -131,6 +135,10 @@ export const StoryCard: React.FC<StoryCardProps> = ({ story, onLike }) => {
                     src={image} 
                     alt={`${story.title} ${index + 1}`}
                     className="w-full h-32 object-cover rounded-lg"
+                    onError={(e) => {
+                      e.currentTarget.style.display = 'none'
+                      console.error('Failed to load image:', image)
+                    }}
                   />
                   {index === 3 && story.images.length > 4 && (
                     <div className="absolute inset-0 bg-black bg-opacity-50 rounded-lg flex items-center justify-center">

@@ -18,6 +18,8 @@ class DealsScreen extends StatefulWidget {
 
 class _DealsScreenState extends State<DealsScreen> {
   String _selectedFilter = 'all';
+  String _sortBy = 'distance'; // distance, discount, newest
+  final TextEditingController _searchController = TextEditingController();
   List<Deal> _deals = [];
   bool _isLoading = false;
   String? _error;
@@ -42,6 +44,7 @@ class _DealsScreenState extends State<DealsScreen> {
   @override
   void dispose() {
     _scrollController.dispose();
+    _searchController.dispose();
     super.dispose();
   }
   
@@ -181,34 +184,110 @@ class _DealsScreenState extends State<DealsScreen> {
           ),
           body: Column(
             children: [
-              // Filter Buttons
+              // Search Bar
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: TextField(
+                  controller: _searchController,
+                  decoration: InputDecoration(
+                    hintText: 'Search deals...',
+                    prefixIcon: const Icon(Icons.search),
+                    suffixIcon: _searchController.text.isNotEmpty
+                        ? IconButton(
+                            icon: const Icon(Icons.clear),
+                            onPressed: () {
+                              _searchController.clear();
+                              setState(() {});
+                            },
+                          )
+                        : null,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    filled: true,
+                    fillColor: Colors.grey[100],
+                  ),
+                  onChanged: (value) => setState(() {}),
+                ),
+              ),
+              
+              // Stats Banner
+              _buildStatsBanner(),
+              
+              // Filter Chips with Sort
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                child: Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: ['all', 'restaurant', 'hotel', 'cafe', 'shop', 'attraction'].map((filter) {
-                    final isSelected = _selectedFilter == filter;
-                    return FilterChip(
-                      label: Text(
-                        filter == 'all' ? 'All Deals' : '${filter[0].toUpperCase()}${filter.substring(1)}s',
-                        style: TextStyle(
-                          color: isSelected ? Colors.white : Colors.grey[700],
-                          fontSize: 14,
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        child: Wrap(
+                          spacing: 8,
+                          children: ['all', 'restaurant', 'hotel', 'cafe', 'shop', 'attraction'].map((filter) {
+                            final isSelected = _selectedFilter == filter;
+                            return FilterChip(
+                              label: Text(
+                                filter == 'all' ? 'All' : '${filter[0].toUpperCase()}${filter.substring(1)}s',
+                                style: TextStyle(
+                                  color: isSelected ? Colors.white : Colors.grey[700],
+                                  fontSize: 12,
+                                ),
+                              ),
+                              selected: isSelected,
+                              onSelected: (selected) {
+                                setState(() => _selectedFilter = filter);
+                              },
+                              backgroundColor: isSelected ? Color(AppConstants.colors['primary']!) : Colors.white,
+                              selectedColor: Color(AppConstants.colors['primary']!),
+                              side: BorderSide(
+                                color: isSelected ? Color(AppConstants.colors['primary']!) : Colors.grey[300]!,
+                              ),
+                            );
+                          }).toList(),
                         ),
                       ),
-                      selected: isSelected,
-                      onSelected: (selected) {
-                        setState(() => _selectedFilter = filter);
-                        // Don't reload - just filter locally
+                    ),
+                    const SizedBox(width: 8),
+                    PopupMenuButton<String>(
+                      icon: const Icon(Icons.sort),
+                      onSelected: (value) {
+                        setState(() => _sortBy = value);
                       },
-                      backgroundColor: isSelected ? Color(AppConstants.colors['primary']!) : Colors.white,
-                      selectedColor: Color(AppConstants.colors['primary']!),
-                      side: BorderSide(
-                        color: isSelected ? Color(AppConstants.colors['primary']!) : Colors.grey[300]!,
-                      ),
-                    );
-                  }).toList(),
+                      itemBuilder: (context) => [
+                        PopupMenuItem(
+                          value: 'distance',
+                          child: Row(
+                            children: [
+                              Icon(Icons.near_me, size: 18, color: _sortBy == 'distance' ? Colors.blue : Colors.grey),
+                              const SizedBox(width: 8),
+                              Text('Distance', style: TextStyle(color: _sortBy == 'distance' ? Colors.blue : Colors.black)),
+                            ],
+                          ),
+                        ),
+                        PopupMenuItem(
+                          value: 'discount',
+                          child: Row(
+                            children: [
+                              Icon(Icons.local_offer, size: 18, color: _sortBy == 'discount' ? Colors.blue : Colors.grey),
+                              const SizedBox(width: 8),
+                              Text('Discount', style: TextStyle(color: _sortBy == 'discount' ? Colors.blue : Colors.black)),
+                            ],
+                          ),
+                        ),
+                        PopupMenuItem(
+                          value: 'newest',
+                          child: Row(
+                            children: [
+                              Icon(Icons.new_releases, size: 18, color: _sortBy == 'newest' ? Colors.blue : Colors.grey),
+                              const SizedBox(width: 8),
+                              Text('Newest', style: TextStyle(color: _sortBy == 'newest' ? Colors.blue : Colors.black)),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
                 ),
               ),
               
@@ -246,11 +325,52 @@ class _DealsScreenState extends State<DealsScreen> {
     );
   }
 
+  Widget _buildStatsBanner() {
+    final activeDeals = _deals.where((d) => d.isActive).length;
+    final avgDiscount = _deals.isEmpty ? 0 : _deals.map((d) => _extractDiscountValue(d.discount)).reduce((a, b) => a + b) / _deals.length;
+    
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [Colors.orange[50]!, Colors.red[50]!],
+        ),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.orange[200]!),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceAround,
+        children: [
+          _buildStatItem(Icons.local_offer, '$activeDeals', 'Active', Colors.orange),
+          Container(width: 1, height: 30, color: Colors.grey[300]),
+          _buildStatItem(Icons.discount, '${avgDiscount.toInt()}%', 'Avg Save', Colors.red),
+          Container(width: 1, height: 30, color: Colors.grey[300]),
+          _buildStatItem(Icons.trending_up, '${_deals.length}', 'Total', Colors.blue),
+        ],
+      ),
+    );
+  }
+  
+  Widget _buildStatItem(IconData icon, String value, String label, Color color) {
+    return Column(
+      children: [
+        Icon(icon, color: color, size: 20),
+        const SizedBox(height: 4),
+        Text(value, style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: color)),
+        Text(label, style: TextStyle(fontSize: 10, color: Colors.grey[600])),
+      ],
+    );
+  }
+  
+  double _extractDiscountValue(String discount) {
+    final match = RegExp(r'(\d+)').firstMatch(discount);
+    return match != null ? double.parse(match.group(1)!) : 10;
+  }
+
   Widget _buildDealsContent() {
     if (_isLoading) {
-      return const Center(
-        child: CircularProgressIndicator(),
-      );
+      return _buildSkeletonGrid();
     }
 
     if (_error != null) {
@@ -274,17 +394,18 @@ class _DealsScreenState extends State<DealsScreen> {
     }
 
     final filteredDeals = _getFilteredDeals(_deals);
+    final sortedDeals = _getSortedDeals(filteredDeals);
     
-    if (filteredDeals.isNotEmpty) {
-      print('🖼️ First deal images: ${filteredDeals.first.images}');
-      print('🖼️ Images count: ${filteredDeals.first.images.length}');
+    if (sortedDeals.isNotEmpty) {
+      print('🖼️ First deal images: ${sortedDeals.first.images}');
+      print('🖼️ Images count: ${sortedDeals.first.images.length}');
       return Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              '${_getDealsCategoryTitle()} (${filteredDeals.length})',
+              '${_getDealsCategoryTitle()} (${sortedDeals.length})',
               style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 16),
@@ -297,8 +418,8 @@ class _DealsScreenState extends State<DealsScreen> {
                 crossAxisSpacing: 12,
                 mainAxisSpacing: 12,
               ),
-              itemCount: filteredDeals.length,
-              itemBuilder: (context, index) => _buildDealCard(filteredDeals[index]),
+              itemCount: sortedDeals.length,
+              itemBuilder: (context, index) => _buildDealCard(sortedDeals[index]),
             ),
           ],
         ),
@@ -328,7 +449,10 @@ class _DealsScreenState extends State<DealsScreen> {
   
   Widget _buildDealCard(Deal deal) {
     return Card(
+      elevation: 3,
+      shadowColor: Colors.black.withOpacity(0.2),
       clipBehavior: Clip.antiAlias,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: InkWell(
         onTap: () => _showDealDetails(deal),
         child: Column(
@@ -522,6 +646,105 @@ class _DealsScreenState extends State<DealsScreen> {
   }
   
   List<Deal> _getFilteredDeals(List<Deal> deals) {
+    var filtered = deals;
+    
+    // Apply category filter
+    if (_selectedFilter != 'all') {
+      filtered = deals.where((deal) {
+        final businessType = deal.businessType.toLowerCase();
+        switch (_selectedFilter) {
+          case 'restaurant':
+            return businessType.contains('restaurant');
+          case 'hotel':
+            return businessType.contains('hotel');
+          case 'cafe':
+            return businessType.contains('cafe');
+          case 'shop':
+            return businessType.contains('shop') || businessType.contains('store');
+          case 'attraction':
+            return businessType.contains('attraction') || businessType.contains('museum');
+          default:
+            return true;
+        }
+      }).toList();
+    }
+    
+    // Apply search filter
+    if (_searchController.text.isNotEmpty) {
+      final query = _searchController.text.toLowerCase();
+      filtered = filtered.where((deal) {
+        return deal.title.toLowerCase().contains(query) ||
+               deal.businessName.toLowerCase().contains(query) ||
+               deal.description.toLowerCase().contains(query);
+      }).toList();
+    }
+    
+    return filtered;
+  }
+  
+  List<Deal> _getSortedDeals(List<Deal> deals) {
+    final sorted = List<Deal>.from(deals);
+    
+    switch (_sortBy) {
+      case 'distance':
+        sorted.sort((a, b) => (a.distance ?? 999).compareTo(b.distance ?? 999));
+        break;
+      case 'discount':
+        sorted.sort((a, b) {
+          final aDiscount = _extractDiscountValue(a.discount);
+          final bDiscount = _extractDiscountValue(b.discount);
+          return bDiscount.compareTo(aDiscount);
+        });
+        break;
+      case 'newest':
+        sorted.sort((a, b) => b.validUntil.compareTo(a.validUntil));
+        break;
+    }
+    
+    return sorted;
+  }
+  
+  Widget _buildSkeletonGrid() {
+    return Padding(
+      padding: const EdgeInsets.all(16),
+      child: GridView.builder(
+        shrinkWrap: true,
+        physics: const NeverScrollableScrollPhysics(),
+        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: 2,
+          childAspectRatio: 0.8,
+          crossAxisSpacing: 12,
+          mainAxisSpacing: 12,
+        ),
+        itemCount: 6,
+        itemBuilder: (context, index) => Card(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Container(color: Colors.grey[300]),
+              ),
+              Padding(
+                padding: const EdgeInsets.all(8),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(height: 12, width: double.infinity, color: Colors.grey[300]),
+                    const SizedBox(height: 4),
+                    Container(height: 10, width: 100, color: Colors.grey[300]),
+                    const SizedBox(height: 4),
+                    Container(height: 10, width: 60, color: Colors.grey[300]),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+  
+  List<Deal> _getFilteredDealsOld(List<Deal> deals) {
     if (_selectedFilter == 'all') return deals;
     
     return deals.where((deal) {

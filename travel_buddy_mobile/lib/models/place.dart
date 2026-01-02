@@ -231,6 +231,18 @@ class Deal extends HiveObject {
   @HiveField(20)
   final DealLocation? location;
   
+  @HiveField(21)
+  final String? businessAddress;
+  
+  @HiveField(22)
+  final String? businessPhone;
+  
+  @HiveField(23)
+  final String? businessWebsite;
+  
+  @HiveField(24)
+  final ContactInfo? contactInfo;
+  
   // Non-persisted field for distance calculation
   double? distance;
 
@@ -257,6 +269,10 @@ class Deal extends HiveObject {
     this.discountedPrice,
     this.currency,
     this.location,
+    this.businessAddress,
+    this.businessPhone,
+    this.businessWebsite,
+    this.contactInfo,
   });
 
   factory Deal.fromJson(Map<String, dynamic> json) {
@@ -303,6 +319,10 @@ class Deal extends HiveObject {
         discountedPrice: _parsePrice(json['discountedPrice']),
         currency: json['currency']?.toString(),
         location: json['location'] != null ? DealLocation.fromJson(json['location']) : null,
+        businessAddress: json['businessAddress']?.toString(),
+        businessPhone: json['businessPhone']?.toString(),
+        businessWebsite: json['businessWebsite']?.toString(),
+        contactInfo: json['contactInfo'] != null ? ContactInfo.fromJson(json['contactInfo']) : null,
       );
     } catch (e) {
       print('Error parsing Deal from JSON: $e');
@@ -351,9 +371,17 @@ class DealLocation extends HiveObject {
   @HiveField(1)
   final List<double> coordinates;
   
+  @HiveField(2)
+  final double? lat;
+  
+  @HiveField(3)
+  final double? lng;
+  
   DealLocation({
     required this.type,
     required this.coordinates,
+    this.lat,
+    this.lng,
   });
   
   factory DealLocation.fromJson(Map<String, dynamic> json) {
@@ -373,6 +401,8 @@ class DealLocation extends HiveObject {
     return DealLocation(
       type: json['type'] ?? 'Point',
       coordinates: coords,
+      lat: json['lat']?.toDouble(),
+      lng: json['lng']?.toDouble(),
     );
   }
   
@@ -380,6 +410,60 @@ class DealLocation extends HiveObject {
     return {
       'type': type,
       'coordinates': coordinates,
+      'lat': lat,
+      'lng': lng,
+    };
+  }
+}
+
+@HiveType(typeId: 22)
+class ContactInfo extends HiveObject {
+  @HiveField(0)
+  final String? website;
+  
+  @HiveField(1)
+  final String? phone;
+  
+  @HiveField(2)
+  final String? whatsapp;
+  
+  @HiveField(3)
+  final String? facebook;
+  
+  @HiveField(4)
+  final String? instagram;
+  
+  @HiveField(5)
+  final String? email;
+  
+  ContactInfo({
+    this.website,
+    this.phone,
+    this.whatsapp,
+    this.facebook,
+    this.instagram,
+    this.email,
+  });
+  
+  factory ContactInfo.fromJson(Map<String, dynamic> json) {
+    return ContactInfo(
+      website: json['website']?.toString(),
+      phone: json['phone']?.toString(),
+      whatsapp: json['whatsapp']?.toString(),
+      facebook: json['facebook']?.toString(),
+      instagram: json['instagram']?.toString(),
+      email: json['email']?.toString(),
+    );
+  }
+  
+  Map<String, dynamic> toJson() {
+    return {
+      'website': website,
+      'phone': phone,
+      'whatsapp': whatsapp,
+      'facebook': facebook,
+      'instagram': instagram,
+      'email': email,
     };
   }
 }

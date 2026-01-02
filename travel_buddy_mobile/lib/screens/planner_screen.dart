@@ -19,6 +19,10 @@ class PlannerScreen extends StatefulWidget {
 
 class _PlannerScreenState extends State<PlannerScreen> {
   int _displayCount = 5;
+  String _searchQuery = '';
+  String _filterStatus = 'all';
+  String _sortBy = 'recent';
+  final TextEditingController _searchController = TextEditingController();
   
   @override
   void initState() {
@@ -26,6 +30,12 @@ class _PlannerScreenState extends State<PlannerScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<AppProvider>().loadTripPlans();
     });
+  }
+  
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
   }
   
   @override
@@ -47,17 +57,17 @@ class _PlannerScreenState extends State<PlannerScreen> {
             title: const Text('My Trip Plans'),
             actions: [
               IconButton(
-                icon: const Icon(Icons.bug_report),
-                onPressed: () => Navigator.pushNamed(context, '/test-route'),
-                tooltip: 'Test Enhanced Route',
-              ),
-              IconButton(
                 icon: const Icon(Icons.info_outline),
                 onPressed: () => _showHowToCreatePlans(),
               ),
             ],
           ),
-          body: _buildHomeView(appProvider),
+          body: Column(
+            children: [
+              _buildSearchAndFilters(),
+              Expanded(child: _buildHomeView(appProvider)),
+            ],
+          ),
           floatingActionButton: FloatingActionButton.extended(
             onPressed: () => _showCreatePlanOptions(),
             icon: const Icon(Icons.add),
@@ -65,6 +75,108 @@ class _PlannerScreenState extends State<PlannerScreen> {
           ),
         );
       },
+    );
+  }
+
+  Widget _buildSearchAndFilters() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 4, offset: Offset(0, 2))],
+      ),
+      child: Column(
+        children: [
+          TextField(
+            controller: _searchController,
+            decoration: InputDecoration(
+              hintText: 'Search plans...',
+              prefixIcon: const Icon(Icons.search),
+              suffixIcon: _searchQuery.isNotEmpty
+                  ? IconButton(
+                      icon: const Icon(Icons.clear),
+                      onPressed: () => setState(() {
+                        _searchController.clear();
+                        _searchQuery = '';
+                      }),
+                    )
+                  : null,
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            ),
+            onChanged: (value) => setState(() => _searchQuery = value),
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: PopupMenuButton<String>(
+                  initialValue: _filterStatus,
+                  onSelected: (value) => setState(() => _filterStatus = value),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                    decoration: BoxDecoration(
+                      border: Border.all(color: Colors.grey[300]!),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Row(
+                          children: [
+                            const Icon(Icons.filter_list, size: 18),
+                            const SizedBox(width: 6),
+                            Text(_filterStatus == 'all' ? 'All Status' : _filterStatus),
+                          ],
+                        ),
+                        const Icon(Icons.arrow_drop_down, size: 20),
+                      ],
+                    ),
+                  ),
+                  itemBuilder: (context) => [
+                    const PopupMenuItem(value: 'all', child: Text('All Status')),
+                    const PopupMenuItem(value: 'Not Started', child: Text('Not Started')),
+                    const PopupMenuItem(value: 'In Progress', child: Text('In Progress')),
+                    const PopupMenuItem(value: 'Completed', child: Text('Completed')),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: PopupMenuButton<String>(
+                  initialValue: _sortBy,
+                  onSelected: (value) => setState(() => _sortBy = value),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                    decoration: BoxDecoration(
+                      border: Border.all(color: Colors.grey[300]!),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Row(
+                          children: [
+                            const Icon(Icons.sort, size: 18),
+                            const SizedBox(width: 6),
+                            Text(_sortBy == 'recent' ? 'Recent' : _sortBy == 'progress' ? 'Progress' : 'A-Z'),
+                          ],
+                        ),
+                        const Icon(Icons.arrow_drop_down, size: 20),
+                      ],
+                    ),
+                  ),
+                  itemBuilder: (context) => [
+                    const PopupMenuItem(value: 'recent', child: Text('Most Recent')),
+                    const PopupMenuItem(value: 'progress', child: Text('By Progress')),
+                    const PopupMenuItem(value: 'name', child: Text('By Name (A-Z)')),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
     );
   }
 
@@ -148,118 +260,199 @@ class _PlannerScreenState extends State<PlannerScreen> {
   }
   
   Widget _buildRecentPlansList(AppProvider appProvider) {
-    final List<Widget> planWidgets = [];
+    List<dynamic> allPlans = [
+      ...appProvider.tripPlans.map((p) => {'type': 'trip', 'data': p}),
+      ...appProvider.itineraries.map((i) => {'type': 'itinerary', 'data': i}),
+    ];
     
-    // Add trip plans (limit to display count)
-    for (final plan in appProvider.tripPlans.take(_displayCount)) {
-      final statusInfo = _calculatePlanStatus(plan);
-      
-      planWidgets.add(Card(
-        margin: const EdgeInsets.only(bottom: 8),
-        child: ListTile(
-          leading: CircleAvatar(
-            backgroundColor: Colors.purple[100],
-            child: Icon(Icons.map, color: Colors.purple[700]),
-          ),
-          title: Row(
-            children: [
-              Expanded(child: Text(plan.tripTitle ?? 'Trip Plan')),
-              _buildStatusBadge(statusInfo),
-            ],
-          ),
-          subtitle: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('${plan.destination} • ${plan.duration}'),
-              const SizedBox(height: 4),
-              _buildProgressBar(statusInfo),
-            ],
-          ),
-          trailing: PopupMenuButton<String>(
-            icon: const Icon(Icons.more_vert, size: 20),
-            onSelected: (value) => _handlePlanAction(value, plan, appProvider),
-            itemBuilder: (context) => [
-              const PopupMenuItem(
-                value: 'view',
-                child: Row(
-                  children: [
-                    Icon(Icons.visibility, size: 16),
-                    SizedBox(width: 8),
-                    Text('View'),
-                  ],
-                ),
-              ),
-              const PopupMenuItem(
-                value: 'delete',
-                child: Row(
-                  children: [
-                    Icon(Icons.delete, size: 16, color: Colors.red),
-                    SizedBox(width: 8),
-                    Text('Delete', style: TextStyle(color: Colors.red)),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          onTap: () => _showTripPlanDetails(plan),
-        ),
-      ));
+    // Apply search filter
+    if (_searchQuery.isNotEmpty) {
+      allPlans = allPlans.where((item) {
+        final name = item['type'] == 'trip' 
+            ? (item['data'] as TripPlan).tripTitle ?? ''
+            : (item['data'] as OneDayItinerary).title;
+        final destination = item['type'] == 'trip' 
+            ? (item['data'] as TripPlan).destination
+            : 'Day Trip';
+        return name.toLowerCase().contains(_searchQuery.toLowerCase()) ||
+               destination.toLowerCase().contains(_searchQuery.toLowerCase());
+      }).toList();
     }
     
-    // Add day itineraries (limit to display count)
-    for (final itinerary in appProvider.itineraries.take(_displayCount)) {
-      final statusInfo = _calculateItineraryStatus(itinerary);
-      
-      planWidgets.add(Card(
-        margin: const EdgeInsets.only(bottom: 8),
-        child: ListTile(
-          leading: CircleAvatar(
-            backgroundColor: Colors.blue[100],
-            child: Icon(Icons.today, color: Colors.blue[700]),
-          ),
-          title: Row(
-            children: [
-              Expanded(child: Text(itinerary.title)),
-              _buildStatusBadge(statusInfo),
-            ],
-          ),
-          subtitle: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('Day itinerary • ${itinerary.dailyPlan.length} activities'),
-              const SizedBox(height: 4),
-              _buildProgressBar(statusInfo),
-            ],
-          ),
-          trailing: PopupMenuButton<String>(
-            icon: const Icon(Icons.more_vert, size: 20),
-            onSelected: (value) => _handlePlanAction(value, itinerary, appProvider),
-            itemBuilder: (context) => [
-              const PopupMenuItem(
-                value: 'view',
-                child: Row(
-                  children: [
-                    Icon(Icons.visibility, size: 16),
-                    SizedBox(width: 8),
-                    Text('View'),
-                  ],
+    // Apply status filter
+    if (_filterStatus != 'all') {
+      allPlans = allPlans.where((item) {
+        final statusInfo = item['type'] == 'trip'
+            ? _calculatePlanStatus(item['data'] as TripPlan)
+            : _calculateItineraryStatus(item['data'] as OneDayItinerary);
+        return statusInfo['status'] == _filterStatus;
+      }).toList();
+    }
+    
+    // Apply sorting
+    allPlans.sort((a, b) {
+      if (_sortBy == 'name') {
+        final nameA = a['type'] == 'trip' 
+            ? (a['data'] as TripPlan).tripTitle ?? ''
+            : (a['data'] as OneDayItinerary).title;
+        final nameB = b['type'] == 'trip' 
+            ? (b['data'] as TripPlan).tripTitle ?? ''
+            : (b['data'] as OneDayItinerary).title;
+        return nameA.compareTo(nameB);
+      } else if (_sortBy == 'progress') {
+        final progressA = a['type'] == 'trip'
+            ? _calculatePlanStatus(a['data'] as TripPlan)['progress']
+            : _calculateItineraryStatus(a['data'] as OneDayItinerary)['progress'];
+        final progressB = b['type'] == 'trip'
+            ? _calculatePlanStatus(b['data'] as TripPlan)['progress']
+            : _calculateItineraryStatus(b['data'] as OneDayItinerary)['progress'];
+        return progressB.compareTo(progressA);
+      }
+      return 0; // recent (default order)
+    });
+    
+    final List<Widget> planWidgets = [];
+    
+    for (final item in allPlans.take(_displayCount)) {
+      if (item['type'] == 'trip') {
+        final plan = item['data'] as TripPlan;
+        final statusInfo = _calculatePlanStatus(plan);
+        
+        planWidgets.add(Card(
+          margin: const EdgeInsets.only(bottom: 8),
+          child: ListTile(
+            leading: CircleAvatar(
+              backgroundColor: Colors.purple[100],
+              child: Icon(Icons.map, color: Colors.purple[700]),
+            ),
+            title: Row(
+              children: [
+                Expanded(child: Text(plan.tripTitle ?? 'Trip Plan')),
+                _buildStatusBadge(statusInfo),
+              ],
+            ),
+            subtitle: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('${plan.destination} • ${plan.duration}'),
+                const SizedBox(height: 4),
+                _buildProgressBar(statusInfo),
+              ],
+            ),
+            trailing: PopupMenuButton<String>(
+              icon: const Icon(Icons.more_vert, size: 20),
+              onSelected: (value) => _handlePlanAction(value, plan, appProvider),
+              itemBuilder: (context) => [
+                const PopupMenuItem(
+                  value: 'view',
+                  child: Row(
+                    children: [
+                      Icon(Icons.visibility, size: 16),
+                      SizedBox(width: 8),
+                      Text('View'),
+                    ],
+                  ),
                 ),
-              ),
-              const PopupMenuItem(
-                value: 'delete',
-                child: Row(
-                  children: [
-                    Icon(Icons.delete, size: 16, color: Colors.red),
-                    SizedBox(width: 8),
-                    Text('Delete', style: TextStyle(color: Colors.red)),
-                  ],
+                const PopupMenuItem(
+                  value: 'share',
+                  child: Row(
+                    children: [
+                      Icon(Icons.share, size: 16),
+                      SizedBox(width: 8),
+                      Text('Share'),
+                    ],
+                  ),
                 ),
-              ),
-            ],
+                const PopupMenuItem(
+                  value: 'duplicate',
+                  child: Row(
+                    children: [
+                      Icon(Icons.copy, size: 16),
+                      SizedBox(width: 8),
+                      Text('Duplicate'),
+                    ],
+                  ),
+                ),
+                const PopupMenuItem(
+                  value: 'delete',
+                  child: Row(
+                    children: [
+                      Icon(Icons.delete, size: 16, color: Colors.red),
+                      SizedBox(width: 8),
+                      Text('Delete', style: TextStyle(color: Colors.red)),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            onTap: () => _showTripPlanDetails(plan),
           ),
-          onTap: () => _showItineraryDetails(itinerary),
-        ),
-      ));
+        ));
+      } else {
+        final itinerary = item['data'] as OneDayItinerary;
+        final statusInfo = _calculateItineraryStatus(itinerary);
+        
+        planWidgets.add(Card(
+          margin: const EdgeInsets.only(bottom: 8),
+          child: ListTile(
+            leading: CircleAvatar(
+              backgroundColor: Colors.blue[100],
+              child: Icon(Icons.today, color: Colors.blue[700]),
+            ),
+            title: Row(
+              children: [
+                Expanded(child: Text(itinerary.title)),
+                _buildStatusBadge(statusInfo),
+              ],
+            ),
+            subtitle: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Day itinerary • ${itinerary.dailyPlan.length} activities'),
+                const SizedBox(height: 4),
+                _buildProgressBar(statusInfo),
+              ],
+            ),
+            trailing: PopupMenuButton<String>(
+              icon: const Icon(Icons.more_vert, size: 20),
+              onSelected: (value) => _handlePlanAction(value, itinerary, appProvider),
+              itemBuilder: (context) => [
+                const PopupMenuItem(
+                  value: 'view',
+                  child: Row(
+                    children: [
+                      Icon(Icons.visibility, size: 16),
+                      SizedBox(width: 8),
+                      Text('View'),
+                    ],
+                  ),
+                ),
+                const PopupMenuItem(
+                  value: 'duplicate',
+                  child: Row(
+                    children: [
+                      Icon(Icons.copy, size: 16),
+                      SizedBox(width: 8),
+                      Text('Duplicate'),
+                    ],
+                  ),
+                ),
+                const PopupMenuItem(
+                  value: 'delete',
+                  child: Row(
+                    children: [
+                      Icon(Icons.delete, size: 16, color: Colors.red),
+                      SizedBox(width: 8),
+                      Text('Delete', style: TextStyle(color: Colors.red)),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            onTap: () => _showItineraryDetails(itinerary),
+          ),
+        ));
+      }
     }
     
     if (planWidgets.isEmpty) {
@@ -267,8 +460,12 @@ class _PlannerScreenState extends State<PlannerScreen> {
         padding: const EdgeInsets.all(16),
         child: Column(
           children: [
-            const Text('No plans created yet.', 
-                       style: TextStyle(color: Colors.grey, fontStyle: FontStyle.italic)),
+            Text(
+              _searchQuery.isNotEmpty || _filterStatus != 'all'
+                  ? 'No plans match your filters.'
+                  : 'No plans created yet.',
+              style: const TextStyle(color: Colors.grey, fontStyle: FontStyle.italic),
+            ),
             const SizedBox(height: 8),
             const Text('Browse places and tap "Add Trip" to create your first plan!', 
                        style: TextStyle(color: Colors.grey, fontSize: 12)),
@@ -277,8 +474,7 @@ class _PlannerScreenState extends State<PlannerScreen> {
       );
     }
     
-    final totalPlans = appProvider.tripPlans.length + appProvider.itineraries.length;
-    final hasMore = totalPlans > _displayCount;
+    final hasMore = allPlans.length > _displayCount;
     
     return Column(
       children: [
@@ -312,6 +508,9 @@ class _PlannerScreenState extends State<PlannerScreen> {
         if (plan is TripPlan) {
           _shareTripPlan(plan);
         }
+        break;
+      case 'duplicate':
+        _duplicatePlan(plan, appProvider);
         break;
       case 'delete':
         _confirmDeletePlan(plan, appProvider);
@@ -368,6 +567,55 @@ class _PlannerScreenState extends State<PlannerScreen> {
     );
   }
   
+  void _duplicatePlan(dynamic plan, AppProvider appProvider) async {
+    try {
+      if (plan is TripPlan) {
+        final duplicated = TripPlan(
+          id: DateTime.now().millisecondsSinceEpoch.toString(),
+          tripTitle: '${plan.tripTitle} (Copy)',
+          destination: plan.destination,
+          duration: plan.duration,
+          introduction: plan.introduction,
+          dailyPlans: plan.dailyPlans,
+          conclusion: plan.conclusion,
+          estimatedWalkingDistance: plan.estimatedWalkingDistance,
+        );
+        await appProvider.saveTripPlan(duplicated);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('✅ Plan duplicated successfully'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      } else if (plan is OneDayItinerary) {
+        final duplicated = OneDayItinerary(
+          id: DateTime.now().millisecondsSinceEpoch.toString(),
+          title: '${plan.title} (Copy)',
+          introduction: plan.introduction,
+          dailyPlan: plan.dailyPlan,
+          conclusion: plan.conclusion,
+        );
+        appProvider.itineraries.add(duplicated);
+        final storageService = StorageService();
+        await storageService.saveItinerary(duplicated);
+        appProvider.notifyListeners();
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('✅ Itinerary duplicated successfully'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('❌ Failed to duplicate: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
   void _deletePlan(dynamic plan, AppProvider appProvider) async {
     try {
       if (plan is TripPlan) {

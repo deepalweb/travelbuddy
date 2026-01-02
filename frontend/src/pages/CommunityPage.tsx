@@ -33,32 +33,86 @@ export const CommunityPage: React.FC = () => {
   const [stories, setStories] = useState<Story[]>([])
   const [topTravelers, setTopTravelers] = useState<TopTraveler[]>([])
   const [loading, setLoading] = useState(true)
+  const [loadingMore, setLoadingMore] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [filter, setFilter] = useState('recent')
   const [selectedTag, setSelectedTag] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
   const [viewMode, setViewMode] = useState<'feed' | 'map'>('feed')
+  const [hasMore, setHasMore] = useState(true)
+  const [cursor, setCursor] = useState<string | null>(null)
 
   useEffect(() => {
-    loadCommunityData()
+    setStories([])
+    setCursor(null)
+    setHasMore(true)
+    loadCommunityData(true)
   }, [filter])
 
-  const loadCommunityData = async () => {
+  useEffect(() => {
+    const handleScroll = () => {
+      if (viewMode !== 'feed' || !hasMore || loadingMore) return
+      
+      const scrollTop = window.pageYOffset || document.documentElement.scrollTop
+      const scrollHeight = document.documentElement.scrollHeight
+      const clientHeight = document.documentElement.clientHeight
+      
+      if (scrollTop + clientHeight >= scrollHeight - 500) {
+        loadMore()
+      }
+    }
+
+    window.addEventListener('scroll', handleScroll)
+    return () => window.removeEventListener('scroll', handleScroll)
+  }, [hasMore, loadingMore, cursor, viewMode])
+
+  const loadCommunityData = async (reset = false) => {
     try {
-      setLoading(true)
+      if (reset) {
+        setLoading(true)
+      }
       setError(null)
       const [storiesData, travelersData] = await Promise.all([
-        communityService.getStories(filter),
+        communityService.getStories(filter, null),
         communityService.getTopTravelers()
       ])
       setStories(storiesData)
       setTopTravelers(travelersData)
-    } catch (error) {
+      setHasMore(storiesData.length >= 20)
+      if (storiesData.length > 0) {
+        setCursor(storiesData[storiesData.length - 1].createdAt)
+      }
+    } catch (error: any) {
       console.error('Failed to load community data:', error)
-      setError('Unable to load stories. Please check your connection and try again.')
+      setError(error.message || 'Unable to load stories. Please check your connection and try again.')
+      setStories([])
+      setTopTravelers([])
     } finally {
       setLoading(false)
+    }
+  }
+
+  const loadMore = async () => {
+    if (!hasMore || loadingMore || !cursor) return
+    
+    try {
+      setLoadingMore(true)
+      const moreStories = await communityService.getStories(filter, cursor)
+      if (moreStories.length === 0) {
+        setHasMore(false)
+      } else {
+        setStories([...stories, ...moreStories])
+        setCursor(moreStories[moreStories.length - 1].createdAt)
+        setHasMore(moreStories.length >= 20)
+      }
+    } catch (error: any) {
+      console.error('Failed to load more stories:', error)
+      // Show toast or inline error for load more failures
+      setError('Failed to load more stories. Please try again.')
+      setTimeout(() => setError(null), 3000)
+    } finally {
+      setLoadingMore(false)
     }
   }
 
@@ -320,7 +374,7 @@ export const CommunityPage: React.FC = () => {
                 <h3 className="text-xl font-bold text-gray-900 mb-2">Oops! Something went wrong</h3>
                 <p className="text-gray-600 mb-6 max-w-md mx-auto">{error}</p>
                 <button
-                  onClick={loadCommunityData}
+                  onClick={() => loadCommunityData(true)}
                   className="bg-purple-600 text-white px-6 py-3 rounded-xl hover:bg-purple-700 transition-all duration-200 font-semibold shadow-lg"
                 >
                   Try Again
@@ -363,6 +417,15 @@ export const CommunityPage: React.FC = () => {
                 >
                   Share Your First Story
                 </button>
+                <div className="mt-6 text-sm text-gray-500">
+                  <p>💡 Tip: Make sure you're connected to the internet</p>
+                  <button
+                    onClick={() => loadCommunityData(true)}
+                    className="text-purple-600 hover:text-purple-700 font-medium mt-2"
+                  >
+                    Refresh Page
+                  </button>
+                </div>
               </div>
             ) : viewMode === 'map' ? (
               <div className="space-y-6">
@@ -426,6 +489,21 @@ export const CommunityPage: React.FC = () => {
                       />
                     </div>
                   ))
+                )}
+                
+                {/* Loading More Indicator */}
+                {loadingMore && (
+                  <div className="text-center py-8">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600 mx-auto"></div>
+                    <p className="text-gray-600 mt-2">Loading more stories...</p>
+                  </div>
+                )}
+                
+                {/* End of Feed */}
+                {!hasMore && stories.length > 0 && (
+                  <div className="text-center py-8 text-gray-500">
+                    <p>You've reached the end! 🎉</p>
+                  </div>
                 )}
               </div>
             )}
@@ -541,6 +619,27 @@ export const CommunityPage: React.FC = () => {
           onClose={() => setShowCreateModal(false)}
           onStoryCreated={handleStoryCreated}
         />
+      )}
+
+      {/* Floating Error Toast */}
+      {error && !loading && (
+        <div className="fixed bottom-4 right-4 bg-red-500 text-white px-6 py-4 rounded-lg shadow-2xl z-50 animate-slide-up max-w-md">
+          <div className="flex items-start space-x-3">
+            <svg className="w-6 h-6 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <div className="flex-1">
+              <p className="font-semibold">Error</p>
+              <p className="text-sm">{error}</p>
+            </div>
+            <button
+              onClick={() => setError(null)}
+              className="text-white hover:text-gray-200"
+            >
+              ×
+            </button>
+          </div>
+        </div>
       )}
     </div>
   )

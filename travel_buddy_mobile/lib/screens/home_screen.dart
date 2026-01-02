@@ -20,7 +20,6 @@ import '../screens/transport_hub_screen.dart';
 import '../screens/travel_agent_screen.dart';
 import '../screens/events_screen.dart';
 import '../screens/place_details_screen.dart';
-import '../screens/category_places_screen.dart';
 import '../widgets/category_section.dart';
 import '../services/places_service.dart';
 import '../models/place.dart';
@@ -614,13 +613,13 @@ class _HomeScreenState extends State<HomeScreen> {
                     const SizedBox(height: 16),
                     _buildWelcomeCard(appProvider),
                     const SizedBox(height: 16),
+                    _buildUserStatsCard(appProvider),
+                    const SizedBox(height: 16),
                     _buildPlanTripCTA(),
                     const SizedBox(height: 16),
                     _buildInProgressTrips(appProvider),
                     const SizedBox(height: 16),
-                    _buildQuickActions(appProvider),
-                    const SizedBox(height: 20),
-                    _buildMoreServices(appProvider),
+                    _buildConsolidatedServices(appProvider),
                     const SizedBox(height: 16),
                     _buildCategoryPlaces(appProvider),
                     const SizedBox(height: 16),
@@ -1075,6 +1074,230 @@ class _HomeScreenState extends State<HomeScreen> {
       );
     }
     return const SizedBox.shrink();
+  }
+
+  Widget _buildUserStatsCard(AppProvider appProvider) {
+    final tripsCount = appProvider.tripPlans.length + appProvider.itineraries.length;
+    final favoritesCount = appProvider.favoriteIds.length;
+    final placesVisited = appProvider.tripPlans
+        .expand((trip) => trip.dailyPlans)
+        .expand((day) => day.activities)
+        .where((activity) => activity.isVisited)
+        .length;
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [Colors.blue[50]!, Colors.purple[50]!],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.blue[100]!),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: _buildStatItem(Icons.map, tripsCount.toString(), 'Trips', Colors.blue),
+          ),
+          Container(width: 1, height: 40, color: Colors.grey[300]),
+          Expanded(
+            child: _buildStatItem(Icons.favorite, favoritesCount.toString(), 'Favorites', Colors.red),
+          ),
+          Container(width: 1, height: 40, color: Colors.grey[300]),
+          Expanded(
+            child: _buildStatItem(Icons.check_circle, placesVisited.toString(), 'Visited', Colors.green),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStatItem(IconData icon, String value, String label, Color color) {
+    return Column(
+      children: [
+        Icon(icon, color: color, size: 24),
+        const SizedBox(height: 4),
+        Text(
+          value,
+          style: TextStyle(
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
+            color: color,
+          ),
+        ),
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 12,
+            color: Colors.grey[600],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildConsolidatedServices(AppProvider appProvider) {
+    final services = [
+      {
+        'icon': Icons.explore,
+        'label': 'Nearby Places',
+        'color': const Color(0xFF10B981),
+        'action': 'nearby',
+      },
+      {
+        'icon': Icons.local_offer,
+        'label': 'Hot Deals',
+        'color': const Color(0xFFFF3B30),
+        'action': 'deals',
+      },
+      {
+        'icon': Icons.directions_bus,
+        'label': 'Transport',
+        'color': const Color(0xFF8E44AD),
+        'action': 'transport',
+      },
+      {
+        'icon': Icons.support_agent,
+        'label': 'Travel Agent',
+        'color': const Color(0xFFFFB300),
+        'action': 'travel_agent',
+      },
+      {
+        'icon': Icons.translate,
+        'label': 'Language',
+        'color': const Color(0xFF3B82F6),
+        'action': 'translator',
+      },
+      {
+        'icon': Icons.emergency_share,
+        'label': 'Safety Hub',
+        'color': const Color(0xFFEF4444),
+        'action': 'safety',
+      },
+      {
+        'icon': Icons.celebration,
+        'label': 'Events',
+        'color': const Color(0xFFBF5AF2),
+        'action': 'events',
+      },
+      {
+        'icon': Icons.wb_sunny,
+        'label': 'Weather',
+        'color': const Color(0xFF3B82F6),
+        'action': 'weather',
+      },
+    ];
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Services',
+          style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+        ),
+        const SizedBox(height: 16),
+        GridView.builder(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: 4,
+            mainAxisSpacing: 16,
+            crossAxisSpacing: 16,
+            childAspectRatio: 0.85,
+          ),
+          itemCount: services.length,
+          itemBuilder: (context, index) {
+            final service = services[index];
+            return GestureDetector(
+              onTap: () => _handleServiceAction(service['action'] as String, appProvider),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Container(
+                    width: 56,
+                    height: 56,
+                    decoration: BoxDecoration(
+                      color: (service['color'] as Color).withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(
+                        color: (service['color'] as Color).withOpacity(0.3),
+                      ),
+                    ),
+                    child: Icon(
+                      service['icon'] as IconData,
+                      color: service['color'] as Color,
+                      size: 28,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    service['label'] as String,
+                    style: const TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w500,
+                    ),
+                    textAlign: TextAlign.center,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ),
+            );
+          },
+        ),
+      ],
+    );
+  }
+
+  void _handleServiceAction(String action, AppProvider appProvider) {
+    switch (action) {
+      case 'nearby':
+        appProvider.setCurrentTabIndex(1);
+        break;
+      case 'deals':
+        appProvider.setCurrentTabIndex(2);
+        break;
+      case 'safety':
+        _showEmergencyDialog();
+        break;
+      case 'translator':
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => const LanguageAssistantScreen(),
+          ),
+        );
+        break;
+      case 'transport':
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => const TransportHubScreen(),
+          ),
+        );
+        break;
+      case 'travel_agent':
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => const TravelAgentScreen(),
+          ),
+        );
+        break;
+      case 'events':
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => const EventsScreen(),
+          ),
+        );
+        break;
+      case 'weather':
+        _showWeatherModal(appProvider);
+        break;
+    }
   }
 
   Widget _buildQuickActions(AppProvider appProvider) {
