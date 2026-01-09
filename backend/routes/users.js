@@ -276,13 +276,17 @@ router.post('/trip-plans', async (req, res) => {
     const user = await User.findOne({ firebaseUid: uid });
     if (!user) return res.status(404).json({ error: 'User not found' });
 
-    console.log('💾 Saving trip plan for user:', user._id);
+    console.log('💾 Saving trip plan for user._id:', user._id);
     console.log('📝 Trip plan data:', JSON.stringify(req.body).substring(0, 200));
     
     const trip = new TripPlan({ ...req.body, userId: user._id });
     await trip.save();
     
-    console.log('✅ Trip plan saved with ID:', trip._id);
+    console.log('✅ Trip plan saved:');
+    console.log('   - Trip _id:', trip._id);
+    console.log('   - Trip userId:', trip.userId);
+    console.log('   - User _id:', user._id);
+    console.log('   - Match:', String(trip.userId) === String(user._id));
 
     res.status(201).json(trip);
   } catch (error) {
