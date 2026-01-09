@@ -47,7 +47,12 @@ class TripPlansApiService {
       print('📥 Fetching trip plans for user: ${user.uid}');
       print('🔗 Endpoint: /api/users/trip-plans');
       
-      final response = await _dio.get('/api/users/trip-plans');
+      final response = await _dio.get('/api/users/trip-plans',
+        options: Options(
+          extra: {'noCache': true},
+          headers: {'Cache-Control': 'no-cache'},
+        ),
+      );
       
       print('📊 Response status: ${response.statusCode}');
       print('📊 Response data type: ${response.data.runtimeType}');

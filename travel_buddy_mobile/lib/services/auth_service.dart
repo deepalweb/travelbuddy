@@ -7,11 +7,18 @@ class AuthService {
   static final GoogleSignIn _googleSignIn = GoogleSignIn();
 
 
-  // Email/Password Authentication
+  // Email/Password Authentication with auto-linking
   static Future<UserCredential> signInWithEmail(String email, String password) async {
     try {
       final credential = await _auth.signInWithEmailAndPassword(email: email, password: password);
       print('✅ Email sign-in successful for: ${credential.user?.email}');
+      
+      // Check if Google account exists with same email and auto-link
+      final methods = await _auth.fetchSignInMethodsForEmail(email);
+      if (methods.contains('google.com') && !methods.contains('password')) {
+        print('🔗 Google account detected, will auto-link on next Google sign-in');
+      }
+      
       return credential;
     } catch (e) {
       print('❌ Email Sign-In Error: $e');
@@ -30,7 +37,7 @@ class AuthService {
     }
   }
 
-  // Google Sign-In
+  // Google Sign-In with automatic account merging
   static Future<UserCredential?> signInWithGoogle() async {
     try {
       print('🔵 Starting Google Sign-In...');
@@ -49,6 +56,32 @@ class AuthService {
         idToken: googleAuth.idToken,
       );
 
+      // Check if email already exists with password method
+      final methods = await _auth.fetchSignInMethodsForEmail(googleUser.email);
+      
+      if (methods.contains('password')) {
+        print('🔗 Email/password account exists. Attempting automatic merge...');
+        
+        // Sign in with Google to get the user
+        UserCredential userCredential;
+        try {
+          userCredential = await _auth.signInWithCredential(credential);
+        } on FirebaseAuthException catch (e) {
+          if (e.code == 'account-exists-with-different-credential') {
+            print('⚠️ Account exists. User must sign in with email first.');
+            throw FirebaseAuthException(
+              code: 'merge-required',
+              message: 'Please sign in with your email/password first. Your accounts will be automatically linked.',
+            );
+          }
+          rethrow;
+        }
+        
+        print('✅ Accounts automatically merged');
+        return userCredential;
+      }
+
+      // No existing account, proceed with normal Google sign-in
       final userCredential = await _auth.signInWithCredential(credential);
       print('✅ Firebase sign-in successful: ${userCredential.user?.email}');
       return userCredential;

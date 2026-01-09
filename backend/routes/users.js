@@ -42,10 +42,11 @@ async function extractUid(token) {
   return null;
 }
 
-// Sync user
+// Sync user with account merging
 router.post('/sync', async (req, res) => {
   try {
     const User = getUser();
+    const TripPlan = getTripPlan();
     const authHeader = req.headers.authorization;
     if (!authHeader?.startsWith('Bearer ')) {
       return res.status(401).json({ error: 'Authentication required' });
@@ -56,6 +57,37 @@ router.post('/sync', async (req, res) => {
     
     if (!uid) return res.status(401).json({ error: 'Invalid token' });
 
+    // Check if user exists by email (for account merging)
+    const existingUserByEmail = await User.findOne({ email: req.body.email });
+    const existingUserByUid = await User.findOne({ firebaseUid: uid });
+
+    if (existingUserByEmail && existingUserByUid && String(existingUserByEmail._id) !== String(existingUserByUid._id)) {
+      // Two separate accounts exist - merge them
+      console.log('🔄 Merging accounts:', existingUserByEmail._id, 'and', existingUserByUid._id);
+      
+      // Transfer all trip plans from old account to new account
+      if (TripPlan) {
+        await TripPlan.updateMany(
+          { userId: existingUserByUid._id },
+          { $set: { userId: existingUserByEmail._id } }
+        );
+      }
+      
+      // Delete the duplicate account
+      await User.deleteOne({ _id: existingUserByUid._id });
+      
+      // Update the primary account with new UID
+      const user = await User.findByIdAndUpdate(
+        existingUserByEmail._id,
+        { $set: { firebaseUid: uid } },
+        { new: true }
+      );
+      
+      console.log('✅ Accounts merged successfully');
+      return res.json(user);
+    }
+
+    // Normal sync (no merge needed)
     const user = await User.findOneAndUpdate(
       { $or: [{ firebaseUid: uid }, { email: req.body.email }] },
       { $set: { firebaseUid: uid, email: req.body.email, username: req.body.username || req.body.email?.split('@')[0] || uid.slice(-8) }, $setOnInsert: { tier: 'free', createdAt: new Date() } },
