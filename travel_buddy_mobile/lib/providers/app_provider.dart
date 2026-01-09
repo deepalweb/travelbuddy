@@ -2461,17 +2461,23 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
     notifyListeners();
 
     try {
-      // Always load from backend only
-      final backendPlans = await TripPlansApiService.getUserTripPlans();
-      _tripPlans = backendPlans;
-      _itineraries = [];
-      print('☁️ Loaded ${backendPlans.length} trip plans from backend');
+      // Load from backend database
+      if (_currentUser?.mongoId != null) {
+        final backendPlans = await TripPlansApiService.getUserTripPlans();
+        _tripPlans = backendPlans;
+        print('☁️ Loaded ${backendPlans.length} trip plans from database');
+      } else {
+        print('⚠️ User not logged in - no trip plans loaded');
+        _tripPlans = [];
+      }
+      
+      _itineraries = await _storageService.getItineraries();
     } catch (e) {
-      print('❌ Error loading trip plans: $e');
+      print('❌ Error loading trip plans from database: $e');
       _tripPlans = [];
       _itineraries = [];
     } finally {
-      _isTripsLoading = false;
+       _isTripsLoading = false;
       notifyListeners();
     }
   }
@@ -2543,31 +2549,77 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
 
   Future<void> saveTripPlan(TripPlan tripPlan) async {
     print('💾 Saving trip plan: ${tripPlan.tripTitle}');
+    print('🔍 DEBUG: currentUser = ${_currentUser?.username}');
+    print('🔍 DEBUG: mongoId = ${_currentUser?.mongoId}');
+    print('🔍 DEBUG: uid = ${_currentUser?.uid}');
+    print('🔍 DEBUG: isAuthenticated = $_isAuthenticated');
     
-    // Save locally first
-    await _storageService.saveTripPlan(tripPlan);
-    _tripPlans.add(tripPlan);
-    notifyListeners();
-    
-    // Sync to backend if user is logged in
-    if (_currentUser?.mongoId != null) {
-      try {
+    try {
+      // Check if user is authenticated
+      if (_currentUser == null || !_isAuthenticated) {
+        print('❌ User not authenticated');
+        throw Exception('Please sign in to save trip plans');
+      }
+      
+      // If mongoId is null, sync with backend first
+      if (_currentUser!.mongoId == null) {
+        print('⚠️ mongoId is null, syncing with backend...');
+        final user = await AuthService.getCurrentUser();
+        if (user != null) {
+          await _syncFirebaseUserWithBackend(user);
+          // Reload user data and wait for it to complete
+          await _loadUserData();
+          // Force notify listeners to update UI
+          notifyListeners();
+          print('✅ User synced, mongoId = ${_currentUser?.mongoId}');
+          
+          // Debug: Check what _loadUserData actually loaded
+          if (_currentUser?.mongoId == null) {
+            print('🔍 CRITICAL: _loadUserData completed but mongoId is STILL null');
+            print('🔍 Attempting direct backend fetch...');
+            try {
+              final directFetch = await _apiService.getUserByFirebaseUid(user.uid);
+              print('🔍 Direct fetch result: $directFetch');
+              if (directFetch != null) {
+                print('🔍 Direct fetch _id: ${directFetch['_id']}');
+                print('🔍 Direct fetch id: ${directFetch['id']}');
+              }
+            } catch (e) {
+              print('🔍 Direct fetch error: $e');
+            }
+          }
+        }
+      }
+      
+      // Save to backend database
+      if (_currentUser?.mongoId != null) {
+        print('✅ User has mongoId, saving to backend...');
         final savedPlan = await TripPlansApiService.saveTripPlan(tripPlan);
         if (savedPlan != null) {
-          // Update local plan with backend ID if different
-          final index = _tripPlans.indexWhere((p) => p.id == tripPlan.id);
-          if (index != -1) {
-            _tripPlans[index] = savedPlan;
-            await _storageService.saveTripPlan(savedPlan);
+          final existingIndex = _tripPlans.indexWhere((p) => p.id == tripPlan.id);
+          if (existingIndex == -1) {
+            _tripPlans.add(savedPlan);
+          } else {
+            _tripPlans[existingIndex] = savedPlan;
           }
-          print('☁️ Trip plan synced to backend');
+          print('✅ Trip plan saved to database. Total plans: ${_tripPlans.length}');
+          notifyListeners();
+        } else {
+          throw Exception('Backend save returned null');
         }
-      } catch (e) {
-        print('⚠️ Backend save failed, plan saved locally: $e');
+      } else {
+        print('❌ mongoId still null after sync');
+        print('🔍 Current user details:');
+        print('   - username: ${_currentUser?.username}');
+        print('   - email: ${_currentUser?.email}');
+        print('   - uid: ${_currentUser?.uid}');
+        print('   - mongoId: ${_currentUser?.mongoId}');
+        throw Exception('Failed to sync user with backend. Please try signing out and signing in again.');
       }
+    } catch (e) {
+      print('❌ Error saving trip plan to database: $e');
+      rethrow;
     }
-    
-    print('✅ Trip plan saved. Total plans: ${_tripPlans.length}');
   }
 
   Future<void> deleteTripPlan(String tripPlanId) async {
@@ -3015,7 +3067,7 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
       print('❌ Error generating trip plan: $e');
       return null;
     } finally {
-      _isTripsLoading = false;
+       _isTripsLoading = false;
       notifyListeners();
     }
   }
@@ -3046,7 +3098,7 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
       print('❌ Error generating day itinerary: $e');
       return null;
     } finally {
-      _isTripsLoading = false;
+       _isTripsLoading = false;
       notifyListeners();
     }
   }
@@ -3133,12 +3185,18 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
       try {
         final userByUid = await _apiService.getUserByFirebaseUid(user.uid);
         if (userByUid != null) {
+          print('🔍 Backend response keys: ${userByUid.keys.toList()}');
+          print('🔍 Backend _id field: ${userByUid['_id']}');
+          print('🔍 Backend id field: ${userByUid['id']}');
+          
           _currentUser = CurrentUser.fromJson(userByUid);
           await _storageService.saveUser(_currentUser!);
+          
           print('✅ Loaded user from backend');
           print('   - Full Name: ${_currentUser!.fullName ?? "none"}');
           print('   - Profile Picture: ${_currentUser!.profilePicture != null ? "${_currentUser!.profilePicture!.substring(0, math.min(50, _currentUser!.profilePicture!.length))}..." : "none"}');
           print('   - Phone: ${_currentUser!.phone ?? "none"}');
+          print('   - MongoDB ID: ${_currentUser!.mongoId ?? "none"}');
         } else {
           // Fallback to local storage
           final storedUser = await _storageService.getUser();
@@ -3285,7 +3343,7 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
   Future<void> _loadCachedData() async {
     // Skip loading cached trip plans - will load from backend only
     _tripPlans = [];
-    _itineraries = [];
+    _itineraries = await _storageService.getItineraries();
     print('⚠️ Skipping cache - trip plans will load from backend only');
     
     // Load cached places for offline support
@@ -3660,4 +3718,17 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
     }
   }
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
 

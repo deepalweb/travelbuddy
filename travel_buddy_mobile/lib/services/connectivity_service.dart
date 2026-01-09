@@ -1,40 +1,43 @@
-import 'dart:async';
 import 'package:connectivity_plus/connectivity_plus.dart';
+import 'dart:async';
 
 class ConnectivityService {
   static final ConnectivityService _instance = ConnectivityService._internal();
   factory ConnectivityService() => _instance;
   ConnectivityService._internal();
 
-  final _connectivity = Connectivity();
-  final _controller = StreamController<bool>.broadcast();
-  bool _isOnline = true;
-  StreamSubscription? _subscription;
+  final Connectivity _connectivity = Connectivity();
+  final StreamController<bool> _connectionStatusController = StreamController<bool>.broadcast();
 
-  Stream<bool> get onlineStream => _controller.stream;
+  Stream<bool> get connectionStatus => _connectionStatusController.stream;
+  bool _isOnline = true;
+
   bool get isOnline => _isOnline;
 
   Future<void> initialize() async {
-    _isOnline = await checkConnection();
-    
-    _subscription = _connectivity.onConnectivityChanged.listen((result) async {
-      _isOnline = await checkConnection();
-      _controller.add(_isOnline);
-      print('📡 Connection: ${_isOnline ? "ONLINE" : "OFFLINE"}');
+    final result = await _connectivity.checkConnectivity();
+    _updateConnectionStatus([result]);
+
+    _connectivity.onConnectivityChanged.listen((result) {
+      _updateConnectionStatus([result]);
     });
   }
 
-  Future<bool> checkConnection() async {
-    try {
-      final result = await _connectivity.checkConnectivity();
-      return result != ConnectivityResult.none;
-    } catch (e) {
-      return false;
+  void _updateConnectionStatus(List<ConnectivityResult> results) {
+    final wasOnline = _isOnline;
+    _isOnline = results.any((result) => 
+      result == ConnectivityResult.mobile || 
+      result == ConnectivityResult.wifi ||
+      result == ConnectivityResult.ethernet
+    );
+    
+    if (wasOnline != _isOnline) {
+      print(_isOnline ? '🌐 Online' : '📴 Offline');
+      _connectionStatusController.add(_isOnline);
     }
   }
 
   void dispose() {
-    _subscription?.cancel();
-    _controller.close();
+    _connectionStatusController.close();
   }
 }

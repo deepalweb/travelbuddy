@@ -235,9 +235,9 @@ class _CommunityScreenV2State extends State<CommunityScreenV2> with SingleTicker
         final posts = _searchQuery.isEmpty 
             ? provider.posts 
             : provider.posts.where((post) {
-                final content = post.content?.toLowerCase() ?? '';
-                final location = post.location?.toLowerCase() ?? '';
-                final username = post.userName?.toLowerCase() ?? '';
+                final content = post.content.toLowerCase() ?? '';
+                final location = post.location.toLowerCase() ?? '';
+                final username = post.userName.toLowerCase() ?? '';
                 final query = _searchQuery.toLowerCase();
                 return content.contains(query) || location.contains(query) || username.contains(query);
               }).toList();

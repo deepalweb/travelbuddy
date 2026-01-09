@@ -68,14 +68,21 @@ router.get('/forecast', async (req, res) => {
       }
     );
 
-    const hourly = response.data.hourlyForecasts?.slice(0, 8).map(item => ({
-      time: new Date(item.time),
+    const hourlyForecast = response.data.hourlyForecasts?.slice(0, 8).map(item => ({
+      time: item.time,
       temperature: Math.round(item.temperature?.value || 28),
       condition: item.weatherCode?.toLowerCase() || 'clear',
       precipitation: item.precipitationProbability || 0
     })) || [];
 
-    res.json({ hourly });
+    const firstHour = hourlyForecast[0] || {};
+    res.json({
+      condition: firstHour.condition || 'sunny',
+      temperature: firstHour.temperature || 28,
+      humidity: 65,
+      windSpeed: 12,
+      hourlyForecast
+    });
   } catch (error) {
     console.error('Google Weather forecast API error:', error.response?.data || error.message);
     res.status(500).json({ error: 'Failed to fetch forecast data' });

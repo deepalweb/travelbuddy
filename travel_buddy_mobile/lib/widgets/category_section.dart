@@ -85,7 +85,7 @@ class CategorySection extends StatelessWidget {
                                     height: 120,
                                     color: Colors.grey[300],
                                     child: Image.network(
-                                            place.photoUrl!,
+                                            place.photoUrl,
                                             fit: BoxFit.cover,
                                             width: double.infinity,
                                             errorBuilder: (_, __, ___) => const Icon(Icons.place, size: 50),

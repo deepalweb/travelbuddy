@@ -208,7 +208,7 @@ class CurrentUser extends HiveObject {
               .toList() ??
           [],
       hasCompletedWizard: json['hasCompletedWizard'] ?? false,
-      mongoId: json['mongoId'],
+      mongoId: json['mongoId'] ?? json['_id'],
       profilePicture: json['profilePicture'],
       bio: json['bio'],
       website: json['website'],

@@ -1,17 +1,9 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:share_plus/share_plus.dart';
-import 'dart:convert';
 import '../providers/app_provider.dart';
-import '../providers/community_provider.dart';
-import '../constants/app_constants.dart';
 import '../services/api_service.dart';
 
-import 'auth_status_screen.dart';
-import 'app_permissions_screen.dart';
-import 'app_settings_screen.dart';
 import 'subscription_plans_screen.dart';
 import 'auth_screen.dart';
 import 'favorites_screen.dart';
@@ -20,7 +12,6 @@ import 'edit_profile_screen.dart';
 import 'travel_style_selection_screen.dart';
 import 'profile_picture_upload_screen.dart';
 import 'travel_preferences_screen.dart';
-import 'social_links_screen.dart';
 import 'security_settings_screen.dart';
 import 'privacy_notifications_screen.dart';
 import '../widgets/profile_completion_widget.dart';

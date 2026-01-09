@@ -8,6 +8,7 @@ import 'providers/event_provider.dart';
 import 'screens/splash_screen.dart';
 import 'screens/safety_screen.dart';
 import 'screens/ai_plan_screen.dart';
+import 'screens/storage_test_screen.dart';
 import 'screens/enhanced_route_plan_screen.dart';
 import 'theme/app_theme.dart';
 
@@ -23,6 +24,9 @@ import 'utils/debug_logger.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  
+  // Load environment variables
+  await Environment.loadApiKeys();
   
   DebugLogger.info('🚀 App starting with Environment configuration:');
   DebugLogger.info('🌐 Backend URL: ${Environment.backendUrl}');
@@ -116,6 +120,7 @@ class TravelBuddyApp extends StatelessWidget {
             routes: {
               '/safety': (context) => const SafetyScreen(),
               '/ai-plan': (context) => AIPlanScreen(),
+              '/storage-test': (context) => StorageTestScreen(),
 
             },
             onGenerateRoute: (settings) {

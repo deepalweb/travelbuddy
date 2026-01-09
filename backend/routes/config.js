@@ -1,54 +1,12 @@
-import express from 'express';
-import { optionalAuth } from '../middleware/auth.js';
+const express = require('express');
 const router = express.Router();
 
-// Serve frontend configuration (public endpoint)
-router.get('/config', (req, res) => {
+// GET /api/config/keys - Return API keys for mobile app
+router.get('/keys', (req, res) => {
   res.json({
-    apiBaseUrl: process.env.VITE_API_BASE_URL || 'https://travelbuddy-b2c6hgbbgeh4esdh.eastus2-01.azurewebsites.net',
-    firebase: {
-      apiKey: process.env.VITE_FIREBASE_API_KEY || '',
-      authDomain: process.env.VITE_FIREBASE_AUTH_DOMAIN || 'travelbuddy-2d1c5.firebaseapp.com',
-      projectId: process.env.VITE_FIREBASE_PROJECT_ID || 'travelbuddy-2d1c5',
-      storageBucket: process.env.VITE_FIREBASE_STORAGE_BUCKET || 'travelbuddy-2d1c5.firebasestorage.app',
-      messagingSenderId: process.env.VITE_FIREBASE_MESSAGING_SENDER_ID || '45425409967',
-      appId: process.env.VITE_FIREBASE_APP_ID || '1:45425409967:web:782638c65a40dcb156b95a'
-    },
-    googleMapsApiKey: process.env.VITE_GOOGLE_MAPS_API_KEY || '',
-    unsplash: {
-      accessKey: process.env.VITE_UNSPLASH_ACCESS_KEY || ''
-    }
+    googleMapsApiKey: process.env.GOOGLE_MAPS_API_KEY || '',
+    azureMapsApiKey: process.env.AZURE_MAPS_API_KEY || ''
   });
 });
 
-// Runtime config endpoint (public)
-router.get('/runtime-config', (req, res) => {
-  res.json({
-    firebase: {
-      apiKey: process.env.VITE_FIREBASE_API_KEY || '',
-      authDomain: process.env.VITE_FIREBASE_AUTH_DOMAIN || 'travelbuddy-2d1c5.firebaseapp.com',
-      projectId: process.env.VITE_FIREBASE_PROJECT_ID || 'travelbuddy-2d1c5',
-      storageBucket: process.env.VITE_FIREBASE_STORAGE_BUCKET || 'travelbuddy-2d1c5.firebasestorage.app',
-      messagingSenderId: process.env.VITE_FIREBASE_MESSAGING_SENDER_ID || '45425409967',
-      appId: process.env.VITE_FIREBASE_APP_ID || '1:45425409967:web:782638c65a40dcb156b95a'
-    }
-  });
-});
-
-// Debug endpoint to check Azure environment variables (restricted)
-router.get('/debug-env', optionalAuth, (req, res) => {
-  // Only show debug info in development or to authenticated users
-  if (process.env.NODE_ENV === 'production' && !req.user) {
-    return res.status(403).json({ error: 'Access denied' });
-  }
-  
-  res.json({
-    hasFirebaseApiKey: !!process.env.VITE_FIREBASE_API_KEY,
-    hasFirebaseAuthDomain: !!process.env.VITE_FIREBASE_AUTH_DOMAIN,
-    hasFirebaseProjectId: !!process.env.VITE_FIREBASE_PROJECT_ID,
-    nodeEnv: process.env.NODE_ENV,
-    apiKeyPreview: process.env.VITE_FIREBASE_API_KEY ? process.env.VITE_FIREBASE_API_KEY.substring(0, 10) + '...' : 'Missing'
-  });
-});
-
-export default router;
+module.exports = router;

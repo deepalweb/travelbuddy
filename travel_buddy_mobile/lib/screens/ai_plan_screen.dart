@@ -785,17 +785,23 @@ class _AIPlanScreenState extends State<AIPlanScreen> {
                               children: [
                                 Icon(Icons.access_time, size: 12, color: Colors.grey[600]),
                                 SizedBox(width: 4),
-                                Text(
-                                  activity['timeOfDay'] ?? '',
-                                  style: TextStyle(fontSize: 11, color: Colors.grey[600]),
+                                Flexible(
+                                  child: Text(
+                                    activity['timeOfDay'] ?? '',
+                                    style: TextStyle(fontSize: 11, color: Colors.grey[600]),
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
                                 ),
                                 if (activity['estimatedDuration'] != null) ...[
                                   SizedBox(width: 8),
                                   Icon(Icons.timer, size: 12, color: Colors.grey[600]),
                                   SizedBox(width: 4),
-                                  Text(
-                                    activity['estimatedDuration'],
-                                    style: TextStyle(fontSize: 11, color: Colors.grey[600]),
+                                  Flexible(
+                                    child: Text(
+                                      activity['estimatedDuration'],
+                                      style: TextStyle(fontSize: 11, color: Colors.grey[600]),
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
                                   ),
                                 ],
                               ],
@@ -1306,6 +1312,34 @@ class _AIPlanScreenState extends State<AIPlanScreen> {
     if (_tripPlan == null) return;
 
     try {
+      final appProvider = Provider.of<AppProvider>(context, listen: false);
+      
+      print('🔍 DEBUG: Checking user authentication...');
+      print('🔍 DEBUG: currentUser = ${appProvider.currentUser}');
+      print('🔍 DEBUG: isAuthenticated = ${appProvider.isAuthenticated}');
+      print('🔍 DEBUG: mongoId = ${appProvider.currentUser?.mongoId}');
+      print('🔍 DEBUG: uid = ${appProvider.currentUser?.uid}');
+      
+      // Only check if user is authenticated, let app_provider handle mongoId sync
+      if (!appProvider.isAuthenticated || appProvider.currentUser == null) {
+        print('❌ User not authenticated');
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('⚠️ Please sign in to save trip plans'),
+            backgroundColor: Colors.orange,
+            action: SnackBarAction(
+              label: 'Sign In',
+              textColor: Colors.white,
+              onPressed: () {
+                Navigator.pushNamed(context, '/auth');
+              },
+            ),
+          ),
+        );
+        return;
+      }
+      
+      print('✅ User authenticated, proceeding to save...');
       // Calculate totals from AI data
       double totalCost = 0;
       final dailyPlansData = _tripPlan!['dailyPlans'] as List? ?? [];
@@ -1358,8 +1392,8 @@ class _AIPlanScreenState extends State<AIPlanScreen> {
       );
 
       // Save using AppProvider
-      final appProvider = Provider.of<AppProvider>(context, listen: false);
       await appProvider.saveTripPlan(tripPlan);
+      print('✅ Trip plan saved successfully!');
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -1371,6 +1405,7 @@ class _AIPlanScreenState extends State<AIPlanScreen> {
       // Navigate back to planner
       Navigator.of(context).pop();
     } catch (e) {
+      print('❌ Error in _saveTripPlan: $e');
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('❌ Failed to save plan: $e'),

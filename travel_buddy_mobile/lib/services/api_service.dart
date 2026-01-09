@@ -14,6 +14,8 @@ import '../models/community_post.dart' as community;
 import '../models/user_profile.dart';
 import '../models/safety_info.dart';
 import 'auth_api_service.dart';
+import 'storage_service.dart';
+import 'connectivity_service.dart';
 import 'dart:math' as math;
 
 class ApiService {
@@ -21,6 +23,8 @@ class ApiService {
   factory ApiService() => _instance;
   
   final AuthApiService _authApiService = AuthApiService();
+  final StorageService _storage = StorageService();
+  final ConnectivityService _connectivity = ConnectivityService();
   late final Dio _dio;
 
   ApiService._internal() {
@@ -192,7 +196,7 @@ class ApiService {
     }
   }
 
-  // Places API
+  // Places API with offline fallback
   Future<List<Place>> fetchNearbyPlaces({
     required double latitude,
     required double longitude,
@@ -200,6 +204,22 @@ class ApiService {
     int radius = AppConstants.defaultPlacesRadiusM,
     String searchQuery = '',
   }) async {
+    // Try cached data first if offline
+    if (!_connectivity.isOnline) {
+      print('📴 Offline - loading from cache');
+      final cached = await _storage.getCachedPlacesForLocation(
+        latitude, 
+        longitude, 
+        category,
+        maxAgeHours: 24,
+        maxDistanceKm: 1.0,
+      );
+      if (cached.isNotEmpty) {
+        print('✅ Loaded ${cached.length} places from cache');
+        return cached;
+      }
+    }
+    
     try {
       print('🌍 Fetching places from: ${Environment.backendUrl}/api/places/nearby');
       print('📍 Params: lat=$latitude, lng=$longitude, q=$searchQuery, radius=$radius');
@@ -232,6 +252,9 @@ class ApiService {
           }
         }).where((place) => place != null).cast<Place>().toList();
         
+        // Cache for offline use
+        await _storage.cachePlacesWithLocation(places, latitude, longitude, category);
+        
         print('✅ Successfully parsed ${places.length} places');
         return places;
       } else {
@@ -240,9 +263,17 @@ class ApiService {
       }
     } catch (e) {
       print('❌ Error fetching nearby places: $e');
-      if (e is DioException) {
-        print('🔍 Dio Error Details: ${e.message}');
-        print('🔍 Response: ${e.response?.data}');
+      // Fallback to cache on error
+      final cached = await _storage.getCachedPlacesForLocation(
+        latitude, 
+        longitude, 
+        category,
+        maxAgeHours: 48,
+        maxDistanceKm: 2.0,
+      );
+      if (cached.isNotEmpty) {
+        print('📦 Loaded ${cached.length} places from cache (fallback)');
+        return cached;
       }
       return [];
     }
@@ -515,22 +546,33 @@ class ApiService {
   }
 
   Future<List<TripPlan>> getUserTripPlans() async {
+    // Return cached data if offline
+    if (!_connectivity.isOnline) {
+      print('📴 Offline - loading trip plans from cache');
+      return await _storage.getTripPlans();
+    }
+    
     try {
       final user = FirebaseAuth.instance.currentUser;
       if (user == null) {
         print('❌ No authenticated user for trip plans');
-        return [];
+        return await _storage.getTripPlans();
       }
       
       final response = await _dio.get('/api/users/trip-plans');
       if (response.statusCode == 200) {
         final List<dynamic> data = response.data;
-        return data.map((json) => TripPlan.fromJson(json)).toList();
+        final plans = data.map((json) => TripPlan.fromJson(json)).toList();
+        // Cache for offline use
+        for (final plan in plans) {
+          await _storage.saveTripPlan(plan);
+        }
+        return plans;
       }
-      return [];
+      return await _storage.getTripPlans();
     } catch (e) {
       print('Error fetching trip plans: $e');
-      return [];
+      return await _storage.getTripPlans();
     }
   }
 

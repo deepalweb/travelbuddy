@@ -304,9 +304,21 @@ class _HomeScreenState extends State<HomeScreen> {
       appProvider.getCurrentLocation();
       appProvider.loadHomeData();
       appProvider.loadNearbyPlaces();
-
     } catch (e) {
       print('Error loading home data: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('Failed to load data. Using cached content.'),
+            backgroundColor: Colors.orange,
+            action: SnackBarAction(
+              label: 'Retry',
+              textColor: Colors.white,
+              onPressed: () => _loadData(),
+            ),
+          ),
+        );
+      }
     }
   }
 
@@ -415,99 +427,82 @@ class _HomeScreenState extends State<HomeScreen> {
   }
   
   Widget _buildWeatherForecast(AppProvider appProvider) {
-    if (appProvider.currentLocation == null) {
+    // Use weatherForecast from appProvider instead of separate API call
+    final forecast = appProvider.weatherForecast;
+    if (forecast == null || forecast.hourlyForecast.isEmpty) {
       return const SizedBox.shrink();
     }
 
-    return FutureBuilder<Map<String, dynamic>>(
-      future: _fetchRealWeatherForecast(appProvider.currentLocation!),
-      builder: (context, snapshot) {
-        if (!snapshot.hasData) {
-          return const SizedBox.shrink();
-        }
-
-        final forecastData = snapshot.data!;
-        final hourlyList = forecastData['hourly'] as List<dynamic>? ?? [];
-        
-        if (hourlyList.isEmpty) {
-          return const SizedBox.shrink();
-        }
-
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Today\'s Forecast',
-              style: TextStyle(
-                color: Colors.white.withOpacity(0.9),
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            const SizedBox(height: 12),
-            SizedBox(
-              height: 120,
-              child: ListView.builder(
-                scrollDirection: Axis.horizontal,
-                itemCount: 3,
-                itemBuilder: (context, index) {
-                  final now = DateTime.now();
-                  final forecastTime = now.add(Duration(hours: (index + 1) * 3));
-                  final temp = 28 + (index * 2); // Mock data - replace with real API
-                  final condition = index == 0 ? 'sunny' : index == 1 ? 'cloudy' : 'rainy';
-                  
-                  return Container(
-                    width: 80,
-                    margin: const EdgeInsets.only(right: 12),
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.15),
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: Colors.white.withOpacity(0.2)),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Today\'s Forecast',
+          style: TextStyle(
+            color: Colors.white.withOpacity(0.9),
+            fontSize: 16,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        const SizedBox(height: 12),
+        SizedBox(
+          height: 120,
+          child: ListView.builder(
+            scrollDirection: Axis.horizontal,
+            itemCount: forecast.hourlyForecast.length > 3 ? 3 : forecast.hourlyForecast.length,
+            itemBuilder: (context, index) {
+              final hourData = forecast.hourlyForecast[index];
+              
+              return Container(
+                width: 80,
+                margin: const EdgeInsets.only(right: 12),
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.15),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: Colors.white.withOpacity(0.2)),
+                ),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      hourData.time,
+                      style: TextStyle(
+                        color: Colors.white.withOpacity(0.8),
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                      ),
                     ),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Text(
-                          '${forecastTime.hour}:00',
-                          style: TextStyle(
-                            color: Colors.white.withOpacity(0.8),
-                            fontSize: 12,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        Icon(
-                          _getWeatherIcon(condition),
-                          color: Colors.white,
-                          size: 24,
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          '${temp}°',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ],
+                    const SizedBox(height: 8),
+                    Icon(
+                      _getWeatherIcon(hourData.condition),
+                      color: Colors.white,
+                      size: 24,
                     ),
-                  );
-                },
-              ),
-            ),
-          ],
-        );
-      },
+                    const SizedBox(height: 8),
+                    Text(
+                      '${hourData.temperature.round()}°',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
+        ),
+      ],
     );
   }
 
   Future<Map<String, dynamic>> _fetchRealWeatherForecast(Position location) async {
     try {
       final response = await http.get(
-        Uri.parse('http://localhost:3001/api/weather/forecast?lat=${location.latitude}&lng=${location.longitude}'),
-      );
+        Uri.parse('${Environment.backendUrl}/api/weather/forecast?lat=${location.latitude}&lng=${location.longitude}'),
+      ).timeout(const Duration(seconds: 10));
       
       if (response.statusCode == 200) {
         return json.decode(response.body);
@@ -1141,18 +1136,6 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _buildConsolidatedServices(AppProvider appProvider) {
     final services = [
       {
-        'icon': Icons.explore,
-        'label': 'Nearby Places',
-        'color': const Color(0xFF10B981),
-        'action': 'nearby',
-      },
-      {
-        'icon': Icons.local_offer,
-        'label': 'Hot Deals',
-        'color': const Color(0xFFFF3B30),
-        'action': 'deals',
-      },
-      {
         'icon': Icons.directions_bus,
         'label': 'Transport',
         'color': const Color(0xFF8E44AD),
@@ -1165,6 +1148,12 @@ class _HomeScreenState extends State<HomeScreen> {
         'action': 'travel_agent',
       },
       {
+        'icon': Icons.celebration,
+        'label': 'Events',
+        'color': const Color(0xFFBF5AF2),
+        'action': 'events',
+      },
+      {
         'icon': Icons.translate,
         'label': 'Language',
         'color': const Color(0xFF3B82F6),
@@ -1175,12 +1164,6 @@ class _HomeScreenState extends State<HomeScreen> {
         'label': 'Safety Hub',
         'color': const Color(0xFFEF4444),
         'action': 'safety',
-      },
-      {
-        'icon': Icons.celebration,
-        'label': 'Events',
-        'color': const Color(0xFFBF5AF2),
-        'action': 'events',
       },
       {
         'icon': Icons.wb_sunny,
@@ -1202,7 +1185,7 @@ class _HomeScreenState extends State<HomeScreen> {
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
           gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: 4,
+            crossAxisCount: 3,
             mainAxisSpacing: 16,
             crossAxisSpacing: 16,
             childAspectRatio: 0.85,
@@ -1216,19 +1199,30 @@ class _HomeScreenState extends State<HomeScreen> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Container(
-                    width: 56,
-                    height: 56,
+                    width: 64,
+                    height: 64,
                     decoration: BoxDecoration(
-                      color: (service['color'] as Color).withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(
-                        color: (service['color'] as Color).withOpacity(0.3),
+                      gradient: LinearGradient(
+                        colors: [
+                          (service['color'] as Color),
+                          (service['color'] as Color).withOpacity(0.7),
+                        ],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
                       ),
+                      borderRadius: BorderRadius.circular(18),
+                      boxShadow: [
+                        BoxShadow(
+                          color: (service['color'] as Color).withOpacity(0.3),
+                          blurRadius: 8,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
                     ),
                     child: Icon(
                       service['icon'] as IconData,
-                      color: service['color'] as Color,
-                      size: 28,
+                      color: Colors.white,
+                      size: 32,
                     ),
                   ),
                   const SizedBox(height: 8),
@@ -2625,37 +2619,86 @@ class _HomeScreenState extends State<HomeScreen> {
       final lat = appProvider.currentLocation!.latitude;
       final lng = appProvider.currentLocation!.longitude;
       
-      // Get location name first
-      final locationName = await _getLocationName(lat, lng);
-      
-      // Use real emergency numbers database
+      // Try backend API first
       final response = await http.get(
         Uri.parse('${Environment.backendUrl}/api/emergency/numbers?lat=$lat&lng=$lng'),
         headers: {'Content-Type': 'application/json'},
-      );
+      ).timeout(const Duration(seconds: 5));
       
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
         return {
           'country': data['country'] ?? 'Unknown',
-          'police': data['police'] ?? '911',
-          'ambulance': data['ambulance'] ?? '911',
-          'fire': data['fire'] ?? '911',
+          'police': data['police'] ?? '112',
+          'ambulance': data['ambulance'] ?? '112',
+          'fire': data['fire'] ?? '112',
         };
       }
     } catch (e) {
-      print('Error getting emergency numbers: $e');
+      print('Error getting emergency numbers from API: $e');
     }
     
+    // Fallback to coordinate-based detection
     return _getDefaultEmergencyNumbers();
   }
   
   Map<String, dynamic> _getDefaultEmergencyNumbers() {
+    // Detect country from location or use international standard
+    final location = context.read<AppProvider>().currentLocation;
+    
+    // Basic country detection based on coordinates
+    if (location != null) {
+      final lat = location.latitude;
+      final lng = location.longitude;
+      
+      // Sri Lanka
+      if (lat >= 5.9 && lat <= 9.9 && lng >= 79.5 && lng <= 82.0) {
+        return {'country': 'Sri Lanka', 'police': '119', 'ambulance': '110', 'fire': '111'};
+      }
+      // India
+      if (lat >= 8.0 && lat <= 35.0 && lng >= 68.0 && lng <= 97.0) {
+        return {'country': 'India', 'police': '100', 'ambulance': '102', 'fire': '101'};
+      }
+      // USA/Canada
+      if (lat >= 25.0 && lat <= 72.0 && lng >= -168.0 && lng <= -52.0) {
+        return {'country': 'USA/Canada', 'police': '911', 'ambulance': '911', 'fire': '911'};
+      }
+      // UK
+      if (lat >= 49.9 && lat <= 60.9 && lng >= -8.0 && lng <= 2.0) {
+        return {'country': 'UK', 'police': '999', 'ambulance': '999', 'fire': '999'};
+      }
+      // Australia
+      if (lat >= -44.0 && lat <= -10.0 && lng >= 113.0 && lng <= 154.0) {
+        return {'country': 'Australia', 'police': '000', 'ambulance': '000', 'fire': '000'};
+      }
+      // UAE
+      if (lat >= 22.0 && lat <= 26.5 && lng >= 51.0 && lng <= 56.5) {
+        return {'country': 'UAE', 'police': '999', 'ambulance': '998', 'fire': '997'};
+      }
+      // Singapore
+      if (lat >= 1.1 && lat <= 1.5 && lng >= 103.6 && lng <= 104.0) {
+        return {'country': 'Singapore', 'police': '999', 'ambulance': '995', 'fire': '995'};
+      }
+      // Malaysia
+      if (lat >= 0.8 && lat <= 7.4 && lng >= 99.6 && lng <= 119.3) {
+        return {'country': 'Malaysia', 'police': '999', 'ambulance': '999', 'fire': '994'};
+      }
+      // Thailand
+      if (lat >= 5.6 && lat <= 20.5 && lng >= 97.3 && lng <= 105.6) {
+        return {'country': 'Thailand', 'police': '191', 'ambulance': '1669', 'fire': '199'};
+      }
+      // Europe (general)
+      if (lat >= 36.0 && lat <= 71.0 && lng >= -10.0 && lng <= 40.0) {
+        return {'country': 'Europe', 'police': '112', 'ambulance': '112', 'fire': '112'};
+      }
+    }
+    
+    // International fallback
     return {
-      'country': 'Sri Lanka',
-      'police': '119',
-      'ambulance': '110', 
-      'fire': '111',
+      'country': 'International',
+      'police': '112',
+      'ambulance': '112',
+      'fire': '112',
     };
   }
   
@@ -2877,14 +2920,22 @@ class _HomeScreenState extends State<HomeScreen> {
   int _getRainChance(String condition) => condition.toLowerCase().contains('rain') ? 60 : condition.toLowerCase().contains('cloud') ? 30 : 10;
   
   Widget _buildWeatherTimeline(int baseTemp, String condition) {
+    final appProvider = context.read<AppProvider>();
+    final forecast = appProvider.weatherForecast;
+    
+    if (forecast == null || forecast.hourlyForecast.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
     return ListView.builder(
       scrollDirection: Axis.horizontal,
-      itemCount: 3,
+      itemCount: forecast.hourlyForecast.length > 3 ? 3 : forecast.hourlyForecast.length,
       itemBuilder: (context, index) {
-        final hour = DateTime.now().add(Duration(hours: (index + 1) * 3)).hour;
-        final temp = baseTemp + (index == 1 ? 2 : index == 2 ? -1 : 0);
+        final hourData = forecast.hourlyForecast[index];
+        final temp = hourData.temperature.round();
         final uv = _getUVIndex(temp);
-        final rain = index == 2 ? 60 : 10;
+        final rain = _getRainChance(hourData.condition);
+        
         return Container(
           width: 110,
           margin: const EdgeInsets.only(right: 12),
@@ -2893,9 +2944,9 @@ class _HomeScreenState extends State<HomeScreen> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Text('$hour:00', style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+              Text(hourData.time, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
               const SizedBox(height: 8),
-              Icon(_getWeatherIcon(index == 2 ? 'rainy' : condition), color: Colors.blue[600], size: 28),
+              Icon(_getWeatherIcon(hourData.condition), color: Colors.blue[600], size: 28),
               const SizedBox(height: 8),
               Text('${temp}°', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
               const SizedBox(height: 4),

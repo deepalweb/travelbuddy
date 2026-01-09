@@ -246,9 +246,13 @@ router.get('/trip-plans', async (req, res) => {
     const user = await User.findOne({ firebaseUid: uid });
     if (!user) return res.status(404).json({ error: 'User not found' });
 
+    console.log('📝 Fetching trip plans for user._id:', user._id);
     const trips = TripPlan ? await TripPlan.find({ userId: user._id }).sort({ createdAt: -1 }) : [];
+    console.log('✅ Found', trips.length, 'trip plans');
+    
     res.json(trips);
   } catch (error) {
+    console.error('❌ Error fetching trip plans:', error);
     res.status(500).json({ error: error.message });
   }
 });
@@ -272,11 +276,17 @@ router.post('/trip-plans', async (req, res) => {
     const user = await User.findOne({ firebaseUid: uid });
     if (!user) return res.status(404).json({ error: 'User not found' });
 
+    console.log('💾 Saving trip plan for user:', user._id);
+    console.log('📝 Trip plan data:', JSON.stringify(req.body).substring(0, 200));
+    
     const trip = new TripPlan({ ...req.body, userId: user._id });
     await trip.save();
+    
+    console.log('✅ Trip plan saved with ID:', trip._id);
 
     res.status(201).json(trip);
   } catch (error) {
+    console.error('❌ Error saving trip plan:', error);
     res.status(500).json({ error: error.message });
   }
 });

@@ -1,18 +1,38 @@
+import 'package:http/http.dart' as http;
+import 'dart:convert';
+
 class Environment {
   // Backend configuration - AZURE PRODUCTION
   static const String backendUrl = 'https://travelbuddy-b2c6hgbbgeh4esdh.eastus2-01.azurewebsites.net';
-  static const String baseUrl = backendUrl; // Add baseUrl alias
-  static const bool isProduction = true; // Production mode
-  static const bool enableDebugLogging = true; // Enable debug logging to check API
+  static const String baseUrl = backendUrl;
+  static const bool isProduction = true;
+  static const bool enableDebugLogging = true;
   
-  // PayPal configuration (sandbox values)
+  // API keys loaded from backend
+  static String? _googleMapsApiKey;
+  static String? _azureMapsApiKey;
+  
+  // Get API keys from Azure backend
+  static Future<void> loadApiKeys() async {
+    try {
+      final response = await http.get(Uri.parse('$backendUrl/api/config/keys'));
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        _googleMapsApiKey = data['googleMapsApiKey'];
+        _azureMapsApiKey = data['azureMapsApiKey'];
+      }
+    } catch (e) {
+      print('❌ Failed to load API keys from backend: $e');
+    }
+  }
+  
+  static String get googleMapsApiKey => _googleMapsApiKey ?? '';
+  static String get azureMapsApiKey => _azureMapsApiKey ?? '';
+  
+  // PayPal configuration
   static const String paypalClientId = 'YOUR_SANDBOX_CLIENT_ID';
   static const String paypalSecret = 'YOUR_SANDBOX_SECRET';
   static const String paypalEnvironment = 'sandbox';
-  
-  // Hybrid Places API Configuration
-  static const String azureMapsApiKey = 'YOUR_AZURE_MAPS_KEY';
-  static const String googleMapsApiKey = 'YOUR_GOOGLE_MAPS_KEY'; // For premium features only
   
   // Cost Optimization Settings
   static const int cacheExpiryHours = 24; // Cache popular places

@@ -122,6 +122,14 @@ class _AddToTripDialogState extends State<AddToTripDialog> {
 
   void _addToTrip() async {
     final appProvider = context.read<AppProvider>();
+    final storageService = StorageService();
+    
+    // Ensure storage is initialized
+    try {
+      await storageService.initialize();
+    } catch (e) {
+      print('⚠️ Storage already initialized');
+    }
     
     if (_createNew) {
       // Create new day plan with this place
@@ -143,9 +151,19 @@ class _AddToTripDialogState extends State<AddToTripDialog> {
         conclusion: 'Enjoy exploring ${widget.place.name}!',
       );
       
-      appProvider.itineraries.add(newDayPlan);
-      final storageService = StorageService();
-      await storageService.saveItinerary(newDayPlan);
+      appProvider.itineraries.add(newDayPlan); 
+      
+      try {
+        await storageService.saveItinerary(newDayPlan);
+        print('✅ Day plan saved: ${newDayPlan.title} (ID: ${newDayPlan.id})');
+        
+        // Verify it was saved
+        final saved = await storageService.getItineraries();
+        print('💾 Verified: ${saved.length} itineraries in storage');
+      } catch (e) {
+        print('❌ Failed to save itinerary: $e');
+      }
+      
       appProvider.notifyListeners();
       
       if (mounted) {
@@ -172,6 +190,11 @@ class _AddToTripDialogState extends State<AddToTripDialog> {
       );
       
       dayPlan.dailyPlan.add(newActivity);
+      
+      // Save updated day plan to storage
+      final storageService = StorageService();
+      await storageService.saveItinerary(dayPlan);
+      
       appProvider.notifyListeners();
       
       Navigator.of(context).pop();
@@ -220,3 +243,4 @@ class _AddToTripDialogState extends State<AddToTripDialog> {
     }
   }
 }
+
