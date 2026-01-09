@@ -45,8 +45,13 @@ class TripPlansApiService {
       }
       
       print('📥 Fetching trip plans for user: ${user.uid}');
+      print('🔗 Endpoint: /api/users/trip-plans');
       
       final response = await _dio.get('/api/users/trip-plans');
+      
+      print('📊 Response status: ${response.statusCode}');
+      print('📊 Response data type: ${response.data.runtimeType}');
+      print('📊 Response data: ${response.data}');
       
       if (response.statusCode == 200 && response.data != null) {
         final List<dynamic> data = response.data;
@@ -59,6 +64,13 @@ class TripPlansApiService {
       return [];
     } catch (e) {
       print('❌ Error fetching trip plans: $e');
+      print('❌ Error type: ${e.runtimeType}');
+      if (e is DioException) {
+        print('❌ DioException details:');
+        print('   Status: ${e.response?.statusCode}');
+        print('   Data: ${e.response?.data}');
+        print('   Message: ${e.message}');
+      }
       return [];
     }
   }
