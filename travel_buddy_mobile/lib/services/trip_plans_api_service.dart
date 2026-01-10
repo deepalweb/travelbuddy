@@ -2,11 +2,16 @@ import 'dart:async';
 import 'package:dio/dio.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../models/trip.dart';
-import 'auth_api_service.dart';
+import '../config/environment.dart';
 
 class TripPlansApiService {
-  static final AuthApiService _authApiService = AuthApiService();
-  static Dio get _dio => _authApiService.authenticatedDio;
+  static Dio _createAuthenticatedDio() {
+    return Dio(BaseOptions(
+      baseUrl: Environment.backendUrl,
+      connectTimeout: const Duration(seconds: 30),
+      receiveTimeout: const Duration(seconds: 30),
+    ));
+  }
 
   // Save trip plan to backend
   static Future<TripPlan?> saveTripPlan(TripPlan tripPlan) async {
@@ -19,8 +24,14 @@ class TripPlansApiService {
       
       print('💾 Saving trip plan to backend: ${tripPlan.tripTitle}');
       
-      final response = await _dio.post('/api/users/trip-plans', 
-        data: tripPlan.toJson()
+      final dio = _createAuthenticatedDio();
+      final token = await user.getIdToken(true);
+      
+      final response = await dio.post('/api/users/trip-plans', 
+        data: tripPlan.toJson(),
+        options: Options(
+          headers: {'Authorization': 'Bearer $token'},
+        ),
       );
       
       if (response.statusCode == 201 || response.statusCode == 200) {
@@ -49,7 +60,7 @@ class TripPlansApiService {
       print('🔗 Endpoint: /api/users/trip-plans');
       print('🔑 Getting auth token...');
       
-      final token = await user.getIdToken().timeout(
+      final token = await user.getIdToken(true).timeout(
         const Duration(seconds: 10),
         onTimeout: () {
           print('⏱️ Token retrieval timed out');
@@ -59,17 +70,19 @@ class TripPlansApiService {
       print('✅ Token obtained: ${token?.substring(0, 20)}...');
       
       print('📤 Making GET request...');
-      final response = await _dio.get(
+      
+      // Create a fresh Dio instance to bypass cache
+      final freshDio = _createAuthenticatedDio();
+      
+      final response = await freshDio.get(
         '/api/users/trip-plans',
         options: Options(
-          extra: {'noCache': true},
           headers: {
+            'Authorization': 'Bearer $token',
             'Cache-Control': 'no-cache, no-store, must-revalidate',
             'Pragma': 'no-cache',
             'Expires': '0',
           },
-          sendTimeout: const Duration(seconds: 30),
-          receiveTimeout: const Duration(seconds: 30),
         ),
       ).timeout(
         const Duration(seconds: 30),
@@ -122,8 +135,14 @@ class TripPlansApiService {
       
       print('🔄 Updating trip plan: ${tripPlan.tripTitle}');
       
-      final response = await _dio.put('/api/users/trip-plans/${tripPlan.id}',
-        data: tripPlan.toJson()
+      final dio = _createAuthenticatedDio();
+      final token = await user.getIdToken(true);
+      
+      final response = await dio.put('/api/users/trip-plans/${tripPlan.id}',
+        data: tripPlan.toJson(),
+        options: Options(
+          headers: {'Authorization': 'Bearer $token'},
+        ),
       );
       
       if (response.statusCode == 200) {
@@ -147,13 +166,19 @@ class TripPlansApiService {
         return false;
       }
       
-      final response = await _dio.patch('/api/users/trip-plans/$tripPlanId/activities',
+      final dio = _createAuthenticatedDio();
+      final token = await user.getIdToken(true);
+      
+      final response = await dio.patch('/api/users/trip-plans/$tripPlanId/activities',
         data: {
           'dayIndex': dayIndex,
           'activityIndex': activityIndex,
           'isVisited': isVisited,
           'visitedDate': isVisited ? DateTime.now().toIso8601String() : null,
-        }
+        },
+        options: Options(
+          headers: {'Authorization': 'Bearer $token'},
+        ),
       );
       
       return response.statusCode == 200;
@@ -175,7 +200,14 @@ class TripPlansApiService {
       print('🗑️ Deleting trip plan: $tripPlanId');
       print('🔑 User UID: ${user.uid}');
       
-      final response = await _dio.delete('/api/users/trip-plans/$tripPlanId');
+      final dio = _createAuthenticatedDio();
+      final token = await user.getIdToken(true);
+      
+      final response = await dio.delete('/api/users/trip-plans/$tripPlanId',
+        options: Options(
+          headers: {'Authorization': 'Bearer $token'},
+        ),
+      );
       
       print('📊 Response status: ${response.statusCode}');
       print('📊 Response data: ${response.data}');
@@ -210,8 +242,14 @@ class TripPlansApiService {
       
       print('🔄 Syncing ${localPlans.length} local plans to backend');
       
-      final response = await _dio.post('/api/users/trip-plans/sync',
-        data: {'tripPlans': localPlans.map((plan) => plan.toJson()).toList()}
+      final dio = _createAuthenticatedDio();
+      final token = await user.getIdToken(true);
+      
+      final response = await dio.post('/api/users/trip-plans/sync',
+        data: {'tripPlans': localPlans.map((plan) => plan.toJson()).toList()},
+        options: Options(
+          headers: {'Authorization': 'Bearer $token'},
+        ),
       );
       
       if (response.statusCode == 200) {
@@ -237,7 +275,14 @@ class TripPlansApiService {
       
       print('🔗 Creating share link for trip plan: $tripPlanId');
       
-      final response = await _dio.post('/api/users/trip-plans/$tripPlanId/share');
+      final dio = _createAuthenticatedDio();
+      final token = await user.getIdToken(true);
+      
+      final response = await dio.post('/api/users/trip-plans/$tripPlanId/share',
+        options: Options(
+          headers: {'Authorization': 'Bearer $token'},
+        ),
+      );
       
       if (response.statusCode == 200 && response.data != null) {
         final shareUrl = response.data['shareUrl'];
@@ -257,7 +302,8 @@ class TripPlansApiService {
     try {
       print('📥 Fetching shared trip plan: $shareId');
       
-      final response = await _dio.get('/api/shared/trip-plans/$shareId');
+      final dio = _createAuthenticatedDio();
+      final response = await dio.get('/api/shared/trip-plans/$shareId');
       
       if (response.statusCode == 200 && response.data != null) {
         print('✅ Shared trip plan loaded');

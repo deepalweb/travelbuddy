@@ -58,23 +58,10 @@ class _PlannerScreenState extends State<PlannerScreen> {
               Expanded(child: _buildHomeView(appProvider)),
             ],
           ),
-          floatingActionButton: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              FloatingActionButton(
-                heroTag: 'test',
-                mini: true,
-                onPressed: () => Navigator.pushNamed(context, '/storage-test'),
-                child: Icon(Icons.bug_report),
-              ),
-              SizedBox(height: 8),
-              FloatingActionButton.extended(
-                heroTag: 'create',
-                onPressed: () => _showCreatePlanOptions(),
-                icon: const Icon(Icons.add),
-                label: const Text('Create Plan'),
-              ),
-            ],
+          floatingActionButton: FloatingActionButton.extended(
+            onPressed: () => _showCreatePlanOptions(),
+            icon: const Icon(Icons.add),
+            label: const Text('Create Plan'),
           ),
         );
       },
