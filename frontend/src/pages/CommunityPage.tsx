@@ -39,9 +39,10 @@ export const CommunityPage: React.FC = () => {
   const [filter, setFilter] = useState('recent')
   const [selectedTag, setSelectedTag] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
-  const [viewMode, setViewMode] = useState<'feed' | 'map'>('feed')
+  const [viewMode, setViewMode] = useState<'feed' | 'map'>('map')
   const [hasMore, setHasMore] = useState(true)
   const [cursor, setCursor] = useState<string | null>(null)
+  const [selectedPlace, setSelectedPlace] = useState<string | null>(null)
 
   useEffect(() => {
     setStories([])
@@ -200,14 +201,14 @@ export const CommunityPage: React.FC = () => {
         <div className="max-w-7xl mx-auto px-4 relative">
           <div className="text-center">
             <div className="inline-flex items-center space-x-2 bg-white/20 backdrop-blur-sm rounded-full px-4 py-2 mb-6">
-              <Camera className="w-5 h-5" />
-              <span className="text-sm font-medium">Travel Stories & Adventures</span>
+              <MapPin className="w-5 h-5" />
+              <span className="text-sm font-medium">Place Reviews & Experiences</span>
             </div>
             <h1 className="text-5xl md:text-6xl font-bold mb-6 bg-gradient-to-r from-white to-purple-100 bg-clip-text text-transparent">
-              Travel Community
+              Discover Places
             </h1>
             <p className="text-xl md:text-2xl text-purple-100 mb-8 max-w-2xl mx-auto">
-              Share your adventures, inspire others, and discover amazing travel stories from around the world
+              Share your favorite places, read authentic reviews, and discover hidden gems from travelers worldwide
             </p>
             <div className="flex flex-wrap justify-center items-center gap-6 md:gap-8">
               <div className="flex items-center space-x-2 bg-white/10 backdrop-blur-sm rounded-lg px-4 py-2">
@@ -306,8 +307,8 @@ export const CommunityPage: React.FC = () => {
                     onClick={() => setShowCreateModal(true)}
                     className="group flex items-center space-x-2 bg-gradient-to-r from-purple-600 via-pink-600 to-red-600 text-white px-8 py-3 rounded-xl hover:from-purple-700 hover:via-pink-700 hover:to-red-700 transition-all duration-300 font-semibold shadow-lg hover:shadow-xl transform hover:scale-105"
                   >
-                    <Plus className="w-5 h-5 group-hover:rotate-90 transition-transform duration-300" />
-                    <span>Share Your Story</span>
+                    <MapPin className="w-5 h-5 group-hover:scale-110 transition-transform duration-300" />
+                    <span>Review a Place</span>
                   </button>
                 </div>
                 
@@ -315,20 +316,18 @@ export const CommunityPage: React.FC = () => {
                 <div className="relative">
                   <input
                     type="text"
-                    placeholder="Search stories... (try 'food', 'adventure', 'culture')"
+                    placeholder="Search places... (e.g., 'Tokyo restaurants', 'Paris museums')"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     className="w-full px-4 py-2 pl-10 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                   />
                   <div className="absolute left-3 top-1/2 transform -translate-y-1/2">
-                    <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                    </svg>
+                    <MapPin className="w-4 h-4 text-gray-400" />
                   </div>
                   {searchQuery && (
                     <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
                       <span className="text-xs bg-purple-100 text-purple-700 px-2 py-1 rounded-full">
-                        ✨ Smart Search
+                        📍 Place Search
                       </span>
                     </div>
                   )}
@@ -406,18 +405,18 @@ export const CommunityPage: React.FC = () => {
             ) : stories.length === 0 ? (
               <div className="text-center py-20 bg-gradient-to-br from-white to-purple-50 rounded-xl shadow-lg border border-purple-100">
                 <div className="relative inline-block mb-6">
-                  <Camera className="w-20 h-20 text-purple-300 mx-auto animate-bounce" />
+                  <MapPin className="w-20 h-20 text-purple-300 mx-auto animate-bounce" />
                   <div className="absolute -top-2 -right-2 w-6 h-6 bg-purple-500 rounded-full flex items-center justify-center">
                     <Plus className="w-4 h-4 text-white" />
                   </div>
                 </div>
-                <h3 className="text-2xl font-bold text-gray-900 mb-3">No stories yet</h3>
-                <p className="text-gray-600 mb-6 max-w-md mx-auto">Be the first to share your amazing travel experience and inspire others!</p>
+                <h3 className="text-2xl font-bold text-gray-900 mb-3">No place reviews yet</h3>
+                <p className="text-gray-600 mb-6 max-w-md mx-auto">Be the first to review a place and help other travelers discover amazing locations!</p>
                 <button
                   onClick={() => setShowCreateModal(true)}
                   className="bg-gradient-to-r from-purple-600 to-pink-600 text-white px-8 py-4 rounded-xl hover:from-purple-700 hover:to-pink-700 transition-all duration-200 font-semibold shadow-lg hover:shadow-xl transform hover:scale-105"
                 >
-                  Share Your First Story
+                  Review Your First Place
                 </button>
                 <div className="mt-6 text-sm text-gray-500">
                   <p>💡 Tip: Make sure you're connected to the internet</p>
@@ -431,32 +430,54 @@ export const CommunityPage: React.FC = () => {
               </div>
             ) : viewMode === 'map' ? (
               <div className="space-y-6">
-                <StoryMap 
-                  stories={filteredStories} 
-                  onStoryClick={(story) => {
-                    // Navigate to story or show modal
-                    console.log('Story clicked:', story.title)
-                  }}
-                />
-                <div className="bg-white rounded-xl shadow-lg border border-gray-100 p-4">
-                  <div className="flex items-center justify-between mb-4">
-                    <h3 className="font-semibold text-gray-900">Stories on Map</h3>
+                <div className="bg-white rounded-xl shadow-lg border border-gray-100 p-6">
+                  <div className="flex items-center justify-between mb-6">
+                    <div>
+                      <h3 className="font-bold text-xl text-gray-900">📍 Places Map</h3>
+                      <p className="text-sm text-gray-600 mt-1">Click on markers to see reviews</p>
+                    </div>
                     <button
                       onClick={() => setViewMode('feed')}
-                      className="text-purple-600 hover:text-purple-700 font-medium text-sm"
+                      className="text-purple-600 hover:text-purple-700 font-medium text-sm flex items-center space-x-1"
                     >
-                      ← Back to Feed
+                      <List className="w-4 h-4" />
+                      <span>List View</span>
                     </button>
                   </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <StoryMap 
+                    stories={filteredStories.filter(s => s.place)} 
+                    onStoryClick={(story) => {
+                      setSelectedPlace(story._id)
+                      setViewMode('feed')
+                    }}
+                  />
+                </div>
+                <div className="bg-white rounded-xl shadow-lg border border-gray-100 p-6">
+                  <h3 className="font-semibold text-gray-900 mb-4">📌 Recent Place Reviews</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {filteredStories.filter(s => s.place).slice(0, 6).map((story) => (
-                      <div key={story._id} className="bg-gray-50 rounded-lg p-3 hover:bg-gray-100 cursor-pointer transition-colors">
-                        <div className="flex items-center space-x-2 mb-1">
-                          <MapPin className="w-3 h-3 text-purple-600" />
-                          <span className="font-medium text-xs">{story.place?.name}</span>
+                      <div 
+                        key={story._id} 
+                        onClick={() => {
+                          setSelectedPlace(story._id)
+                          setViewMode('feed')
+                        }}
+                        className="bg-gradient-to-br from-purple-50 to-pink-50 rounded-lg p-4 hover:shadow-md cursor-pointer transition-all border border-purple-100"
+                      >
+                        <div className="flex items-start space-x-3">
+                          <div className="bg-purple-600 text-white rounded-full p-2">
+                            <MapPin className="w-4 h-4" />
+                          </div>
+                          <div className="flex-1">
+                            <h4 className="font-bold text-gray-900">{story.place?.name}</h4>
+                            <p className="text-sm text-gray-700 mt-1 line-clamp-2">{story.title}</p>
+                            <div className="flex items-center space-x-2 mt-2">
+                              <span className="text-xs text-gray-500">by {story.author.username}</span>
+                              <span className="text-xs text-gray-400">•</span>
+                              <span className="text-xs text-purple-600 font-medium">{story.likes} likes</span>
+                            </div>
+                          </div>
                         </div>
-                        <p className="text-sm text-gray-700 font-medium">{story.title}</p>
-                        <p className="text-xs text-gray-500">by {story.author.username}</p>
                       </div>
                     ))}
                   </div>
