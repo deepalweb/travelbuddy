@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { X, Camera, MapPin, Upload } from 'lucide-react'
+import { X, Camera, MapPin, Upload, Video } from 'lucide-react'
 import { communityService } from '../services/communityService'
 import { LocationPicker } from './LocationPicker'
 
@@ -41,7 +41,9 @@ export const CreateStoryModal: React.FC<CreateStoryModalProps> = ({ onClose, onS
     country: ''
   })
   const [images, setImages] = useState<string[]>([])
+  const [videos, setVideos] = useState<string[]>([])
   const [uploading, setUploading] = useState(false)
+  const [uploadingVideo, setUploadingVideo] = useState(false)
   const [tags, setTags] = useState<string[]>([])
   const [loading, setLoading] = useState(false)
 
@@ -74,8 +76,45 @@ export const CreateStoryModal: React.FC<CreateStoryModalProps> = ({ onClose, onS
     }
   }
 
+  const handleVideoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files
+    if (!files || files.length === 0) return
+
+    const file = files[0]
+    if (file.size > 50 * 1024 * 1024) {
+      alert('Video file size must be less than 50MB')
+      return
+    }
+
+    setUploadingVideo(true)
+    try {
+      const formData = new FormData()
+      formData.append('video', file)
+
+      const API_BASE = import.meta.env.VITE_API_URL || 'https://travelbuddylk.com/api'
+      const response = await fetch(`${API_BASE}/images/upload-video`, {
+        method: 'POST',
+        body: formData
+      })
+
+      if (!response.ok) throw new Error('Video upload failed')
+      
+      const data = await response.json()
+      setVideos([data.url])
+    } catch (error) {
+      console.error('Failed to upload video:', error)
+      alert('Failed to upload video. Please try again.')
+    } finally {
+      setUploadingVideo(false)
+    }
+  }
+
   const removeImage = (index: number) => {
     setImages(images.filter((_, i) => i !== index))
+  }
+
+  const removeVideo = () => {
+    setVideos([])
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -107,6 +146,7 @@ export const CreateStoryModal: React.FC<CreateStoryModalProps> = ({ onClose, onS
           address: locationData.address
         },
         images,
+        videos,
         tags: finalTags
       })
       onStoryCreated(newStory)
@@ -290,6 +330,59 @@ export const CreateStoryModal: React.FC<CreateStoryModalProps> = ({ onClose, onS
                     </button>
                   </div>
                 ))}
+              </div>
+            )}
+          </div>
+
+          {/* Video Upload */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Video (Optional, Max 1)
+            </label>
+            <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-purple-400 transition-colors">
+              <input
+                type="file"
+                accept="video/*"
+                onChange={handleVideoUpload}
+                disabled={uploadingVideo || videos.length >= 1}
+                className="hidden"
+                id="video-upload"
+              />
+              <label htmlFor="video-upload" className={`cursor-pointer ${videos.length >= 1 ? 'opacity-50 cursor-not-allowed' : ''}`}>
+                {uploadingVideo ? (
+                  <div className="flex flex-col items-center">
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mb-4"></div>
+                    <p className="text-gray-600">Uploading video...</p>
+                  </div>
+                ) : (
+                  <>
+                    <Video className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                    <p className="text-gray-600 mb-2">
+                      {videos.length >= 1 ? 'Maximum 1 video reached' : 'Click to upload video'}
+                    </p>
+                    <p className="text-sm text-gray-500">MP4, MOV up to 50MB</p>
+                  </>
+                )}
+              </label>
+            </div>
+
+            {/* Video Preview */}
+            {videos.length > 0 && (
+              <div className="mt-4">
+                <div className="relative">
+                  <video
+                    src={videos[0]}
+                    controls
+                    className="w-full h-48 object-cover rounded-lg"
+                  />
+                  <button
+                    type="button"
+                    onClick={removeVideo}
+                    className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center hover:bg-red-600 transition-colors"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
               </div>
             )}
           </div>
