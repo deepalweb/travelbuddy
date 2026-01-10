@@ -46,6 +46,10 @@ class TripPlansApiService {
       
       print('📥 Fetching trip plans for user: ${user.uid}');
       print('🔗 Endpoint: /api/users/trip-plans');
+      print('🔑 Getting auth token...');
+      
+      final token = await user.getIdToken();
+      print('✅ Token obtained: ${token?.substring(0, 20)}...');
       
       final response = await _dio.get('/api/users/trip-plans',
         options: Options(
@@ -75,6 +79,7 @@ class TripPlansApiService {
         print('   Status: ${e.response?.statusCode}');
         print('   Data: ${e.response?.data}');
         print('   Message: ${e.message}');
+        print('   Type: ${e.type}');
       }
       return [];
     }
