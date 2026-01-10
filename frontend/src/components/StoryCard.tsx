@@ -49,9 +49,9 @@ export const StoryCard: React.FC<StoryCardProps> = ({ story, onLike, onDelete, c
   }
 
   return (
-    <div className="story-card bg-white rounded-xl shadow-lg border border-gray-100 overflow-hidden hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1">
+    <div className="story-card bg-white rounded-xl shadow-md border border-gray-200 overflow-hidden hover:shadow-lg transition-shadow duration-200">
       {/* Header */}
-      <div className="p-6 flex items-center justify-between bg-gradient-to-r from-white to-gray-50">
+      <div className="p-4 flex items-center justify-between">
         <div className="flex items-center space-x-4">
           <div className="relative">
             <div className="w-12 h-12 bg-gradient-to-br from-purple-500 to-pink-500 rounded-full flex items-center justify-center ring-2 ring-purple-100 hover:ring-purple-200 transition-all duration-200">
@@ -106,19 +106,32 @@ export const StoryCard: React.FC<StoryCardProps> = ({ story, onLike, onDelete, c
         </div>
       </div>
 
+      {/* Place Info - Before Content */}
+      {story.place && (
+        <div className="px-4 pb-3">
+          <div className="flex items-center space-x-2 text-sm">
+            <MapPin className="w-4 h-4 text-purple-600" />
+            <div>
+              <p className="font-semibold text-gray-900">{story.place.name}</p>
+              <p className="text-xs text-gray-500">{story.place.address}</p>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Content */}
-      <div className="px-6 pb-4">
+      <div className="px-4 pb-3">
         <h3 
           onClick={() => navigate(`/community/story/${story._id}`)}
-          className="font-bold text-xl text-gray-900 mb-3 hover:text-purple-600 transition-colors cursor-pointer"
+          className="font-semibold text-lg text-gray-900 mb-2 hover:text-purple-600 transition-colors cursor-pointer"
         >
           {story.title}
         </h3>
-        <p className="text-gray-700 mb-4 line-clamp-3 leading-relaxed">{story.content}</p>
+        <p className="text-gray-700 text-[15px] leading-relaxed">{story.content}</p>
         
         {/* Tags */}
         {story.tags && story.tags.length > 0 && (
-          <div className="flex flex-wrap gap-2 mb-3">
+          <div className="flex flex-wrap gap-2 mt-3">
             {story.tags.map((tag, index) => (
               <span
                 key={index}
@@ -129,51 +142,53 @@ export const StoryCard: React.FC<StoryCardProps> = ({ story, onLike, onDelete, c
             ))}
           </div>
         )}
-        
-        {/* Place Info */}
-        {story.place && (
-          <div className="bg-gray-50 rounded-lg p-3 mb-3">
-            <div className="flex items-center space-x-2">
-              <MapPin className="w-4 h-4 text-purple-600" />
-              <div>
-                <p className="font-medium text-gray-900 text-sm">{story.place.name}</p>
-                <p className="text-xs text-gray-500">{story.place.address}</p>
-              </div>
-            </div>
-          </div>
-        )}
       </div>
 
-      {/* Images */}
+      {/* Images - Full Width like Facebook */}
       {story.images && story.images.length > 0 && story.images.filter(img => img && img.trim()).length > 0 && (
-        <div className="px-6 pb-6">
+        <div className="w-full">
           {story.images.length === 1 ? (
             <img 
               src={story.images[0]} 
               alt={story.title}
-              className="w-full h-64 object-cover rounded-lg"
+              className="w-full max-h-[600px] object-cover cursor-pointer"
+              onClick={() => window.open(story.images[0], '_blank')}
               onError={(e) => {
                 console.error('Failed to load image:', story.images[0])
-                console.log('Story data:', { id: story._id, images: story.images })
                 e.currentTarget.style.display = 'none'
               }}
             />
+          ) : story.images.length === 2 ? (
+            <div className="grid grid-cols-2 gap-0.5">
+              {story.images.slice(0, 2).map((image, index) => (
+                <img 
+                  key={index}
+                  src={image} 
+                  alt={`${story.title} ${index + 1}`}
+                  className="w-full h-[300px] object-cover cursor-pointer"
+                  onClick={() => window.open(image, '_blank')}
+                  onError={(e) => {
+                    e.currentTarget.style.display = 'none'
+                  }}
+                />
+              ))}
+            </div>
           ) : (
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-2 gap-0.5">
               {story.images.slice(0, 4).map((image, index) => (
                 <div key={index} className="relative">
                   <img 
                     src={image} 
                     alt={`${story.title} ${index + 1}`}
-                    className="w-full h-32 object-cover rounded-lg"
+                    className="w-full h-[250px] object-cover cursor-pointer"
+                    onClick={() => window.open(image, '_blank')}
                     onError={(e) => {
                       e.currentTarget.style.display = 'none'
-                      console.error('Failed to load image:', image)
                     }}
                   />
                   {index === 3 && story.images.length > 4 && (
-                    <div className="absolute inset-0 bg-black bg-opacity-50 rounded-lg flex items-center justify-center">
-                      <span className="text-white font-bold text-lg">+{story.images.length - 4}</span>
+                    <div className="absolute inset-0 bg-black bg-opacity-60 flex items-center justify-center cursor-pointer">
+                      <span className="text-white font-bold text-2xl">+{story.images.length - 4}</span>
                     </div>
                   )}
                 </div>
@@ -184,30 +199,27 @@ export const StoryCard: React.FC<StoryCardProps> = ({ story, onLike, onDelete, c
       )}
 
       {/* Actions */}
-      <div className="px-6 py-4 bg-gray-50 border-t border-gray-100">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-8">
+      <div className="px-4 py-3 border-t border-gray-200">
+        <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center space-x-1">
             <button
               onClick={() => onLike(story._id)}
-              className={`group flex items-center space-x-2 transition-all duration-200 transform hover:scale-105 ${
-                story.isLiked ? 'text-red-500' : 'text-gray-500 hover:text-red-500'
+              className={`flex items-center space-x-1 px-3 py-2 rounded-lg transition-colors ${
+                story.isLiked ? 'text-red-500 bg-red-50' : 'text-gray-600 hover:bg-gray-100'
               }`}
             >
-              <Heart className={`w-6 h-6 transition-all duration-200 ${
-                story.isLiked ? 'fill-current animate-pulse' : 'group-hover:scale-110'
+              <Heart className={`w-5 h-5 ${
+                story.isLiked ? 'fill-current' : ''
               }`} />
-              <span className="font-semibold text-lg">{story.likes}</span>
+              <span className="font-medium text-sm">{story.likes}</span>
             </button>
             <button
               onClick={() => setShowComments(!showComments)}
-              className="group flex items-center space-x-2 text-gray-500 hover:text-blue-500 transition-all duration-200 transform hover:scale-105"
+              className="flex items-center space-x-1 px-3 py-2 rounded-lg text-gray-600 hover:bg-gray-100 transition-colors"
             >
-              <MessageCircle className="w-6 h-6 group-hover:scale-110 transition-transform duration-200" />
-              <span className="font-semibold text-lg">{story.comments}</span>
+              <MessageCircle className="w-5 h-5" />
+              <span className="font-medium text-sm">{story.comments}</span>
             </button>
-          </div>
-          <div className="text-sm text-gray-400">
-            {formatDate(story.createdAt)}
           </div>
         </div>
       </div>
