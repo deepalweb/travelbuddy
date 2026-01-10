@@ -282,6 +282,10 @@ router.get('/trip-plans', async (req, res) => {
     const trips = TripPlan ? await TripPlan.find({ userId: user._id }).sort({ createdAt: -1 }) : [];
     console.log('✅ Found', trips.length, 'trip plans');
     
+    // Log response size
+    const responseSize = JSON.stringify(trips).length;
+    console.log('📊 Response size:', (responseSize / 1024).toFixed(2), 'KB');
+    
     res.json(trips);
   } catch (error) {
     console.error('❌ Error fetching trip plans:', error);
