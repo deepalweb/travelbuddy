@@ -36,6 +36,7 @@ export const CommunityPage: React.FC = () => {
   const [loadingMore, setLoadingMore] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [showCreateModal, setShowCreateModal] = useState(false)
+  const [editingStory, setEditingStory] = useState<Story | undefined>(undefined)
   const [filter, setFilter] = useState('recent')
   const [selectedTag, setSelectedTag] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
@@ -174,7 +175,6 @@ export const CommunityPage: React.FC = () => {
     try {
       await communityService.deleteStory(storyId)
       setStories(stories.filter(s => s._id !== storyId))
-      // Force refresh to sync with backend
       setTimeout(() => loadCommunityData(true), 500)
     } catch (error) {
       console.error('Failed to delete story:', error)
@@ -182,9 +182,22 @@ export const CommunityPage: React.FC = () => {
     }
   }
 
+  const handleEdit = (storyId: string) => {
+    const story = stories.find(s => s._id === storyId)
+    if (story) {
+      setEditingStory(story)
+      setShowCreateModal(true)
+    }
+  }
+
   const handleStoryCreated = (newStory: Story) => {
-    setStories([newStory, ...stories])
+    if (editingStory) {
+      setStories(stories.map(s => s._id === newStory._id ? newStory : s))
+    } else {
+      setStories([newStory, ...stories])
+    }
     setShowCreateModal(false)
+    setEditingStory(undefined)
   }
 
   return (
@@ -304,7 +317,10 @@ export const CommunityPage: React.FC = () => {
                   </div>
                   
                   <button
-                    onClick={() => setShowCreateModal(true)}
+                    onClick={() => {
+                      setEditingStory(undefined)
+                      setShowCreateModal(true)
+                    }}
                     className="group flex items-center space-x-2 bg-gradient-to-r from-purple-600 via-pink-600 to-red-600 text-white px-8 py-3 rounded-xl hover:from-purple-700 hover:via-pink-700 hover:to-red-700 transition-all duration-300 font-semibold shadow-lg hover:shadow-xl transform hover:scale-105"
                   >
                     <MapPin className="w-5 h-5 group-hover:scale-110 transition-transform duration-300" />
@@ -413,7 +429,10 @@ export const CommunityPage: React.FC = () => {
                 <h3 className="text-2xl font-bold text-gray-900 mb-3">No place reviews yet</h3>
                 <p className="text-gray-600 mb-6 max-w-md mx-auto">Be the first to review a place and help other travelers discover amazing locations!</p>
                 <button
-                  onClick={() => setShowCreateModal(true)}
+                  onClick={() => {
+                    setEditingStory(undefined)
+                    setShowCreateModal(true)
+                  }}
                   className="bg-gradient-to-r from-purple-600 to-pink-600 text-white px-8 py-4 rounded-xl hover:from-purple-700 hover:to-pink-700 transition-all duration-200 font-semibold shadow-lg hover:shadow-xl transform hover:scale-105"
                 >
                   Review Your First Place
@@ -509,6 +528,7 @@ export const CommunityPage: React.FC = () => {
                         story={story}
                         onLike={handleLike}
                         onDelete={handleDelete}
+                        onEdit={handleEdit}
                         currentUserId="507f1f77bcf86cd799439011"
                       />
                     </div>
@@ -640,8 +660,12 @@ export const CommunityPage: React.FC = () => {
       {/* Create Story Modal */}
       {showCreateModal && (
         <CreateStoryModal
-          onClose={() => setShowCreateModal(false)}
+          onClose={() => {
+            setShowCreateModal(false)
+            setEditingStory(undefined)
+          }}
           onStoryCreated={handleStoryCreated}
+          editStory={editingStory}
         />
       )}
 

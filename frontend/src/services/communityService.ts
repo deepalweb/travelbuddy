@@ -266,6 +266,34 @@ export const communityService = {
     if (!response.ok) throw new Error('Failed to delete story')
   },
 
+  async updateStory(storyId: string, storyData: Partial<CreateStoryData>): Promise<Story> {
+    const postData: any = {}
+    
+    if (storyData.title || storyData.content || storyData.images) {
+      postData.content = {
+        title: storyData.title,
+        text: storyData.content,
+        images: storyData.images
+      }
+    }
+    if (storyData.location) postData.location = storyData.location
+    if (storyData.place) postData.place = storyData.place
+    if (storyData.tags) postData.tags = storyData.tags
+    
+    const response = await fetch(`${API_BASE}/posts/${storyId}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-user-id': '507f1f77bcf86cd799439011'
+      },
+      body: JSON.stringify(postData)
+    })
+    
+    if (!response.ok) throw new Error('Failed to update story')
+    const post = await response.json()
+    return transformPost(post)
+  },
+
   getFallbackTags(title: string, content: string): string[] {
     const availableTags = ['Adventure', 'Food', 'Culture', 'Nature', 'Photography', 'Beach', 'Mountain', 'City', 'Nightlife', 'Shopping', 'History', 'Art', 'Wildlife', 'Festival', 'Local', 'Budget', 'Luxury', 'Solo', 'Family', 'Couple']
     const text = (title + ' ' + content).toLowerCase()

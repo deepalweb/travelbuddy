@@ -29,22 +29,23 @@ interface Story {
 interface CreateStoryModalProps {
   onClose: () => void;
   onStoryCreated: (story: Story) => void;
+  editStory?: Story;
 }
 
-export const CreateStoryModal: React.FC<CreateStoryModalProps> = ({ onClose, onStoryCreated }) => {
-  const [title, setTitle] = useState('')
-  const [content, setContent] = useState('')
+export const CreateStoryModal: React.FC<CreateStoryModalProps> = ({ onClose, onStoryCreated, editStory }) => {
+  const [title, setTitle] = useState(editStory?.title || '')
+  const [content, setContent] = useState(editStory?.content || '')
   const [locationData, setLocationData] = useState({
-    address: '',
-    coordinates: { lat: 0, lng: 0 },
-    city: '',
+    address: editStory?.place?.address || editStory?.location || '',
+    coordinates: editStory?.place?.coordinates || { lat: 0, lng: 0 },
+    city: editStory?.place?.name || '',
     country: ''
   })
-  const [images, setImages] = useState<string[]>([])
+  const [images, setImages] = useState<string[]>(editStory?.images || [])
   const [videos, setVideos] = useState<string[]>([])
   const [uploading, setUploading] = useState(false)
   const [uploadingVideo, setUploadingVideo] = useState(false)
-  const [tags, setTags] = useState<string[]>([])
+  const [tags, setTags] = useState<string[]>(editStory?.tags || [])
   const [loading, setLoading] = useState(false)
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -135,7 +136,7 @@ export const CreateStoryModal: React.FC<CreateStoryModalProps> = ({ onClose, onS
         }
       }
       
-      const newStory = await communityService.createStory({
+      const storyData = {
         title: title.trim(),
         content: content.trim(),
         location: locationData.address,
@@ -148,10 +149,16 @@ export const CreateStoryModal: React.FC<CreateStoryModalProps> = ({ onClose, onS
         images,
         videos,
         tags: finalTags
-      })
+      }
+      
+      const newStory = editStory 
+        ? await communityService.updateStory(editStory._id, storyData)
+        : await communityService.createStory(storyData)
+      
       onStoryCreated(newStory)
     } catch (error) {
-      console.error('Failed to create story:', error)
+      console.error('Failed to save story:', error)
+      alert('Failed to save story. Please try again.')
     } finally {
       setLoading(false)
     }
@@ -172,7 +179,7 @@ export const CreateStoryModal: React.FC<CreateStoryModalProps> = ({ onClose, onS
       <div className="bg-white rounded-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-gray-200">
-          <h2 className="text-xl font-bold text-gray-900">Share Your Travel Story</h2>
+          <h2 className="text-xl font-bold text-gray-900">{editStory ? 'Edit Your Story' : 'Share Your Travel Story'}</h2>
           <button
             onClick={onClose}
             className="p-2 hover:bg-gray-100 rounded-full transition-colors"
@@ -406,7 +413,7 @@ export const CreateStoryModal: React.FC<CreateStoryModalProps> = ({ onClose, onS
               ) : (
                 <>
                   <Upload className="w-5 h-5" />
-                  <span>Share Story</span>
+                  <span>{editStory ? 'Update Story' : 'Share Story'}</span>
                 </>
               )}
             </button>

@@ -29,10 +29,11 @@ interface StoryCardProps {
   story: Story;
   onLike: (storyId: string) => void;
   onDelete?: (storyId: string) => void;
+  onEdit?: (storyId: string) => void;
   currentUserId?: string;
 }
 
-export const StoryCard: React.FC<StoryCardProps> = ({ story, onLike, onDelete, currentUserId }) => {
+export const StoryCard: React.FC<StoryCardProps> = ({ story, onLike, onDelete, onEdit, currentUserId }) => {
   const [showComments, setShowComments] = useState(false)
   const [showMenu, setShowMenu] = useState(false)
   const navigate = useNavigate()
@@ -84,21 +85,33 @@ export const StoryCard: React.FC<StoryCardProps> = ({ story, onLike, onDelete, c
           
           {showMenu && (
             <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-10">
-              {onDelete && currentUserId && story.author.username === 'You' && (
-                <button
-                  onClick={() => {
-                    if (confirm('Delete this post?')) {
-                      onDelete?.(story._id)
-                    }
-                    setShowMenu(false)
-                  }}
-                  className="w-full px-4 py-2 text-left text-red-600 hover:bg-red-50 flex items-center space-x-2"
-                >
-                  <Trash2 className="w-4 h-4" />
-                  <span>Delete Post</span>
-                </button>
+              {currentUserId && story.author.username === 'You' && (
+                <>
+                  <button
+                    onClick={() => {
+                      onEdit?.(story._id)
+                      setShowMenu(false)
+                    }}
+                    className="w-full px-4 py-2 text-left text-blue-600 hover:bg-blue-50 flex items-center space-x-2"
+                  >
+                    <Edit className="w-4 h-4" />
+                    <span>Edit Post</span>
+                  </button>
+                  <button
+                    onClick={() => {
+                      if (confirm('Delete this post?')) {
+                        onDelete?.(story._id)
+                      }
+                      setShowMenu(false)
+                    }}
+                    className="w-full px-4 py-2 text-left text-red-600 hover:bg-red-50 flex items-center space-x-2"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                    <span>Delete Post</span>
+                  </button>
+                </>
               )}
-              {(!onDelete || !currentUserId || story.author.username !== 'You') && (
+              {(!currentUserId || story.author.username !== 'You') && (
                 <div className="px-4 py-2 text-gray-400 text-sm">No actions available</div>
               )}
             </div>
