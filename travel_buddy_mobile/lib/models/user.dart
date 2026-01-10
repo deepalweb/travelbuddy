@@ -185,7 +185,7 @@ class CurrentUser extends HiveObject {
   factory CurrentUser.fromJson(Map<String, dynamic> json) {
     return CurrentUser(
       username: json['username'] ?? '',
-      uid: json['uid'] ?? json['_id'] ?? '', // Support both formats for compatibility
+      uid: json['firebaseUid'] ?? json['uid'], // Use firebaseUid from backend
       email: json['email'],
       isAdmin: json['isAdmin'] ?? false,
       subscriptionStatus: SubscriptionStatus.values.firstWhere(
