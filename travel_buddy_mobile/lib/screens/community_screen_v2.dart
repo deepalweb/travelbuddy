@@ -56,7 +56,7 @@ class _CommunityScreenV2State extends State<CommunityScreenV2> with SingleTicker
               controller: _searchController,
               autofocus: true,
               decoration: const InputDecoration(
-                hintText: 'Search posts...',
+                hintText: 'Search places... (e.g., "Tokyo restaurants")',
                 border: InputBorder.none,
                 hintStyle: TextStyle(color: Colors.grey),
               ),
@@ -64,7 +64,7 @@ class _CommunityScreenV2State extends State<CommunityScreenV2> with SingleTicker
               onChanged: (value) => setState(() => _searchQuery = value),
             )
           : const Text(
-              'Community',
+              'Discover Places',
               style: TextStyle(color: Colors.black, fontSize: 22, fontWeight: FontWeight.w700),
             ),
       actions: [
@@ -285,15 +285,15 @@ class _CommunityScreenV2State extends State<CommunityScreenV2> with SingleTicker
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.explore_outlined, size: 80, color: Colors.grey[400]),
+          Icon(Icons.location_on_outlined, size: 80, color: Colors.grey[400]),
           const SizedBox(height: 16),
           const Text(
-            'No Stories Yet',
+            'No Place Reviews Yet',
             style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 8),
           Text(
-            'Be the first to share your travel story!',
+            'Be the first to review a place!',
             style: TextStyle(color: Colors.grey[600], fontSize: 16),
           ),
         ],
@@ -309,8 +309,8 @@ class _CommunityScreenV2State extends State<CommunityScreenV2> with SingleTicker
           MaterialPageRoute(builder: (context) => const CreatePostScreen()),
         );
       },
-      icon: const Icon(Icons.add),
-      label: const Text('Share Story'),
+      icon: const Icon(Icons.location_on),
+      label: const Text('Review a Place'),
       backgroundColor: Colors.blue[600],
     );
   }
