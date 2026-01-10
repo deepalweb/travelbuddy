@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:dio/dio.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../models/trip.dart';
@@ -48,19 +49,35 @@ class TripPlansApiService {
       print('🔗 Endpoint: /api/users/trip-plans');
       print('🔑 Getting auth token...');
       
-      final token = await user.getIdToken();
+      final token = await user.getIdToken().timeout(
+        const Duration(seconds: 10),
+        onTimeout: () {
+          print('⏱️ Token retrieval timed out');
+          throw TimeoutException('Token retrieval timeout');
+        },
+      );
       print('✅ Token obtained: ${token?.substring(0, 20)}...');
       
-      final response = await _dio.get('/api/users/trip-plans',
+      print('📤 Making GET request...');
+      final response = await _dio.get(
+        '/api/users/trip-plans',
         options: Options(
           extra: {'noCache': true},
           headers: {'Cache-Control': 'no-cache'},
+          sendTimeout: const Duration(seconds: 30),
+          receiveTimeout: const Duration(seconds: 30),
         ),
+      ).timeout(
+        const Duration(seconds: 30),
+        onTimeout: () {
+          print('⏱️ Request timed out');
+          throw TimeoutException('Request timeout');
+        },
       );
       
       print('📊 Response status: ${response.statusCode}');
       print('📊 Response data type: ${response.data.runtimeType}');
-      print('📊 Response data: ${response.data}');
+      print('📊 Response data length: ${response.data?.length ?? 0}');
       
       if (response.statusCode == 200 && response.data != null) {
         final List<dynamic> data = response.data;
@@ -70,10 +87,15 @@ class TripPlansApiService {
         return tripPlans;
       }
       
+      print('⚠️ Unexpected response status: ${response.statusCode}');
       return [];
-    } catch (e) {
+    } on TimeoutException catch (e) {
+      print('❌ Timeout error: $e');
+      return [];
+    } catch (e, stackTrace) {
       print('❌ Error fetching trip plans: $e');
       print('❌ Error type: ${e.runtimeType}');
+      print('❌ Stack trace: ${stackTrace.toString().substring(0, 500)}');
       if (e is DioException) {
         print('❌ DioException details:');
         print('   Status: ${e.response?.statusCode}');
