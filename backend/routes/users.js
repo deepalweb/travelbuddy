@@ -286,6 +286,11 @@ router.get('/trip-plans', async (req, res) => {
     const responseSize = JSON.stringify(trips).length;
     console.log('📊 Response size:', (responseSize / 1024).toFixed(2), 'KB');
     
+    // Prevent caching
+    res.set('Cache-Control', 'no-cache, no-store, must-revalidate');
+    res.set('Pragma', 'no-cache');
+    res.set('Expires', '0');
+    
     res.json(trips);
   } catch (error) {
     console.error('❌ Error fetching trip plans:', error);

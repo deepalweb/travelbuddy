@@ -63,7 +63,11 @@ class TripPlansApiService {
         '/api/users/trip-plans',
         options: Options(
           extra: {'noCache': true},
-          headers: {'Cache-Control': 'no-cache'},
+          headers: {
+            'Cache-Control': 'no-cache, no-store, must-revalidate',
+            'Pragma': 'no-cache',
+            'Expires': '0',
+          },
           sendTimeout: const Duration(seconds: 30),
           receiveTimeout: const Duration(seconds: 30),
         ),
