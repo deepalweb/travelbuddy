@@ -13,6 +13,9 @@ class SafetyAlert {
   final double? latitude;
   final double? longitude;
   final bool isActive;
+  
+  // Convenience getter for message (alias for description)
+  String get message => description;
 
   SafetyAlert({
     required this.id,

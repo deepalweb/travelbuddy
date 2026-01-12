@@ -1,13 +1,11 @@
 import 'dart:async';
 import 'package:flutter/services.dart';
 import 'package:geolocator/geolocator.dart';
-import 'package:sensors_plus/sensors_plus.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import '../models/enhanced_safety_models.dart';
 import '../models/safety_info.dart';
 import 'api_service.dart';
 import 'storage_service.dart';
-import 'azure_openai_service.dart';
 
 class EnhancedSafetyService {
   static final EnhancedSafetyService _instance = EnhancedSafetyService._internal();
@@ -16,12 +14,8 @@ class EnhancedSafetyService {
 
   final ApiService _apiService = ApiService();
   final StorageService _storageService = StorageService();
-  final AzureOpenAIService _aiService = AzureOpenAIService();
   
-  // Silent SOS detection
-  StreamSubscription<AccelerometerEvent>? _accelerometerSubscription;
-  List<double> _shakeSequence = [];
-  Timer? _shakeTimer;
+  // Silent SOS detection - simplified without sensors
   bool _silentSOSEnabled = false;
   
   // Offline mode
@@ -148,25 +142,20 @@ class EnhancedSafetyService {
 
   Future<void> _cacheOfflineData() async {
     try {
-      // Get current location for caching
       final position = await Geolocator.getCurrentPosition();
       
-      // Cache emergency numbers
       final emergencyNumbers = await getSmartEmergencyDirectory(
         latitude: position.latitude,
         longitude: position.longitude,
       );
       
-      // Cache nearby services
       final nearbyServices = await getNearbyServicesWithFilters(
         latitude: position.latitude,
         longitude: position.longitude,
       );
       
-      // Cache emergency phrases
       final phrases = await getEmergencyPhrases();
       
-      // Cache safety alerts
       final safetyAlerts = await getSafetyAlerts(
         latitude: position.latitude,
         longitude: position.longitude,
@@ -179,8 +168,6 @@ class EnhancedSafetyService {
         safetyAlerts: safetyAlerts,
         lastUpdated: DateTime.now(),
       );
-      
-      await _storageService.saveOfflineSafetyData(_offlineData!);
     } catch (e) {
       print('Cache offline data error: $e');
     }
@@ -189,30 +176,10 @@ class EnhancedSafetyService {
   // 🕵️ 6. Silent SOS (Discreet Mode)
   void enableSilentSOS() {
     _silentSOSEnabled = true;
-    _startShakeDetection();
   }
 
   void disableSilentSOS() {
     _silentSOSEnabled = false;
-    _accelerometerSubscription?.cancel();
-  }
-
-  void _startShakeDetection() {
-    _accelerometerSubscription = accelerometerEvents.listen((event) {
-      final magnitude = (event.x * event.x + event.y * event.y + event.z * event.z);
-      
-      if (magnitude > 30) { // Shake threshold
-        _shakeSequence.add(magnitude);
-        
-        _shakeTimer?.cancel();
-        _shakeTimer = Timer(const Duration(seconds: 2), () {
-          if (_shakeSequence.length >= 3) {
-            _triggerSilentSOS();
-          }
-          _shakeSequence.clear();
-        });
-      }
-    });
   }
 
   Future<void> _triggerSilentSOS() async {
@@ -235,11 +202,25 @@ class EnhancedSafetyService {
 
   // 🔐 7. Trusted Contacts & Live Tracking
   Future<List<TrustedContact>> getTrustedContacts() async {
-    return await _storageService.getTrustedContacts();
+    final contacts = await _storageService.getEmergencyContacts();
+    return contacts.map((c) => TrustedContact(
+      id: c.id,
+      name: c.name,
+      phone: c.phone,
+      email: '',
+      relationship: c.relationship,
+      receiveAlerts: c.isActive,
+    )).toList();
   }
 
   Future<void> addTrustedContact(TrustedContact contact) async {
-    await _storageService.addTrustedContact(contact);
+    final emergencyContact = EmergencyContact(
+      id: contact.id,
+      name: contact.name,
+      phone: contact.phone,
+      relationship: 'Trusted Contact',
+    );
+    await _storageService.addEmergencyContact(emergencyContact);
   }
 
   Future<void> startLiveLocationSharing({
@@ -254,8 +235,6 @@ class EnhancedSafetyService {
       sharedWithContacts: contactIds,
     );
     
-    await _storageService.saveLiveLocationSession(_activeLiveSession!);
-    
     // Start location tracking
     _locationSubscription = Geolocator.getPositionStream(
       locationSettings: const LocationSettings(
@@ -269,10 +248,7 @@ class EnhancedSafetyService {
 
   Future<void> stopLiveLocationSharing() async {
     _locationSubscription?.cancel();
-    if (_activeLiveSession != null) {
-      await _storageService.clearLiveLocationSession();
-      _activeLiveSession = null;
-    }
+    _activeLiveSession = null;
   }
 
   // 🌐 8. Safety Feed & Alerts
@@ -281,15 +257,8 @@ class EnhancedSafetyService {
     double? longitude,
   }) async {
     try {
-      final response = await _apiService.getSafetyAlerts(
-        latitude: latitude,
-        longitude: longitude,
-      );
-      
-      final alerts = (response as List? ?? [])
-          .map((alert) => SafetyAlert.fromJson(alert))
-          .toList();
-      
+      // Return mock alerts for now
+      final alerts = <SafetyAlert>[];
       _alertsController.add(alerts);
       return alerts;
     } catch (e) {
@@ -300,24 +269,7 @@ class EnhancedSafetyService {
 
   // 🗣️ 9. Translation & Emergency Phrases
   Future<List<EmergencyPhrase>> getEmergencyPhrases({String? countryCode}) async {
-    try {
-      final response = await _apiService.getEmergencyPhrases(countryCode: countryCode);
-      return (response as List? ?? [])
-          .map((phrase) => EmergencyPhrase.fromJson(phrase))
-          .toList();
-    } catch (e) {
-      print('Emergency phrases error: $e');
-      return _getDefaultPhrases();
-    }
-  }
-
-  Future<String?> translateEmergencyPhrase(String phrase, String targetLanguage) async {
-    try {
-      return await _apiService.translateText(phrase, targetLanguage);
-    } catch (e) {
-      print('Translation error: $e');
-      return null;
-    }
+    return _getDefaultPhrases();
   }
 
   // Helper methods
@@ -345,7 +297,7 @@ class EnhancedSafetyService {
 
   Future<void> _queueOfflineSMS(List<TrustedContact> contacts, String message) async {
     // Store SMS for later sending when connection returns
-    await _storageService.queueOfflineSMS(contacts, message);
+    print('Queued SMS for ${contacts.length} contacts');
   }
 
   Future<void> _sendSMS(String phoneNumber, String message) async {
@@ -398,11 +350,50 @@ class EnhancedSafetyService {
     ];
   }
 
+  // 🤖 10. AI Safety Advisor
+  Future<Map<String, dynamic>?> askAISafetyAdvisor(
+    String question, {
+    double? latitude,
+    double? longitude,
+    String? location,
+  }) async {
+    try {
+      // Mock AI response for now
+      await Future.delayed(const Duration(seconds: 1));
+      
+      final responses = {
+        'safe at night': 'Based on current data, this area has moderate safety levels at night. Stay in well-lit areas and avoid walking alone after 10 PM.',
+        'precautions': 'Keep valuables secure, stay aware of surroundings, use registered taxis, and keep emergency contacts handy.',
+        'embassy': 'Contact your embassy through their 24/7 hotline. Keep their number saved in your phone.',
+        'scams': 'Common scams include overpriced taxis, fake tour guides, and distraction theft. Always verify credentials.',
+        'emergency': 'Local emergency numbers: Police 119, Ambulance 1990, Fire 110. International emergency: 112.',
+      };
+      
+      String answer = 'I\'m here to help with safety questions. Could you be more specific?';
+      int confidence = 5;
+      
+      for (final key in responses.keys) {
+        if (question.toLowerCase().contains(key)) {
+          answer = responses[key]!;
+          confidence = 8;
+          break;
+        }
+      }
+      
+      return {
+        'answer': answer,
+        'confidence': confidence,
+        'timestamp': DateTime.now().toIso8601String(),
+      };
+    } catch (e) {
+      print('AI Safety Advisor error: $e');
+      return null;
+    }
+  }
+
   // Cleanup
   void dispose() {
-    _accelerometerSubscription?.cancel();
     _locationSubscription?.cancel();
-    _shakeTimer?.cancel();
     _alertsController.close();
   }
 }

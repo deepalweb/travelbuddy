@@ -3,6 +3,7 @@ import 'package:dio/dio.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../models/trip.dart';
 import '../config/environment.dart';
+import '../services/offline_manager.dart';
 
 class TripPlansApiService {
   static Dio _createAuthenticatedDio() {
@@ -47,13 +48,19 @@ class TripPlansApiService {
     }
   }
 
-  // Get user's trip plans from backend
+  // Get user's trip plans from backend (offline-first)
   static Future<List<TripPlan>> getUserTripPlans() async {
+    // Return cached data immediately
+    final cached = await OfflineManager.getCachedTripPlans();
+    if (cached.isNotEmpty) {
+      print('📦 Loaded ${cached.length} trip plans from offline cache');
+    }
+    
     try {
       final user = FirebaseAuth.instance.currentUser;
       if (user == null) {
         print('❌ No authenticated user for trip plans');
-        return [];
+        return cached;
       }
       
       print('📥 Fetching trip plans for user: ${user.uid}');
@@ -100,15 +107,18 @@ class TripPlansApiService {
         final List<dynamic> data = response.data;
         final tripPlans = data.map((json) => TripPlan.fromJson(json)).toList();
         
+        // Cache for offline use
+        await OfflineManager.cacheTripPlans(tripPlans);
+        
         print('✅ Loaded ${tripPlans.length} trip plans from backend');
         return tripPlans;
       }
       
       print('⚠️ Unexpected response status: ${response.statusCode}');
-      return [];
+      return cached;
     } on TimeoutException catch (e) {
       print('❌ Timeout error: $e');
-      return [];
+      return cached;
     } catch (e, stackTrace) {
       print('❌ Error fetching trip plans: $e');
       print('❌ Error type: ${e.runtimeType}');
@@ -120,7 +130,7 @@ class TripPlansApiService {
         print('   Message: ${e.message}');
         print('   Type: ${e.type}');
       }
-      return [];
+      return cached;
     }
   }
 

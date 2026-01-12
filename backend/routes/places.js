@@ -3,6 +3,8 @@ import fetch from 'node-fetch';
 import OpenAI from 'openai';
 import { EnhancedPlacesSearch } from '../enhanced-places-search.js';
 import { PlacesOptimizer } from '../places-optimization.js';
+import PlacesCache from '../models/PlacesCache.js';
+import costTracker from '../services/costTracker.js';
 
 // Initialize Azure OpenAI
 const openai = process.env.AZURE_OPENAI_API_KEY ? new OpenAI({
@@ -145,7 +147,27 @@ router.get('/mobile/nearby', async (req, res) => {
     const maxResults = parseInt(limit, 10);
     const skipResults = parseInt(offset, 10);
 
+    // Create cache key (rounded to 2 decimals for better cache hits)
+    const cacheKey = `${parseFloat(lat).toFixed(2)}_${parseFloat(lng).toFixed(2)}_${query}_${searchRadius}`;
+    
+    // Check database cache first (24 hour expiry)
+    try {
+      const cached = await PlacesCache.findOne({ key: cacheKey });
+      if (cached) {
+        costTracker.trackCacheHit();
+        console.log(`✅ Cache HIT: ${cacheKey} | Hits: ${cached.hits}`);
+        
+        // Increment hit counter
+        await PlacesCache.updateOne({ key: cacheKey }, { $inc: { hits: 1 } });
+        
+        return res.json(cached.data);
+      }
+    } catch (cacheError) {
+      console.warn('⚠️ Cache lookup failed:', cacheError.message);
+    }
+
     console.log(`🔥 HYBRID: ${query} within ${searchRadius}m`);
+    costTracker.trackAPICall('nearby');
 
     // LAYER 1: Google Places API (Core Discovery + Place Identity)
     const enhancedSearch = new EnhancedPlacesSearch(apiKey);
@@ -188,14 +210,33 @@ router.get('/mobile/nearby', async (req, res) => {
     
     console.log(`✅ HYBRID: ${paginatedResults.length} places ready`);
     
-    res.json({
+    const responseData = {
       status: 'OK',
       results: paginatedResults,
       query: query,
       location: { lat: parseFloat(lat), lng: parseFloat(lng) },
       radius: searchRadius,
       architecture: 'hybrid'
-    });
+    };
+    
+    // Save to database cache for other users (24h TTL)
+    try {
+      await PlacesCache.findOneAndUpdate(
+        { key: cacheKey },
+        { 
+          key: cacheKey,
+          data: responseData,
+          hits: 1,
+          createdAt: new Date()
+        },
+        { upsert: true, new: true }
+      );
+      console.log(`💾 Cached: ${cacheKey}`);
+    } catch (cacheError) {
+      console.warn('⚠️ Cache save failed:', cacheError.message);
+    }
+    
+    res.json(responseData);
     
   } catch (error) {
     console.error('❌ Hybrid search error:', error);
@@ -410,6 +451,21 @@ router.get('/details', async (req, res) => {
   } catch (error) {
     console.error('❌ Place details error:', error);
     res.status(500).json({ error: 'Failed to fetch place details' });
+  }
+});
+
+// Get API cost statistics
+router.get('/cost-stats', async (req, res) => {
+  try {
+    const stats = costTracker.getStats();
+    res.json({
+      status: 'OK',
+      ...stats,
+      message: stats.underFreeCredit ? '✅ Under free credit limit' : '⚠️ Exceeding free credit'
+    });
+  } catch (error) {
+    console.error('❌ Cost stats error:', error);
+    res.status(500).json({ error: 'Failed to get cost stats' });
   }
 });
 

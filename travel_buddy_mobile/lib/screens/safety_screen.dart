@@ -1,9 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../models/safety_info.dart';
+import '../models/enhanced_safety_models.dart';
 import '../services/safety_service.dart';
+import '../services/enhanced_safety_service.dart';
 import '../providers/app_provider.dart';
 import '../widgets/panic_button.dart';
+import '../widgets/safety/safety_dashboard_widget.dart';
+import '../widgets/safety/ai_safety_advisor_widget.dart';
+import '../widgets/safety/nearby_services_map_widget.dart';
+import '../widgets/safety/smart_emergency_directory_widget.dart';
+import '../widgets/safety/enhanced_panic_button.dart';
 
 class SafetyScreen extends StatefulWidget {
   const SafetyScreen({super.key});
@@ -14,11 +21,17 @@ class SafetyScreen extends StatefulWidget {
 
 class _SafetyScreenState extends State<SafetyScreen> {
   final SafetyService _safetyService = SafetyService();
+  final EnhancedSafetyService _enhancedService = EnhancedSafetyService();
   SafetyInfo? _safetyInfo;
   List<EmergencyService> _emergencyServices = [];
   List<EmergencyContact> _emergencyContacts = [];
   Map<String, dynamic>? _aiSafetyContent;
+  SafetyDashboardStatus? _dashboardStatus;
+  List<SafetyAlert> _safetyAlerts = [];
+  Map<String, String> _emergencyDirectory = {};
+  List<EmergencyPhrase> _emergencyPhrases = [];
   bool _isLoading = true;
+  bool _silentSOSEnabled = false;
 
   @override
   void initState() {
@@ -31,30 +44,49 @@ class _SafetyScreenState extends State<SafetyScreen> {
     final location = appProvider.currentLocation;
     
     if (location != null) {
-      final safetyInfo = await _safetyService.getSafetyInfo(
-        location.latitude,
-        location.longitude,
-      );
-      
-      final emergencyServices = await _safetyService.getNearbyEmergencyServices(
-        latitude: location.latitude,
-        longitude: location.longitude,
-      );
-      
-      final emergencyContacts = await _safetyService.getEmergencyContacts();
-      
-      // Generate AI safety content
-      final aiContent = await _safetyService.generateSafetyContent(
-        latitude: location.latitude,
-        longitude: location.longitude,
-        location: 'Current Location',
-      );
+      // Load all safety data in parallel
+      final results = await Future.wait([
+        _safetyService.getSafetyInfo(location.latitude, location.longitude),
+        _safetyService.getNearbyEmergencyServices(
+          latitude: location.latitude,
+          longitude: location.longitude,
+        ),
+        _safetyService.getEmergencyContacts(),
+        _safetyService.generateSafetyContent(
+          latitude: location.latitude,
+          longitude: location.longitude,
+          location: 'Current Location',
+        ),
+        _enhancedService.getSmartEmergencyDirectory(
+          latitude: location.latitude,
+          longitude: location.longitude,
+        ),
+        _enhancedService.getSafetyAlerts(
+          latitude: location.latitude,
+          longitude: location.longitude,
+        ),
+        _enhancedService.getEmergencyPhrases(),
+      ]);
       
       setState(() {
-        _safetyInfo = safetyInfo;
-        _emergencyServices = emergencyServices;
-        _emergencyContacts = emergencyContacts;
-        _aiSafetyContent = aiContent;
+        _safetyInfo = results[0] as SafetyInfo?;
+        _emergencyServices = results[1] as List<EmergencyService>;
+        _emergencyContacts = results[2] as List<EmergencyContact>;
+        _aiSafetyContent = results[3] as Map<String, dynamic>?;
+        _emergencyDirectory = results[4] as Map<String, String>;
+        _safetyAlerts = results[5] as List<SafetyAlert>;
+        _emergencyPhrases = results[6] as List<EmergencyPhrase>;
+        
+        // Build dashboard status
+        _dashboardStatus = SafetyDashboardStatus(
+          currentRiskLevel: _calculateRiskLevel(),
+          currentLocation: _safetyInfo?.city ?? 'Current Location',
+          isOnline: true,
+          locationEnabled: true,
+          emergencyContactsCount: _emergencyContacts.length,
+          lastUpdated: DateTime.now(),
+        );
+        
         _isLoading = false;
       });
     } else {
@@ -63,8 +95,16 @@ class _SafetyScreenState extends State<SafetyScreen> {
       });
     }
   }
+  
+  SafetyRiskLevel _calculateRiskLevel() {
+    if (_safetyAlerts.isEmpty) return SafetyRiskLevel.safe;
+    final highRiskAlerts = _safetyAlerts.where((a) => a.severity == 'high').length;
+    if (highRiskAlerts > 0) return SafetyRiskLevel.high;
+    if (_safetyAlerts.length > 3) return SafetyRiskLevel.medium;
+    return SafetyRiskLevel.low;
+  }
 
-  Widget _buildPanicSection() {
+  Widget _buildEnhancedPanicSection() {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -74,26 +114,59 @@ class _SafetyScreenState extends State<SafetyScreen> {
           end: Alignment.bottomRight,
         ),
         borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.red.withOpacity(0.3),
+            blurRadius: 12,
+            spreadRadius: 2,
+          ),
+        ],
       ),
       child: Column(
         children: [
-          const Text(
-            '🚨 Emergency Panic Button',
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-            ),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text(
+                '🚨 Emergency SOS',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      _silentSOSEnabled ? Icons.vibration : Icons.notifications_off,
+                      color: Colors.white,
+                      size: 16,
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      _silentSOSEnabled ? 'Silent ON' : 'Silent OFF',
+                      style: const TextStyle(color: Colors.white, fontSize: 10),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ),
           const SizedBox(height: 16),
           const PanicButton(),
           const SizedBox(height: 16),
           const Text(
-            'Long press for immediate SOS\nTap for emergency options',
+            'Long press for immediate SOS\nTap for emergency options\nShake phone 3x for silent alert',
             textAlign: TextAlign.center,
             style: TextStyle(
               color: Colors.white70,
-              fontSize: 14,
+              fontSize: 12,
             ),
           ),
         ],
@@ -117,18 +190,56 @@ class _SafetyScreenState extends State<SafetyScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _buildPanicSection(),
-                  const SizedBox(height: 24),
+                  // Enhanced Dashboard
+                  if (_dashboardStatus != null) ...[
+                    SafetyDashboardWidget(
+                      status: _dashboardStatus!,
+                      onRefresh: _loadSafetyData,
+                    ),
+                    const SizedBox(height: 16),
+                  ],
+                  
+                  // Enhanced Panic Button
+                  _buildEnhancedPanicSection(),
+                  const SizedBox(height: 16),
+                  
+                  // Safety Alerts
+                  if (_safetyAlerts.isNotEmpty) ...[
+                    _buildSafetyAlerts(),
+                    const SizedBox(height: 16),
+                  ],
+                  
+                  // Smart Emergency Directory
+                  if (_emergencyDirectory.isNotEmpty) ...[
+                    _buildSmartDirectory(),
+                    const SizedBox(height: 16),
+                  ],
+                  
+                  // Emergency Numbers
                   _buildEmergencyNumbers(),
-                  const SizedBox(height: 24),
-                  _buildQuickActions(),
-                  const SizedBox(height: 24),
-                  _buildNearbyServices(),
-                  const SizedBox(height: 24),
+                  const SizedBox(height: 16),
+                  
+                  // Quick Actions with Silent SOS
+                  _buildEnhancedQuickActions(),
+                  const SizedBox(height: 16),
+                  
+                  // Nearby Services Map
+                  _buildNearbyServicesMap(),
+                  const SizedBox(height: 16),
+                  
+                  // AI Safety Tips
                   if (_aiSafetyContent != null) ...[
                     _buildAISafetyTips(),
-                    const SizedBox(height: 24),
+                    const SizedBox(height: 16),
                   ],
+                  
+                  // Emergency Phrases
+                  if (_emergencyPhrases.isNotEmpty) ...[
+                    _buildEmergencyPhrases(),
+                    const SizedBox(height: 16),
+                  ],
+                  
+                  // Emergency Contacts
                   _buildEmergencyContacts(),
                 ],
               ),
@@ -238,6 +349,253 @@ class _SafetyScreenState extends State<SafetyScreen> {
       ),
     );
   }
+  
+  Widget _buildEnhancedQuickActions() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xFF29382F),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Quick Actions',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              Expanded(
+                child: _buildActionButton(
+                  'Send Alert',
+                  Icons.warning,
+                  Colors.orange,
+                  _sendEmergencyAlert,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _buildActionButton(
+                  'Share Live',
+                  Icons.my_location,
+                  Colors.blue,
+                  _startLiveTracking,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _buildActionButton(
+                  _silentSOSEnabled ? 'Silent ON' : 'Silent OFF',
+                  _silentSOSEnabled ? Icons.vibration : Icons.notifications_off,
+                  _silentSOSEnabled ? Colors.purple : Colors.grey,
+                  _toggleSilentSOS,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+  
+  Widget _buildSafetyAlerts() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.orange.withOpacity(0.1),
+        border: Border.all(color: Colors.orange.withOpacity(0.3)),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.warning_amber, color: Colors.orange, size: 24),
+              const SizedBox(width: 8),
+              const Text(
+                'Safety Alerts',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          ..._safetyAlerts.take(3).map((alert) => Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: Row(
+              children: [
+                Icon(
+                  alert.severity == SafetyAlertSeverity.high || alert.severity == SafetyAlertSeverity.critical
+                      ? Icons.error
+                      : Icons.info,
+                  color: alert.severity == SafetyAlertSeverity.high || alert.severity == SafetyAlertSeverity.critical
+                      ? Colors.red
+                      : Colors.orange,
+                  size: 16,
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    alert.message,
+                    style: const TextStyle(color: Colors.white70, fontSize: 13),
+                  ),
+                ),
+              ],
+            ),
+          )),
+        ],
+      ),
+    );
+  }
+  
+  Widget _buildSmartDirectory() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xFF29382F),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.phone_in_talk, color: Colors.green, size: 24),
+              const SizedBox(width: 8),
+              const Text(
+                'Emergency Directory',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          if (_emergencyDirectory['embassy']?.isNotEmpty ?? false)
+            _buildDirectoryRow('Embassy', _emergencyDirectory['embassy']!, Icons.account_balance),
+          if (_emergencyDirectory['tourist_hotline']?.isNotEmpty ?? false)
+            _buildDirectoryRow('Tourist Hotline', _emergencyDirectory['tourist_hotline']!, Icons.support_agent),
+        ],
+      ),
+    );
+  }
+  
+  Widget _buildDirectoryRow(String label, String number, IconData icon) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        children: [
+          Icon(icon, color: Colors.blue, size: 20),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              '$label: $number',
+              style: const TextStyle(color: Colors.white, fontSize: 14),
+            ),
+          ),
+          IconButton(
+            onPressed: () => _safetyService.callEmergency(number),
+            icon: const Icon(Icons.phone, color: Colors.green, size: 20),
+          ),
+        ],
+      ),
+    );
+  }
+  
+  Widget _buildNearbyServicesMap() {
+    if (_emergencyServices.isEmpty) return const SizedBox.shrink();
+    
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xFF29382F),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text(
+                'Nearby Emergency Services',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              TextButton(
+                onPressed: () {},
+                child: const Text('Map View', style: TextStyle(color: Colors.blue)),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          ..._emergencyServices.take(5).map((service) => _buildServiceTile(service)),
+        ],
+      ),
+    );
+  }
+  
+  Widget _buildEmergencyPhrases() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xFF29382F),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.translate, color: Colors.blue, size: 24),
+              const SizedBox(width: 8),
+              const Text(
+                'Emergency Phrases',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          ..._emergencyPhrases.take(3).map((phrase) => Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  phrase.english,
+                  style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w500),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  '${phrase.local} (${phrase.pronunciation})',
+                  style: const TextStyle(color: Colors.blue, fontSize: 13),
+                ),
+              ],
+            ),
+          )),
+        ],
+      ),
+    );
+  }
 
   Widget _buildActionButton(String label, IconData icon, Color color, VoidCallback onPressed) {
     return ElevatedButton.icon(
@@ -251,38 +609,7 @@ class _SafetyScreenState extends State<SafetyScreen> {
     );
   }
 
-  Widget _buildNearbyServices() {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: const Color(0xFF29382F),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'Nearby Emergency Services',
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          const SizedBox(height: 16),
-          if (_emergencyServices.isEmpty)
-            const Text(
-              'No nearby services found',
-              style: TextStyle(color: Colors.grey),
-            )
-          else
-            ..._emergencyServices.map((service) => _buildServiceTile(service)),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildServiceTile(EmergencyService service) {
+Widget _buildServiceTile(EmergencyService service) {
     IconData icon;
     Color color;
     
@@ -408,6 +735,50 @@ class _SafetyScreenState extends State<SafetyScreen> {
     
     if (location != null) {
       await _safetyService.shareLocation(location);
+    }
+  }
+  
+  Future<void> _startLiveTracking() async {
+    final appProvider = Provider.of<AppProvider>(context, listen: false);
+    final location = appProvider.currentLocation;
+    
+    if (location != null && _emergencyContacts.isNotEmpty) {
+      await _enhancedService.startLiveLocationSharing(
+        tripName: 'Emergency Tracking',
+        contactIds: _emergencyContacts.map((c) => c.id).toList(),
+      );
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Live location sharing started'),
+          backgroundColor: Colors.green,
+        ),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Add emergency contacts first')),
+      );
+    }
+  }
+  
+  void _toggleSilentSOS() {
+    setState(() {
+      _silentSOSEnabled = !_silentSOSEnabled;
+    });
+    
+    if (_silentSOSEnabled) {
+      _enhancedService.enableSilentSOS();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Silent SOS enabled - Shake phone 3x to trigger'),
+          backgroundColor: Colors.purple,
+        ),
+      );
+    } else {
+      _enhancedService.disableSilentSOS();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Silent SOS disabled')),
+      );
     }
   }
 

@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../providers/community_provider.dart';
 import '../providers/app_provider.dart';
 import '../widgets/enhanced_story_card.dart';
+import '../widgets/offline_indicator.dart';
 import 'create_post_screen.dart';
 
 enum FeedFilter { recent, popular, trending, nearby }
@@ -112,32 +113,39 @@ class _CommunityScreenV2State extends State<CommunityScreenV2> with SingleTicker
   }
 
   Widget _buildBody() {
-    return RefreshIndicator(
-      onRefresh: () => context.read<CommunityProvider>().loadPosts(refresh: true, context: context),
-      child: CustomScrollView(
-        slivers: [
-          // Filter Tabs
-          SliverToBoxAdapter(child: _buildFilterTabs()),
-          
-          // Hashtag Chips
-          SliverToBoxAdapter(child: _buildHashtagChips()),
-          
-          // Loading indicator for filter changes
-          Consumer<CommunityProvider>(
-            builder: (context, provider, child) {
-              if (provider.isLoading && provider.posts.isNotEmpty) {
-                return const SliverToBoxAdapter(
-                  child: LinearProgressIndicator(minHeight: 2),
-                );
-              }
-              return const SliverToBoxAdapter(child: SizedBox.shrink());
-            },
+    return Column(
+      children: [
+        const OfflineIndicator(),
+        Expanded(
+          child: RefreshIndicator(
+            onRefresh: () => context.read<CommunityProvider>().loadPosts(refresh: true, context: context),
+            child: CustomScrollView(
+              slivers: [
+                // Filter Tabs
+                SliverToBoxAdapter(child: _buildFilterTabs()),
+                
+                // Hashtag Chips
+                SliverToBoxAdapter(child: _buildHashtagChips()),
+                
+                // Loading indicator for filter changes
+                Consumer<CommunityProvider>(
+                  builder: (context, provider, child) {
+                    if (provider.isLoading && provider.posts.isNotEmpty) {
+                      return const SliverToBoxAdapter(
+                        child: LinearProgressIndicator(minHeight: 2),
+                      );
+                    }
+                    return const SliverToBoxAdapter(child: SizedBox.shrink());
+                  },
+                ),
+                
+                // Feed
+                _buildFeed(),
+              ],
+            ),
           ),
-          
-          // Feed
-          _buildFeed(),
-        ],
-      ),
+        ),
+      ],
     );
   }
 
@@ -260,6 +268,12 @@ class _CommunityScreenV2State extends State<CommunityScreenV2> with SingleTicker
                 return const SizedBox.shrink();
               }
               
+              final currentUser = context.read<AppProvider>().currentUser;
+              final currentUserId = currentUser?.mongoId ?? currentUser?.uid;
+              
+              // Debug logging
+              print('🔍 Post ${index}: userId=${posts[index].userId}, currentUserId=$currentUserId');
+              
               return EnhancedStoryCard(
                 post: posts[index],
                 onLike: () => _handleLike(posts[index]),
@@ -269,8 +283,7 @@ class _CommunityScreenV2State extends State<CommunityScreenV2> with SingleTicker
                 onReport: () => _reportPost(posts[index]),
                 onDelete: () => _handleDelete(posts[index]),
                 onEdit: () => _handleEdit(posts[index]),
-                currentUserId: context.read<AppProvider>().currentUser?.mongoId ?? 
-                              context.read<AppProvider>().currentUser?.uid,
+                currentUserId: currentUserId,
               );
             },
             childCount: posts.length + (provider.hasMorePosts && _searchQuery.isEmpty ? 1 : 0),

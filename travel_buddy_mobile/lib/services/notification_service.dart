@@ -1,125 +1,309 @@
+import 'dart:async';
 import 'package:firebase_messaging/firebase_messaging.dart';
-import '../services/analytics_service.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:flutter/foundation.dart';
 
-// Top-level function for background messages
-Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
-  print('📬 Background message: ${message.messageId}');
-  print('Title: ${message.notification?.title}');
-  print('Body: ${message.notification?.body}');
+// Top-level function for background message handling
+@pragma('vm:entry-point')
+Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
+  print('📱 Background message: ${message.messageId}');
+  await NotificationService().showNotification(
+    title: message.notification?.title ?? 'Travel Buddy',
+    body: message.notification?.body ?? 'New notification',
+    payload: message.data.toString(),
+  );
 }
 
 class NotificationService {
-  static final FirebaseMessaging _messaging = FirebaseMessaging.instance;
-  static String? _fcmToken;
+  static final NotificationService _instance = NotificationService._internal();
+  factory NotificationService() => _instance;
+  NotificationService._internal();
 
+  final FlutterLocalNotificationsPlugin _localNotifications = FlutterLocalNotificationsPlugin();
+  final FirebaseMessaging _fcm = FirebaseMessaging.instance;
+  
+  String? _fcmToken;
+  String? get fcmToken => _fcmToken;
+  
+  final StreamController<String> _notificationStreamController = StreamController<String>.broadcast();
+  Stream<String> get notificationStream => _notificationStreamController.stream;
+
+  // Initialize notifications
   Future<void> initialize() async {
     try {
-      // Request permission
-      NotificationSettings settings = await _messaging.requestPermission(
-        alert: true,
-        badge: true,
-        sound: true,
-        provisional: false,
-      );
+      // Request permissions
+      await _requestPermissions();
       
-      print('✅ Notification permission: ${settings.authorizationStatus}');
-
-      // Get FCM token
-      _fcmToken = await _messaging.getToken();
-      print('📱 FCM Token: $_fcmToken');
+      // Initialize local notifications
+      await _initializeLocalNotifications();
       
-      // Listen for token refresh
-      _messaging.onTokenRefresh.listen((newToken) {
-        _fcmToken = newToken;
-        print('🔄 FCM Token refreshed: $newToken');
-        // TODO: Send to backend
-      });
-
-      // Handle background messages
-      FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
+      // Initialize FCM
+      await _initializeFCM();
       
-      // Handle foreground messages
-      FirebaseMessaging.onMessage.listen(_handleForegroundMessage);
-      
-      // Handle notification taps (app opened from notification)
-      FirebaseMessaging.onMessageOpenedApp.listen(_handleNotificationTap);
-      
-      // Check if app was opened from a notification
-      RemoteMessage? initialMessage = await _messaging.getInitialMessage();
-      if (initialMessage != null) {
-        _handleNotificationTap(initialMessage);
-      }
-      
-      print('✅ Push notifications initialized');
+      print('✅ Notification service initialized');
     } catch (e) {
-      print('❌ Notification init error: $e');
-      AnalyticsService.logError('Notification init failed', error: e);
+      print('❌ Notification initialization error: $e');
     }
   }
 
-  Future<void> requestPermission() async {
-    await _messaging.requestPermission(
+  // Request notification permissions
+  Future<void> _requestPermissions() async {
+    final settings = await _fcm.requestPermission(
       alert: true,
       badge: true,
       sound: true,
+      provisional: false,
+      announcement: false,
+      carPlay: false,
+      criticalAlert: false,
+    );
+    
+    print('📱 Notification permission: ${settings.authorizationStatus}');
+  }
+
+  // Initialize local notifications
+  Future<void> _initializeLocalNotifications() async {
+    const androidSettings = AndroidInitializationSettings('@mipmap/ic_launcher');
+    const iosSettings = DarwinInitializationSettings(
+      requestAlertPermission: true,
+      requestBadgePermission: true,
+      requestSoundPermission: true,
+    );
+    
+    const initSettings = InitializationSettings(
+      android: androidSettings,
+      iOS: iosSettings,
+    );
+    
+    await _localNotifications.initialize(
+      initSettings,
+      onDidReceiveNotificationResponse: _onNotificationTapped,
     );
   }
 
-  Future<void> showLocalNotification(String title, String body) async {
-    print('📢 Notification: $title - $body');
-  }
-
-  static Future<String?> getToken() async {
-    return _fcmToken ?? await _messaging.getToken();
-  }
-  
-  static Future<void> subscribeToTopic(String topic) async {
-    await _messaging.subscribeToTopic(topic);
-    print('✅ Subscribed to topic: $topic');
-  }
-  
-  static Future<void> unsubscribeFromTopic(String topic) async {
-    await _messaging.unsubscribeFromTopic(topic);
-    print('✅ Unsubscribed from topic: $topic');
-  }
-
-  static void _handleForegroundMessage(RemoteMessage message) {
-    print('📬 Foreground message received');
-    print('Title: ${message.notification?.title}');
-    print('Body: ${message.notification?.body}');
-    print('Data: ${message.data}');
+  // Initialize Firebase Cloud Messaging
+  Future<void> _initializeFCM() async {
+    // Get FCM token
+    _fcmToken = await _fcm.getToken();
+    print('🔑 FCM Token: $_fcmToken');
     
-    // Track notification received
-    AnalyticsService.logEvent('notification_received', parameters: {
-      'title': message.notification?.title ?? '',
-      'type': message.data['type'] ?? 'general',
+    // Listen to token refresh
+    _fcm.onTokenRefresh.listen((newToken) {
+      _fcmToken = newToken;
+      print('🔄 FCM Token refreshed: $newToken');
     });
     
-    // TODO: Show in-app notification banner
-  }
-  
-  static void _handleNotificationTap(RemoteMessage message) {
-    print('🔔 Notification tapped');
-    print('Data: ${message.data}');
+    // Handle foreground messages
+    FirebaseMessaging.onMessage.listen(_handleForegroundMessage);
     
-    // Track notification opened
-    AnalyticsService.logEvent('notification_opened', parameters: {
-      'title': message.notification?.title ?? '',
-      'type': message.data['type'] ?? 'general',
-    });
+    // Handle notification taps when app is in background
+    FirebaseMessaging.onMessageOpenedApp.listen(_handleNotificationTap);
     
-    // TODO: Navigate to relevant screen based on notification type
-    final type = message.data['type'];
-    switch (type) {
-      case 'deal':
-        // Navigate to deal details
-        break;
-      case 'post':
-        // Navigate to community post
-        break;
-      case 'trip':
-        // Navigate to trip plan
-        break;
+    // Handle initial message if app was opened from notification
+    final initialMessage = await _fcm.getInitialMessage();
+    if (initialMessage != null) {
+      _handleNotificationTap(initialMessage);
     }
+  }
+
+  // Handle foreground messages
+  void _handleForegroundMessage(RemoteMessage message) {
+    print('📨 Foreground message: ${message.notification?.title}');
+    
+    showNotification(
+      title: message.notification?.title ?? 'Travel Buddy',
+      body: message.notification?.body ?? 'New notification',
+      payload: message.data.toString(),
+    );
+  }
+
+  // Handle notification tap
+  void _handleNotificationTap(RemoteMessage message) {
+    print('👆 Notification tapped: ${message.data}');
+    _notificationStreamController.add(message.data.toString());
+  }
+
+  // Handle local notification tap
+  void _onNotificationTapped(NotificationResponse response) {
+    print('👆 Local notification tapped: ${response.payload}');
+    if (response.payload != null) {
+      _notificationStreamController.add(response.payload!);
+    }
+  }
+
+  // Show local notification
+  Future<void> showNotification({
+    required String title,
+    required String body,
+    String? payload,
+    int id = 0,
+  }) async {
+    const androidDetails = AndroidNotificationDetails(
+      'travel_buddy_channel',
+      'Travel Buddy Notifications',
+      channelDescription: 'Notifications for Travel Buddy app',
+      importance: Importance.high,
+      priority: Priority.high,
+      showWhen: true,
+      icon: '@mipmap/ic_launcher',
+    );
+    
+    const iosDetails = DarwinNotificationDetails(
+      presentAlert: true,
+      presentBadge: true,
+      presentSound: true,
+    );
+    
+    const details = NotificationDetails(
+      android: androidDetails,
+      iOS: iosDetails,
+    );
+    
+    await _localNotifications.show(id, title, body, details, payload: payload);
+  }
+
+  // Show notification with custom sound
+  Future<void> showNotificationWithSound({
+    required String title,
+    required String body,
+    String? payload,
+    int id = 0,
+  }) async {
+    const androidDetails = AndroidNotificationDetails(
+      'travel_buddy_channel',
+      'Travel Buddy Notifications',
+      channelDescription: 'Notifications for Travel Buddy app',
+      importance: Importance.max,
+      priority: Priority.high,
+      sound: RawResourceAndroidNotificationSound('notification'),
+      playSound: true,
+    );
+    
+    const iosDetails = DarwinNotificationDetails(
+      presentAlert: true,
+      presentBadge: true,
+      presentSound: true,
+      sound: 'notification.aiff',
+    );
+    
+    const details = NotificationDetails(
+      android: androidDetails,
+      iOS: iosDetails,
+    );
+    
+    await _localNotifications.show(id, title, body, details, payload: payload);
+  }
+
+  // Schedule notification
+  Future<void> scheduleNotification({
+    required String title,
+    required String body,
+    required DateTime scheduledTime,
+    String? payload,
+    int id = 0,
+  }) async {
+    const androidDetails = AndroidNotificationDetails(
+      'travel_buddy_channel',
+      'Travel Buddy Notifications',
+      channelDescription: 'Notifications for Travel Buddy app',
+      importance: Importance.high,
+      priority: Priority.high,
+    );
+    
+    const iosDetails = DarwinNotificationDetails(
+      presentAlert: true,
+      presentBadge: true,
+      presentSound: true,
+    );
+    
+    const details = NotificationDetails(
+      android: androidDetails,
+      iOS: iosDetails,
+    );
+    
+    // Note: For scheduling, you'll need timezone package
+    // await _localNotifications.zonedSchedule(
+    //   id,
+    //   title,
+    //   body,
+    //   tz.TZDateTime.from(scheduledTime, tz.local),
+    //   details,
+    //   androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+    //   uiLocalNotificationDateInterpretation: UILocalNotificationDateInterpretation.absoluteTime,
+    //   payload: payload,
+    // );
+  }
+
+  // Cancel notification
+  Future<void> cancelNotification(int id) async {
+    await _localNotifications.cancel(id);
+  }
+
+  // Cancel all notifications
+  Future<void> cancelAllNotifications() async {
+    await _localNotifications.cancelAll();
+  }
+
+  // Subscribe to topic
+  Future<void> subscribeToTopic(String topic) async {
+    await _fcm.subscribeToTopic(topic);
+    print('📢 Subscribed to topic: $topic');
+  }
+
+  // Unsubscribe from topic
+  Future<void> unsubscribeFromTopic(String topic) async {
+    await _fcm.unsubscribeFromTopic(topic);
+    print('🔕 Unsubscribed from topic: $topic');
+  }
+
+  // Predefined notification types
+  Future<void> showDealNotification(String dealTitle, String discount) async {
+    await showNotification(
+      id: 1,
+      title: '🔥 Hot Deal Alert!',
+      body: '$dealTitle - $discount',
+      payload: 'deal',
+    );
+  }
+
+  Future<void> showTripReminderNotification(String tripName, String time) async {
+    await showNotification(
+      id: 2,
+      title: '✈️ Trip Reminder',
+      body: '$tripName starts $time',
+      payload: 'trip',
+    );
+  }
+
+  Future<void> showSafetyAlertNotification(String message) async {
+    await showNotificationWithSound(
+      id: 3,
+      title: '🚨 Safety Alert',
+      body: message,
+      payload: 'safety',
+    );
+  }
+
+  Future<void> showWeatherAlertNotification(String message) async {
+    await showNotification(
+      id: 4,
+      title: '🌦️ Weather Update',
+      body: message,
+      payload: 'weather',
+    );
+  }
+
+  Future<void> showNewPlaceNotification(String placeName) async {
+    await showNotification(
+      id: 5,
+      title: '📍 New Place Nearby',
+      body: 'Check out $placeName near you!',
+      payload: 'place',
+    );
+  }
+
+  // Dispose
+  void dispose() {
+    _notificationStreamController.close();
   }
 }

@@ -127,72 +127,245 @@ class _PanicButtonState extends State<PanicButton>
   void _showPanicOptions(BuildContext context, AppProvider appProvider) {
     showModalBottomSheet(
       context: context,
-      backgroundColor: const Color(0xFF29382F),
+      backgroundColor: const Color(0xFF1a1a1a),
+      isScrollControlled: true,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
-      builder: (context) => Container(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Text(
-              'Emergency Options',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
+      builder: (context) => DraggableScrollableSheet(
+        initialChildSize: 0.7,
+        minChildSize: 0.5,
+        maxChildSize: 0.95,
+        expand: false,
+        builder: (context, scrollController) => Container(
+          padding: const EdgeInsets.all(20),
+          child: ListView(
+            controller: scrollController,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
+                    '🚨 Emergency SOS',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  IconButton(
+                    onPressed: () => Navigator.pop(context),
+                    icon: const Icon(Icons.close, color: Colors.grey),
+                  ),
+                ],
               ),
-            ),
-            const SizedBox(height: 20),
-            _buildEmergencyOption(
-              'Medical Emergency',
-              Icons.local_hospital,
-              Colors.red,
-              () => _triggerEmergency(EmergencyType.medical, appProvider),
-            ),
-            _buildEmergencyOption(
-              'Security Issue',
-              Icons.security,
-              Colors.orange,
-              () => _triggerEmergency(EmergencyType.security, appProvider),
-            ),
-            _buildEmergencyOption(
-              'Accident',
-              Icons.car_crash,
-              Colors.yellow,
-              () => _triggerEmergency(EmergencyType.accident, appProvider),
-            ),
-            _buildEmergencyOption(
-              'Lost/Stranded',
-              Icons.location_off,
-              Colors.blue,
-              () => _triggerEmergency(EmergencyType.lost, appProvider),
-            ),
-            const SizedBox(height: 10),
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Cancel', style: TextStyle(color: Colors.grey)),
-            ),
-          ],
+              const SizedBox(height: 8),
+              const Text(
+                'Choose emergency type or use quick actions',
+                style: TextStyle(color: Colors.grey, fontSize: 14),
+              ),
+              const SizedBox(height: 24),
+              
+              // Quick Actions
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.blue.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.blue.withOpacity(0.3)),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Row(
+                      children: [
+                        Icon(Icons.flash_on, color: Colors.blue, size: 20),
+                        SizedBox(width: 8),
+                        Text(
+                          'Quick Actions',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _buildQuickActionButton(
+                            'Call 119',
+                            Icons.phone,
+                            Colors.green,
+                            () {
+                              Navigator.pop(context);
+                              _safetyService.callEmergency('119');
+                            },
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: _buildQuickActionButton(
+                            'Share Live',
+                            Icons.my_location,
+                            Colors.blue,
+                            () {
+                              Navigator.pop(context);
+                              _shareLocation(appProvider);
+                            },
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 20),
+              
+              // Emergency Types
+              const Text(
+                'Select Emergency Type',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(height: 12),
+              _buildEmergencyOption(
+                'Medical Emergency',
+                Icons.local_hospital,
+                Colors.red,
+                'Ambulance needed immediately',
+                () => _triggerEmergency(EmergencyType.medical, appProvider),
+              ),
+              _buildEmergencyOption(
+                'Security Issue',
+                Icons.security,
+                Colors.orange,
+                'Feeling unsafe or threatened',
+                () => _triggerEmergency(EmergencyType.security, appProvider),
+              ),
+              _buildEmergencyOption(
+                'Accident',
+                Icons.car_crash,
+                Colors.yellow,
+                'Vehicle or travel accident',
+                () => _triggerEmergency(EmergencyType.accident, appProvider),
+              ),
+              _buildEmergencyOption(
+                'Lost/Stranded',
+                Icons.location_off,
+                Colors.blue,
+                'Need help finding way back',
+                () => _triggerEmergency(EmergencyType.lost, appProvider),
+              ),
+              _buildEmergencyOption(
+                'General Help',
+                Icons.help_outline,
+                Colors.purple,
+                'Other emergency situation',
+                () => _triggerEmergency(EmergencyType.general, appProvider),
+              ),
+              const SizedBox(height: 20),
+              
+              // Safety Note
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.grey.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Row(
+                  children: [
+                    Icon(Icons.info_outline, color: Colors.grey, size: 16),
+                    SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Your emergency contacts will be notified with your location',
+                        style: TextStyle(color: Colors.grey, fontSize: 12),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
+  }
+  
+  Widget _buildQuickActionButton(
+    String label,
+    IconData icon,
+    Color color,
+    VoidCallback onTap,
+  ) {
+    return ElevatedButton.icon(
+      onPressed: onTap,
+      icon: Icon(icon, size: 18),
+      label: Text(label, style: const TextStyle(fontSize: 13)),
+      style: ElevatedButton.styleFrom(
+        backgroundColor: color,
+        foregroundColor: Colors.white,
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(8),
+        ),
+      ),
+    );
+  }
+  
+  void _shareLocation(AppProvider appProvider) async {
+    final location = appProvider.currentLocation;
+    if (location != null) {
+      await _safetyService.shareLocation(location);
+    }
   }
 
   Widget _buildEmergencyOption(
     String title,
     IconData icon,
     Color color,
+    String subtitle,
     VoidCallback onTap,
   ) {
-    return ListTile(
-      leading: Icon(icon, color: color),
-      title: Text(title, style: const TextStyle(color: Colors.white)),
-      onTap: () {
-        Navigator.pop(context);
-        onTap();
-      },
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      decoration: BoxDecoration(
+        color: const Color(0xFF29382F),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: color.withOpacity(0.3)),
+      ),
+      child: ListTile(
+        leading: Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: color.withOpacity(0.2),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Icon(icon, color: color, size: 24),
+        ),
+        title: Text(
+          title,
+          style: const TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        subtitle: Text(
+          subtitle,
+          style: const TextStyle(color: Colors.grey, fontSize: 12),
+        ),
+        trailing: const Icon(Icons.arrow_forward_ios, color: Colors.grey, size: 16),
+        onTap: () {
+          Navigator.pop(context);
+          onTap();
+        },
+      ),
     );
   }
 

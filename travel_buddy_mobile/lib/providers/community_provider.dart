@@ -9,6 +9,7 @@ import '../models/travel_enums.dart';
 import '../models/user.dart';
 import '../services/api_service.dart';
 import '../services/community_api_service.dart';
+import '../services/offline_manager.dart';
 import '../utils/debug_logger.dart';
 import 'app_provider.dart';
 
@@ -31,16 +32,18 @@ class CommunityProvider with ChangeNotifier {
   Future<void> loadPosts({bool refresh = false, BuildContext? context, String? filter, String? hashtag}) async {
     if (_isLoading && !refresh) return;
 
+    // Don't clear posts on refresh - keep them visible
     if (refresh) {
       _currentPage = 1;
-      _posts.clear();
       _hasMorePosts = true;
-    } else {
-      // Show cached posts immediately while loading
-      await _loadCachedPosts();
-      if (_posts.isNotEmpty) {
-        notifyListeners();
-      }
+    }
+    
+    // ALWAYS show cached posts first (offline-first)
+    final cached = await OfflineManager.getCachedPosts();
+    if (cached.isNotEmpty && _posts.isEmpty) {
+      _posts = cached;
+      print('📦 Loaded ${cached.length} posts from offline cache');
+      notifyListeners(); // Show cached data immediately
     }
 
     _isLoading = true;
@@ -105,8 +108,8 @@ class CommunityProvider with ChangeNotifier {
         _currentPage++;
         print('✅ Loaded ${backendPosts.length} posts from backend');
         
-        // Update local cache with fresh data
-        await _updateLocalCache();
+        // Cache for offline use
+        await OfflineManager.cachePosts(_posts);
         
         // Clear any previous errors
         _error = null;
@@ -115,8 +118,13 @@ class CommunityProvider with ChangeNotifier {
         print('📭 No posts from backend (empty response)');
       }
     } catch (e) {
-      _error = 'Failed to load posts: $e';
       print('❌ Backend API failed: $e');
+      // Keep cached posts on error - don't clear them
+      if (_posts.isEmpty && cached.isNotEmpty) {
+        _posts = cached;
+        print('📦 Using cached posts due to network error');
+      }
+      _error = 'Showing cached posts. Check your connection.';
       _hasMorePosts = false;
     } finally {
       _isLoading = false;

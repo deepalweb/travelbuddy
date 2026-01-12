@@ -19,6 +19,7 @@ import 'services/analytics_service.dart';
 import 'services/connectivity_service.dart';
 import 'services/offline_geocoding_service.dart';
 import 'services/connectivity_test.dart';
+import 'services/notification_service.dart';
 import 'config/environment.dart';
 import 'utils/debug_logger.dart';
 
@@ -38,6 +39,9 @@ void main() async {
     
     // Initialize Firebase
     await FirebaseService.initializeFirebase();
+    
+    // Initialize Notifications (FCM + Local)
+    await NotificationService().initialize();
     
     // Initialize Analytics & Crashlytics
     await AnalyticsService.initialize();

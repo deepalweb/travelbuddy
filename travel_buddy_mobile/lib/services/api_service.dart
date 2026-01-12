@@ -16,6 +16,8 @@ import '../models/safety_info.dart';
 import 'auth_api_service.dart';
 import 'storage_service.dart';
 import 'connectivity_service.dart';
+import 'offline_manager.dart';
+import 'rate_limiter.dart';
 import 'dart:math' as math;
 
 class ApiService {
@@ -25,6 +27,7 @@ class ApiService {
   final AuthApiService _authApiService = AuthApiService();
   final StorageService _storage = StorageService();
   final ConnectivityService _connectivity = ConnectivityService();
+  final RateLimiter _rateLimiter = RateLimiter();
   late final Dio _dio;
 
   ApiService._internal() {
@@ -204,18 +207,18 @@ class ApiService {
     int radius = AppConstants.defaultPlacesRadiusM,
     String searchQuery = '',
   }) async {
-    // Try cached data first if offline
-    if (!_connectivity.isOnline) {
-      print('📴 Offline - loading from cache');
-      final cached = await _storage.getCachedPlacesForLocation(
-        latitude, 
-        longitude, 
-        category,
-        maxAgeHours: 24,
-        maxDistanceKm: 1.0,
-      );
-      if (cached.isNotEmpty) {
-        print('✅ Loaded ${cached.length} places from cache');
+    // Check rate limit
+    if (!_rateLimiter.canMakeRequest('places_api', maxPerMinute: 5, maxPerDay: 500)) {
+      print('⚠️ Rate limit reached for places API, using cache');
+      return await OfflineManager.getCachedPlaces(category: category);
+    }
+    
+    // Load cached data first (offline-first)
+    final cached = await OfflineManager.getCachedPlaces(category: category);
+    if (cached.isNotEmpty) {
+      print('📦 Loaded ${cached.length} places from offline cache');
+      // Return cached immediately, but still try to fetch fresh data in background
+      if (!_connectivity.isOnline) {
         return cached;
       }
     }
@@ -231,6 +234,9 @@ class ApiService {
         'radius': radius,
       }).timeout(Duration(seconds: 15));
 
+      // Record successful request
+      _rateLimiter.recordRequest('places_api');
+      
       print('📡 API Response Status: ${response.statusCode}');
       
       if (response.statusCode == 200 && response.data != null) {
@@ -253,6 +259,7 @@ class ApiService {
         }).where((place) => place != null).cast<Place>().toList();
         
         // Cache for offline use
+        await OfflineManager.cachePlaces(places, category: category);
         await _storage.cachePlacesWithLocation(places, latitude, longitude, category);
         
         print('✅ Successfully parsed ${places.length} places');
@@ -263,17 +270,22 @@ class ApiService {
       }
     } catch (e) {
       print('❌ Error fetching nearby places: $e');
-      // Fallback to cache on error
-      final cached = await _storage.getCachedPlacesForLocation(
+      // Return cached data on error
+      if (cached.isNotEmpty) {
+        print('📦 Using cached places (${cached.length}) due to error');
+        return cached;
+      }
+      // Fallback to storage cache
+      final storageCached = await _storage.getCachedPlacesForLocation(
         latitude, 
         longitude, 
         category,
         maxAgeHours: 48,
         maxDistanceKm: 2.0,
       );
-      if (cached.isNotEmpty) {
-        print('📦 Loaded ${cached.length} places from cache (fallback)');
-        return cached;
+      if (storageCached.isNotEmpty) {
+        print('📦 Loaded ${storageCached.length} places from storage cache (fallback)');
+        return storageCached;
       }
       return [];
     }
@@ -292,13 +304,24 @@ class ApiService {
     }
   }
 
-  // User API
+  // User API with offline cache
   Future<CurrentUser?> getUser() async {
+    // Return cached user first
+    final cached = await OfflineManager.getCachedUser();
+    if (cached != null) {
+      print('📦 Loaded user from offline cache');
+    }
+    
     try {
-      return await _authApiService.getUserProfile();
+      final user = await _authApiService.getUserProfile();
+      if (user != null) {
+        // Cache for offline use
+        await OfflineManager.cacheUser(user);
+      }
+      return user ?? cached;
     } catch (e) {
       print('Error fetching user: $e');
-      return null;
+      return cached;
     }
   }
 
@@ -545,11 +568,16 @@ class ApiService {
     }
   }
 
+  // User trip plans with offline support
   Future<List<TripPlan>> getUserTripPlans() async {
-    // Return cached data if offline
-    if (!_connectivity.isOnline) {
-      print('📴 Offline - loading trip plans from cache');
-      return await _storage.getTripPlans();
+    // Return cached data first
+    final cached = await OfflineManager.getCachedTripPlans();
+    if (cached.isNotEmpty) {
+      print('📦 Loaded ${cached.length} trip plans from offline cache');
+      // Return cached immediately if offline
+      if (!_connectivity.isOnline) {
+        return cached;
+      }
     }
     
     try {
@@ -564,15 +592,16 @@ class ApiService {
         final List<dynamic> data = response.data;
         final plans = data.map((json) => TripPlan.fromJson(json)).toList();
         // Cache for offline use
+        await OfflineManager.cacheTripPlans(plans);
         for (final plan in plans) {
           await _storage.saveTripPlan(plan);
         }
         return plans;
       }
-      return await _storage.getTripPlans();
+      return cached.isNotEmpty ? cached : await _storage.getTripPlans();
     } catch (e) {
       print('Error fetching trip plans: $e');
-      return await _storage.getTripPlans();
+      return cached.isNotEmpty ? cached : await _storage.getTripPlans();
     }
   }
 

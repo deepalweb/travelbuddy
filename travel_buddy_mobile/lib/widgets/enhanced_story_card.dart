@@ -2,11 +2,14 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:share_plus/share_plus.dart';
+import 'package:video_player/video_player.dart';
+import 'package:chewie/chewie.dart';
 import '../models/community_post.dart';
 import '../providers/community_provider.dart';
 import '../screens/story_detail_screen.dart';
 
-class EnhancedStoryCard extends StatelessWidget {
+class EnhancedStoryCard extends StatefulWidget {
   final CommunityPost post;
   final VoidCallback? onLike;
   final VoidCallback? onComment;
@@ -29,6 +32,45 @@ class EnhancedStoryCard extends StatelessWidget {
     this.onEdit,
     this.currentUserId,
   });
+
+  @override
+  State<EnhancedStoryCard> createState() => _EnhancedStoryCardState();
+}
+
+class _EnhancedStoryCardState extends State<EnhancedStoryCard> {
+  VideoPlayerController? _videoController;
+  ChewieController? _chewieController;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.post.videos.isNotEmpty) {
+      _initializeVideo();
+    }
+  }
+
+  @override
+  void dispose() {
+    _chewieController?.dispose();
+    _videoController?.dispose();
+    super.dispose();
+  }
+
+  Future<void> _initializeVideo() async {
+    try {
+      _videoController = VideoPlayerController.networkUrl(Uri.parse(widget.post.videos.first));
+      await _videoController!.initialize();
+      _chewieController = ChewieController(
+        videoPlayerController: _videoController!,
+        autoPlay: false,
+        looping: false,
+        aspectRatio: _videoController!.value.aspectRatio,
+      );
+      if (mounted) setState(() {});
+    } catch (e) {
+      print('❌ Video initialization error: $e');
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -62,12 +104,15 @@ class EnhancedStoryCard extends StatelessWidget {
   }
 
   Widget _buildHeader(BuildContext context) {
+    final isOwner = widget.currentUserId != null && widget.post.userId == widget.currentUserId;
+    print('📝 Post ${widget.post.id}: userId=${widget.post.userId}, currentUserId=${widget.currentUserId}, isOwner=$isOwner');
+    
     return Padding(
       padding: const EdgeInsets.all(12),
       child: Row(
         children: [
           GestureDetector(
-            onTap: onUserTap,
+            onTap: widget.onUserTap,
             child: _buildAvatar(),
           ),
           const SizedBox(width: 12),
@@ -76,13 +121,13 @@ class EnhancedStoryCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 GestureDetector(
-                  onTap: onUserTap,
+                  onTap: widget.onUserTap,
                   child: Text(
-                    post.userName,
+                    widget.post.userName,
                     style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
                   ),
                 ),
-                if (post.location.isNotEmpty)
+                if (widget.post.location.isNotEmpty)
                   GestureDetector(
                     onTap: () => _showLocationDetails(context),
                     child: Container(
@@ -100,7 +145,7 @@ class EnhancedStoryCard extends StatelessWidget {
                           const SizedBox(width: 4),
                           Flexible(
                             child: Text(
-                              post.location,
+                              widget.post.location,
                               style: TextStyle(
                                 color: Colors.blue[700],
                                 fontSize: 13,
@@ -120,19 +165,19 @@ class EnhancedStoryCard extends StatelessWidget {
             ),
           ),
           Text(
-            _formatTime(post.createdAt),
+            _formatTime(widget.post.createdAt),
             style: TextStyle(color: Colors.grey[500], fontSize: 12),
           ),
-          if (onReport != null || (onDelete != null && currentUserId != null && post.userId == currentUserId) || (onEdit != null && currentUserId != null && post.userId == currentUserId))
+          if (widget.onReport != null || (widget.onDelete != null && widget.currentUserId != null && widget.post.userId == widget.currentUserId) || (widget.onEdit != null && widget.currentUserId != null && widget.post.userId == widget.currentUserId))
             PopupMenuButton<String>(
               icon: Icon(Icons.more_vert, color: Colors.grey[600]),
               onSelected: (value) {
-                if (value == 'report' && onReport != null) onReport!();
-                if (value == 'delete' && onDelete != null) onDelete!();
-                if (value == 'edit' && onEdit != null) onEdit!();
+                if (value == 'report' && widget.onReport != null) widget.onReport!();
+                if (value == 'delete' && widget.onDelete != null) widget.onDelete!();
+                if (value == 'edit' && widget.onEdit != null) widget.onEdit!();
               },
               itemBuilder: (context) => [
-                if (onEdit != null && currentUserId != null && post.userId == currentUserId)
+                if (widget.onEdit != null && widget.currentUserId != null && widget.post.userId == widget.currentUserId)
                   const PopupMenuItem(
                     value: 'edit',
                     child: Row(
@@ -143,7 +188,7 @@ class EnhancedStoryCard extends StatelessWidget {
                       ],
                     ),
                   ),
-                if (onDelete != null && currentUserId != null && post.userId == currentUserId)
+                if (widget.onDelete != null && widget.currentUserId != null && widget.post.userId == widget.currentUserId)
                   const PopupMenuItem(
                     value: 'delete',
                     child: Row(
@@ -154,7 +199,7 @@ class EnhancedStoryCard extends StatelessWidget {
                       ],
                     ),
                   ),
-                if (onReport != null)
+                if (widget.onReport != null)
                   const PopupMenuItem(
                     value: 'report',
                     child: Row(
@@ -173,20 +218,20 @@ class EnhancedStoryCard extends StatelessWidget {
   }
 
   Widget _buildAvatar() {
-    if (post.userAvatar.isEmpty || post.userAvatar.contains('unsplash')) {
+    if (widget.post.userAvatar.isEmpty || widget.post.userAvatar.contains('unsplash')) {
       return CircleAvatar(
         radius: 20,
         backgroundColor: Colors.blue[100],
         child: Text(
-          post.userName.isNotEmpty ? post.userName[0].toUpperCase() : '?',
+          widget.post.userName.isNotEmpty ? widget.post.userName[0].toUpperCase() : '?',
           style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.blue[700]),
         ),
       );
     }
 
-    if (post.userAvatar.startsWith('data:image/')) {
+    if (widget.post.userAvatar.startsWith('data:image/')) {
       try {
-        final bytes = base64Decode(post.userAvatar.split(',')[1]);
+        final bytes = base64Decode(widget.post.userAvatar.split(',')[1]);
         return CircleAvatar(radius: 20, backgroundImage: MemoryImage(bytes));
       } catch (e) {
         return _buildFallbackAvatar();
@@ -195,7 +240,7 @@ class EnhancedStoryCard extends StatelessWidget {
 
     return CircleAvatar(
       radius: 20,
-      backgroundImage: NetworkImage(post.userAvatar),
+      backgroundImage: NetworkImage(widget.post.userAvatar),
       onBackgroundImageError: (_, __) {},
     );
   }
@@ -205,47 +250,31 @@ class EnhancedStoryCard extends StatelessWidget {
       radius: 20,
       backgroundColor: Colors.blue[100],
       child: Text(
-        post.userName.isNotEmpty ? post.userName[0].toUpperCase() : '?',
+        widget.post.userName.isNotEmpty ? widget.post.userName[0].toUpperCase() : '?',
         style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.blue[700]),
       ),
     );
   }
 
   Widget _buildImage() {
-    // Show video if available
-    if (post.videos.isNotEmpty) {
+    if (widget.post.videos.isNotEmpty) {
+      if (_chewieController != null && _videoController!.value.isInitialized) {
+        return Container(
+          height: 250,
+          color: Colors.black,
+          child: Chewie(controller: _chewieController!),
+        );
+      }
       return Container(
         height: 250,
         color: Colors.black,
-        child: Stack(
-          alignment: Alignment.center,
-          children: [
-            const Icon(Icons.play_circle_outline, size: 64, color: Colors.white),
-            Positioned(
-              bottom: 8,
-              right: 8,
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: Colors.black54,
-                  borderRadius: BorderRadius.circular(4),
-                ),
-                child: const Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(Icons.videocam, size: 14, color: Colors.white),
-                    SizedBox(width: 4),
-                    Text('Video', style: TextStyle(color: Colors.white, fontSize: 12)),
-                  ],
-                ),
-              ),
-            ),
-          ],
+        child: const Center(
+          child: CircularProgressIndicator(color: Colors.white),
         ),
       );
     }
     
-    if (post.images.isEmpty) {
+    if (widget.post.images.isEmpty) {
       return Container(
         height: 200,
         color: Colors.grey[100],
@@ -255,7 +284,7 @@ class EnhancedStoryCard extends StatelessWidget {
       );
     }
 
-    final imageUrl = post.images.first;
+    final imageUrl = widget.post.images.first;
     
     if (imageUrl.startsWith('data:image/')) {
       try {
@@ -304,9 +333,9 @@ class EnhancedStoryCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          if (post.title.isNotEmpty) ...[
+          if (widget.post.title.isNotEmpty) ...[
             Text(
-              post.title,
+              widget.post.title,
               style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
@@ -314,7 +343,7 @@ class EnhancedStoryCard extends StatelessWidget {
             const SizedBox(height: 8),
           ],
           Text(
-            post.content,
+            widget.post.content,
             style: TextStyle(fontSize: 14, color: Colors.grey[800], height: 1.4),
             maxLines: 3,
             overflow: TextOverflow.ellipsis,
@@ -325,14 +354,14 @@ class EnhancedStoryCard extends StatelessWidget {
   }
 
   Widget _buildHashtags() {
-    if (post.hashtags.isEmpty) return const SizedBox.shrink();
+    if (widget.post.hashtags.isEmpty) return const SizedBox.shrink();
 
     return Container(
       height: 32,
       margin: const EdgeInsets.symmetric(horizontal: 12),
       child: ListView.builder(
         scrollDirection: Axis.horizontal,
-        itemCount: post.hashtags.length,
+        itemCount: widget.post.hashtags.length,
         itemBuilder: (context, index) {
           return Container(
             margin: const EdgeInsets.only(right: 8),
@@ -342,7 +371,7 @@ class EnhancedStoryCard extends StatelessWidget {
               borderRadius: BorderRadius.circular(16),
             ),
             child: Text(
-              '#${post.hashtags[index]}',
+              '#${widget.post.hashtags[index]}',
               style: TextStyle(
                 color: Colors.blue[700],
                 fontSize: 12,
@@ -360,52 +389,50 @@ class EnhancedStoryCard extends StatelessWidget {
       padding: const EdgeInsets.all(12),
       child: Column(
         children: [
-          // Analytics row
-          if (post.viewsCount > 0 || post.sharesCount > 0)
+          if (widget.post.viewsCount > 0 || widget.post.sharesCount > 0)
             Padding(
               padding: const EdgeInsets.only(bottom: 8),
               child: Row(
                 children: [
-                  if (post.viewsCount > 0) ...[
+                  if (widget.post.viewsCount > 0) ...[
                     Icon(Icons.visibility, size: 14, color: Colors.grey[600]),
                     const SizedBox(width: 4),
                     Text(
-                      _formatCount(post.viewsCount),
+                      _formatCount(widget.post.viewsCount),
                       style: TextStyle(fontSize: 12, color: Colors.grey[600]),
                     ),
                     const SizedBox(width: 16),
                   ],
-                  if (post.sharesCount > 0) ...[
+                  if (widget.post.sharesCount > 0) ...[
                     Icon(Icons.share, size: 14, color: Colors.grey[600]),
                     const SizedBox(width: 4),
                     Text(
-                      _formatCount(post.sharesCount),
+                      _formatCount(widget.post.sharesCount),
                       style: TextStyle(fontSize: 12, color: Colors.grey[600]),
                     ),
                   ],
                 ],
               ),
             ),
-          // Action buttons row
           Row(
             children: [
               _buildActionButton(
-                icon: post.isLiked ? Icons.favorite : Icons.favorite_border,
-                label: _formatCount(post.likesCount),
-                color: post.isLiked ? Colors.red : Colors.grey[700]!,
+                icon: widget.post.isLiked ? Icons.favorite : Icons.favorite_border,
+                label: _formatCount(widget.post.likesCount),
+                color: widget.post.isLiked ? Colors.red : Colors.grey[700]!,
                 onTap: () {
                   _handleLike(context);
-                  onLike?.call();
+                  widget.onLike?.call();
                 },
               ),
               const SizedBox(width: 16),
               _buildActionButton(
                 icon: Icons.chat_bubble_outline,
-                label: _formatCount(post.commentsCount),
+                label: _formatCount(widget.post.commentsCount),
                 color: Colors.grey[700]!,
                 onTap: () {
-                  if (onComment != null) {
-                    onComment!();
+                  if (widget.onComment != null) {
+                    widget.onComment!();
                   } else {
                     _openStoryDetail(context);
                   }
@@ -416,13 +443,13 @@ class EnhancedStoryCard extends StatelessWidget {
                 icon: Icons.share_outlined,
                 label: 'Share',
                 color: Colors.grey[700]!,
-                onTap: onShare ?? () {},
+                onTap: () => _handleShare(context),
               ),
               const Spacer(),
               IconButton(
                 icon: Icon(
-                  post.isSaved ? Icons.bookmark : Icons.bookmark_border,
-                  color: post.isSaved ? Colors.blue[600] : Colors.grey[700],
+                  widget.post.isSaved ? Icons.bookmark : Icons.bookmark_border,
+                  color: widget.post.isSaved ? Colors.blue[600] : Colors.grey[700],
                 ),
                 onPressed: () => _handleBookmark(context),
               ),
@@ -482,18 +509,36 @@ class EnhancedStoryCard extends StatelessWidget {
   }
 
   void _handleLike(BuildContext context) {
-    context.read<CommunityProvider>().toggleLike(post.id);
+    context.read<CommunityProvider>().toggleLike(widget.post.id);
   }
 
   void _handleBookmark(BuildContext context) {
-    context.read<CommunityProvider>().toggleBookmark(post.id);
+    context.read<CommunityProvider>().toggleBookmark(widget.post.id);
+  }
+
+  void _handleShare(BuildContext context) async {
+    try {
+      final text = '${widget.post.content}\n\n📍 ${widget.post.location}\n\nShared from Travel Buddy';
+      await Share.share(
+        text,
+        subject: widget.post.title.isNotEmpty ? widget.post.title : 'Check out this place!',
+      );
+      widget.onShare?.call();
+    } catch (e) {
+      print('❌ Share error: $e');
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Failed to share post')),
+        );
+      }
+    }
   }
 
   void _openStoryDetail(BuildContext context) {
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => StoryDetailScreen(post: post),
+        builder: (context) => StoryDetailScreen(post: widget.post),
       ),
     );
   }
@@ -513,7 +558,7 @@ class EnhancedStoryCard extends StatelessWidget {
                 const SizedBox(width: 12),
                 Expanded(
                   child: Text(
-                    post.location,
+                    widget.post.location,
                     style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
                   ),
                 ),
@@ -525,7 +570,7 @@ class EnhancedStoryCard extends StatelessWidget {
               title: const Text('View on Map'),
               onTap: () async {
                 Navigator.pop(context);
-                final url = 'https://maps.google.com/?q=${Uri.encodeComponent(post.location)}';
+                final url = 'https://maps.google.com/?q=${Uri.encodeComponent(widget.post.location)}';
                 if (await canLaunchUrl(Uri.parse(url))) {
                   await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
                 }
@@ -536,10 +581,9 @@ class EnhancedStoryCard extends StatelessWidget {
               title: const Text('Find Posts from this Location'),
               onTap: () {
                 Navigator.pop(context);
-                // Use search query instead of location parameter
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
-                    content: Text('Search "${post.location}" in the search bar to find posts from this location'),
+                    content: Text('Search "${widget.post.location}" in the search bar to find posts from this location'),
                     duration: const Duration(seconds: 3),
                   ),
                 );
@@ -550,7 +594,7 @@ class EnhancedStoryCard extends StatelessWidget {
               title: const Text('Get Directions'),
               onTap: () async {
                 Navigator.pop(context);
-                final url = 'https://maps.google.com/maps?daddr=${Uri.encodeComponent(post.location)}';
+                final url = 'https://maps.google.com/maps?daddr=${Uri.encodeComponent(widget.post.location)}';
                 if (await canLaunchUrl(Uri.parse(url))) {
                   await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
                 }

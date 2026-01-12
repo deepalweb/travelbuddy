@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:http/http.dart' as http;
+import 'package:connectivity_plus/connectivity_plus.dart';
 import '../providers/app_provider.dart';
 import '../constants/app_constants.dart';
 import '../widgets/place_card.dart';
 import '../widgets/search_bar_widget.dart';
 import '../widgets/place_section_widget.dart';
+import '../widgets/offline_map_view.dart';
 import '../services/places_service.dart';
 import '../utils/api_debouncer.dart';
 import 'place_details_screen.dart';
@@ -24,6 +26,7 @@ class _PlacesScreenState extends State<PlacesScreen> {
   final TextEditingController _searchController = TextEditingController();
   final _searchDebouncer = ApiDebouncer(delay: Duration(milliseconds: 500));
   bool _showOpenOnly = false;
+  bool _showOfflineMap = false;
   
   // Category lazy loading state
   final Map<String, List<dynamic>> _categoryPlaces = {};
@@ -128,6 +131,23 @@ class _PlacesScreenState extends State<PlacesScreen> {
                   )
                 : null,
             actions: [
+              // Offline Map Toggle
+              FutureBuilder<ConnectivityResult>(
+                future: Connectivity().checkConnectivity(),
+                builder: (context, snapshot) {
+                  final isOffline = snapshot.data == ConnectivityResult.none;
+                  if (isOffline && appProvider.places.isNotEmpty) {
+                    return IconButton(
+                      icon: Icon(_showOfflineMap ? Icons.list : Icons.map),
+                      onPressed: () {
+                        setState(() => _showOfflineMap = !_showOfflineMap);
+                      },
+                      tooltip: _showOfflineMap ? 'Show List' : 'Show Offline Map',
+                    );
+                  }
+                  return const SizedBox.shrink();
+                },
+              ),
               if (!appProvider.showFavoritesOnly)
                 IconButton(
                   icon: const Icon(Icons.filter_list),
@@ -216,7 +236,13 @@ class _PlacesScreenState extends State<PlacesScreen> {
               
               // Search Results, Sectioned Places List, or Favorites List
               Expanded(
-                child: RefreshIndicator(
+                child: _showOfflineMap
+                    ? OfflineMapView(
+                        places: appProvider.places,
+                        centerLat: appProvider.currentLocation?.latitude,
+                        centerLng: appProvider.currentLocation?.longitude,
+                      )
+                    : RefreshIndicator(
                   onRefresh: () async {
                     if (appProvider.showFavoritesOnly) {
                       await appProvider.loadNearbyPlaces();

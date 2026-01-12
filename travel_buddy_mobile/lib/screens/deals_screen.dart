@@ -71,13 +71,9 @@ class _DealsScreenState extends State<DealsScreen> {
       final appProvider = Provider.of<AppProvider>(context, listen: false);
       final location = appProvider.currentLocation;
       
-      final deals = await DealsService.getDealsWithPagination(
-        page: _currentPage,
-        limit: _dealsPerPage,
-      );
-      
-      // Check if loaded from cache (offline)
-      final isOffline = deals.isNotEmpty && _currentPage == 1;
+      // Use AppProvider deals which has offline caching
+      await appProvider.loadDeals();
+      final deals = List<Deal>.from(appProvider.deals);
       
       // Calculate distance and sort by proximity if location available
       if (location != null) {

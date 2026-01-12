@@ -9,6 +9,7 @@ import '../config/environment.dart';
 import '../utils/debug_logger.dart';
 import 'gemini_places_service.dart';
 import 'storage_service.dart';
+import 'azure_blob_service.dart';
 
 class PlacesService {
   static final PlacesService _instance = PlacesService._internal();
@@ -18,12 +19,13 @@ class PlacesService {
   }
 
   final AzureAIPlacesService _azureAIService = AzureAIPlacesService();
+  final AzureBlobService _azureBlobService = AzureBlobService();
   
   // Cache and rate limiting
   final Map<String, List<Place>> _cache = {};
   final Map<String, DateTime> _cacheTimestamps = {};
   final Map<String, DateTime> _lastApiCalls = {};
-  static const Duration _cacheExpiry = Duration(hours: 1); // Increased from 30 min to 1 hour
+  static const Duration _cacheExpiry = Duration(hours: 24); // Extended for cost savings
   static const Duration _rateLimitDelay = Duration(milliseconds: 500); // Faster rate limit
   
   // Subscription limits
@@ -80,13 +82,29 @@ class PlacesService {
           // Enrich with AI descriptions (async, non-blocking)
           _enrichPlacesWithAI(filtered);
           
-          // Save to cache and offline storage
+          // Save to cache, offline storage, and Azure Blob
           _updateCache(cacheKey, filtered);
           _saveToOfflineStorage(cacheKey, filtered);
+          _azureBlobService.savePlacesToBlob(cacheKey, filtered); // Azure Blob backup
           
           DebugLogger.log('✅ Cached ${filtered.length} places');
           
           return filtered.skip(offset).take(topN).toList();
+        }
+      } else {
+        DebugLogger.log('📦 API limit reached - loading from cache/offline storage');
+        
+        // Try cache first
+        if (_cache.containsKey(cacheKey)) {
+          DebugLogger.log('📦 Using memory cache (${_cache[cacheKey]!.length} places)');
+          return _cache[cacheKey]!.skip(offset).take(topN).toList();
+        }
+        
+        // Try offline storage
+        final offline = await _loadFromOfflineStorage(cacheKey);
+        if (offline.isNotEmpty) {
+          DebugLogger.log('💾 Using offline storage (${offline.length} places)');
+          return offline.skip(offset).take(topN).toList();
         }
       }
       
@@ -94,20 +112,29 @@ class PlacesService {
       
     } catch (e) {
       DebugLogger.error('Places fetch failed: $e');
-      
-      // Try cache first
-      if (_cache.containsKey(cacheKey)) {
-        return _cache[cacheKey]!.skip(offset).take(topN).toList();
-      }
-      
-      // Try offline storage
-      final offline = await _loadFromOfflineStorage(cacheKey);
-      if (offline.isNotEmpty) {
-        return offline.skip(offset).take(topN).toList();
-      }
-      
-      return [];
     }
+    
+    // Try cache first
+    if (_cache.containsKey(cacheKey)) {
+      DebugLogger.log('📦 Using memory cache (${_cache[cacheKey]!.length} places)');
+      return _cache[cacheKey]!.skip(offset).take(topN).toList();
+    }
+    
+    // Try offline storage
+    final offline = await _loadFromOfflineStorage(cacheKey);
+    if (offline.isNotEmpty) {
+      DebugLogger.log('💾 Using offline storage (${offline.length} places)');
+      return offline.skip(offset).take(topN).toList();
+    }
+    
+    // Try Azure Blob as final fallback
+    final azurePlaces = await _azureBlobService.loadPlacesFromBlob(cacheKey);
+    if (azurePlaces.isNotEmpty) {
+      DebugLogger.log('☁️ Using Azure Blob storage (${azurePlaces.length} places)');
+      return azurePlaces.skip(offset).take(topN).toList();
+    }
+    
+    return [];
   }
   
   // Background refresh disabled
@@ -403,7 +430,11 @@ class PlacesService {
     final userTier = await _getUserSubscriptionTier();
     final limit = _subscriptionLimits[userTier] ?? _subscriptionLimits['free']!;
     final canCall = _dailyApiCalls < limit;
-    DebugLogger.log('📊 API limit check: tier=$userTier, used=$_dailyApiCalls, limit=$limit, canCall=$canCall');
+    
+    if (!canCall) {
+      print('! API limit reached ($userTier: $_dailyApiCalls/$limit) - using cached data');
+    }
+    
     return canCall;
   }
   
@@ -452,6 +483,13 @@ class PlacesService {
       'remaining': await getRemainingApiCalls(),
       'percentage': (_dailyApiCalls / limit * 100).clamp(0, 100).toInt(),
     };
+  }
+  
+  // Manual reset for testing
+  void resetApiCounter() {
+    _dailyApiCalls = 0;
+    _lastResetDate = DateTime.now();
+    DebugLogger.log('🔄 API counter manually reset');
   }
   
   void _notifyLimitReached() {

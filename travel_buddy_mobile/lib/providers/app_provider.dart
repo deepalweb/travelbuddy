@@ -37,6 +37,11 @@ import '../services/payment_service.dart';
 import '../services/real_data_service.dart';
 import '../services/trip_plans_api_service.dart';
 import '../services/trip_analytics_service.dart';
+import '../services/offline_manager.dart';
+import '../services/token_refresh_service.dart';
+import '../services/battery_optimization_service.dart';
+import '../services/memory_profiler.dart';
+import '../services/rate_limiter.dart';
 import '../models/travel_style.dart';
 import '../models/place_section.dart';
 import '../utils/user_converter.dart';
@@ -61,6 +66,10 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
   final UsageTrackingService _usageTrackingService = UsageTrackingService();
   final RecommendationEngine _recommendationEngine = RecommendationEngine();
   final RealLocalDiscoveriesService _realLocalDiscoveriesService = RealLocalDiscoveriesService();
+  final TokenRefreshService _tokenRefreshService = TokenRefreshService();
+  final BatteryOptimizationService _batteryService = BatteryOptimizationService();
+  final MemoryProfiler _memoryProfiler = MemoryProfiler();
+  final RateLimiter _rateLimiter = RateLimiter();
 
   
   // App lifecycle state
@@ -101,7 +110,7 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
   bool _dealAlertsEnabled = true;
 
   // Places Settings
-  int _selectedRadius = 20000;
+  int _selectedRadius = 5000; // Reduced from 20km to 5km for cost savings
   bool _hasMorePlaces = true;
   int _currentPage = 1;
   bool _showFavoritesOnly = false;
@@ -232,9 +241,20 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
       await _storageService.initialize();
       DebugLogger.log('✅ Storage service initialized');
       
-      // Load cached data IMMEDIATELY after storage init
+      // Start security services
+      _tokenRefreshService.startAutoRefresh();
+      DebugLogger.log('✅ Token refresh service started');
+      
+      // Start performance monitoring
+      _memoryProfiler.startMonitoring();
+      DebugLogger.log('✅ Memory profiler started');
+      
+      // Load cached data IMMEDIATELY - this makes data available offline
       await _loadCachedData();
       DebugLogger.log('✅ Cached data loaded EARLY');
+      
+      // Show cached data immediately
+      notifyListeners();
       
       // Initialize other services
       _aiService.initialize();
@@ -251,7 +271,7 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
       await _loadUserData();
       DebugLogger.log('✅ User data loaded');
       
-      // Load location (only if app is active)
+      // Load location (only if app is active) with battery optimization
       if (_isAppActive) {
         await getCurrentLocation();
       }
@@ -270,6 +290,9 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    _tokenRefreshService.dispose();
+    _batteryService.dispose();
+    _memoryProfiler.dispose();
     super.dispose();
   }
 
@@ -797,6 +820,18 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
     _tripPlans.clear();
     _itineraries.clear();
     _deals.clear();
+    
+    // Clear all caches on logout
+    final placesService = PlacesService();
+    await placesService.clearOfflineStorage();
+    placesService.clearCache();
+    placesService.resetApiCounter();
+    
+    // Clear trip plans, deals, and user cache
+    await OfflineManager.clearCache();
+    
+    print('✅ Cleared all caches and reset API counter on logout');
+    
     notifyListeners();
   }
 
@@ -992,9 +1027,9 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
           ? '7-day free trial started for ${tier.toString().split('.').last.toUpperCase()}'
           : 'Welcome to ${tier.toString().split('.').last.toUpperCase()} plan';
       
-      await _notificationService.showLocalNotification(
-        'Subscription Updated!',
-        message,
+      await _notificationService.showNotification(
+        title: 'Subscription Updated!',
+        body: message,
       );
       
       return true;
@@ -1100,11 +1135,12 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
         return;
       }
 
-      final position = await _locationService.getCurrentLocation();
+      // Use battery-efficient location service
+      final position = await _batteryService.getLocationEfficient();
       if (position != null) {
         _currentLocation = position;
         _locationError = null;
-        print('📍 Location obtained');
+        print('📍 Location obtained (battery-efficient)');
       } else {
         _locationError = 'Unable to get current location. Please check location permissions and GPS.';
       }
@@ -1295,128 +1331,44 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
         final isEvening = hour >= 18;
         final isMorning = hour < 12;
         final isWeekend = now.weekday >= 6; // Saturday = 6, Sunday = 7
-        final dayContext = _getDayContext(isWeekend, hour);
         
-        List<Place> allPlaces = [];
+        // Use BATCH API for efficiency - single call instead of 5 separate calls
+        print('🚀 Using batch API for efficient loading');
+        
+        final categories = <String, String>{};
         
         if (isEvening) {
-          // Evening: dining + nightlife + attractions (adjusted for day of week)
-          final restaurantCount = isWeekend ? 18 : 15; // Further increased restaurant count
-          final nightlifeCount = isWeekend ? 12 : 8; // Further increased nightlife count
-          final attractionCount = isWeekend ? 10 : 12; // Further increased attraction count
-          
-          final restaurants = await placesService.fetchPlacesPipeline(
-            latitude: _currentLocation!.latitude,
-            longitude: _currentLocation!.longitude,
-            query: _expandKeywords(['restaurants']),
-            topN: restaurantCount,
-            userType: userType,
-            vibe: vibe,
-            language: language,
-          );
-          
-          final bars = await placesService.fetchPlacesPipeline(
-            latitude: _currentLocation!.latitude,
-            longitude: _currentLocation!.longitude,
-            query: _expandKeywords(['bars', 'nightlife']),
-            topN: nightlifeCount,
-            userType: userType,
-            vibe: vibe,
-            language: language,
-          );
-          
-          final attractions = await placesService.fetchPlacesPipeline(
-            latitude: _currentLocation!.latitude,
-            longitude: _currentLocation!.longitude,
-            query: _expandKeywords(['attractions']),
-            topN: attractionCount,
-            userType: userType,
-            vibe: vibe,
-            language: language,
-          );
-          
-          allPlaces = [...restaurants, ...bars, ...attractions];
+          categories['food'] = 'restaurants cafes bars';
+          categories['nightlife'] = 'bars nightclubs pubs';
+          categories['attractions'] = 'tourist attractions landmarks';
         } else if (isMorning) {
-          // Morning: cafes + attractions + culture + nature (adjusted for day of week)
-          final cafeCount = isWeekend ? 10 : 12; // Further increased cafe count
-          final attractionCount = isWeekend ? 15 : 12; // Further increased attraction count
-          final cultureCount = isWeekend ? 10 : 8; // Further increased culture count
-          final natureCount = isWeekend ? 8 : 10; // Further increased nature count
-          
-          final cafes = await placesService.fetchPlacesPipeline(
-            latitude: _currentLocation!.latitude,
-            longitude: _currentLocation!.longitude,
-            query: _expandKeywords(['cafes']),
-            topN: cafeCount,
-          );
-          
-          final attractions = await placesService.fetchPlacesPipeline(
-            latitude: _currentLocation!.latitude,
-            longitude: _currentLocation!.longitude,
-            query: _expandKeywords(['attractions']),
-            topN: attractionCount,
-          );
-          
-          final culture = await placesService.fetchPlacesPipeline(
-            latitude: _currentLocation!.latitude,
-            longitude: _currentLocation!.longitude,
-            query: _expandKeywords(['culture']),
-            topN: cultureCount,
-          );
-          
-          final nature = await placesService.fetchPlacesPipeline(
-            latitude: _currentLocation!.latitude,
-            longitude: _currentLocation!.longitude,
-            query: _expandKeywords(['nature']),
-            topN: natureCount,
-          );
-          
-          allPlaces = [...cafes, ...attractions, ...culture, ...nature];
+          categories['food'] = 'cafes coffee shops bakeries';
+          categories['attractions'] = 'tourist attractions landmarks';
+          categories['culture'] = 'museums galleries';
+          categories['nature'] = 'parks gardens';
         } else {
-          // Afternoon: balanced mix of everything (adjusted for day of week)
-          final attractionCount = isWeekend ? 15 : 12; // Further increased attraction count
-          final restaurantCount = isWeekend ? 10 : 10; // Further increased restaurant count
-          final cultureCount = isWeekend ? 8 : 8; // Further increased culture count
-          final natureCount = isWeekend ? 8 : 10; // Further increased nature count
-          final shoppingCount = isWeekend ? 6 : 6; // Further increased shopping count
-          
-          final attractions = await placesService.fetchPlacesPipeline(
-            latitude: _currentLocation!.latitude,
-            longitude: _currentLocation!.longitude,
-            query: _expandKeywords(['attractions']),
-            topN: attractionCount,
-          );
-          
-          final restaurants = await placesService.fetchPlacesPipeline(
-            latitude: _currentLocation!.latitude,
-            longitude: _currentLocation!.longitude,
-            query: _expandKeywords(['restaurants']),
-            topN: restaurantCount,
-          );
-          
-          final culture = await placesService.fetchPlacesPipeline(
-            latitude: _currentLocation!.latitude,
-            longitude: _currentLocation!.longitude,
-            query: _expandKeywords(['culture']),
-            topN: cultureCount,
-          );
-          
-          final nature = await placesService.fetchPlacesPipeline(
-            latitude: _currentLocation!.latitude,
-            longitude: _currentLocation!.longitude,
-            query: _expandKeywords(['nature']),
-            topN: natureCount,
-          );
-          
-          final shopping = await placesService.fetchPlacesPipeline(
-            latitude: _currentLocation!.latitude,
-            longitude: _currentLocation!.longitude,
-            query: _expandKeywords(['shopping']),
-            topN: shoppingCount,
-          );
-          
-          allPlaces = [...attractions, ...restaurants, ...culture, ...nature, ...shopping];
+          categories['attractions'] = 'tourist attractions landmarks';
+          categories['food'] = 'restaurants cafes';
+          categories['culture'] = 'museums galleries';
+          categories['nature'] = 'parks gardens';
+          categories['shopping'] = 'shopping malls markets';
         }
+        
+        // Single batch API call instead of multiple calls
+        final batchResults = await placesService.fetchPlacesBatch(
+          latitude: _currentLocation!.latitude,
+          longitude: _currentLocation!.longitude,
+          categories: categories,
+          radius: _selectedRadius,
+        );
+        
+        // Combine all results
+        List<Place> allPlaces = [];
+        batchResults.forEach((category, categoryPlaces) {
+          allPlaces.addAll(categoryPlaces);
+        });
+        
+        print('✅ Batch API returned ${allPlaces.length} places from ${categories.length} categories');
         
         // Deduplicate and filter by rating
         final seen = <String>{};
@@ -1637,9 +1589,9 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
       final maxFavs = maxFavorites;
       if (maxFavs > 0 && _favoriteIds.length >= maxFavs) {
         print('⚠️ Favorites limit reached: ${_favoriteIds.length}/$maxFavs');
-        await _notificationService.showLocalNotification(
-          'Favorites Limit Reached',
-          'Upgrade to add more favorites (${_favoriteIds.length}/$maxFavs)',
+        await _notificationService.showNotification(
+          title: 'Favorites Limit Reached',
+          body: 'Upgrade to add more favorites (${_favoriteIds.length}/$maxFavs)',
         );
         return false;
       }
@@ -1657,9 +1609,9 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
       }
       
       if (place.name.isNotEmpty) {
-        await _notificationService.showLocalNotification(
-          'Added to Favorites',
-          '${place.name} has been saved to your favorites',
+        await _notificationService.showNotification(
+          title: 'Added to Favorites',
+          body: '${place.name} has been saved to your favorites',
         );
       }
     }
@@ -1937,25 +1889,9 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
     notifyListeners();
     
     try {
-      final placesService = PlacesService();
+      // Load only 2 essential sections initially for faster load
+      print('🚀 Lazy loading: Loading first 2 sections only');
       
-      // Load only essential categories first for faster initial load
-      final categories = {
-        'food': 'restaurants cafes bars coffee shops',
-        'landmarks': 'tourist attractions monuments historical sites landmarks',
-        'nature': 'parks gardens hiking trails nature spots',
-        'shopping': 'shopping malls local markets bazaars shops',
-      };
-      
-      final batchResults = await placesService.fetchPlacesBatch(
-        latitude: _currentLocation!.latitude,
-        longitude: _currentLocation!.longitude,
-        categories: categories,
-        radius: _selectedRadius,
-        forceRefresh: _placeSections.isEmpty,
-      );
-      
-      // Convert batch results to sections
       final sections = <PlaceSection>[];
       
       // Add dynamic "Nearby Now" section
@@ -1986,6 +1922,19 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
         ));
       }
       
+      // Load only Food & Landmarks initially (most popular)
+      final initialCategories = {
+        'food': 'restaurants cafes bars coffee shops',
+        'landmarks': 'tourist attractions monuments historical sites landmarks',
+      };
+      
+      final batchResults = await PlacesService().fetchPlacesBatch(
+        latitude: _currentLocation!.latitude,
+        longitude: _currentLocation!.longitude,
+        categories: initialCategories,
+        radius: _selectedRadius,
+      );
+      
       if (batchResults['food']?.isNotEmpty == true) {
         sections.add(PlaceSection(
           id: 'food',
@@ -1994,7 +1943,7 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
           emoji: '🍽️',
           places: batchResults['food']!,
           category: 'food',
-          query: categories['food']!,
+          query: initialCategories['food']!,
         ));
       }
       
@@ -2006,93 +1955,16 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
           emoji: '🏛️',
           places: batchResults['landmarks']!,
           category: 'landmarks',
-          query: categories['landmarks']!,
-        ));
-      }
-      
-      if (batchResults['culture']?.isNotEmpty == true) {
-        sections.add(PlaceSection(
-          id: 'culture',
-          title: 'Culture & Museums',
-          subtitle: 'Museums, art galleries, cultural centers',
-          emoji: '🎨',
-          places: batchResults['culture']!,
-          category: 'culture',
-          query: categories['culture']!,
-        ));
-      }
-      
-      if (batchResults['nature']?.isNotEmpty == true) {
-        sections.add(PlaceSection(
-          id: 'nature',
-          title: 'Outdoor & Nature',
-          subtitle: 'Parks, gardens, hiking trails, nature spots',
-          emoji: '🌳',
-          places: batchResults['nature']!,
-          category: 'nature',
-          query: categories['nature']!,
-        ));
-      }
-      
-      if (batchResults['shopping']?.isNotEmpty == true) {
-        sections.add(PlaceSection(
-          id: 'shopping',
-          title: 'Shopping & Markets',
-          subtitle: 'Shopping malls, local markets, bazaars',
-          emoji: '🛍️',
-          places: batchResults['shopping']!,
-          category: 'shopping',
-          query: categories['shopping']!,
-        ));
-      }
-      
-      if (batchResults['entertainment']?.isNotEmpty == true) {
-        sections.add(PlaceSection(
-          id: 'entertainment',
-          title: 'Entertainment & Nightlife',
-          subtitle: 'Cinemas, theaters, nightclubs, live music',
-          emoji: '🎉',
-          places: batchResults['entertainment']!,
-          category: 'entertainment',
-          query: categories['entertainment']!,
-        ));
-      }
-      
-      if (batchResults['photography']?.isNotEmpty == true) {
-        sections.add(PlaceSection(
-          id: 'photography',
-          title: 'Photography Spots',
-          subtitle: 'Viewpoints, scenic spots, observation decks',
-          emoji: '📸',
-          places: batchResults['photography']!,
-          category: 'photography',
-          query: categories['photography']!,
-        ));
-      }
-      
-      if (batchResults['spa']?.isNotEmpty == true) {
-        sections.add(PlaceSection(
-          id: 'spa',
-          title: 'SPA & Wellness',
-          subtitle: 'Spas, wellness centers, massage therapy',
-          emoji: '🧘‍♀️',
-          places: batchResults['spa']!,
-          category: 'spa',
-          query: categories['spa']!,
+          query: initialCategories['landmarks']!,
         ));
       }
       
       _placeSections = sections;
-      print('✅ Loaded ${_placeSections.length} place sections via batch API');
-      
-      // Always try individual loading for better location accuracy
-      print('🔄 Using individual loading for better location filtering');
-      await _loadSectionsIndividually();
+      print('✅ Loaded ${_placeSections.length} sections (lazy load - 1 API call)');
+      print('📌 Remaining sections will load on scroll');
       
     } catch (e) {
       print('❌ Error loading place sections: $e');
-      // Fallback to individual loading
-      await _loadSectionsIndividually();
     } finally {
       _isSectionsLoading = false;
       notifyListeners();
@@ -2115,6 +1987,73 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
       print('✅ Loaded ${_placeSections.length} place sections individually');
     } catch (e) {
       print('❌ Error in individual section loading: $e');
+    }
+  }
+  
+  // Load remaining sections on demand (called when user scrolls)
+  Future<void> loadRemainingPlaceSections() async {
+    if (_currentLocation == null) return;
+    
+    print('📜 Loading remaining sections on demand...');
+    
+    try {
+      final remainingCategories = {
+        'culture': 'museums art galleries cultural centers theaters',
+        'nature': 'parks gardens hiking trails nature spots',
+        'shopping': 'shopping malls local markets bazaars shops',
+      };
+      
+      final batchResults = await PlacesService().fetchPlacesBatch(
+        latitude: _currentLocation!.latitude,
+        longitude: _currentLocation!.longitude,
+        categories: remainingCategories,
+        radius: _selectedRadius,
+      );
+      
+      final newSections = <PlaceSection>[];
+      
+      if (batchResults['culture']?.isNotEmpty == true) {
+        newSections.add(PlaceSection(
+          id: 'culture',
+          title: 'Culture & Museums',
+          subtitle: 'Museums, art galleries, cultural centers',
+          emoji: '🎨',
+          places: batchResults['culture']!,
+          category: 'culture',
+          query: remainingCategories['culture']!,
+        ));
+      }
+      
+      if (batchResults['nature']?.isNotEmpty == true) {
+        newSections.add(PlaceSection(
+          id: 'nature',
+          title: 'Outdoor & Nature',
+          subtitle: 'Parks, gardens, hiking trails, nature spots',
+          emoji: '🌳',
+          places: batchResults['nature']!,
+          category: 'nature',
+          query: remainingCategories['nature']!,
+        ));
+      }
+      
+      if (batchResults['shopping']?.isNotEmpty == true) {
+        newSections.add(PlaceSection(
+          id: 'shopping',
+          title: 'Shopping & Markets',
+          subtitle: 'Shopping malls, local markets, bazaars',
+          emoji: '🛍️',
+          places: batchResults['shopping']!,
+          category: 'shopping',
+          query: remainingCategories['shopping']!,
+        ));
+      }
+      
+      _placeSections.addAll(newSections);
+      print('✅ Loaded ${newSections.length} additional sections (1 API call)');
+      notifyListeners();
+      
+    } catch (e) {
+      print('❌ Error loading remaining sections: $e');
     }
   }
   
@@ -2461,21 +2400,42 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
     notifyListeners();
 
     try {
-      // Load from backend database
+      // Load from cache first for instant display
+      final cached = await OfflineManager.getCachedTripPlans();
+      if (cached.isNotEmpty) {
+        _tripPlans = cached;
+        print('📦 Loaded ${cached.length} trip plans from cache');
+        notifyListeners(); // Show cached data immediately
+      }
+      
+      // Try to fetch from backend
       if (_currentUser?.mongoId != null) {
-        final backendPlans = await TripPlansApiService.getUserTripPlans();
-        _tripPlans = backendPlans;
-        print('☁️ Loaded ${backendPlans.length} trip plans from database');
-      } else {
-        print('⚠️ User not logged in - no trip plans loaded');
-        _tripPlans = [];
+        try {
+          final backendPlans = await TripPlansApiService.getUserTripPlans();
+          if (backendPlans.isNotEmpty) {
+            _tripPlans = backendPlans;
+            // Cache for offline use
+            await OfflineManager.cacheTripPlans(backendPlans);
+            print('☁️ Loaded ${backendPlans.length} trip plans from database');
+          }
+        } catch (e) {
+          print('❌ Error loading from backend: $e');
+          // Keep cached data on error
+          if (_tripPlans.isEmpty && cached.isNotEmpty) {
+            _tripPlans = cached;
+            print('📦 Using cached trip plans due to network error');
+          }
+        }
       }
       
       _itineraries = await _storageService.getItineraries();
     } catch (e) {
-      print('❌ Error loading trip plans from database: $e');
-      _tripPlans = [];
+      print('❌ Error loading trip plans: $e');
+      // Fallback to cache
+      final cached = await OfflineManager.getCachedTripPlans();
+      _tripPlans = cached;
       _itineraries = [];
+      print('📦 Using ${cached.length} cached trip plans due to error');
     } finally {
        _isTripsLoading = false;
       notifyListeners();
@@ -2567,27 +2527,9 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
         final user = await AuthService.getCurrentUser();
         if (user != null) {
           await _syncFirebaseUserWithBackend(user);
-          // Reload user data and wait for it to complete
           await _loadUserData();
-          // Force notify listeners to update UI
           notifyListeners();
           print('✅ User synced, mongoId = ${_currentUser?.mongoId}');
-          
-          // Debug: Check what _loadUserData actually loaded
-          if (_currentUser?.mongoId == null) {
-            print('🔍 CRITICAL: _loadUserData completed but mongoId is STILL null');
-            print('🔍 Attempting direct backend fetch...');
-            try {
-              final directFetch = await _apiService.getUserByFirebaseUid(user.uid);
-              print('🔍 Direct fetch result: $directFetch');
-              if (directFetch != null) {
-                print('🔍 Direct fetch _id: ${directFetch['_id']}');
-                print('🔍 Direct fetch id: ${directFetch['id']}');
-              }
-            } catch (e) {
-              print('🔍 Direct fetch error: $e');
-            }
-          }
         }
       }
       
@@ -2602,6 +2544,10 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
           } else {
             _tripPlans[existingIndex] = savedPlan;
           }
+          
+          // Cache for offline use
+          await OfflineManager.cacheTripPlans(_tripPlans);
+          
           print('✅ Trip plan saved to database. Total plans: ${_tripPlans.length}');
           notifyListeners();
         } else {
@@ -2609,11 +2555,6 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
         }
       } else {
         print('❌ mongoId still null after sync');
-        print('🔍 Current user details:');
-        print('   - username: ${_currentUser?.username}');
-        print('   - email: ${_currentUser?.email}');
-        print('   - uid: ${_currentUser?.uid}');
-        print('   - mongoId: ${_currentUser?.mongoId}');
         throw Exception('Failed to sync user with backend. Please try signing out and signing in again.');
       }
     } catch (e) {
@@ -2940,20 +2881,40 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
     notifyListeners();
 
     try {
-      // Try real deals API first
-      final realDeals = await DealsService.getActiveDeals();
-      if (realDeals.isNotEmpty) {
-        _deals = realDeals;
-        print('✅ Loaded ${realDeals.length} REAL deals from backend');
-      } else {
-        print('⚠️ No real deals found, using mock data');
-        _deals = [];
+      // Load from cache first for instant display
+      final cached = await OfflineManager.getCachedDeals();
+      if (cached.isNotEmpty) {
+        _deals = cached;
+        print('📦 Loaded ${cached.length} deals from cache');
+        notifyListeners(); // Show cached data immediately
+      }
+      
+      // Try real deals API
+      try {
+        final realDeals = await DealsService.getActiveDeals();
+        if (realDeals.isNotEmpty) {
+          _deals = realDeals;
+          // Cache for offline
+          await OfflineManager.cacheDeals(realDeals);
+          print('✅ Loaded ${realDeals.length} REAL deals from backend');
+        }
+      } catch (e) {
+        print('❌ Error loading deals from backend: $e');
+        // Keep cached data on error
+        if (_deals.isEmpty && cached.isNotEmpty) {
+          _deals = cached;
+          print('📦 Using cached deals due to network error');
+        }
+        _dealsError = 'Showing cached deals. Check your connection.';
       }
       
     } catch (e) {
       print('❌ Error loading deals: $e');
       _dealsError = 'Failed to load deals: ${e.toString()}';
-      _deals = [];
+      // Fallback to cache
+      final cached = await OfflineManager.getCachedDeals();
+      _deals = cached;
+      print('📦 Using ${cached.length} cached deals due to error');
     } finally {
       _isDealsLoading = false;
       notifyListeners();
@@ -3007,9 +2968,9 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
           notifyListeners();
         }
         
-        await _notificationService.showLocalNotification(
-          'Deal Claimed!',
-          'You have successfully claimed this deal',
+        await _notificationService.showNotification(
+          title: 'Deal Claimed!',
+          body: 'You have successfully claimed this deal',
         );
       }
       return success;
@@ -3057,9 +3018,9 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
         );
       }
       
-      await _notificationService.showLocalNotification(
-        'Trip Plan Ready!',
-        'Your ${tripPlan.tripTitle} has been generated successfully',
+      await _notificationService.showNotification(
+        title: 'Trip Plan Ready!',
+        body: 'Your ${tripPlan.tripTitle} has been generated successfully',
       );
       print('✅ Generated and saved trip plan: ${tripPlan.tripTitle}');
       return tripPlan;
@@ -3122,9 +3083,6 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
   void setNotifications(bool enabled) async {
     _notificationsEnabled = enabled;
     SettingsService.setNotifications(enabled);
-    if (enabled) {
-      await _notificationService.requestPermission();
-    }
     notifyListeners();
   }
 
@@ -3341,22 +3299,50 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
   }
 
   Future<void> _loadCachedData() async {
-    // Skip loading cached trip plans - will load from backend only
-    _tripPlans = [];
+    print('📦 Loading cached data for offline support...');
+    
+    // Load cached trip plans
+    final cachedTrips = await OfflineManager.getCachedTripPlans();
+    if (cachedTrips.isNotEmpty) {
+      _tripPlans = cachedTrips;
+      print('✅ Loaded ${cachedTrips.length} cached trip plans');
+    }
+    
+    // Load cached itineraries
     _itineraries = await _storageService.getItineraries();
-    print('⚠️ Skipping cache - trip plans will load from backend only');
+    print('✅ Loaded ${_itineraries.length} cached itineraries');
     
     // Load cached places for offline support
     try {
-      final cachedPlaces = await _storageService.getCachedPlaces();
+      final cachedPlaces = await OfflineManager.getCachedPlaces();
       if (cachedPlaces.isNotEmpty) {
         _places = cachedPlaces;
-        print('✅ Loaded ${cachedPlaces.length} cached places for offline mode');
+        print('✅ Loaded ${cachedPlaces.length} cached places');
       }
     } catch (e) {
       print('❌ Error loading cached places: $e');
     }
     
+    // Load cached deals
+    try {
+      final cachedDeals = await OfflineManager.getCachedDeals();
+      if (cachedDeals.isNotEmpty) {
+        _deals = cachedDeals;
+        print('✅ Loaded ${cachedDeals.length} cached deals');
+      }
+    } catch (e) {
+      print('❌ Error loading cached deals: $e');
+    }
+    
+    // Load cached user
+    final cachedUser = await OfflineManager.getCachedUser();
+    if (cachedUser != null) {
+      _currentUser = cachedUser;
+      _isAuthenticated = true;
+      print('✅ Loaded cached user: ${cachedUser.username}');
+    }
+    
+    print('✅ Cached data loaded successfully');
     notifyListeners();
   }
 
@@ -3706,7 +3692,7 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
   
   Future<void> _sendFCMTokenToBackend() async {
     try {
-      final fcmToken = await NotificationService.getToken();
+      final fcmToken = NotificationService().fcmToken;
       if (fcmToken != null && _currentUser?.mongoId != null) {
         await _apiService.updateUser({
           'fcmToken': fcmToken,

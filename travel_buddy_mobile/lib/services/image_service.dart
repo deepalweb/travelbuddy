@@ -1,6 +1,10 @@
 import 'package:image_picker/image_picker.dart';
+import 'dart:io';
+import 'image_optimization_service.dart';
 
 class ImageService {
+  final ImageOptimizationService _optimizer = ImageOptimizationService();
+  
   static Future<List<String>> getPlaceImages(String placeName, String placeAddress) async {
     final images = <String>[];
     
@@ -81,11 +85,17 @@ class ImageService {
     
     for (final image in images) {
       try {
-        // For demo purposes, return a placeholder URL
-        // In production, upload to your image storage service
-        final hash = image.path.hashCode.abs();
-        final url = 'https://picsum.photos/seed/$hash/800/600';
-        imageUrls.add(url);
+        // Compress image before upload
+        final imageFile = File(image.path);
+        final compressed = await _optimizer.compressImage(imageFile);
+        
+        if (compressed != null) {
+          // For demo purposes, return a placeholder URL
+          // In production, upload compressed file to your image storage service
+          final hash = compressed.path.hashCode.abs();
+          final url = 'https://picsum.photos/seed/$hash/800/600';
+          imageUrls.add(url);
+        }
       } catch (e) {
         print('Error uploading image: $e');
       }
