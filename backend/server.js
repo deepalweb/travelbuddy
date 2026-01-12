@@ -1020,6 +1020,15 @@ try {
   console.error('❌ Failed to load travel news routes:', error);
 }
 
+// Load emergency routes
+try {
+  const emergencyRouter = (await import('./routes/emergency.js')).default;
+  app.use('/api/emergency', emergencyRouter);
+  console.log('✅ Emergency routes loaded');
+} catch (error) {
+  console.error('❌ Failed to load emergency routes:', error);
+}
+
 // Load mobile places routes
 try {
   const mobilePlacesRouter = (await import('./routes/mobile-places.js')).default;
