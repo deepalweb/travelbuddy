@@ -1074,6 +1074,15 @@ try {
   console.error('❌ Failed to load posts routes:', error);
 }
 
+// Load cache routes for mobile places caching
+try {
+  const cacheRouter = (await import('./routes/cache.js')).default;
+  app.use('/api/cache', cacheRouter);
+  console.log('✅ Cache routes loaded');
+} catch (error) {
+  console.error('❌ Failed to load cache routes:', error);
+}
+
 // Load notifications routes
 try {
   const notificationsRouter = (await import('./routes/notifications.js')).default;
