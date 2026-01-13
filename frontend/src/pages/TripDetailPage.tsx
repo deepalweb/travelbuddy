@@ -59,6 +59,8 @@ export const TripDetailPage: React.FC = () => {
   const [newDestination, setNewDestination] = useState('')
   const [draggedItem, setDraggedItem] = useState<{dayIndex: number, activityIndex: number} | null>(null)
   const [expandedActivity, setExpandedActivity] = useState<{dayIndex: number, activityIndex: number} | null>(null)
+  const [suggestedPlaces, setSuggestedPlaces] = useState<Record<number, Activity[]>>({})
+  const [loadingSuggestions, setLoadingSuggestions] = useState<Record<number, boolean>>({})
 
   useEffect(() => {
     if (id) {
@@ -227,6 +229,39 @@ export const TripDetailPage: React.FC = () => {
       setTrip(updatedTrip)
     } catch (error) {
       alert('Failed to delete')
+    }
+  }
+
+  const loadSuggestedPlaces = async (dayIndex: number) => {
+    if (suggestedPlaces[dayIndex]) return
+    
+    setLoadingSuggestions(prev => ({ ...prev, [dayIndex]: true }))
+    
+    try {
+      const destination = trip?.destination || 'local area'
+      const response = await fetch(`/api/trips/${id}/suggestions?day=${dayIndex}&destination=${encodeURIComponent(destination)}`)
+      const data = await response.json()
+      setSuggestedPlaces(prev => ({ ...prev, [dayIndex]: data.suggestions || [] }))
+    } catch (error) {
+      console.error('Failed to load suggestions:', error)
+      setSuggestedPlaces(prev => ({ ...prev, [dayIndex]: [] }))
+    } finally {
+      setLoadingSuggestions(prev => ({ ...prev, [dayIndex]: false }))
+    }
+  }
+
+  const addSuggestedPlace = async (dayIndex: number, place: Activity) => {
+    if (!trip || !id) return
+    
+    const updatedTrip = { ...trip }
+    updatedTrip.dailyPlans[dayIndex].activities.push(place)
+    
+    try {
+      await tripService.updateTrip(id, updatedTrip)
+      setTrip(updatedTrip)
+      alert('Place added to your itinerary!')
+    } catch (error) {
+      alert('Failed to add place')
     }
   }
 
@@ -515,6 +550,69 @@ export const TripDetailPage: React.FC = () => {
                     </div>
                   ))}
                 </div>
+              </div>
+              
+              {/* Suggested Places Section */}
+              <div className="ml-8 mt-6">
+                {!suggestedPlaces[dayIndex] && !loadingSuggestions[dayIndex] && (
+                  <button
+                    onClick={() => loadSuggestedPlaces(dayIndex)}
+                    className="w-full bg-gradient-to-r from-blue-50 to-purple-50 border-2 border-dashed border-blue-300 rounded-lg p-4 hover:border-blue-400 transition-colors"
+                  >
+                    <div className="flex items-center justify-center text-blue-600">
+                      <Star className="w-5 h-5 mr-2" />
+                      <span className="font-medium">Discover More Places for Day {day.day}</span>
+                    </div>
+                  </button>
+                )}
+                
+                {loadingSuggestions[dayIndex] && (
+                  <div className="flex items-center justify-center py-8">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                    <span className="ml-3 text-gray-600">Finding more places...</span>
+                  </div>
+                )}
+                
+                {suggestedPlaces[dayIndex] && (
+                  <div className="bg-gradient-to-r from-blue-50 to-purple-50 rounded-lg p-6 border border-blue-200">
+                    <div className="flex items-center mb-4">
+                      <Star className="w-5 h-5 text-blue-600 mr-2" />
+                      <h4 className="text-lg font-semibold text-gray-900">More Places to Explore</h4>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      {suggestedPlaces[dayIndex].map((place, idx) => (
+                        <Card key={idx} className="bg-white hover:shadow-md transition-shadow">
+                          <CardContent className="p-4">
+                            <div className="flex items-start justify-between mb-2">
+                              <h5 className="font-semibold text-gray-900 text-sm">{place.activityTitle}</h5>
+                              {place.rating && (
+                                <div className="flex items-center bg-yellow-100 px-2 py-0.5 rounded-full">
+                                  <Star className="w-3 h-3 text-yellow-500 fill-current mr-1" />
+                                  <span className="text-xs font-medium text-yellow-700">{place.rating}</span>
+                                </div>
+                              )}
+                            </div>
+                            {place.category && (
+                              <span className="inline-block bg-blue-100 text-blue-800 text-xs px-2 py-0.5 rounded-full mb-2">{place.category}</span>
+                            )}
+                            <p className="text-xs text-gray-600 mb-3 line-clamp-2">{place.description}</p>
+                            <div className="flex items-center justify-between text-xs text-gray-500 mb-3">
+                              <span className="flex items-center"><Clock className="w-3 h-3 mr-1" />{place.duration}</span>
+                              <span className="flex items-center"><DollarSign className="w-3 h-3 mr-1" />{place.estimatedCost}</span>
+                            </div>
+                            <Button
+                              size="sm"
+                              onClick={() => addSuggestedPlace(dayIndex, place)}
+                              className="w-full text-xs"
+                            >
+                              + Add to Itinerary
+                            </Button>
+                          </CardContent>
+                        </Card>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           ))}
