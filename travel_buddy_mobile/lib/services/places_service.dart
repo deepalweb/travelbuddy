@@ -16,6 +16,10 @@ class PlacesService {
   factory PlacesService() => _instance;
   PlacesService._internal() {
     DebugLogger.info('🚀 PlacesService initialized with backend URL: ${Environment.backendUrl}');
+    // Force reset API counter on app start
+    _dailyApiCalls = 0;
+    _lastResetDate = DateTime.now();
+    DebugLogger.info('🔄 API counter reset on initialization');
   }
 
   final AzureAIPlacesService _azureAIService = AzureAIPlacesService();

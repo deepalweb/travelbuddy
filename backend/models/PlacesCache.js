@@ -1,4 +1,4 @@
-const mongoose = require('mongoose');
+import mongoose from 'mongoose';
 
 const placesCacheSchema = new mongoose.Schema({
   key: {
@@ -25,4 +25,4 @@ const placesCacheSchema = new mongoose.Schema({
 // Index for faster lookups
 placesCacheSchema.index({ key: 1, createdAt: -1 });
 
-module.exports = mongoose.model('PlacesCache', placesCacheSchema);
+export default mongoose.model('PlacesCache', placesCacheSchema);

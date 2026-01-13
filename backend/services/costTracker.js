@@ -68,4 +68,4 @@ class CostTracker {
   }
 }
 
-module.exports = new CostTracker();
+export default new CostTracker();

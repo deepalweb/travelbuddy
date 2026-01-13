@@ -216,7 +216,8 @@ router.get('/mobile/nearby', async (req, res) => {
       query: query,
       location: { lat: parseFloat(lat), lng: parseFloat(lng) },
       radius: searchRadius,
-      architecture: 'hybrid'
+      architecture: 'hybrid',
+      cached: false
     };
     
     // Save to database cache for other users (24h TTL)
