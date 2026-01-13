@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { Card, CardContent, CardHeader, CardTitle } from '../components/Card'
 import { Button } from '../components/Button'
-import { MapPin, Clock, Euro, CheckCircle, Circle, Star, Navigation, Save, Calendar, Users, DollarSign, ArrowLeft, Download, Share2, Filter, RotateCcw, List, Map, FileText, BarChart3, Cloud, Edit3, Car } from 'lucide-react'
+import { MapPin, Clock, Euro, CheckCircle, Circle, Star, Navigation, Save, Calendar, Users, DollarSign, ArrowLeft, Download, Share2, Filter, RotateCcw, List, Map, FileText, BarChart3, Cloud, Edit3, Car, ArrowUp, ArrowDown } from 'lucide-react'
 import { tripService } from '../services/tripService'
 import { placesService } from '../services/placesService'
 import { useApp } from '../contexts/AppContext'
@@ -238,6 +238,26 @@ export const TripDetailPage: React.FC = () => {
     } catch (error) {
       console.error('Failed to update location:', error)
       alert('Failed to update location')
+    }
+  }
+
+  const moveActivity = async (dayIndex: number, activityIndex: number, direction: 'up' | 'down') => {
+    if (!trip || !id) return
+    
+    const updatedTrip = { ...trip }
+    const activities = updatedTrip.dailyPlans[dayIndex].activities
+    const newIndex = direction === 'up' ? activityIndex - 1 : activityIndex + 1
+    
+    if (newIndex < 0 || newIndex >= activities.length) return
+    
+    [activities[activityIndex], activities[newIndex]] = [activities[newIndex], activities[activityIndex]]
+    
+    try {
+      await tripService.updateTrip(id, updatedTrip)
+      setTrip(updatedTrip)
+    } catch (error) {
+      console.error('Failed to reorder activities:', error)
+      alert('Failed to reorder activities')
     }
   }
 
@@ -542,7 +562,29 @@ export const TripDetailPage: React.FC = () => {
                               </div>
                             </div>
                             
-                            <div className="ml-6">
+                            <div className="ml-6 flex flex-col gap-2">
+                              <div className="flex gap-1">
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => moveActivity(dayIndex, activityIndex, 'up')}
+                                  disabled={activityIndex === 0}
+                                  className="p-1 h-8 w-8"
+                                  title="Move up"
+                                >
+                                  <ArrowUp className="w-4 h-4" />
+                                </Button>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => moveActivity(dayIndex, activityIndex, 'down')}
+                                  disabled={activityIndex === day.activities.length - 1}
+                                  className="p-1 h-8 w-8"
+                                  title="Move down"
+                                >
+                                  <ArrowDown className="w-4 h-4" />
+                                </Button>
+                              </div>
                               <Button
                                 variant="default"
                                 size="sm"
