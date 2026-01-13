@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { Card, CardContent, CardHeader, CardTitle } from '../components/Card'
 import { Button } from '../components/Button'
-import { MapPin, Clock, Euro, CheckCircle, Circle, Star, Navigation, Save, Calendar, Users, DollarSign, ArrowLeft, Download, Share2, Filter, RotateCcw, List, Map, FileText, BarChart3, Cloud, Edit3, Car, ArrowUp, ArrowDown } from 'lucide-react'
+import { MapPin, Clock, Euro, CheckCircle, Circle, Star, Navigation, Save, Calendar, Users, DollarSign, ArrowLeft, Download, Share2, Filter, RotateCcw, List, Map, FileText, BarChart3, Cloud, Edit3, Car, ArrowUp, ArrowDown, GripVertical, Trash2 } from 'lucide-react'
 import { tripService } from '../services/tripService'
 import { placesService } from '../services/placesService'
 import { useApp } from '../contexts/AppContext'
@@ -56,6 +56,7 @@ export const TripDetailPage: React.FC = () => {
   const [stats, setStats] = useState<any>(null)
   const [isEditingLocation, setIsEditingLocation] = useState(false)
   const [newDestination, setNewDestination] = useState('')
+  const [draggedItem, setDraggedItem] = useState<{dayIndex: number, activityIndex: number} | null>(null)
 
   useEffect(() => {
     if (id) {
@@ -258,6 +259,49 @@ export const TripDetailPage: React.FC = () => {
     } catch (error) {
       console.error('Failed to reorder activities:', error)
       alert('Failed to reorder activities')
+    }
+  }
+
+  const handleDragStart = (dayIndex: number, activityIndex: number) => {
+    setDraggedItem({ dayIndex, activityIndex })
+  }
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault()
+  }
+
+  const handleDrop = async (dayIndex: number, activityIndex: number) => {
+    if (!draggedItem || !trip || !id) return
+    if (draggedItem.dayIndex !== dayIndex) return // Only allow reordering within same day
+    if (draggedItem.activityIndex === activityIndex) return
+    
+    const updatedTrip = { ...trip }
+    const activities = updatedTrip.dailyPlans[dayIndex].activities
+    const [movedItem] = activities.splice(draggedItem.activityIndex, 1)
+    activities.splice(activityIndex, 0, movedItem)
+    
+    try {
+      await tripService.updateTrip(id, updatedTrip)
+      setTrip(updatedTrip)
+      setDraggedItem(null)
+    } catch (error) {
+      console.error('Failed to reorder activities:', error)
+    }
+  }
+
+  const deleteActivity = async (dayIndex: number, activityIndex: number) => {
+    if (!trip || !id) return
+    if (!confirm('Remove this activity from your trip?')) return
+    
+    const updatedTrip = { ...trip }
+    updatedTrip.dailyPlans[dayIndex].activities.splice(activityIndex, 1)
+    
+    try {
+      await tripService.updateTrip(id, updatedTrip)
+      setTrip(updatedTrip)
+    } catch (error) {
+      console.error('Failed to delete activity:', error)
+      alert('Failed to delete activity')
     }
   }
 
@@ -501,16 +545,26 @@ export const TripDetailPage: React.FC = () => {
                 
                 <div className="space-y-6">
                   {day.activities.map((activity, activityIndex) => (
-                    <div key={activityIndex} className="relative">
+                    <div 
+                      key={activityIndex} 
+                      className="relative"
+                      draggable
+                      onDragStart={() => handleDragStart(dayIndex, activityIndex)}
+                      onDragOver={handleDragOver}
+                      onDrop={() => handleDrop(dayIndex, activityIndex)}
+                    >
                       <div className={`absolute -left-2 w-4 h-4 rounded-full border-2 border-white ${
                         getActivityStatus(id!, dayIndex, activityIndex) ? 'bg-green-500' : 'bg-blue-500'
                       }`}></div>
                       
-                      <Card className={`ml-8 transition-all duration-300 hover:shadow-lg ${
+                      <Card className={`ml-8 transition-all duration-300 hover:shadow-lg cursor-move ${
                         getActivityStatus(id!, dayIndex, activityIndex) ? 'bg-green-50 border-green-200' : 'bg-blue-50 border-blue-200'
-                      }`}>
+                      } ${draggedItem?.dayIndex === dayIndex && draggedItem?.activityIndex === activityIndex ? 'opacity-50' : ''}`}>
                         <CardContent className="p-6">
                           <div className="flex items-start justify-between">
+                            <div className="flex items-center mr-4 cursor-grab active:cursor-grabbing">
+                              <GripVertical className="w-5 h-5 text-gray-400" />
+                            </div>
                             <div className="w-32 h-24 rounded-lg overflow-hidden mr-6 flex-shrink-0">
                               <img 
                                 src={activity.imageUrl || 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=400&h=300&fit=crop'} 
@@ -583,6 +637,15 @@ export const TripDetailPage: React.FC = () => {
                                   title="Move down"
                                 >
                                   <ArrowDown className="w-4 h-4" />
+                                </Button>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => deleteActivity(dayIndex, activityIndex)}
+                                  className="p-1 h-8 w-8 text-red-600 hover:bg-red-50"
+                                  title="Remove"
+                                >
+                                  <Trash2 className="w-4 h-4" />
                                 </Button>
                               </div>
                               <Button
