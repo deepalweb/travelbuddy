@@ -54,6 +54,8 @@ export const TripDetailPage: React.FC = () => {
   const [enhancedIntro, setEnhancedIntro] = useState<string | null>(null)
   const [loadingIntro, setLoadingIntro] = useState(false)
   const [stats, setStats] = useState<any>(null)
+  const [isEditingLocation, setIsEditingLocation] = useState(false)
+  const [newDestination, setNewDestination] = useState('')
 
   useEffect(() => {
     if (id) {
@@ -219,6 +221,26 @@ export const TripDetailPage: React.FC = () => {
     }
   }
 
+  const handleLocationEdit = () => {
+    setNewDestination(trip?.destination || '')
+    setIsEditingLocation(true)
+  }
+
+  const saveLocationChange = async () => {
+    if (!trip || !id || !newDestination.trim()) return
+    
+    try {
+      const updatedTrip = { ...trip, destination: newDestination.trim() }
+      await tripService.updateTrip(id, updatedTrip)
+      setTrip(updatedTrip)
+      setIsEditingLocation(false)
+      alert('Location updated successfully!')
+    } catch (error) {
+      console.error('Failed to update location:', error)
+      alert('Failed to update location')
+    }
+  }
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -253,9 +275,16 @@ export const TripDetailPage: React.FC = () => {
             <div className="lg:col-span-2">
               <h1 className="text-4xl lg:text-5xl font-bold mb-4">{trip.tripTitle}</h1>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                <div className="flex items-center bg-white/20 rounded-lg px-3 py-2">
+                <div className="flex items-center bg-white/20 rounded-lg px-3 py-2 relative group">
                   <MapPin className="w-4 h-4 mr-2" />
                   <span>{trip.destination}</span>
+                  <button
+                    onClick={handleLocationEdit}
+                    className="ml-2 opacity-0 group-hover:opacity-100 transition-opacity"
+                    title="Edit location"
+                  >
+                    <Edit3 className="w-3 h-3" />
+                  </button>
                 </div>
                 <div className="flex items-center bg-white/20 rounded-lg px-3 py-2">
                   <Clock className="w-4 h-4 mr-2" />
@@ -378,6 +407,41 @@ export const TripDetailPage: React.FC = () => {
             </div>
           </div>
         </div>
+
+        {isEditingLocation && (
+          <Card className="mb-8 bg-gradient-to-r from-teal-50 to-blue-50 border-teal-200">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center">
+                  <MapPin className="w-5 h-5 text-teal-600 mr-2" />
+                  <h3 className="text-lg font-semibold text-gray-900">Edit Trip Location</h3>
+                </div>
+                <button
+                  onClick={() => setIsEditingLocation(false)}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  ✕
+                </button>
+              </div>
+              <input
+                type="text"
+                value={newDestination}
+                onChange={(e) => setNewDestination(e.target.value)}
+                placeholder="Enter new destination"
+                className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent mb-4"
+              />
+              <div className="flex gap-3">
+                <Button onClick={saveLocationChange} className="flex-1">
+                  <Save className="w-4 h-4 mr-2" />
+                  Save Location
+                </Button>
+                <Button onClick={() => setIsEditingLocation(false)} variant="outline" className="flex-1">
+                  Cancel
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {showNotes && (
           <Card className="mb-8 bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200">
