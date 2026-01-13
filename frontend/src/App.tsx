@@ -4,6 +4,8 @@ import { ConfigProvider, useConfig } from './contexts/ConfigContext'
 import { AppProvider } from './contexts/AppContext'
 import { AuthProvider } from './contexts/AuthContext'
 import { Layout } from './components/Layout'
+import ErrorBoundary from './components/ErrorBoundaryNew'
+import { RouteErrorBoundary } from './components/RouteErrorBoundary'
 import { LoginPage } from './pages/LoginPage'
 import { RegisterPage } from './pages/RegisterPage'
 import { TripDetailPage } from './pages/TripDetailPage'
@@ -59,10 +61,12 @@ const AppContent: React.FC = () => {
   }
 
   return (
-    <AuthProvider>
-      <AppProvider>
-        <Router>
-          <Routes>
+    <ErrorBoundary>
+      <AuthProvider>
+        <AppProvider>
+          <Router>
+            <RouteErrorBoundary>
+              <Routes>
             <Route path="/login" element={<LoginPage />} />
             <Route path="/register" element={<RegisterPage />} />
             <Route path="/privacy-policy" element={<PrivacyPolicyPage />} />
@@ -84,18 +88,22 @@ const AppContent: React.FC = () => {
 
             <Route path="/*" element={<Layout />} />
             <Route path="*" element={<NotFoundPage />} />
-          </Routes>
-        </Router>
-      </AppProvider>
-    </AuthProvider>
+              </Routes>
+            </RouteErrorBoundary>
+          </Router>
+        </AppProvider>
+      </AuthProvider>
+    </ErrorBoundary>
   )
 }
 
 function App() {
   return (
-    <ConfigProvider>
-      <AppContent />
-    </ConfigProvider>
+    <ErrorBoundary>
+      <ConfigProvider>
+        <AppContent />
+      </ConfigProvider>
+    </ErrorBoundary>
   )
 }
 
