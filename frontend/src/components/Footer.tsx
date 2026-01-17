@@ -96,6 +96,11 @@ export const Footer: React.FC = () => {
                   Travel Blog
                 </Link>
               </li>
+              <li>
+                <Link to="/privacy-policy" className="text-gray-400 hover:text-white transition-colors text-sm">
+                  Privacy Policy
+                </Link>
+              </li>
             </ul>
           </div>
 
@@ -120,14 +125,16 @@ export const Footer: React.FC = () => {
           <p className="text-gray-400 text-sm">
             © 2024 TravelBuddy. All rights reserved.
           </p>
-          <div className="flex space-x-6 mt-4 md:mt-0">
-            <Link to="/privacy" className="text-gray-400 hover:text-white text-sm transition-colors">
+          <div className="flex flex-wrap gap-4 mt-4 md:mt-0 justify-center md:justify-end">
+            <Link to="/privacy-policy" className="text-gray-400 hover:text-white text-sm transition-colors">
               Privacy Policy
             </Link>
-            <Link to="/terms" className="text-gray-400 hover:text-white text-sm transition-colors">
+            <span className="text-gray-600">•</span>
+            <Link to="/terms-of-service" className="text-gray-400 hover:text-white text-sm transition-colors">
               Terms of Service
             </Link>
-            <Link to="/cookies" className="text-gray-400 hover:text-white text-sm transition-colors">
+            <span className="text-gray-600">•</span>
+            <Link to="/cookie-policy" className="text-gray-400 hover:text-white text-sm transition-colors">
               Cookie Policy
             </Link>
           </div>

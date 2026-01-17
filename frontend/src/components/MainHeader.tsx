@@ -27,7 +27,10 @@ const navigationItems = [
       { label: 'Find an Agent', path: '/services', icon: Users },
       { label: 'About Us', path: '/about', icon: BookOpen },
       { label: 'Contact Us', path: '/contact', icon: Mail },
-      { label: 'Help Center', path: '/help', icon: BookOpen }
+      { label: 'Help Center', path: '/help', icon: BookOpen },
+      { label: 'Privacy Policy', path: '/privacy-policy', icon: Mail },
+      { label: 'Terms of Service', path: '/terms-of-service', icon: BookOpen },
+      { label: 'Cookie Policy', path: '/cookie-policy', icon: BookOpen }
     ]
   }
 ]

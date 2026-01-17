@@ -19,6 +19,9 @@ import { CommunityPage } from '../pages/CommunityPage'
 import { EventsPage } from '../pages/EventsPage'
 import { AboutPage } from '../pages/AboutPage'
 import { ContactPage } from '../pages/ContactPage'
+import { PrivacyPolicyPage } from '../pages/PrivacyPolicyPage'
+import TermsOfServicePage from '../pages/TermsOfServicePage'
+import CookiePolicyPage from '../pages/CookiePolicyPage'
 import { Breadcrumbs } from './Breadcrumbs'
 import { useApp } from '../contexts/AppContext'
 import { useAuth } from '../contexts/AuthContext'
@@ -94,6 +97,12 @@ export const Layout: React.FC = () => {
         return <AboutPage />
       case '/contact':
         return <ContactPage />
+      case '/privacy-policy':
+        return <PrivacyPolicyPage />
+      case '/terms-of-service':
+        return <TermsOfServicePage />
+      case '/cookie-policy':
+        return <CookiePolicyPage />
       case '/profile':
         return <ProfilePage />
       case '/preferences':

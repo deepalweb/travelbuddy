@@ -1,13 +1,58 @@
 import React from 'react';
+import { Scale, CheckCircle, AlertCircle, Shield, DollarSign, Users, AlertTriangle } from 'lucide-react'
 
 const TermsOfServicePage: React.FC = () => {
   return (
-    <div className="min-h-screen bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-4xl mx-auto bg-white rounded-lg shadow-md p-8">
-        <h1 className="text-4xl font-bold text-gray-900 mb-4">Terms of Service</h1>
-        <p className="text-sm text-gray-600 mb-8">Last Updated: January 2025</p>
+    <div className="min-h-screen bg-gray-50">
+      {/* Hero Section */}
+      <div className="bg-gradient-to-br from-red-600 to-red-800 text-white py-16 md:py-24">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center gap-4 mb-4">
+            <Scale className="w-12 h-12" />
+            <h1 className="text-4xl md:text-5xl font-bold">Terms of Service</h1>
+          </div>
+          <p className="text-red-100 text-lg">Understand the rules and responsibilities for using TravelBuddy.</p>
+          <p className="text-red-200 text-sm mt-4">Last Updated: January 2026</p>
+        </div>
+      </div>
 
-        <div className="space-y-6 text-gray-700">
+      {/* Content */}
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+        {/* Table of Contents */}
+        <div className="bg-white rounded-xl shadow-sm p-8 mb-12 border border-gray-200">
+          <h2 className="text-2xl font-bold text-gray-900 mb-6">Table of Contents</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {Array.from({ length: 17 }).map((_, idx) => (
+              <a
+                key={idx}
+                href={`#section-${idx + 1}`}
+                className="text-red-600 hover:text-red-700 hover:underline transition-colors text-sm"
+              >
+                {idx + 1}. {[
+                  'Acceptance of Terms',
+                  'Description of Service',
+                  'User Accounts',
+                  'User Conduct',
+                  'Content',
+                  'Merchant Terms',
+                  'Payments',
+                  'Intellectual Property',
+                  'Third-Party Services',
+                  'Disclaimers',
+                  'Limitation of Liability',
+                  'Indemnification',
+                  'Termination',
+                  'Dispute Resolution',
+                  'Changes to Terms',
+                  'Governing Law',
+                  'Contact Information'
+                ][idx]}
+              </a>
+            ))}
+          </div>
+        </div>
+
+        <div className="space-y-8 text-gray-700">
           <section>
             <h2 className="text-2xl font-semibold text-gray-900 mb-3">1. Acceptance of Terms</h2>
             <p>
@@ -240,10 +285,15 @@ const TermsOfServicePage: React.FC = () => {
           </section>
         </div>
 
-        <div className="mt-12 pt-6 border-t border-gray-200">
-          <p className="text-sm text-gray-600 text-center">
-            By using TravelBuddy, you agree to these Terms of Service and our{' '}
-            <a href="/privacy-policy" className="text-blue-600 hover:underline">Privacy Policy</a>.
+        {/* Footer */}
+        <div className="bg-red-50 rounded-lg p-6 mt-12 border-t-4 border-red-600">
+          <p className="text-gray-700 text-sm mb-4">
+            <strong>By using TravelBuddy:</strong> You acknowledge that you have read, understood, and agree to be bound 
+            by these Terms of Service, our Privacy Policy, and Cookie Policy.
+          </p>
+          <p className="text-gray-700 text-sm">
+            <strong>Last Updated:</strong> January 17, 2026. These Terms are effective immediately for new users and 
+            will be effective within 30 days for existing users.
           </p>
         </div>
       </div>

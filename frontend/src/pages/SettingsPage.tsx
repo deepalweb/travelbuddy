@@ -2,7 +2,8 @@ import React, { useState } from 'react'
 import { useAuth } from '../contexts/AuthContext'
 import { Card, CardContent, CardHeader, CardTitle } from '../components/Card'
 import { Button } from '../components/Button'
-import { Settings, Shield, Eye, Trash2, Download, Lock, AlertTriangle } from 'lucide-react'
+import { Settings, Shield, Eye, Trash2, Download, Lock, AlertTriangle, FileText } from 'lucide-react'
+import { Link } from 'react-router-dom'
 
 export const SettingsPage: React.FC = () => {
   const { user, logout } = useAuth()
@@ -150,6 +151,41 @@ export const SettingsPage: React.FC = () => {
                   {loading ? 'Exporting...' : 'Export'}
                 </Button>
               </div>
+            </CardContent>
+          </Card>
+
+          {/* Legal & Policies */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center">
+                <FileText className="w-5 h-5 mr-2" />
+                Legal & Policies
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <Link to="/privacy-policy" className="flex items-center justify-between p-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
+                <div>
+                  <p className="font-medium text-gray-900">Privacy Policy</p>
+                  <p className="text-sm text-gray-500">How we handle your data</p>
+                </div>
+                <span className="text-gray-400">→</span>
+              </Link>
+              
+              <Link to="/terms-of-service" className="flex items-center justify-between p-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
+                <div>
+                  <p className="font-medium text-gray-900">Terms of Service</p>
+                  <p className="text-sm text-gray-500">Our service terms and conditions</p>
+                </div>
+                <span className="text-gray-400">→</span>
+              </Link>
+              
+              <Link to="/cookie-policy" className="flex items-center justify-between p-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
+                <div>
+                  <p className="font-medium text-gray-900">Cookie Policy</p>
+                  <p className="text-sm text-gray-500">How we use cookies and tracking</p>
+                </div>
+                <span className="text-gray-400">→</span>
+              </Link>
             </CardContent>
           </Card>
 
