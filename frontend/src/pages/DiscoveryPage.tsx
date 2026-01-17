@@ -1,28 +1,22 @@
 import React, { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { SearchBar } from '../components/SearchBar'
-import { Card, CardContent, CardHeader, CardTitle } from '../components/Card'
 import { Badge } from '../components/Badge'
 import { Button } from '../components/Button'
-import { PlaceCardSkeleton } from '../components/SkeletonLoader'
 import { ErrorState } from '../components/ErrorState'
 import { EmptyState } from '../components/EmptyState'
 import { SearchFilters } from '../components/SearchFilters'
-
+import PlaceCard from '../components/PlaceCard'
+import ResultsHeader from '../components/ResultsHeader'
+import SelectedPlacesSummary from '../components/SelectedPlacesSummary'
+import QuickAccessButtons from '../components/QuickAccessButtons'
+import LoadingState from '../components/LoadingState'
+import PlaceGridDisplay from '../components/PlaceGridDisplay'
+import ExploreMoreButton from '../components/ExploreMoreButton'
 
 import { apiService } from '../lib/api'
 import { 
-  MapPin, 
-  Star, 
-  Clock, 
-  Phone, 
-  Globe, 
-  Navigation,
-  Sparkles,
-  TrendingUp,
-  Check,
-  Plus,
-  Plane
+  Sparkles
 } from 'lucide-react'
 
 // Global cache outside component to persist across navigation
@@ -306,347 +300,73 @@ const DiscoveryPage: React.FC = () => {
       </div>
 
       {/* Region Quick Access Shortcuts */}
-      <div className="bg-white border-b border-gray-100 py-6">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex flex-col items-center gap-4">
-            {/* Country Dropdown */}
-            <div className="flex items-center gap-3">
-              <span className="text-sm font-medium text-gray-700">Explore by Country:</span>
-              <select 
-                className="px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                onChange={(e) => e.target.value && handleSearch(`best places in ${e.target.value}`, true)}
-                defaultValue=""
-              >
-                <option value="">Select a country</option>
-                <option value="Japan">🇯🇵 Japan</option>
-                <option value="France">🇫🇷 France</option>
-                <option value="Italy">🇮🇹 Italy</option>
-                <option value="Thailand">🇹🇭 Thailand</option>
-                <option value="United States">🇺🇸 United States</option>
-                <option value="United Kingdom">🇬🇧 United Kingdom</option>
-                <option value="Spain">🇪🇸 Spain</option>
-                <option value="Germany">🇩🇪 Germany</option>
-                <option value="Australia">🇦🇺 Australia</option>
-                <option value="Canada">🇨🇦 Canada</option>
-                <option value="India">🇮🇳 India</option>
-                <option value="China">🇨🇳 China</option>
-                <option value="Brazil">🇧🇷 Brazil</option>
-                <option value="Mexico">🇲🇽 Mexico</option>
-                <option value="Sri Lanka">🇱🇰 Sri Lanka</option>
-              </select>
-            </div>
-            
-            {/* Region Chips */}
-            <div className="flex flex-wrap justify-center gap-3">
-              {[
-                { label: '🌍 Asia', query: 'attractions in Asia' },
-                { label: '🇪🇺 Europe', query: 'attractions in Europe' },
-                { label: '🇺🇸 Americas', query: 'attractions in Americas' },
-                { label: '🌊 Islands', query: 'tropical islands destinations' },
-                { label: '🏔️ Mountains', query: 'mountain destinations' },
-                { label: '🏛️ Culture', query: 'cultural attractions museums' }
-              ].map((region) => (
-                <Button
-                  key={region.label}
-                  variant="outline"
-                  size="sm"
-                  onClick={() => handleSearch(region.query, true)}
-                  className="border-gray-300 text-gray-700 hover:bg-blue-50 hover:border-blue-300 hover:text-blue-700 transition-colors"
-                >
-                  {region.label}
-                </Button>
-              ))}
-            </div>
-          </div>
-        </div>
-      </div>
+      <QuickAccessButtons 
+        onCountrySelect={(country) => handleSearch(`best places in ${country}`, true)}
+        onRegionSelect={(query) => handleSearch(query, true)}
+        loading={loading}
+      />
 
       {/* Results Section */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         {loading && (
-          <>
-            <div className="text-center py-8">
-              <div className="max-w-md mx-auto">
-                <div className="inline-flex items-center mb-4">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mr-3"></div>
-                  <span className="text-lg text-gray-700 font-medium">{loadingStage}</span>
-                </div>
-                {/* Progress Bar */}
-                <div className="w-full bg-gray-200 rounded-full h-2 mb-2">
-                  <div 
-                    className="bg-gradient-to-r from-blue-600 to-purple-600 h-2 rounded-full transition-all duration-300"
-                    style={{ width: `${loadingProgress}%` }}
-                  ></div>
-                </div>
-                <p className="text-sm text-gray-500">{loadingProgress}% complete</p>
-              </div>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-              {Array.from({ length: 8 }).map((_, i) => (
-                <PlaceCardSkeleton key={i} />
-              ))}
-            </div>
-          </>
+          <LoadingState 
+            stage={loadingStage} 
+            progress={loadingProgress}
+            skeletonCount={8}
+          />
         )}
 
         {searchContext && !loading && (
-          <div className="mb-8">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center">
-                <TrendingUp className="h-5 w-5 text-blue-600 mr-2" />
-                <h2 className="text-2xl font-bold text-gray-900">Discovery Results</h2>
-              </div>
-              <div className="flex items-center space-x-3">
-                <Button
-                  onClick={() => setShowFilters(true)}
-                  variant="outline"
-                  size="sm"
-                  className="flex items-center"
-                >
-                  <Navigation className="h-4 w-4 mr-2" />
-                  Filters
-                  {(activeFilters.category.length > 0 || activeFilters.priceRange.length > 0 || activeFilters.rating > 0 || activeFilters.openNow) && (
-                    <span className="ml-2 bg-blue-600 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
-                      {activeFilters.category.length + activeFilters.priceRange.length + (activeFilters.rating > 0 ? 1 : 0) + (activeFilters.openNow ? 1 : 0)}
-                    </span>
-                  )}
-                </Button>
-                <Button
-                  onClick={() => setShowMap(!showMap)}
-                  variant="outline"
-                  size="sm"
-                  className="flex items-center"
-                >
-                  <MapPin className="h-4 w-4 mr-2" />
-                  {showMap ? 'Hide Map' : 'Show Map'}
-                </Button>
-                {selectedPlaces.length > 0 && (
-                  <Button
-                    onClick={handleGenerateTrip}
-                    className="bg-gradient-to-r from-green-600 to-teal-600 hover:from-green-700 hover:to-teal-700 text-white"
-                  >
-                    <Plane className="h-4 w-4 mr-2" />
-                    Generate Trip ({selectedPlaces.length})
-                  </Button>
-                )}
-              </div>
-            </div>
-            <p className="text-gray-600">{searchContext}</p>
-            <p className="text-sm text-gray-500 mt-1">
-              Found {places.length} places{filteredPlaces.length < places.length && ` • Showing ${filteredPlaces.length} after filters`} • Semantic AI Search
-              {searchCache.has(searchQuery.toLowerCase().trim()) && ' • Cached'}
-              {selectedPlaces.length > 0 && ` • ${selectedPlaces.length} selected for trip`}
-            </p>
-          </div>
+          <ResultsHeader
+            searchContext={searchContext}
+            placesCount={places.length}
+            filteredCount={filteredPlaces.length}
+            selectedCount={selectedPlaces.length}
+            filterCount={
+              activeFilters.category.length + 
+              activeFilters.priceRange.length + 
+              (activeFilters.rating > 0 ? 1 : 0) + 
+              (activeFilters.openNow ? 1 : 0)
+            }
+            showMap={showMap}
+            loading={loading}
+            onToggleFilters={() => setShowFilters(true)}
+            onToggleMap={() => setShowMap(!showMap)}
+            onGenerateTrip={handleGenerateTrip}
+          />
         )}
 
         {places.length > 0 && !loading && (
           <>
+            <PlaceGridDisplay 
+              places={filteredPlaces.length > 0 ? filteredPlaces : places}
+              selectedPlaceIds={selectedPlaces.map(p => p.id)}
+              onSelectPlace={togglePlaceSelection}
+              onSavePlace={(place) => {
+                console.log('Save place:', place)
+                // TODO: Implement save functionality
+              }}
+              onViewDetails={(path, state) => navigate(path, state)}
+              getCategoryColor={getCategoryColor}
+              getPriceLevelColor={getPriceLevelColor}
+              emptyMessage="No places found"
+            />
 
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-              {(filteredPlaces.length > 0 ? filteredPlaces : places).map((place) => (
-                <Card key={place.id} className="overflow-hidden hover:shadow-xl transition-all duration-300 hover:scale-105 hover:-translate-y-1 group">
-                  <div className="relative">
-                    <div className="relative w-full h-48 bg-gray-200 overflow-hidden">
-                      <img 
-                        src={place.image || `https://source.unsplash.com/800x600/?${encodeURIComponent(place.name)},${encodeURIComponent(place.category)},${encodeURIComponent(place.location.city)}`} 
-                        alt={place.name}
-                        className="w-full h-48 object-cover transition-all duration-300 hover:scale-105"
-                        loading="lazy"
-                        onLoad={(e) => {
-                          const target = e.target as HTMLImageElement
-                          target.style.opacity = '1'
-                          const loader = target.parentElement?.querySelector('.image-loader')
-                          if (loader) loader.classList.add('hidden')
-                        }}
-                        onError={(e) => {
-                          const target = e.target as HTMLImageElement
-                          const loader = target.parentElement?.querySelector('.image-loader')
-                          if (loader) loader.classList.add('hidden')
-                          
-                          if (!target.src.includes('source.unsplash.com')) {
-                            target.src = `https://source.unsplash.com/800x600/?${encodeURIComponent(place.category)},${encodeURIComponent(place.location.country)},travel`
-                          } else if (!target.src.includes('picsum.photos')) {
-                            target.src = `https://picsum.photos/seed/${Math.abs(place.name.split('').reduce((a, b) => { a = ((a << 5) - a) + b.charCodeAt(0); return a & a; }, 0))}/800/600`
-                          } else {
-                            target.style.display = 'none'
-                            const placeholder = target.parentElement?.querySelector('.image-placeholder')
-                            if (placeholder) placeholder.classList.remove('hidden')
-                          }
-                        }}
-                        style={{ opacity: 0 }}
-                      />
-                      <div className="image-loader absolute inset-0 flex items-center justify-center bg-gray-100">
-                        <div className="animate-pulse flex items-center justify-center">
-                          <div className="w-8 h-8 bg-gray-300 rounded-full animate-bounce"></div>
-                        </div>
-                      </div>
-                      <div className="image-placeholder hidden absolute inset-0 flex items-center justify-center bg-gradient-to-br from-blue-100 to-purple-100">
-                        <div className="text-center">
-                          <MapPin className="h-12 w-12 text-gray-400 mx-auto mb-2" />
-                          <p className="text-sm text-gray-500 font-medium">{place.category}</p>
-                          <p className="text-xs text-gray-400">{place.name}</p>
-                        </div>
-                      </div>
-                    </div>
-                    <div className="absolute top-3 left-3">
-                      <Badge className={getCategoryColor(place.category)}>
-                        {place.category}
-                      </Badge>
-                    </div>
-                    <div className="absolute top-3 right-3">
-                      <Badge className="bg-white text-gray-800">
-                        <Star className="h-3 w-3 mr-1 fill-current text-yellow-500" />
-                        {place.rating}
-                      </Badge>
-                    </div>
-                  </div>
-                  
-                  <CardContent className="p-4">
-                    <div className="mb-3">
-                      <h3 className="font-bold text-lg text-gray-900 mb-1">{place.name}</h3>
-                      <div className="flex items-center text-sm text-gray-600 mb-2">
-                        <MapPin className="h-4 w-4 mr-1" />
-                        <span>{place.location.city}, {place.location.country}</span>
-                        <span className={`ml-2 font-semibold ${getPriceLevelColor(place.priceLevel)}`}>
-                          {place.priceLevel}
-                        </span>
-                      </div>
-                    </div>
+            {/* Selected Places Summary */}
+            <SelectedPlacesSummary
+              selectedPlaces={selectedPlaces}
+              onGenerateTrip={handleGenerateTrip}
+              onRemovePlace={(placeId) => {
+                setSelectedPlaces(prev => prev.filter(p => p.id !== placeId))
+              }}
+            />
 
-                    <p className="text-sm text-gray-600 mb-3 line-clamp-3">
-                      {place.description}
-                    </p>
-
-                    {/* Highlights */}
-                    <div className="mb-3">
-                      <div className="flex flex-wrap gap-1">
-                        {place.highlights.slice(0, 3).map((highlight, index) => (
-                          <Badge key={index} variant="outline" className="text-xs">
-                            {highlight}
-                          </Badge>
-                        ))}
-                      </div>
-                    </div>
-
-                    {/* Contact Info */}
-                    <div className="space-y-2 text-xs text-gray-500">
-                      {place.openHours && (
-                        <div className="flex items-center">
-                          <Clock className="h-3 w-3 mr-1" />
-                          <span>{place.openHours}</span>
-                        </div>
-                      )}
-                      {place.contact?.phone && place.contact.phone !== 'Not available' && (
-                        <div className="flex items-center">
-                          <Phone className="h-3 w-3 mr-1" />
-                          <span>{place.contact.phone}</span>
-                        </div>
-                      )}
-                      {place.contact?.website && (
-                        <div className="flex items-center">
-                          <Globe className="h-3 w-3 mr-1" />
-                          <a 
-                            href={place.contact.website} 
-                            target="_blank" 
-                            rel="noopener noreferrer"
-                            className="text-blue-600 hover:underline"
-                          >
-                            Visit Website
-                          </a>
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Action Buttons */}
-                    <div className="mt-4 space-y-2">
-                      <div className="flex gap-2">
-                        <Button 
-                          size="sm" 
-                          variant={isPlaceSelected(place) ? "default" : "outline"}
-                          className={`flex-1 ${isPlaceSelected(place) 
-                            ? 'bg-blue-600 text-white hover:bg-blue-700' 
-                            : 'border-blue-600 text-blue-600 hover:bg-blue-600 hover:text-white'
-                          }`}
-                          onClick={() => togglePlaceSelection(place)}
-                        >
-                          {isPlaceSelected(place) ? (
-                            <><Check className="h-3 w-3 mr-1" />Selected</>
-                          ) : (
-                            <><Plus className="h-3 w-3 mr-1" />Select</>
-                          )}
-                        </Button>
-                        <Button size="sm" variant="outline" className="flex-1 border-purple-600 text-purple-600 hover:bg-purple-600 hover:text-white">
-                          Save
-                        </Button>
-                      </div>
-                      <Button 
-                        size="sm" 
-                        className="w-full bg-gradient-to-r from-green-600 to-teal-600 hover:from-green-700 hover:to-teal-700 text-white border-none"
-                        onClick={() => navigate(`/places/${place.id}`, { state: { placeData: place } })}
-                      >
-                        <Sparkles className="h-3 w-3 mr-1" />
-                        More Details
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-            
-            {/* Action Buttons */}
-            {places.length > 0 && (
-              <div className="text-center mt-8 space-y-4">
-                {selectedPlaces.length > 0 && (
-                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <h3 className="font-semibold text-blue-900">Selected Places for Trip</h3>
-                        <p className="text-sm text-blue-700">
-                          {selectedPlaces.length} place{selectedPlaces.length !== 1 ? 's' : ''} selected
-                        </p>
-                      </div>
-                      <Button
-                        onClick={handleGenerateTrip}
-                        className="bg-gradient-to-r from-green-600 to-teal-600 hover:from-green-700 hover:to-teal-700 text-white"
-                      >
-                        <Plane className="h-4 w-4 mr-2" />
-                        Generate Trip
-                      </Button>
-                    </div>
-                    <div className="mt-3 flex flex-wrap gap-2">
-                      {selectedPlaces.map((place) => (
-                        <Badge key={place.id} className="bg-blue-100 text-blue-800">
-                          {place.name}
-                        </Badge>
-                      ))}
-                    </div>
-                  </div>
-                )}
-                
-                <Button 
-                  onClick={handleExploreMore}
-                  disabled={loadingMore}
-                  className="px-8 py-3 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white border-none"
-                >
-                  {loadingMore ? (
-                    <>
-                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                      Loading More...
-                    </>
-                  ) : (
-                    <>
-                      <Sparkles className="h-4 w-4 mr-2" />
-                      Explore More Places
-                    </>
-                  )}
-                </Button>
-                <p className="text-sm text-gray-500 mt-2">
-                  Showing {places.length} places • Click to discover more
-                </p>
-              </div>
-            )}
+            {/* Explore More Button */}
+            <ExploreMoreButton
+              loading={loadingMore}
+              placesCount={places.length}
+              onClick={handleExploreMore}
+            />
           </>
         )}
 
