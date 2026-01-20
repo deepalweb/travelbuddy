@@ -9,6 +9,10 @@ export default defineConfig({
       '@': path.resolve(__dirname, './src'),
     },
   },
+  define: {
+    // Inject environment variables as global window properties
+    'window.__GOOGLE_MAPS_API_KEY__': JSON.stringify(process.env.VITE_GOOGLE_MAPS_API_KEY || 'AIzaSyDTV_5KiXOuYRtG2TEMIvrHPCsht3sSWEQ'),
+  },
   build: {
     rollupOptions: {
       output: {

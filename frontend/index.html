@@ -39,15 +39,14 @@
     </script>
     
     <!-- Google Maps API -->
-    <!-- The API key is loaded dynamically from environment variables during build -->
+    <!-- The API key is injected by Vite from environment variables during build -->
     <script>
       // Default fallback key (original key with IP restrictions)
       const DEFAULT_API_KEY = 'AIzaSyDTV_5KiXOuYRtG2TEMIvrHPCsht3sSWEQ';
       
-      // This will be replaced by Vite during build with the value from .env
-      const API_KEY = 'VITE_GOOGLE_MAPS_API_KEY' !== 'VITE_GOOGLE_MAPS_API_KEY' 
-        ? 'VITE_GOOGLE_MAPS_API_KEY'
-        : DEFAULT_API_KEY;
+      // Get API key from global variable injected by Vite
+      // This is set in vite.config.ts using the define option
+      const API_KEY = window.__GOOGLE_MAPS_API_KEY__ || DEFAULT_API_KEY;
       
       // Create and configure the script tag
       const script = document.createElement('script');
