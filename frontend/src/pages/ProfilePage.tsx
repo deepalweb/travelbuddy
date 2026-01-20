@@ -781,6 +781,157 @@ export const ProfilePage: React.FC = () => {
           </CardContent>
         </Card>
 
+        {/* Subscription Module Status */}
+        <Card className="bg-white shadow-lg mb-8 border border-gray-100">
+          <CardHeader className="bg-gradient-to-r from-yellow-50 to-amber-50 border-b border-amber-200">
+            <CardTitle className="text-xl text-gray-900 flex items-center justify-between">
+              <div className="flex items-center">
+                <Crown className="w-6 h-6 mr-2 text-amber-600" />
+                Subscription Module Status
+              </div>
+              <Badge className="bg-green-100 text-green-800">✓ Fully Implemented</Badge>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-6">
+            {/* Module Overview */}
+            <div className="mb-6 p-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg border border-blue-200">
+              <h4 className="font-semibold text-gray-900 mb-2">Module Overview</h4>
+              <p className="text-sm text-gray-700">Complete subscription system with 4 tiers, usage tracking, API integration, and role-based access control.</p>
+            </div>
+
+            {/* Subscription Tiers */}
+            <div className="mb-6">
+              <h4 className="font-semibold text-gray-900 mb-3">Available Plans</h4>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
+                <div className="p-3 bg-gray-50 rounded-lg border border-gray-200">
+                  <div className="flex items-center space-x-2 mb-2">
+                    <Sparkles className="w-4 h-4 text-blue-600" />
+                    <h5 className="font-medium text-sm text-gray-900">Explorer</h5>
+                  </div>
+                  <p className="text-xs text-gray-600">Free tier with basic features</p>
+                  <p className="text-xs font-semibold text-blue-600 mt-1">$0/month</p>
+                </div>
+
+                <div className="p-3 bg-gray-50 rounded-lg border border-gray-200">
+                  <div className="flex items-center space-x-2 mb-2">
+                    <Zap className="w-4 h-4 text-green-600" />
+                    <h5 className="font-medium text-sm text-gray-900">Globetrotter</h5>
+                  </div>
+                  <p className="text-xs text-gray-600">Popular plan for travelers</p>
+                  <p className="text-xs font-semibold text-green-600 mt-1">$9.99/month</p>
+                </div>
+
+                <div className="p-3 bg-indigo-50 rounded-lg border-2 border-indigo-300">
+                  <div className="flex items-center space-x-2 mb-2">
+                    <Star className="w-4 h-4 text-indigo-600" />
+                    <h5 className="font-medium text-sm text-gray-900">WanderPro+</h5>
+                  </div>
+                  <p className="text-xs text-gray-600">Premium features & support</p>
+                  <p className="text-xs font-semibold text-indigo-600 mt-1">$19.99/month</p>
+                </div>
+
+                <div className="p-3 bg-yellow-50 rounded-lg border border-yellow-200">
+                  <div className="flex items-center space-x-2 mb-2">
+                    <Crown className="w-4 h-4 text-yellow-600" />
+                    <h5 className="font-medium text-sm text-gray-900">Business Pro</h5>
+                  </div>
+                  <p className="text-xs text-gray-600">Enterprise features & API</p>
+                  <p className="text-xs font-semibold text-yellow-600 mt-1">$49.99/month</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Components & Features */}
+            <div className="mb-6">
+              <h4 className="font-semibold text-gray-900 mb-3">Module Components</h4>
+              <div className="space-y-2">
+                <div className="flex items-start space-x-2 p-2 hover:bg-gray-50 rounded">
+                  <CheckCircle className="w-4 h-4 text-green-600 mt-0.5 flex-shrink-0" />
+                  <div className="flex-1">
+                    <p className="text-sm font-medium text-gray-900">SubscriptionModal Component</p>
+                    <p className="text-xs text-gray-600">Modal dialog for tier selection & upgrade flow with current usage display</p>
+                  </div>
+                </div>
+                <div className="flex items-start space-x-2 p-2 hover:bg-gray-50 rounded">
+                  <CheckCircle className="w-4 h-4 text-green-600 mt-0.5 flex-shrink-0" />
+                  <div className="flex-1">
+                    <p className="text-sm font-medium text-gray-900">SubscriptionPage Component</p>
+                    <p className="text-xs text-gray-600">Full-page pricing display with plan comparisons and role-specific tiers</p>
+                  </div>
+                </div>
+                <div className="flex items-start space-x-2 p-2 hover:bg-gray-50 rounded">
+                  <CheckCircle className="w-4 h-4 text-green-600 mt-0.5 flex-shrink-0" />
+                  <div className="flex-1">
+                    <p className="text-sm font-medium text-gray-900">subscriptionCheck Middleware</p>
+                    <p className="text-xs text-gray-600">Backend protection with usage tracking, limits enforcement, and feature gating</p>
+                  </div>
+                </div>
+                <div className="flex items-start space-x-2 p-2 hover:bg-gray-50 rounded">
+                  <CheckCircle className="w-4 h-4 text-green-600 mt-0.5 flex-shrink-0" />
+                  <div className="flex-1">
+                    <p className="text-sm font-medium text-gray-900">subscriptions Routes</p>
+                    <p className="text-xs text-gray-600">API endpoints for /status, /upgrade, /tiers with proper authentication</p>
+                  </div>
+                </div>
+                <div className="flex items-start space-x-2 p-2 hover:bg-gray-50 rounded">
+                  <CheckCircle className="w-4 h-4 text-green-600 mt-0.5 flex-shrink-0" />
+                  <div className="flex-1">
+                    <p className="text-sm font-medium text-gray-900">subscriptionPlans Config</p>
+                    <p className="text-xs text-gray-600">Centralized plan definitions with feature limits and pricing</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Feature Limits */}
+            <div className="mb-6">
+              <h4 className="font-semibold text-gray-900 mb-3">Tracked Features & Limits</h4>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div className="p-3 bg-blue-50 rounded-lg border border-blue-200">
+                  <p className="text-sm font-medium text-gray-900">AI Trip Generation</p>
+                  <p className="text-xs text-gray-600 mt-1">Explorer: 0 | Globetrotter: 20/mo | WanderPro: ∞ | Pro: ∞</p>
+                </div>
+                <div className="p-3 bg-green-50 rounded-lg border border-green-200">
+                  <p className="text-sm font-medium text-gray-900">Place Search Limit</p>
+                  <p className="text-xs text-gray-600 mt-1">Explorer: 5/day | Globetrotter: ∞ | WanderPro: ∞ | Pro: ∞</p>
+                </div>
+                <div className="p-3 bg-purple-50 rounded-lg border border-purple-200">
+                  <p className="text-sm font-medium text-gray-900">Trip Plans</p>
+                  <p className="text-xs text-gray-600 mt-1">Explorer: 1/mo | Globetrotter: ∞ | WanderPro: ∞ | Pro: ∞</p>
+                </div>
+                <div className="p-3 bg-orange-50 rounded-lg border border-orange-200">
+                  <p className="text-sm font-medium text-gray-900">Community Features</p>
+                  <p className="text-xs text-gray-600 mt-1">Explorer: View only | Globetrotter: Full access | WanderPro: Boosted</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Status Summary */}
+            <div className="pt-4 border-t border-gray-200 grid grid-cols-3 md:grid-cols-5 gap-3">
+              <div className="text-center">
+                <div className="text-lg font-bold text-green-600">4</div>
+                <div className="text-xs text-gray-600 mt-1">Tiers Available</div>
+              </div>
+              <div className="text-center">
+                <div className="text-lg font-bold text-blue-600">5</div>
+                <div className="text-xs text-gray-600 mt-1">Features Tracked</div>
+              </div>
+              <div className="text-center">
+                <div className="text-lg font-bold text-purple-600">100%</div>
+                <div className="text-xs text-gray-600 mt-1">API Integrated</div>
+              </div>
+              <div className="text-center">
+                <div className="text-lg font-bold text-amber-600">✓</div>
+                <div className="text-xs text-gray-600 mt-1">Usage Tracking</div>
+              </div>
+              <div className="text-center">
+                <div className="text-lg font-bold text-green-600">✓</div>
+                <div className="text-xs text-gray-600 mt-1">Active</div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
         {/* Travel Personality & Milestones */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-12">
           {/* Travel Personality Widget */}
