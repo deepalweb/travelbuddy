@@ -7,7 +7,7 @@ import { Avatar } from '../components/Avatar'
 import { Badge } from '../components/Badge'
 import { SubscriptionModal } from '../components/SubscriptionModal'
 import { useUserSecurity } from '../hooks/useUserSecurity'
-import { User, Mail, Edit3, Save, X, MapPin, Calendar, Star, Shield, UserCheck, Crown, Zap, Bell, LogOut, Phone, Globe, Camera, Eye, Lock, Settings, MessageCircle, Heart, FileText, TrendingUp, Users, Car, Briefcase, Award, CheckCircle, AlertCircle, Sparkles, Target, DollarSign, Compass, Trophy, Medal, Flag, Clock, Bookmark, ThumbsUp, Instagram, Linkedin, Twitter, Facebook, Link as LinkIcon, Plane, Wallet, Coffee, Mountain } from 'lucide-react'
+import { User, Mail, Edit3, Save, X, MapPin, Calendar, Star, Shield, UserCheck, Crown, Zap, Bell, LogOut, Phone, Globe, Camera, Eye, Lock, Settings, MessageCircle, Heart, FileText, TrendingUp, Users, Car, Briefcase, Award, CheckCircle, AlertCircle, Sparkles, Target, DollarSign, Compass, Trophy, Medal, Flag, Clock, Bookmark, ThumbsUp, Instagram, Linkedin, Twitter, Facebook, Link as LinkIcon, Plane, Wallet, Coffee, Mountain, BarChart3 } from 'lucide-react'
 import ProfilePictureUpload from '../components/ProfilePictureUpload'
 import { configService } from '../services/configService'
 
