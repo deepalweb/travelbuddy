@@ -8,6 +8,7 @@ interface Story {
   content: string;
   images: string[];
   author: {
+    _id?: string;
     username: string;
     profilePicture?: string;
   };
@@ -85,7 +86,7 @@ export const StoryCard: React.FC<StoryCardProps> = ({ story, onLike, onDelete, o
           
           {showMenu && (
             <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-10">
-              {currentUserId && story.author.username === 'You' && (
+              {currentUserId && (story.author._id === currentUserId || story.author.username === 'You') && (
                 <>
                   <button
                     onClick={() => {
@@ -111,7 +112,7 @@ export const StoryCard: React.FC<StoryCardProps> = ({ story, onLike, onDelete, o
                   </button>
                 </>
               )}
-              {(!currentUserId || story.author.username !== 'You') && (
+              {(!currentUserId || (story.author._id !== currentUserId && story.author.username !== 'You')) && (
                 <div className="px-4 py-2 text-gray-400 text-sm">No actions available</div>
               )}
             </div>

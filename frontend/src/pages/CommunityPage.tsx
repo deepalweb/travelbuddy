@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { Camera, Heart, MessageCircle, Award, TrendingUp, Users, Plus, Map, List, MapPin } from 'lucide-react'
+import { useAuth } from '../contexts/AuthContext'
 import { StoryCard } from '../components/StoryCard'
 import { CreateStoryModal } from '../components/CreateStoryModal'
 import { StoryMap } from '../components/StoryMap'
@@ -12,6 +13,7 @@ interface Story {
   content: string;
   images: string[];
   author: {
+    _id?: string;
     username: string;
     profilePicture?: string;
   };
@@ -30,6 +32,7 @@ interface TopTraveler {
 }
 
 export const CommunityPage: React.FC = () => {
+  const { user } = useAuth()
   const [stories, setStories] = useState<Story[]>([])
   const [topTravelers, setTopTravelers] = useState<TopTraveler[]>([])
   const [loading, setLoading] = useState(true)
@@ -529,7 +532,7 @@ export const CommunityPage: React.FC = () => {
                         onLike={handleLike}
                         onDelete={handleDelete}
                         onEdit={handleEdit}
-                        currentUserId="507f1f77bcf86cd799439011"
+                        currentUserId={user?.uid || user?._id || ''}
                       />
                     </div>
                   ))
