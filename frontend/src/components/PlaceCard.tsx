@@ -1,8 +1,9 @@
-import React from 'react'
-import { MapPin, Star, Clock, Phone, Globe, Check, Plus, Sparkles } from 'lucide-react'
+import React, { useState } from 'react'
+import { MapPin, Star, Clock, Phone, Globe, Check, Plus, Sparkles, Heart, BarChart3 } from 'lucide-react'
 import { Card, CardContent } from './Card'
 import { Badge } from './Badge'
 import { Button } from './Button'
+import { usePlaceStore } from '../store/placeStore'
 
 interface PlaceCardProps {
   place: {
@@ -54,6 +55,33 @@ const PlaceCard: React.FC<PlaceCardProps> = ({
   getPriceLevelColor = (priceLevel: string) => 'text-gray-600',
   onNavigate
 }) => {
+  const { addSavedPlace, isSaved, removeSavedPlace, addToComparison, removeFromComparison, compareSelection } = usePlaceStore()
+  const [isPlaceSaved, setIsPlaceSaved] = useState(isSaved(place.id))
+  const [isInComparison, setIsInComparison] = useState(compareSelection.some(p => p.id === place.id))
+
+  const handleSavePlace = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    if (isPlaceSaved) {
+      removeSavedPlace(place.id)
+      setIsPlaceSaved(false)
+    } else {
+      addSavedPlace(place)
+      setIsPlaceSaved(true)
+    }
+  }
+
+  const handleComparePlace = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    if (isInComparison) {
+      removeFromComparison(place.id)
+      setIsInComparison(false)
+    } else {
+      const added = addToComparison(place)
+      if (added) {
+        setIsInComparison(true)
+      }
+    }
+  }
   const handleImageError = (e: React.SyntheticEvent<HTMLImageElement>) => {
     const target = e.target as HTMLImageElement
     const loader = target.parentElement?.querySelector('.image-loader')
@@ -224,11 +252,30 @@ const PlaceCard: React.FC<PlaceCardProps> = ({
             </Button>
             <Button 
               size="sm" 
-              variant="outline" 
-              className="flex-1 border-purple-600 text-purple-600 hover:bg-purple-600 hover:text-white"
-              onClick={() => onSave?.(place)}
+              variant="outline"
+              className={`flex-1 ${isPlaceSaved 
+                ? 'bg-red-50 border-red-600 text-red-600 hover:bg-red-100' 
+                : 'border-gray-300 text-gray-600 hover:bg-gray-100'
+              }`}
+              onClick={handleSavePlace}
+              title={isPlaceSaved ? "Remove from saved" : "Save to favorites"}
             >
-              Save
+              <Heart className={`h-3 w-3 mr-1 ${isPlaceSaved ? 'fill-current' : ''}`} />
+              {isPlaceSaved ? 'Saved' : 'Save'}
+            </Button>
+            <Button 
+              size="sm" 
+              variant="outline"
+              className={`flex-1 ${isInComparison 
+                ? 'bg-orange-50 border-orange-600 text-orange-600 hover:bg-orange-100' 
+                : 'border-gray-300 text-gray-600 hover:bg-gray-100'
+              }`}
+              onClick={handleComparePlace}
+              disabled={!isInComparison && compareSelection.length >= 3}
+              title={compareSelection.length >= 3 && !isInComparison ? "Maximum 3 places" : "Add to comparison"}
+            >
+              <BarChart3 className={`h-3 w-3 mr-1`} />
+              {isInComparison ? 'Compare' : 'Compare'}
             </Button>
           </div>
           <Button 

@@ -13,6 +13,10 @@ import QuickAccessButtons from '../components/QuickAccessButtons'
 import LoadingState from '../components/LoadingState'
 import PlaceGridDisplay from '../components/PlaceGridDisplay'
 import ExploreMoreButton from '../components/ExploreMoreButton'
+import SortControls from '../components/SortControls'
+import PlaceComparison from '../components/PlaceComparison'
+
+import { usePlaceSorting } from '../hooks/usePlaceSorting'
 
 import { apiService } from '../lib/api'
 import { 
@@ -77,6 +81,9 @@ const DiscoveryPage: React.FC = () => {
   const [activeFilters, setActiveFilters] = useState({ category: [], priceRange: [], rating: 0, location: '', openNow: false, radius: 5000 })
   const [showMap, setShowMap] = useState(false)
   const [filteredPlaces, setFilteredPlaces] = useState<Place[]>([])
+  
+  // Sorting hook
+  const { sortedPlaces, sortBy, setSortBy } = usePlaceSorting(filteredPlaces || places, undefined)
 
   const applyFilters = (placesToFilter: Place[]) => {
     let filtered = [...placesToFilter]
@@ -338,8 +345,23 @@ const DiscoveryPage: React.FC = () => {
 
         {places.length > 0 && !loading && (
           <>
+            {/* Sort Controls */}
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 bg-white border-b border-gray-200">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-lg font-semibold text-gray-800">
+                    Results
+                  </h2>
+                  <p className="text-sm text-gray-500 mt-1">
+                    Showing {sortedPlaces.length} places
+                  </p>
+                </div>
+                <SortControls sortBy={sortBy} onSortChange={setSortBy} />
+              </div>
+            </div>
+
             <PlaceGridDisplay 
-              places={filteredPlaces.length > 0 ? filteredPlaces : places}
+              places={sortedPlaces}
               selectedPlaceIds={selectedPlaces.map(p => p.id)}
               onSelectPlace={togglePlaceSelection}
               onSavePlace={(place) => {
