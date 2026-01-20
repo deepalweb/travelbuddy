@@ -39,7 +39,23 @@
     </script>
     
     <!-- Google Maps API -->
-    <script async defer src="https://maps.googleapis.com/maps/api/js?key=AIzaSyDTV_5KiXOuYRtG2TEMIvrHPCsht3sSWEQ&libraries=places"></script>
+    <!-- The API key is loaded dynamically from environment variables during build -->
+    <script>
+      // Default fallback key (original key with IP restrictions)
+      const DEFAULT_API_KEY = 'AIzaSyDTV_5KiXOuYRtG2TEMIvrHPCsht3sSWEQ';
+      
+      // This will be replaced by Vite during build with the value from .env
+      const API_KEY = 'VITE_GOOGLE_MAPS_API_KEY' !== 'VITE_GOOGLE_MAPS_API_KEY' 
+        ? 'VITE_GOOGLE_MAPS_API_KEY'
+        : DEFAULT_API_KEY;
+      
+      // Create and configure the script tag
+      const script = document.createElement('script');
+      script.src = `https://maps.googleapis.com/maps/api/js?key=${API_KEY}&libraries=places`;
+      script.async = true;
+      script.defer = true;
+      document.head.appendChild(script);
+    </script>
   </head>
   <body>
     <div id="root"></div>

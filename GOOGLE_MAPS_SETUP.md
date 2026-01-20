@@ -14,67 +14,120 @@ Your site URL to be authorized: https://travelbuddylk.com/community
 
 ## Solution
 
-### ⚠️ PRIMARY ISSUE: IP Address Restrictions
-Your API key currently has **IP address restrictions** enabled that **block all client-side requests**.
+### ⚠️ TWO ISSUES DISCOVERED
 
-**Current Restricted IPs:**
-```
-127.0.0.1/32                    (localhost)
-128.85.209.147/32               (Azure backend)
-172.175.18.112/32               (Azure backend)
-20.119.155.0/32                 (Azure backend)
-20.41.42.28/32                  (Azure backend)
-4.153.128.98/32                 (Azure backend)
-4.153.208.221/32                (Azure backend)
-9.169.131.1/32                  (Azure backend)
-```
+**Issue 1: Frontend Maps** (Maps won't load)
+- Cause: IP address restrictions blocking user browsers
+- Solution: Switch to HTTP referrer restrictions
 
-**Why This Breaks Maps:**
-- Users access `https://travelbuddylk.com/community` from their home/mobile IP
-- Frontend JavaScript calls Google Maps API directly from their browser
-- User's IP ≠ your server IPs → Request blocked → Map won't load
+**Issue 2: Backend API Calls** (Places search returns 500 error)
+- Cause: HTTP referrer restrictions blocking backend server calls  
+- Solution: Use separate API key for backend OR add backend referrer
 
-### Fix: Remove IP Restrictions for Client-Side Maps
-Since Google Maps is called from the **frontend (browser)**, not backend:
+### RECOMMENDED: Use Two Separate API Keys
 
-**Step 1: Remove IP Address Restrictions**
+**Key 1: VITE_GOOGLE_MAPS_API_KEY (Frontend Maps)**
+- Restriction: HTTP referrers only
+- Used by: LocationPicker, InteractiveMap, StoryMap, TripMap
+- Allows: User browsers from `travelbuddylk.com/*`
+
+**Key 2: GOOGLE_PLACES_API_KEY (Backend Services)**
+- Restriction: IP addresses (your Azure backend IPs)
+- Used by: enhanced-places, search, geocoding, places routes
+- Allows: Only backend server requests
+
+### Step 1: Create New API Key for Frontend
+
 1. Go to [Google Cloud Console](https://console.cloud.google.com)
-2. Navigate to **APIs & Services → Credentials**
-3. Click on API key: `AIzaSyDTV_5KiXOuYRtG2TEMIvrHPCsht3sSWEQ`
-4. Scroll to **Application restrictions**
-5. Change from **IP addresses** to **HTTP referrers (web sites)**
+2. **APIs & Services → Credentials → Create Credentials → API Key**
+3. Name it: `Web Maps Key (Frontend Only)`
+4. Click the new key to configure it
+5. **Application restrictions → HTTP referrers (web sites)**
+6. Add these domains:
+   ```
+   https://travelbuddylk.com/*
+   http://localhost:3000/*
+   http://localhost:5173/*
+   ```
+7. **API restrictions → Select "Maps JavaScript API" and "Places API"**
+8. Save and copy the key
 
-**Step 2: Set HTTP Referrer Restrictions Only**
-In the "Website restrictions" field, add:
+### Step 2: Keep Existing Backend Key
+
+Keep your current key `AIzaSyDTV_5KiXOuYRtG2TEMIvrHPCsht3sSWEQ` configured with:
+- **Application restrictions**: IP addresses (keep current)
+- **API restrictions**: Keep all APIs enabled
+- **Backend usage**: Places search, geocoding, enrichment
+
+### Step 3: Update Frontend Configuration
+
+Update `frontend/index.html` (line 44):
+```html
+<!-- Use new frontend-only key -->
+<script async defer src="https://maps.googleapis.com/maps/api/js?key=YOUR_NEW_FRONTEND_KEY_HERE&libraries=places"></script>
 ```
-https://travelbuddylk.com/*
-http://localhost:3000/*
-http://localhost:5173/*
+
+Or use environment variable:
+```html
+<script async defer src="https://maps.googleapis.com/maps/api/js?key=AIzaSy..." data-api-key="" id="google-maps-script"></script>
+<script>
+  // Load dynamically if needed
+  const script = document.getElementById('google-maps-script');
+  script.src = `https://maps.googleapis.com/maps/api/js?key=${window.VITE_GOOGLE_MAPS_API_KEY}&libraries=places`;
+</script>
 ```
 
-**Step 3: Save & Test**
-- Click **Save**
-- Wait 2-5 minutes
-- Clear browser cache (Ctrl+Shift+Delete)
-- Visit `https://travelbuddylk.com/community` and create a post
-- Map should now load ✓
+### Step 4: Keep Backend Configuration
 
-### Alternative Approach (If Backend Calls Google Maps)
-If you want to keep IP restrictions because your **backend** also calls Google Maps APIs:
+Backend continues using `GOOGLE_PLACES_API_KEY` environment variable:
+```bash
+GOOGLE_PLACES_API_KEY=AIzaSyDTV_5KiXOuYRtG2TEMIvrHPCsht3sSWEQ  # Existing backend key
+```
 
-1. **Backend Calls**: Use separate API key restricted to server IPs
-2. **Frontend Maps**: Use unrestricted (HTTP referrer only) API key for client-side maps
-3. Keep two API keys: one for backend, one for frontend
+### Step 5: Test Both Systems
 
-But currently, you have one key used for both, causing the conflict.
+**Frontend Maps Test:**
+1. Visit `https://travelbuddylk.com/community`
+2. Click "Review a Place"
+3. Map should load ✓
+4. Location picker should work ✓
 
-### Why IP + Frontend Maps Don't Mix
-- ✅ IP restrictions work for: Server-to-server calls, backend services
-- ❌ IP restrictions fail for: Browser-based JavaScript, client-side requests
-- ✅ HTTP referrer restrictions work for: Browser-based JavaScript, frontend maps
-- ❌ HTTP referrer restrictions fail for: Server-to-server calls
+**Backend Places Search Test:**
+1. Visit `https://travelbuddylk.com/` (Discovery page)
+2. Search for "Nuwara Eliya"
+3. Results should appear ✓
+4. No 500 errors ✓
 
-**Current Setup:** Browser-based maps with server IP restrictions = **blocks all users**
+### Why This Happens
+
+**With Single Key + HTTP Referrers:**
+```
+Frontend Browser (✓ Works)
+  → API request includes referrer: "https://travelbuddylk.com/community"
+  → Matches HTTP referrer restriction
+  → Maps loads ✓
+
+Backend Server (✗ Fails)
+  → API request from: 128.85.209.147
+  → No valid referrer header
+  → Blocked by HTTP referrer restriction
+  → 500 error ✗
+```
+
+**With Two Keys (✓ Optimal):**
+```
+Frontend Browser (✓ Works)
+  → Calls VITE_GOOGLE_MAPS_API_KEY
+  → HTTP referrer: "https://travelbuddylk.com/community"
+  → Matched against HTTP restrictions
+  → Maps loads ✓
+
+Backend Server (✓ Works)
+  → Calls GOOGLE_PLACES_API_KEY  
+  → IP: 128.85.209.147
+  → Matched against IP restrictions
+  → Places search works ✓
+```
 
 ## How Google Maps Script is Loaded
 
@@ -146,14 +199,126 @@ IPs: Your backend server IPs
 (Keep IP restrictions for backend services)
 ```
 
-**Use Case 3: Both Frontend + Backend (Recommended)**
-```
-Create TWO separate API keys:
-1. Frontend Key: HTTP referrers only (user browsers)
-2. Backend Key: IP restricted (server-to-server calls)
+## Implementation Guide: Two Separate API Keys
 
-This provides better security and prevents conflicts.
+### Phase 1: Google Cloud Console Setup (User Action)
+
+#### Step 1.1: Keep Existing Backend Key
+Your current key: `AIzaSyDTV_5KiXOuYRtG2TEMIvrHPCsht3sSWEQ`
+- ✅ Keep **IP Address restrictions** 
+- ✅ Keep all APIs enabled
+- ✅ Environment variable: `GOOGLE_PLACES_API_KEY`
+
+#### Step 1.2: Create New Frontend Key
+1. Go to [Google Cloud Console](https://console.cloud.google.com)
+2. Click **Create Credentials → API Key**
+3. Name it: `TravelBuddy Web Maps (Frontend)`
+4. Click the new key to open settings
+5. Under **Application restrictions**:
+   - Select **HTTP referrers (web sites)**
+   - Add these domains:
+     ```
+     https://travelbuddylk.com/*
+     http://localhost:3000/*
+     http://localhost:5173/*
+     ```
+6. Under **API restrictions**:
+   - Select **Restrict key**
+   - Choose only: **Maps JavaScript API** and **Places API**
+7. Copy the new key and save it
+
+### Phase 2: Environment Configuration (Local)
+
+#### Step 2.1: Update Backend `.env`
+```bash
+# Keep existing key for backend
+GOOGLE_PLACES_API_KEY=AIzaSyDTV_5KiXOuYRtG2TEMIvrHPCsht3sSWEQ
 ```
+
+#### Step 2.2: Update Frontend `.env`
+```bash
+# Add new frontend key
+VITE_GOOGLE_MAPS_API_KEY=YOUR_NEW_FRONTEND_API_KEY_HERE
+```
+
+#### Step 2.3: Update Frontend `.env.production`
+```bash
+# Production frontend key
+VITE_GOOGLE_MAPS_API_KEY=YOUR_NEW_FRONTEND_API_KEY_HERE
+```
+
+### Phase 3: Code Updates (Automatic via this guide)
+
+#### Step 3.1: Update Frontend HTML
+
+Update `frontend/index.html` to use environment variable:
+
+```html
+<!-- OLD: Hardcoded key (remove) -->
+<!-- <script async defer src="https://maps.googleapis.com/maps/api/js?key=AIzaSyDTV_5KiXOuYRtG2TEMIvrHPCsht3sSWEQ&libraries=places"></script> -->
+
+<!-- NEW: Use environment variable -->
+<script async defer id="google-maps-script"></script>
+<script>
+  // Load Google Maps with environment-specific key
+  const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || 'YOUR_DEFAULT_KEY';
+  document.getElementById('google-maps-script').src = 
+    `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places`;
+</script>
+```
+
+#### Step 3.2: Backend Configuration (No Changes Needed)
+
+Backend uses `GOOGLE_PLACES_API_KEY` which continues working:
+- All routes automatically use the backend key
+- IP restrictions still protect server calls
+- No code changes required
+
+### Phase 4: Testing
+
+#### Test 1: Frontend Maps
+```
+1. Set VITE_GOOGLE_MAPS_API_KEY in .env
+2. Run: npm run dev (frontend)
+3. Visit: http://localhost:5173/community
+4. Click "Review a Place"
+5. ✅ Map should load with draggable marker
+6. ✅ Location search should work
+```
+
+#### Test 2: Backend Places Search
+```
+1. Set GOOGLE_PLACES_API_KEY in backend .env
+2. Run: npm start (backend)
+3. Visit: http://localhost:3000/
+4. Search for "Nuwara Eliya"
+5. ✅ Results should appear
+6. ✅ No 500 errors
+```
+
+#### Test 3: Production
+```
+1. Deploy with VITE_GOOGLE_MAPS_API_KEY (frontend key)
+2. Visit: https://travelbuddylk.com/community
+3. Click "Review a Place"
+4. ✅ Map should load
+5. Visit: https://travelbuddylk.com/
+6. Search should work
+7. ✅ No errors on either system
+```
+
+### Summary of Changes
+
+| Component | Old Setup | New Setup |
+|-----------|-----------|-----------|
+| **Frontend Maps** | Backend IP key (❌ Blocked) | Frontend HTTP key (✅ Works) |
+| **Backend Places** | Backend IP key (✅ Works) | Backend IP key (✅ Continues) |
+| **Frontend .env** | Not needed | VITE_GOOGLE_MAPS_API_KEY |
+| **Backend .env** | GOOGLE_PLACES_API_KEY | GOOGLE_PLACES_API_KEY (unchanged) |
+| **index.html** | Hardcoded key | Environment variable |
+| **Security** | Mixed restrictions | Separated & optimized |
+| **User Experience** | Maps blocked (❌) | Maps work (✅) |
+| **Places Search** | Works (✅) | Works (✅) |
 
 ### Why You're Getting RefererNotAllowedMapError
 1. You have IP restrictions enabled
@@ -196,3 +361,33 @@ Then update `index.html`:
 - ✅ StoryMap: Awaiting referrer authorization
 - ✅ Community posting: Blocked until referrers configured
 - ⚠️ All map features: Require proper API key authorization
+
+## Complete Component Mapping
+
+### Frontend Components (Need: VITE_GOOGLE_MAPS_API_KEY)
+1. **LocationPicker** (`LocationPicker.tsx`) - Post creation location
+2. **InteractiveMap** (`InteractiveMap.tsx`) - Draggable map marker
+3. **StoryMap** (`StoryMap.tsx`) - Community feed map view
+4. **TripMap** (`TripMap.tsx`) - Trip planning visualization
+
+### Backend Services (Need: GOOGLE_PLACES_API_KEY)
+1. **enhanced-places** - AI-powered place search & enrichment
+2. **places** - Place search & nearby places
+3. **search** - Global search including places
+4. **geocoding** - Address/coordinates conversion
+5. **place-details** - Rich place information
+6. Plus 15+ other routes making Google Places calls
+
+### Error States to Watch For
+
+**Maps Won't Load:**
+- Error: `RefererNotAllowedMapError`
+- Status: 403
+- Cause: IP restrictions or missing referrer
+- Fix: Switch to HTTP referrer restrictions
+
+**Places Search Returns 500:**
+- Error: `Google Places API error: REQUEST_DENIED`
+- Status: 500
+- Cause: HTTP referrers blocking backend
+- Fix: Use separate backend API key with IP restrictions
