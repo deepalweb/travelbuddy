@@ -25,11 +25,13 @@ const PHOTO_CACHE_TTL = 24 * 60 * 60 * 1000; // 24 hours
 searchCache.clear();
 
 // Get real place photos from Google Places API
+// Return a proxy URL instead of direct Google URL to avoid CORS issues
 const getPlacePhoto = (photoReference) => {
   if (!photoReference || !process.env.GOOGLE_PLACES_API_KEY) {
     return `https://source.unsplash.com/400x300/?travel,destination`;
   }
-  return `https://maps.googleapis.com/maps/api/place/photo?maxwidth=400&photoreference=${photoReference}&key=${process.env.GOOGLE_PLACES_API_KEY}`;
+  // Return proxy URL that will be handled by backend
+  return `/api/search/photo?ref=${encodeURIComponent(photoReference)}&maxwidth=800`;
 };
 
 // Enhance AI results with real Google Places photos
@@ -477,6 +479,46 @@ router.get('/inspire', async (req, res) => {
       'Best viewpoints in the city',
       'Local artisan shops and galleries'
     ] });
+  }
+});
+
+// Photo proxy endpoint - serves Google Place photos with proper backend handling
+router.get('/photo', async (req, res) => {
+  try {
+    const { ref, maxwidth = 800 } = req.query;
+    
+    if (!ref) {
+      return res.status(400).json({ error: 'Photo reference required' });
+    }
+    
+    if (!process.env.GOOGLE_PLACES_API_KEY) {
+      return res.status(500).json({ error: 'Google API key not configured' });
+    }
+
+    // Make the request from the backend (server-to-server) to avoid CORS issues
+    const photoUrl = `https://maps.googleapis.com/maps/api/place/photo?maxwidth=${maxwidth}&photoreference=${ref}&key=${process.env.GOOGLE_PLACES_API_KEY}`;
+    
+    const response = await fetch(photoUrl);
+    
+    if (!response.ok) {
+      console.error(`Photo fetch failed: ${response.status} for ref ${ref}`);
+      // Return a fallback placeholder
+      return res.redirect(`https://source.unsplash.com/800x600/?travel,destination`);
+    }
+    
+    // Get the content type and forward the image
+    const contentType = response.headers.get('content-type');
+    if (contentType) {
+      res.setHeader('Content-Type', contentType);
+    }
+    res.setHeader('Cache-Control', 'public, max-age=86400'); // Cache for 24 hours
+    
+    // Stream the response directly
+    return response.body.pipe(res);
+  } catch (error) {
+    console.error('Photo proxy error:', error);
+    // Fallback to unsplash on error
+    return res.redirect(`https://source.unsplash.com/800x600/?travel,destination`);
   }
 });
 

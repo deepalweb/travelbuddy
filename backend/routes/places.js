@@ -323,7 +323,7 @@ router.post('/mobile/batch', async (req, res) => {
 // Get place photo by reference
 router.get('/photo', async (req, res) => {
   try {
-    const { ref, w = 400 } = req.query;
+    const { ref, w = 800 } = req.query;
     const apiKey = process.env.GOOGLE_PLACES_API_KEY;
     
     if (!apiKey) {
@@ -336,12 +336,30 @@ router.get('/photo', async (req, res) => {
     
     const photoUrl = `https://maps.googleapis.com/maps/api/place/photo?photoreference=${ref}&maxwidth=${w}&key=${apiKey}`;
     
-    // Redirect to Google's photo URL
-    res.redirect(photoUrl);
+    // Proxy the photo instead of redirecting to avoid CORS issues
+    const fetch = (await import('node-fetch')).default;
+    const response = await fetch(photoUrl);
+    
+    if (!response.ok) {
+      console.error(`Photo fetch failed: ${response.status} for ref ${ref}`);
+      // Fallback to unsplash
+      return res.redirect(`https://source.unsplash.com/800x600/?travel,destination`);
+    }
+    
+    // Forward content type and cache headers
+    const contentType = response.headers.get('content-type');
+    if (contentType) {
+      res.setHeader('Content-Type', contentType);
+    }
+    res.setHeader('Cache-Control', 'public, max-age=86400'); // Cache for 24 hours
+    
+    // Stream the image
+    return response.body.pipe(res);
     
   } catch (error) {
     console.error('❌ Photo fetch error:', error);
-    res.status(500).json({ error: 'Failed to fetch photo' });
+    // Fallback to unsplash instead of error
+    return res.redirect(`https://source.unsplash.com/800x600/?travel,destination`);
   }
 });
 
