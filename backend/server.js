@@ -1092,7 +1092,14 @@ try {
   console.error('❌ Failed to load notifications routes:', error);
 }
 
-
+// Load subscriptions routes
+try {
+  const subscriptionsRouter = (await import('./routes/subscriptions.js')).default;
+  app.use('/api/subscriptions', subscriptionsRouter);
+  console.log('✅ Subscriptions routes loaded');
+} catch (error) {
+  console.error('❌ Failed to load subscriptions routes:', error);
+}
 
 // Payment routes (Stripe scaffold) - mount only when explicitly enabled to allow
 // running the app without the `stripe` package or Stripe env vars.
