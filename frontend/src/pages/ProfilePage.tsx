@@ -599,6 +599,188 @@ export const ProfilePage: React.FC = () => {
           })}
         </div>
 
+        {/* Features & Capabilities Status */}
+        <Card className="bg-white shadow-lg mb-8 border border-gray-100">
+          <CardHeader className="border-b border-gray-100">
+            <CardTitle className="text-xl text-gray-900 flex items-center">
+              <Sparkles className="w-5 h-5 mr-2 text-blue-600" />
+              App Features & Status
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {/* Search & Discovery */}
+              <div className="p-4 bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg border-2 border-blue-200">
+                <div className="flex items-start justify-between mb-2">
+                  <div className="flex items-center space-x-2">
+                    <Compass className="w-5 h-5 text-blue-600" />
+                    <h4 className="font-semibold text-gray-900">Search & Discovery</h4>
+                  </div>
+                  <CheckCircle className="w-5 h-5 text-green-600" />
+                </div>
+                <p className="text-xs text-gray-700 mb-2">AI-powered place search with filters and sorting</p>
+                <div className="text-xs font-medium text-blue-700 bg-white px-2 py-1 rounded inline-block">✓ Active</div>
+              </div>
+
+              {/* Place Photos */}
+              <div className="p-4 bg-gradient-to-br from-green-50 to-green-100 rounded-lg border-2 border-green-200">
+                <div className="flex items-start justify-between mb-2">
+                  <div className="flex items-center space-x-2">
+                    <Camera className="w-5 h-5 text-green-600" />
+                    <h4 className="font-semibold text-gray-900">Place Photos</h4>
+                  </div>
+                  <CheckCircle className="w-5 h-5 text-green-600" />
+                </div>
+                <p className="text-xs text-gray-700 mb-2">High-quality photos with server-side proxy</p>
+                <div className="text-xs font-medium text-green-700 bg-white px-2 py-1 rounded inline-block">✓ Fixed</div>
+              </div>
+
+              {/* Saved Places */}
+              <div className="p-4 bg-gradient-to-br from-purple-50 to-purple-100 rounded-lg border-2 border-purple-200">
+                <div className="flex items-start justify-between mb-2">
+                  <div className="flex items-center space-x-2">
+                    <Bookmark className="w-5 h-5 text-purple-600" />
+                    <h4 className="font-semibold text-gray-900">Saved Places</h4>
+                  </div>
+                  <CheckCircle className="w-5 h-5 text-green-600" />
+                </div>
+                <p className="text-xs text-gray-700 mb-2">Save and manage your favorite destinations</p>
+                <div className="text-xs font-medium text-purple-700 bg-white px-2 py-1 rounded inline-block">✓ Active</div>
+              </div>
+
+              {/* Place Comparison */}
+              <div className="p-4 bg-gradient-to-br from-orange-50 to-orange-100 rounded-lg border-2 border-orange-200">
+                <div className="flex items-start justify-between mb-2">
+                  <div className="flex items-center space-x-2">
+                    <BarChart3 className="w-5 h-5 text-orange-600" />
+                    <h4 className="font-semibold text-gray-900">Place Comparison</h4>
+                  </div>
+                  <CheckCircle className="w-5 h-5 text-green-600" />
+                </div>
+                <p className="text-xs text-gray-700 mb-2">Compare multiple places side-by-side</p>
+                <div className="text-xs font-medium text-orange-700 bg-white px-2 py-1 rounded inline-block">✓ Active</div>
+              </div>
+
+              {/* Sort & Filter */}
+              <div className="p-4 bg-gradient-to-br from-indigo-50 to-indigo-100 rounded-lg border-2 border-indigo-200">
+                <div className="flex items-start justify-between mb-2">
+                  <div className="flex items-center space-x-2">
+                    <Zap className="w-5 h-5 text-indigo-600" />
+                    <h4 className="font-semibold text-gray-900">Advanced Sorting</h4>
+                  </div>
+                  <CheckCircle className="w-5 h-5 text-green-600" />
+                </div>
+                <p className="text-xs text-gray-700 mb-2">Sort by relevance, rating, price, distance</p>
+                <div className="text-xs font-medium text-indigo-700 bg-white px-2 py-1 rounded inline-block">✓ Active</div>
+              </div>
+
+              {/* Social Integration */}
+              <div className="p-4 bg-gradient-to-br from-red-50 to-red-100 rounded-lg border-2 border-red-200">
+                <div className="flex items-start justify-between mb-2">
+                  <div className="flex items-center space-x-2">
+                    <Users className="w-5 h-5 text-red-600" />
+                    <h4 className="font-semibold text-gray-900">Social Links</h4>
+                  </div>
+                  <CheckCircle className="w-5 h-5 text-green-600" />
+                </div>
+                <p className="text-xs text-gray-700 mb-2">Connect with your social media profiles</p>
+                <div className="text-xs font-medium text-red-700 bg-white px-2 py-1 rounded inline-block">✓ Active</div>
+              </div>
+
+              {/* Subscription Plans */}
+              <div className="p-4 bg-gradient-to-br from-teal-50 to-teal-100 rounded-lg border-2 border-teal-200">
+                <div className="flex items-start justify-between mb-2">
+                  <div className="flex items-center space-x-2">
+                    <Crown className="w-5 h-5 text-teal-600" />
+                    <h4 className="font-semibold text-gray-900">Premium Plans</h4>
+                  </div>
+                  <CheckCircle className="w-5 h-5 text-green-600" />
+                </div>
+                <p className="text-xs text-gray-700 mb-2">Upgrade to unlock premium features</p>
+                <div className="text-xs font-medium text-teal-700 bg-white px-2 py-1 rounded inline-block">✓ Active</div>
+              </div>
+
+              {/* Two-Factor Auth */}
+              <div className="p-4 bg-gradient-to-br from-pink-50 to-pink-100 rounded-lg border-2 border-pink-200">
+                <div className="flex items-start justify-between mb-2">
+                  <div className="flex items-center space-x-2">
+                    <Shield className="w-5 h-5 text-pink-600" />
+                    <h4 className="font-semibold text-gray-900">2FA Security</h4>
+                  </div>
+                  {security.twoFactorEnabled ? (
+                    <CheckCircle className="w-5 h-5 text-green-600" />
+                  ) : (
+                    <AlertCircle className="w-5 h-5 text-yellow-600" />
+                  )}
+                </div>
+                <p className="text-xs text-gray-700 mb-2">Enhanced account security with 2FA</p>
+                <div className={`text-xs font-medium px-2 py-1 rounded inline-block ${security.twoFactorEnabled ? 'bg-white text-green-700' : 'bg-white text-yellow-700'}`}>
+                  {security.twoFactorEnabled ? '✓ Enabled' : 'Disabled'}
+                </div>
+              </div>
+
+              {/* Trip Planning */}
+              <div className="p-4 bg-gradient-to-br from-cyan-50 to-cyan-100 rounded-lg border-2 border-cyan-200">
+                <div className="flex items-start justify-between mb-2">
+                  <div className="flex items-center space-x-2">
+                    <Plane className="w-5 h-5 text-cyan-600" />
+                    <h4 className="font-semibold text-gray-900">Trip Planning</h4>
+                  </div>
+                  <CheckCircle className="w-5 h-5 text-green-600" />
+                </div>
+                <p className="text-xs text-gray-700 mb-2">Create and manage your travel itineraries</p>
+                <div className="text-xs font-medium text-cyan-700 bg-white px-2 py-1 rounded inline-block">✓ Active</div>
+              </div>
+
+              {/* AI Trip Generator */}
+              <div className="p-4 bg-gradient-to-br from-violet-50 to-violet-100 rounded-lg border-2 border-violet-200">
+                <div className="flex items-start justify-between mb-2">
+                  <div className="flex items-center space-x-2">
+                    <Sparkles className="w-5 h-5 text-violet-600" />
+                    <h4 className="font-semibold text-gray-900">AI Trip Generator</h4>
+                  </div>
+                  <CheckCircle className="w-5 h-5 text-green-600" />
+                </div>
+                <p className="text-xs text-gray-700 mb-2">Generate personalized itineraries with AI</p>
+                <div className="text-xs font-medium text-violet-700 bg-white px-2 py-1 rounded inline-block">✓ Active</div>
+              </div>
+
+              {/* Notifications */}
+              <div className="p-4 bg-gradient-to-br from-amber-50 to-amber-100 rounded-lg border-2 border-amber-200">
+                <div className="flex items-start justify-between mb-2">
+                  <div className="flex items-center space-x-2">
+                    <Bell className="w-5 h-5 text-amber-600" />
+                    <h4 className="font-semibold text-gray-900">Notifications</h4>
+                  </div>
+                  <CheckCircle className="w-5 h-5 text-green-600" />
+                </div>
+                <p className="text-xs text-gray-700 mb-2">Receive updates on trips and deals</p>
+                <div className="text-xs font-medium text-amber-700 bg-white px-2 py-1 rounded inline-block">✓ Active</div>
+              </div>
+            </div>
+
+            {/* Summary Stats */}
+            <div className="mt-6 pt-6 border-t border-gray-200 grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div className="text-center">
+                <div className="text-2xl font-bold text-green-600">11</div>
+                <div className="text-xs text-gray-600 mt-1">Features Active</div>
+              </div>
+              <div className="text-center">
+                <div className="text-2xl font-bold text-blue-600">100%</div>
+                <div className="text-xs text-gray-600 mt-1">Core Features</div>
+              </div>
+              <div className="text-center">
+                <div className="text-2xl font-bold text-purple-600">{stats.tripsPlanned}</div>
+                <div className="text-xs text-gray-600 mt-1">Trips Created</div>
+              </div>
+              <div className="text-center">
+                <div className="text-2xl font-bold text-yellow-600">{stats.placesVisited}</div>
+                <div className="text-xs text-gray-600 mt-1">Places Saved</div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
         {/* Travel Personality & Milestones */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-12">
           {/* Travel Personality Widget */}
