@@ -84,6 +84,22 @@ async function getLocationContext(lat, lng) {
   };
 }
 
+// Fetch photo reference from Google Places
+async function fetchPlacePhoto(placeName, location) {
+  try {
+    const url = `https://maps.googleapis.com/maps/api/place/textsearch/json?query=${encodeURIComponent(placeName)}&location=${location.lat},${location.lng}&radius=2000&key=${process.env.GOOGLE_PLACES_API_KEY}`;
+    const response = await fetch(url);
+    const data = await response.json();
+    
+    if (data.status === 'OK' && data.results[0]?.photos?.[0]) {
+      return data.results[0].photos[0].photo_reference;
+    }
+  } catch (error) {
+    console.error(`Photo fetch failed for ${placeName}:`, error);
+  }
+  return null;
+}
+
 // Generate AI places based on location
 async function generateAIPlaces(locationInfo, userPreferences) {
   const { userType = 'Explorer', vibe = 'Cultural', interests = [] } = userPreferences;
@@ -151,11 +167,28 @@ Return ONLY the JSON array, no other text.`;
   
   try {
     const places = JSON.parse(responseText);
-    return places.map((place, index) => ({
-      ...place,
-      place_id: place.place_id || `ai_${Date.now()}_${index}`,
-      source: 'ai_generated'
-    }));
+    
+    // Fetch photos for places (limit concurrent requests)
+    const placesWithPhotos = await Promise.all(
+      places.map(async (place, index) => {
+        const photoReference = await fetchPlacePhoto(
+          place.name,
+          place.geometry.location
+        );
+        
+        return {
+          ...place,
+          place_id: place.place_id || `ai_${Date.now()}_${index}`,
+          source: 'ai_generated',
+          photos: photoReference ? [{ photo_reference: photoReference }] : [],
+          photoUrl: photoReference 
+            ? `https://travelbuddy-b2c6hgbbgeh4esdh.eastus2-01.azurewebsites.net/api/places/photo?ref=${photoReference}&maxWidth=800`
+            : ''
+        };
+      })
+    );
+    
+    return placesWithPhotos;
   } catch (error) {
     console.error('Failed to parse AI response:', error);
     return [];
