@@ -2400,6 +2400,8 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
     notifyListeners();
 
     try {
+      print('📦 Loading trip plans...');
+      
       // Load from cache first for instant display
       final cached = await OfflineManager.getCachedTripPlans();
       if (cached.isNotEmpty) {
@@ -2417,6 +2419,9 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
             // Cache for offline use
             await OfflineManager.cacheTripPlans(backendPlans);
             print('☁️ Loaded ${backendPlans.length} trip plans from database');
+          } else {
+            print('⚠️ Backend returned empty list - keeping cached data');
+            // Keep cached data if backend returns empty
           }
         } catch (e) {
           print('❌ Error loading from backend: $e');
@@ -2429,6 +2434,7 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
       }
       
       _itineraries = await _storageService.getItineraries();
+      print('✅ Loaded ${_tripPlans.length} trip plans and ${_itineraries.length} itineraries');
     } catch (e) {
       print('❌ Error loading trip plans: $e');
       // Fallback to cache
@@ -2533,6 +2539,10 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
         }
       }
       
+      // ALWAYS save to local storage first
+      await _storageService.saveTripPlan(tripPlan);
+      print('✅ Trip plan saved to local storage');
+      
       // Save to backend database
       if (_currentUser?.mongoId != null) {
         print('✅ User has mongoId, saving to backend...');
@@ -2551,41 +2561,80 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
           print('✅ Trip plan saved to database. Total plans: ${_tripPlans.length}');
           notifyListeners();
         } else {
-          throw Exception('Backend save returned null');
+          print('⚠️ Backend save returned null, but local save succeeded');
+          // Add to local list even if backend fails
+          final existingIndex = _tripPlans.indexWhere((p) => p.id == tripPlan.id);
+          if (existingIndex == -1) {
+            _tripPlans.add(tripPlan);
+          } else {
+            _tripPlans[existingIndex] = tripPlan;
+          }
+          notifyListeners();
         }
       } else {
-        print('❌ mongoId still null after sync');
-        throw Exception('Failed to sync user with backend. Please try signing out and signing in again.');
+        print('⚠️ mongoId still null, but local save succeeded');
+        // Add to local list even if backend fails
+        final existingIndex = _tripPlans.indexWhere((p) => p.id == tripPlan.id);
+        if (existingIndex == -1) {
+          _tripPlans.add(tripPlan);
+        } else {
+          _tripPlans[existingIndex] = tripPlan;
+        }
+        notifyListeners();
       }
     } catch (e) {
-      print('❌ Error saving trip plan to database: $e');
-      rethrow;
+      print('❌ Error saving trip plan: $e');
+      // Try to save locally even if backend fails
+      try {
+        await _storageService.saveTripPlan(tripPlan);
+        final existingIndex = _tripPlans.indexWhere((p) => p.id == tripPlan.id);
+        if (existingIndex == -1) {
+          _tripPlans.add(tripPlan);
+        } else {
+          _tripPlans[existingIndex] = tripPlan;
+        }
+        print('✅ Saved to local storage despite backend error');
+        notifyListeners();
+      } catch (localError) {
+        print('❌ Local save also failed: $localError');
+        rethrow;
+      }
     }
   }
 
   Future<void> deleteTripPlan(String tripPlanId) async {
     print('🗑️ Starting delete for trip plan: $tripPlanId');
     
-    // Delete from backend first if user is logged in
-    bool backendDeleted = false;
-    if (_currentUser?.mongoId != null) {
-      try {
-        backendDeleted = await TripPlansApiService.deleteTripPlan(tripPlanId);
-        if (backendDeleted) {
-          print('✅ Trip plan deleted from backend');
-        } else {
-          print('⚠️ Backend delete returned false');
-        }
-      } catch (e) {
-        print('❌ Backend delete failed: $e');
-      }
-    }
-    
-    // Delete locally
+    // STEP 1: Delete from local storage FIRST
     await _storageService.deleteTripPlan(tripPlanId);
+    print('✅ STEP 1: Deleted from local storage');
+    
+    // STEP 2: Remove from memory
+    final beforeCount = _tripPlans.length;
     _tripPlans.removeWhere((trip) => trip.id == tripPlanId);
-    print('✅ Trip plan deleted locally. Remaining: ${_tripPlans.length}');
+    final afterCount = _tripPlans.length;
+    print('✅ STEP 2: Removed from memory: $beforeCount → $afterCount plans');
+    
+    // STEP 3: Update cache immediately with remaining plans
+    await OfflineManager.cacheTripPlans(_tripPlans);
+    print('✅ STEP 3: Cache updated with ${_tripPlans.length} remaining plans');
+    
+    // STEP 4: Update UI immediately
     notifyListeners();
+    print('✅ STEP 4: UI updated');
+    
+    // STEP 5: Delete from backend (async, don't wait)
+    if (_currentUser?.mongoId != null) {
+      TripPlansApiService.deleteTripPlan(tripPlanId).then((success) {
+        if (success) {
+          print('✅ STEP 5: Backend delete successful');
+        } else {
+          print('⚠️ STEP 5: Backend delete failed, but local delete succeeded');
+        }
+      }).catchError((e) {
+        print('❌ STEP 5: Backend delete error: $e');
+      });
+    }
   }
 
   // Update activity visited status

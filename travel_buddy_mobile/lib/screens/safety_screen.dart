@@ -7,10 +7,6 @@ import '../services/enhanced_safety_service.dart';
 import '../providers/app_provider.dart';
 import '../widgets/panic_button.dart';
 import '../widgets/safety/safety_dashboard_widget.dart';
-import '../widgets/safety/ai_safety_advisor_widget.dart';
-import '../widgets/safety/nearby_services_map_widget.dart';
-import '../widgets/safety/smart_emergency_directory_widget.dart';
-import '../widgets/safety/enhanced_panic_button.dart';
 
 class SafetyScreen extends StatefulWidget {
   const SafetyScreen({super.key});

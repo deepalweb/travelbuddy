@@ -70,24 +70,14 @@ export const TripPlanningPage: React.FC = () => {
     if (!confirm('Delete this trip?')) return
     
     try {
-      console.log('🗑️ Deleting trip:', tripId)
-      
-      // Optimistic update
-      setTrips(prev => prev.filter(t => t._id !== tripId))
-      
       const success = await tripService.deleteTrip(tripId)
-      console.log('🗑️ Delete result:', success)
-      
       if (success) {
-        console.log('✅ Trip deleted successfully')
+        await fetchTrips()
       } else {
-        console.error('❌ Delete failed, reverting')
-        fetchTrips()
         alert('Failed to delete trip')
       }
     } catch (error) {
       console.error('Failed to delete trip:', error)
-      fetchTrips()
       alert('Error deleting trip: ' + error.message)
     }
   }

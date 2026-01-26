@@ -166,7 +166,29 @@ class StorageService {
 
   // Trip Plans Storage
   Future<void> saveTripPlan(TripPlan tripPlan) async {
+    print('💾 StorageService: Saving trip plan ${tripPlan.id}');
+    
+    // Debug: Check visit status before saving
+    for (final day in tripPlan.dailyPlans) {
+      for (final activity in day.activities) {
+        print('   Saving activity: ${activity.activityTitle} - isVisited: ${activity.isVisited}');
+      }
+    }
+    
     await _tripPlansBox.put(tripPlan.id, tripPlan);
+    
+    // Verify the save worked
+    final saved = _tripPlansBox.get(tripPlan.id);
+    if (saved != null) {
+      print('✅ StorageService: Trip plan saved successfully');
+      for (final day in saved.dailyPlans) {
+        for (final activity in day.activities) {
+          print('   Verified activity: ${activity.activityTitle} - isVisited: ${activity.isVisited}');
+        }
+      }
+    } else {
+      print('❌ StorageService: Failed to save trip plan');
+    }
   }
 
   Future<List<TripPlan>> getTripPlans() async {

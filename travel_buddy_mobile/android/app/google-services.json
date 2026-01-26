@@ -14,11 +14,11 @@
       },
       "oauth_client": [
         {
-          "client_id": "45425409967-4g43sgmp1nnmqrnm8l4sltakjfcqi836.apps.googleusercontent.com",
+          "client_id": "45425409967-ivkgut3u9gogkmohems9di39u5oofi9c.apps.googleusercontent.com",
           "client_type": 1,
           "android_info": {
             "package_name": "com.travelbuddylk.app",
-            "certificate_hash": "a18697c0bc762558dc1b11d564a1cde6cd3e4f74"
+            "certificate_hash": "056a25563943e20cfdd9ebd74dbde6705172f3f3"
           }
         },
         {

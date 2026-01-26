@@ -38,10 +38,10 @@ class PlacesService {
   
   // Daily API limits by subscription tier
   static const Map<String, int> _subscriptionLimits = {
-    'free': 1,
-    'basic': 5, 
-    'premium': 20,
-    'pro': 50,
+    'free': 50,
+    'basic': 100, 
+    'premium': 200,
+    'pro': 500,
   };
 
   // Optimized: Cache + Category-specific queries
@@ -295,7 +295,7 @@ class PlacesService {
     return null;
   }
   
-  Future<List<Place>> _fetchRealPlaces(double lat, double lng, String query, int radius, [int offset = 0, int limit = 60]) async {
+  Future<List<Place>> _fetchRealPlaces(double lat, double lng, String query, int radius, [int offset = 0, int limit = 150]) async {
     final mobileUrl = '${Environment.backendUrl}/api/places/mobile/nearby?lat=$lat&lng=$lng&q=$query&radius=$radius&limit=$limit';
     DebugLogger.log('🔍 API: $query within ${radius}m (limit: $limit)');
     DebugLogger.log('📍 Location: $lat, $lng');

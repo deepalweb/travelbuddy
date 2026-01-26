@@ -41,19 +41,19 @@
     <!-- Google Maps API -->
     <!-- The API key is injected by Vite from environment variables during build -->
     <script>
-      // Default fallback key (original key with IP restrictions)
-      const DEFAULT_API_KEY = 'AIzaSyDTV_5KiXOuYRtG2TEMIvrHPCsht3sSWEQ';
-      
       // Get API key from global variable injected by Vite
-      // This is set in vite.config.ts using the define option
-      const API_KEY = window.__GOOGLE_MAPS_API_KEY__ || DEFAULT_API_KEY;
+      const API_KEY = window.__GOOGLE_MAPS_API_KEY__;
       
-      // Create and configure the script tag
-      const script = document.createElement('script');
-      script.src = `https://maps.googleapis.com/maps/api/js?key=${API_KEY}&libraries=places`;
-      script.async = true;
-      script.defer = true;
-      document.head.appendChild(script);
+      if (API_KEY) {
+        // Create and configure the script tag
+        const script = document.createElement('script');
+        script.src = `https://maps.googleapis.com/maps/api/js?key=${API_KEY}&libraries=places`;
+        script.async = true;
+        script.defer = true;
+        document.head.appendChild(script);
+      } else {
+        console.error('Google Maps API key not configured');
+      }
     </script>
   </head>
   <body>

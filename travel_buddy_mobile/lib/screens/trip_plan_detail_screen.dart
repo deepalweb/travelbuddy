@@ -31,6 +31,7 @@ class _TripPlanDetailScreenState extends State<TripPlanDetailScreen> {
   bool _isLoadingIntroduction = false;
   TripPlan? _currentTripPlan;
   final Map<String, bool> _visitStatus = {};
+  bool _isIntroductionExpanded = false;
 
   @override
   void initState() {
@@ -63,6 +64,7 @@ class _TripPlanDetailScreenState extends State<TripPlanDetailScreen> {
     
     try {
       latestTrip = localTrips.firstWhere((trip) => trip.id == tripId);
+      print('✅ Found trip plan in storage: ${latestTrip.tripTitle}');
     } catch (e) {
       try {
         final localItineraries = await storageService.getItineraries();
@@ -82,22 +84,26 @@ class _TripPlanDetailScreenState extends State<TripPlanDetailScreen> {
           ],
           conclusion: itinerary.conclusion,
         );
+        print('✅ Found itinerary in storage: ${latestTrip.tripTitle}');
       } catch (e2) {
         latestTrip = _currentTripPlan ?? widget.tripPlan;
+        print('⚠️ Using current trip plan as fallback');
       }
     }
     
     if (mounted) {
       setState(() {
         _currentTripPlan = latestTrip;
-        // Update visit status map from loaded data
+        // CRITICAL: Update visit status map from the LOADED data
         _visitStatus.clear();
         for (final day in latestTrip!.dailyPlans) {
           for (final activity in day.activities) {
             _visitStatus[activity.activityTitle] = activity.isVisited;
+            print('🔄 Loaded visit status: ${activity.activityTitle} = ${activity.isVisited}');
           }
         }
       });
+      print('✅ Refreshed trip plan with ${_visitStatus.length} activities');
     }
   }
 
@@ -106,6 +112,9 @@ class _TripPlanDetailScreenState extends State<TripPlanDetailScreen> {
     
     final currentStatus = _visitStatus[activityTitle] ?? false;
     final newStatus = !currentStatus;
+    
+    print('🔄 Toggling visit status for: $activityTitle');
+    print('   Current: $currentStatus → New: $newStatus');
     
     // Update UI immediately
     setState(() {
@@ -128,6 +137,7 @@ class _TripPlanDetailScreenState extends State<TripPlanDetailScreen> {
     }
     
     if (dayIndex != -1 && activityIndex != -1) {
+      print('   Found at: Day $dayIndex, Activity $activityIndex');
       
       // Save to storage
       final activity = _currentTripPlan!.dailyPlans[dayIndex].activities[activityIndex];
@@ -204,6 +214,7 @@ class _TripPlanDetailScreenState extends State<TripPlanDetailScreen> {
       final appProvider = Provider.of<AppProvider>(context, listen: false);
       final isItinerary = appProvider.itineraries.any((itinerary) => itinerary.id == _currentTripPlan!.id);
       
+      print('💾 Saving to storage...');
       if (isItinerary) {
         await appProvider.updateItineraryActivityVisitedStatus(_currentTripPlan!.id, activityIndex, newStatus);
         print('✅ Saved to itinerary storage');
@@ -212,16 +223,26 @@ class _TripPlanDetailScreenState extends State<TripPlanDetailScreen> {
         print('✅ Saved to trip plan storage');
       }
       
-      // Verify save worked
-      await Future.delayed(Duration(milliseconds: 100));
-      await appProvider.loadTripPlans();
-      final verified = appProvider.tripPlans.firstWhere((t) => t.id == _currentTripPlan!.id, orElse: () => _currentTripPlan!);
-      final verifiedStatus = verified.dailyPlans[dayIndex].activities[activityIndex].isVisited;
-      print('🔍 Verified in storage: $verifiedStatus (expected: $newStatus)');
+      // Verify save worked by reloading
+      await Future.delayed(Duration(milliseconds: 200));
+      final storageService = StorageService();
+      final allTrips = await storageService.getTripPlans();
+      final savedTrip = allTrips.firstWhere((t) => t.id == _currentTripPlan!.id, orElse: () => _currentTripPlan!);
+      
+      if (savedTrip.id == _currentTripPlan!.id) {
+        final savedActivity = savedTrip.dailyPlans[dayIndex].activities[activityIndex];
+        print('🔍 Verification: ${savedActivity.activityTitle} isVisited = ${savedActivity.isVisited}');
+        
+        if (savedActivity.isVisited != newStatus) {
+          print('❌ WARNING: Save verification failed! Expected $newStatus but got ${savedActivity.isVisited}');
+        } else {
+          print('✅ Save verified successfully');
+        }
+      }
       
       // Show feedback
       final allActivitiesCount = _currentTripPlan!.dailyPlans.fold<int>(0, (sum, day) => sum + day.activities.length);
-      final newVisitedCount = _currentTripPlan!.dailyPlans.fold<int>(0, (sum, day) => sum + day.activities.where((a) => a.isVisited).length);
+      final newVisitedCount = _visitStatus.values.where((v) => v).length;
       final completionPercent = allActivitiesCount > 0 ? ((newVisitedCount / allActivitiesCount) * 100).toInt() : 0;
       
       ScaffoldMessenger.of(context).showSnackBar(
@@ -231,6 +252,8 @@ class _TripPlanDetailScreenState extends State<TripPlanDetailScreen> {
           duration: const Duration(seconds: 1),
         ),
       );
+    } else {
+      print('❌ Activity not found in trip plan');
     }
   }
 
@@ -287,9 +310,27 @@ class _TripPlanDetailScreenState extends State<TripPlanDetailScreen> {
       print('   Stats activity: ${activity.activityTitle} - isVisited: ${activity.isVisited}');
     }
     
+    // Calculate total trip distance (start to end)
+    double totalTripDistance = 0;
+    if (allActivities.length >= 2) {
+      final startActivity = allActivities.first;
+      final endActivity = allActivities.last;
+      
+      final startLat = _extractLatitude(startActivity);
+      final startLng = _extractLongitude(startActivity);
+      final endLat = _extractLatitude(endActivity);
+      final endLng = _extractLongitude(endActivity);
+      
+      if (startLat != null && startLng != null && endLat != null && endLng != null) {
+        totalTripDistance = _calculateDistanceInKm(startLat, startLng, endLat, endLng);
+        print('🗺️ Total trip distance (start to end): ${totalTripDistance.toStringAsFixed(1)}km');
+      }
+    }
+    
     // Calculate total and pending time
     int totalMinutes = 0;
     int pendingMinutes = 0;
+    bool hasRealTimeData = false;
     
     for (final activity in allActivities) {
       int minutes = 0;
@@ -297,6 +338,7 @@ class _TripPlanDetailScreenState extends State<TripPlanDetailScreen> {
       // Try estimatedVisitDurationMin first (most accurate)
       if (activity.estimatedVisitDurationMin > 0) {
         minutes = activity.estimatedVisitDurationMin;
+        hasRealTimeData = true;
       } else {
         // Parse duration string - handles "2hr", "2h", "90min", "1.5h", "2-3h"
         final duration = activity.duration.toLowerCase();
@@ -304,17 +346,14 @@ class _TripPlanDetailScreenState extends State<TripPlanDetailScreen> {
           final match = RegExp(r'(\d+\.?\d*)').firstMatch(duration);
           if (match != null) {
             minutes = (double.parse(match.group(1)!) * 60).toInt();
+            hasRealTimeData = true;
           }
         } else if (duration.contains('min')) {
           final match = RegExp(r'(\d+)').firstMatch(duration);
           if (match != null) {
             minutes = int.parse(match.group(1)!);
+            hasRealTimeData = true;
           }
-        }
-        
-        // Default to 60 minutes if no valid duration found
-        if (minutes == 0) {
-          minutes = 60;
         }
       }
       
@@ -328,25 +367,40 @@ class _TripPlanDetailScreenState extends State<TripPlanDetailScreen> {
     final totalHours = (totalMinutes / 60).ceil();
     final pendingHours = (pendingMinutes / 60).ceil();
     
-    // Calculate total and pending distance (use real data if available)
+    // Calculate total and pending distance
     double totalKm = 0;
     double pendingKm = 0;
+    bool hasRealDistanceData = false;
     
+    // Calculate distance between consecutive activities
+    ActivityDetail? previousActivity;
     for (final activity in allActivities) {
-      // Try to parse estimatedDuration or use travelTimeMin
       double km = 0;
       
-      if (activity.estimatedDuration != null && activity.estimatedDuration!.contains('km')) {
+      // If we have coordinates, calculate real distance from previous activity
+      if (previousActivity != null) {
+        final prevLat = _extractLatitude(previousActivity);
+        final prevLng = _extractLongitude(previousActivity);
+        final currLat = _extractLatitude(activity);
+        final currLng = _extractLongitude(activity);
+        
+        if (prevLat != null && prevLng != null && currLat != null && currLng != null) {
+          km = _calculateDistanceInKm(prevLat, prevLng, currLat, currLng);
+          hasRealDistanceData = true;
+        }
+      }
+      
+      // Fallback: check if activity has distance data
+      if (km == 0 && activity.estimatedDuration != null && activity.estimatedDuration!.contains('km')) {
         final match = RegExp(r'(\d+\.?\d*)').firstMatch(activity.estimatedDuration!);
         if (match != null) {
           km = double.parse(match.group(1)!);
+          hasRealDistanceData = true;
         }
-      } else if (activity.travelTimeMin > 0) {
-        // Estimate: walking speed ~5km/h, so km = (minutes / 60) * 5
+      } else if (km == 0 && activity.travelTimeMin > 0) {
+        // Calculate: walking speed ~5km/h
         km = (activity.travelTimeMin / 60) * 5;
-      } else {
-        // Fallback: 1km average per place
-        km = 1.0;
+        hasRealDistanceData = true;
       }
       
       totalKm += km;
@@ -354,10 +408,23 @@ class _TripPlanDetailScreenState extends State<TripPlanDetailScreen> {
       if (!activity.isVisited) {
         pendingKm += km;
       }
+      
+      previousActivity = activity;
     }
     
-    final totalKmStr = totalKm > 0 ? '${totalKm.toStringAsFixed(1)}km' : '${totalPlaces}km';
-    final pendingKmStr = pendingKm > 0 ? '${pendingKm.toStringAsFixed(1)}km' : '${pendingCount}km';
+    // If no real data, estimate: ~1.5km between activities
+    if (!hasRealDistanceData && allActivities.length > 1) {
+      totalKm = (allActivities.length - 1) * 1.5;
+      pendingKm = (pendingCount > 0 ? pendingCount - 1 : 0) * 1.5;
+      hasRealDistanceData = true; // We have an estimate
+    }
+    
+    final totalKmStr = totalKm > 0 
+        ? '${totalKm.toStringAsFixed(1)}km' 
+        : '0km';
+    final pendingKmStr = pendingKm > 0 
+        ? '${pendingKm.toStringAsFixed(1)}km' 
+        : '0km';
     
     return Card(
       color: Colors.grey[50],
@@ -454,7 +521,7 @@ class _TripPlanDetailScreenState extends State<TripPlanDetailScreen> {
                 ),
                 Expanded(
                   child: _buildStatItem(
-                    '${totalHours}h / ${pendingHours}h',
+                    hasRealTimeData ? '${totalHours}h / ${pendingHours}h' : '${totalPlaces}h / ${pendingCount}h',
                     'Total / Pending Time',
                     Icons.schedule,
                     Colors.teal,
@@ -462,6 +529,39 @@ class _TripPlanDetailScreenState extends State<TripPlanDetailScreen> {
                 ),
               ],
             ),
+            if (totalTripDistance > 0) ...[
+              const SizedBox(height: 16),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.blue[50],
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.blue[200]!),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.route, color: Colors.blue[700], size: 20),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Trip Distance (Start to End): ',
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: Colors.grey[700],
+                      ),
+                    ),
+                    Text(
+                      '${totalTripDistance.toStringAsFixed(1)}km',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.blue[700],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ],
         ),
       ),
@@ -798,7 +898,7 @@ class _TripPlanDetailScreenState extends State<TripPlanDetailScreen> {
   }
 
   Widget _buildActivityDetails(ActivityDetail activity) {
-    final isVisited = _visitStatus[activity.activityTitle] ?? false;
+    final isVisited = _visitStatus[activity.activityTitle] ?? activity.isVisited;
     
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -806,7 +906,11 @@ class _TripPlanDetailScreenState extends State<TripPlanDetailScreen> {
         if (activity.description.isNotEmpty) ...[
           Text(
             activity.description,
-            style: const TextStyle(fontSize: 14, color: Colors.black87),
+            style: TextStyle(
+              fontSize: 14,
+              color: isVisited ? Colors.grey[600] : Colors.black87,
+              decoration: isVisited ? TextDecoration.lineThrough : null,
+            ),
           ),
           const SizedBox(height: 8),
         ],
@@ -859,6 +963,17 @@ class _TripPlanDetailScreenState extends State<TripPlanDetailScreen> {
             ],
           ],
         ),
+        if (isVisited && activity.visitedDate != null) ...[
+          const SizedBox(height: 4),
+          Text(
+            'Visited on ${_formatVisitedDate(activity.visitedDate!)}',
+            style: TextStyle(
+              fontSize: 11,
+              color: Colors.green[700],
+              fontStyle: FontStyle.italic,
+            ),
+          ),
+        ],
         const SizedBox(height: 12),
         // Action Buttons Row
         Row(
@@ -870,10 +985,10 @@ class _TripPlanDetailScreenState extends State<TripPlanDetailScreen> {
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                   decoration: BoxDecoration(
-                    color: isVisited ? Colors.green[50] : Colors.grey[100],
+                    color: isVisited ? Colors.green[50] : Colors.blue[50],
                     borderRadius: BorderRadius.circular(8),
                     border: Border.all(
-                      color: isVisited ? Colors.green : Colors.grey[300]!,
+                      color: isVisited ? Colors.green : Colors.blue[300]!,
                       width: 1.5,
                     ),
                   ),
@@ -881,17 +996,19 @@ class _TripPlanDetailScreenState extends State<TripPlanDetailScreen> {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Icon(
-                        isVisited ? Icons.check_box : Icons.check_box_outline_blank,
-                        color: isVisited ? Colors.green : Colors.grey[600],
+                        isVisited ? Icons.check_circle : Icons.radio_button_unchecked,
+                        color: isVisited ? Colors.green : Colors.blue[700],
                         size: 20,
                       ),
                       const SizedBox(width: 8),
-                      Text(
-                        isVisited ? 'Visited' : 'Mark as visited',
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w500,
-                          color: isVisited ? Colors.green[700] : Colors.grey[700],
+                      Flexible(
+                        child: Text(
+                          isVisited ? '✓ Visited' : 'Mark visited',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            color: isVisited ? Colors.green[700] : Colors.blue[700],
+                          ),
                         ),
                       ),
                     ],
@@ -903,30 +1020,46 @@ class _TripPlanDetailScreenState extends State<TripPlanDetailScreen> {
             // Place Details Button
             IconButton(
               onPressed: () => _showPlaceDetails(activity),
-              icon: const Icon(Icons.place, size: 16),
+              icon: const Icon(Icons.info_outline, size: 18),
               style: IconButton.styleFrom(
-                backgroundColor: Colors.green[50],
-                foregroundColor: Colors.green,
+                backgroundColor: Colors.blue[50],
+                foregroundColor: Colors.blue[700],
                 padding: const EdgeInsets.all(8),
               ),
-              tooltip: 'Place details',
+              tooltip: 'Details',
             ),
             const SizedBox(width: 4),
             // Remove Button
             IconButton(
               onPressed: () => _confirmRemoveActivity(activity),
-              icon: const Icon(Icons.delete, size: 18),
+              icon: const Icon(Icons.delete_outline, size: 18),
               style: IconButton.styleFrom(
                 backgroundColor: Colors.red[50],
                 foregroundColor: Colors.red,
                 padding: const EdgeInsets.all(8),
               ),
-              tooltip: 'Remove from plan',
+              tooltip: 'Remove',
             ),
           ],
         ),
       ],
     );
+  }
+
+  String _formatVisitedDate(String isoDate) {
+    try {
+      final date = DateTime.parse(isoDate);
+      final now = DateTime.now();
+      final diff = now.difference(date);
+      
+      if (diff.inDays == 0) return 'today';
+      if (diff.inDays == 1) return 'yesterday';
+      if (diff.inDays < 7) return '${diff.inDays} days ago';
+      
+      return '${date.day}/${date.month}/${date.year}';
+    } catch (e) {
+      return '';
+    }
   }
 
   Widget _buildSummaryItem(IconData icon, String value, String label, Color color) {
@@ -1059,26 +1192,74 @@ class _TripPlanDetailScreenState extends State<TripPlanDetailScreen> {
                           const SizedBox(height: 8),
                         ],
                       )
-                    : _enhancedIntroduction != null
-                        ? _buildFormattedText(_enhancedIntroduction!)
-                        : widget.tripPlan.introduction.isNotEmpty
-                            ? Text(
-                                widget.tripPlan.introduction,
-                                style: const TextStyle(fontSize: 14, height: 1.5),
-                              )
-                            : Text(
-                                'Discover ${widget.tripPlan.destination} with this carefully crafted ${widget.tripPlan.duration} itinerary.',
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  fontStyle: FontStyle.italic,
-                                  color: Colors.grey[700],
-                                ),
-                              ),
+                    : Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _enhancedIntroduction != null
+                              ? _buildCollapsibleText(_enhancedIntroduction!)
+                              : widget.tripPlan.introduction.isNotEmpty
+                                  ? _buildCollapsibleText(widget.tripPlan.introduction)
+                                  : Text(
+                                      'Discover ${widget.tripPlan.destination} with this carefully crafted ${widget.tripPlan.duration} itinerary.',
+                                      style: TextStyle(
+                                        fontSize: 14,
+                                        fontStyle: FontStyle.italic,
+                                        color: Colors.grey[700],
+                                      ),
+                                    ),
+                        ],
+                      ),
               ),
             ],
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildCollapsibleText(String text) {
+    final lines = text.split('\n');
+    final shouldCollapse = lines.length > 5 || text.length > 300;
+    
+    if (!shouldCollapse) {
+      return _buildFormattedText(text);
+    }
+    
+    final displayText = _isIntroductionExpanded 
+        ? text 
+        : lines.take(3).join('\n') + '...';
+    
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildFormattedText(displayText),
+        const SizedBox(height: 8),
+        InkWell(
+          onTap: () {
+            setState(() {
+              _isIntroductionExpanded = !_isIntroductionExpanded;
+            });
+          },
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                _isIntroductionExpanded ? 'Show Less' : 'Read More',
+                style: TextStyle(
+                  fontSize: 13,
+                  color: Colors.purple[700],
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              Icon(
+                _isIntroductionExpanded ? Icons.expand_less : Icons.expand_more,
+                color: Colors.purple[700],
+                size: 18,
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 
@@ -1535,6 +1716,39 @@ class _TripPlanDetailScreenState extends State<TripPlanDetailScreen> {
         ),
       ),
     );
+  }
+
+  double? _extractLatitude(ActivityDetail activity) {
+    // Try location field (format: "lat,lng")
+    if (activity.location != null && activity.location!.contains(',')) {
+      final parts = activity.location!.split(',');
+      if (parts.length == 2) {
+        return double.tryParse(parts[0].trim());
+      }
+    }
+    return null;
+  }
+  
+  double? _extractLongitude(ActivityDetail activity) {
+    // Try location field (format: "lat,lng")
+    if (activity.location != null && activity.location!.contains(',')) {
+      final parts = activity.location!.split(',');
+      if (parts.length == 2) {
+        return double.tryParse(parts[1].trim());
+      }
+    }
+    return null;
+  }
+  
+  double _calculateDistanceInKm(double lat1, double lon1, double lat2, double lon2) {
+    const double earthRadius = 6371; // km
+    final dLat = (lat2 - lat1) * (3.14159265359 / 180);
+    final dLon = (lon2 - lon1) * (3.14159265359 / 180);
+    final a = (dLat / 2).abs() * (dLat / 2).abs() +
+        (lat1 * (3.14159265359 / 180)).abs() * (lat2 * (3.14159265359 / 180)).abs() *
+        (dLon / 2).abs() * (dLon / 2).abs();
+    final c = 2 * (a.abs() < 1 ? a.abs() : 1.0);
+    return earthRadius * c;
   }
 
   Future<Map<String, double>?> _getCoordinatesFromPlaceId(String placeId) async {

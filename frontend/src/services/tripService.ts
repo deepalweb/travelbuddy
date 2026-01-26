@@ -311,26 +311,20 @@ class TripService {
   async deleteTrip(tripPlanId: string): Promise<boolean> {
     try {
       const headers = await this.getAuthHeaders()
-      const response = await this.request<{ success: boolean }>(`/users/trip-plans/${tripPlanId}`, {
+      await this.request<{ success: boolean }>(`/users/trip-plans/${tripPlanId}`, {
         method: 'DELETE',
         headers,
       })
       
-      // Clear ONLY specific localStorage items for this trip (not all items containing the ID)
       const specificKeys = [
         `trip-notes-${tripPlanId}`,
         `trip-activities-${tripPlanId}`,
         `trip-cache-${tripPlanId}`
       ]
       
-      specificKeys.forEach(key => {
-        if (localStorage.getItem(key)) {
-          localStorage.removeItem(key)
-          console.log(`🗑️ Cleared localStorage: ${key}`)
-        }
-      })
+      specificKeys.forEach(key => localStorage.removeItem(key))
       
-      return response.success || true
+      return true
     } catch (error) {
       console.error('Error deleting trip plan:', error)
       return false
