@@ -60,8 +60,11 @@ class _PlannerScreenState extends State<PlannerScreen> {
           ),
           floatingActionButton: FloatingActionButton.extended(
             onPressed: () => _showCreatePlanOptions(),
-            icon: const Icon(Icons.add),
+            icon: const Icon(Icons.add_circle_outline),
             label: const Text('Create Plan'),
+            backgroundColor: Color(AppConstants.colors['primary']!),
+            foregroundColor: Colors.white,
+            elevation: 4,
           ),
         );
       },
@@ -309,73 +312,111 @@ class _PlannerScreenState extends State<PlannerScreen> {
         final statusInfo = _calculatePlanStatus(plan);
         
         planWidgets.add(Card(
-          margin: const EdgeInsets.only(bottom: 8),
-          child: ListTile(
-            leading: CircleAvatar(
-              backgroundColor: Colors.purple[100],
-              child: Icon(Icons.map, color: Colors.purple[700]),
-            ),
-            title: Row(
-              children: [
-                Expanded(child: Text(plan.tripTitle ?? 'Trip Plan')),
-                _buildStatusBadge(statusInfo),
-              ],
-            ),
-            subtitle: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('${plan.destination} • ${plan.duration}'),
-                const SizedBox(height: 4),
-                _buildProgressBar(statusInfo),
-              ],
-            ),
-            trailing: PopupMenuButton<String>(
-              icon: const Icon(Icons.more_vert, size: 20),
-              onSelected: (value) => _handlePlanAction(value, plan, appProvider),
-              itemBuilder: (context) => [
-                const PopupMenuItem(
-                  value: 'view',
-                  child: Row(
-                    children: [
-                      Icon(Icons.visibility, size: 16),
-                      SizedBox(width: 8),
-                      Text('View'),
-                    ],
-                  ),
-                ),
-                const PopupMenuItem(
-                  value: 'share',
-                  child: Row(
-                    children: [
-                      Icon(Icons.share, size: 16),
-                      SizedBox(width: 8),
-                      Text('Share'),
-                    ],
-                  ),
-                ),
-                const PopupMenuItem(
-                  value: 'duplicate',
-                  child: Row(
-                    children: [
-                      Icon(Icons.copy, size: 16),
-                      SizedBox(width: 8),
-                      Text('Duplicate'),
-                    ],
-                  ),
-                ),
-                const PopupMenuItem(
-                  value: 'delete',
-                  child: Row(
-                    children: [
-                      Icon(Icons.delete, size: 16, color: Colors.red),
-                      SizedBox(width: 8),
-                      Text('Delete', style: TextStyle(color: Colors.red)),
-                    ],
-                  ),
-                ),
-              ],
-            ),
+          margin: const EdgeInsets.only(bottom: 12),
+          elevation: 3,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          child: InkWell(
             onTap: () => _showTripPlanDetails(plan),
+            borderRadius: BorderRadius.circular(16),
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: [Colors.purple[400]!, Colors.purple[600]!],
+                          ),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: const Icon(Icons.map, color: Colors.white, size: 24),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              plan.tripTitle ?? 'Trip Plan',
+                              style: const TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            const SizedBox(height: 4),
+                            Row(
+                              children: [
+                                Icon(Icons.location_on, size: 14, color: Colors.grey[600]),
+                                const SizedBox(width: 4),
+                                Text(
+                                  '${plan.destination} • ${plan.duration}',
+                                  style: TextStyle(fontSize: 13, color: Colors.grey[600]),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                      _buildStatusBadge(statusInfo),
+                      PopupMenuButton<String>(
+                        icon: const Icon(Icons.more_vert, size: 20),
+                        onSelected: (value) => _handlePlanAction(value, plan, appProvider),
+                        itemBuilder: (context) => [
+                          const PopupMenuItem(
+                            value: 'view',
+                            child: Row(
+                              children: [
+                                Icon(Icons.visibility, size: 16),
+                                SizedBox(width: 8),
+                                Text('View'),
+                              ],
+                            ),
+                          ),
+                          const PopupMenuItem(
+                            value: 'share',
+                            child: Row(
+                              children: [
+                                Icon(Icons.share, size: 16),
+                                SizedBox(width: 8),
+                                Text('Share'),
+                              ],
+                            ),
+                          ),
+                          const PopupMenuItem(
+                            value: 'duplicate',
+                            child: Row(
+                              children: [
+                                Icon(Icons.copy, size: 16),
+                                SizedBox(width: 8),
+                                Text('Duplicate'),
+                              ],
+                            ),
+                          ),
+                          const PopupMenuItem(
+                            value: 'delete',
+                            child: Row(
+                              children: [
+                                Icon(Icons.delete, size: 16, color: Colors.red),
+                                SizedBox(width: 8),
+                                Text('Delete', style: TextStyle(color: Colors.red)),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  _buildProgressBar(statusInfo),
+                ],
+              ),
+            ),
           ),
         ));
       } else {
@@ -383,82 +424,168 @@ class _PlannerScreenState extends State<PlannerScreen> {
         final statusInfo = _calculateItineraryStatus(itinerary);
         
         planWidgets.add(Card(
-          margin: const EdgeInsets.only(bottom: 8),
-          child: ListTile(
-            leading: CircleAvatar(
-              backgroundColor: Colors.blue[100],
-              child: Icon(Icons.today, color: Colors.blue[700]),
-            ),
-            title: Row(
-              children: [
-                Expanded(child: Text(itinerary.title)),
-                _buildStatusBadge(statusInfo),
-              ],
-            ),
-            subtitle: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('Day itinerary • ${itinerary.dailyPlan.length} activities'),
-                const SizedBox(height: 4),
-                _buildProgressBar(statusInfo),
-              ],
-            ),
-            trailing: PopupMenuButton<String>(
-              icon: const Icon(Icons.more_vert, size: 20),
-              onSelected: (value) => _handlePlanAction(value, itinerary, appProvider),
-              itemBuilder: (context) => [
-                const PopupMenuItem(
-                  value: 'view',
-                  child: Row(
-                    children: [
-                      Icon(Icons.visibility, size: 16),
-                      SizedBox(width: 8),
-                      Text('View'),
-                    ],
-                  ),
-                ),
-                const PopupMenuItem(
-                  value: 'duplicate',
-                  child: Row(
-                    children: [
-                      Icon(Icons.copy, size: 16),
-                      SizedBox(width: 8),
-                      Text('Duplicate'),
-                    ],
-                  ),
-                ),
-                const PopupMenuItem(
-                  value: 'delete',
-                  child: Row(
-                    children: [
-                      Icon(Icons.delete, size: 16, color: Colors.red),
-                      SizedBox(width: 8),
-                      Text('Delete', style: TextStyle(color: Colors.red)),
-                    ],
-                  ),
-                ),
-              ],
-            ),
+          margin: const EdgeInsets.only(bottom: 12),
+          elevation: 3,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          child: InkWell(
             onTap: () => _showItineraryDetails(itinerary),
+            borderRadius: BorderRadius.circular(16),
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: [Colors.blue[400]!, Colors.blue[600]!],
+                          ),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: const Icon(Icons.today, color: Colors.white, size: 24),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              itinerary.title,
+                              style: const TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            const SizedBox(height: 4),
+                            Row(
+                              children: [
+                                Icon(Icons.schedule, size: 14, color: Colors.grey[600]),
+                                const SizedBox(width: 4),
+                                Text(
+                                  'Day itinerary • ${itinerary.dailyPlan.length} activities',
+                                  style: TextStyle(fontSize: 13, color: Colors.grey[600]),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                      _buildStatusBadge(statusInfo),
+                      PopupMenuButton<String>(
+                        icon: const Icon(Icons.more_vert, size: 20),
+                        onSelected: (value) => _handlePlanAction(value, itinerary, appProvider),
+                        itemBuilder: (context) => [
+                          const PopupMenuItem(
+                            value: 'view',
+                            child: Row(
+                              children: [
+                                Icon(Icons.visibility, size: 16),
+                                SizedBox(width: 8),
+                                Text('View'),
+                              ],
+                            ),
+                          ),
+                          const PopupMenuItem(
+                            value: 'duplicate',
+                            child: Row(
+                              children: [
+                                Icon(Icons.copy, size: 16),
+                                SizedBox(width: 8),
+                                Text('Duplicate'),
+                              ],
+                            ),
+                          ),
+                          const PopupMenuItem(
+                            value: 'delete',
+                            child: Row(
+                              children: [
+                                Icon(Icons.delete, size: 16, color: Colors.red),
+                                SizedBox(width: 8),
+                                Text('Delete', style: TextStyle(color: Colors.red)),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  _buildProgressBar(statusInfo),
+                ],
+              ),
+            ),
           ),
         ));
       }
     }
     
     if (planWidgets.isEmpty) {
-      return Padding(
-        padding: const EdgeInsets.all(16),
+      return Container(
+        padding: const EdgeInsets.all(32),
         child: Column(
           children: [
+            Container(
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                color: Colors.grey[100],
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                Icons.map_outlined,
+                size: 64,
+                color: Colors.grey[400],
+              ),
+            ),
+            const SizedBox(height: 24),
             Text(
               _searchQuery.isNotEmpty || _filterStatus != 'all'
-                  ? 'No plans match your filters.'
-                  : 'No plans created yet.',
-              style: const TextStyle(color: Colors.grey, fontStyle: FontStyle.italic),
+                  ? 'No plans match your filters'
+                  : 'No trip plans yet',
+              style: const TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+              ),
             ),
             const SizedBox(height: 8),
-            const Text('Browse places and tap "Add Trip" to create your first plan!', 
-                       style: TextStyle(color: Colors.grey, fontSize: 12)),
+            Text(
+              _searchQuery.isNotEmpty || _filterStatus != 'all'
+                  ? 'Try adjusting your search or filters'
+                  : 'Start creating your travel plans',
+              style: TextStyle(
+                color: Colors.grey[600],
+                fontSize: 14,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 24),
+            ElevatedButton.icon(
+              onPressed: () {
+                if (_searchQuery.isNotEmpty || _filterStatus != 'all') {
+                  setState(() {
+                    _searchController.clear();
+                    _searchQuery = '';
+                    _filterStatus = 'all';
+                  });
+                } else {
+                  _navigateToPlaces();
+                }
+              },
+              icon: Icon(_searchQuery.isNotEmpty || _filterStatus != 'all' ? Icons.clear : Icons.explore),
+              label: Text(_searchQuery.isNotEmpty || _filterStatus != 'all' ? 'Clear Filters' : 'Browse Places'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Color(AppConstants.colors['primary']!),
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+            ),
           ],
         ),
       );
@@ -472,13 +599,23 @@ class _PlannerScreenState extends State<PlannerScreen> {
         if (hasMore)
           Padding(
             padding: const EdgeInsets.symmetric(vertical: 16),
-            child: OutlinedButton(
+            child: ElevatedButton.icon(
               onPressed: () {
                 setState(() {
                   _displayCount += 5;
                 });
               },
-              child: const Text('Show More'),
+              icon: const Icon(Icons.expand_more),
+              label: Text('Show ${allPlans.length - _displayCount} More Plans'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.white,
+                foregroundColor: Color(AppConstants.colors['primary']!),
+                side: BorderSide(color: Color(AppConstants.colors['primary']!)),
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
             ),
           ),
       ],
@@ -837,26 +974,62 @@ class _PlannerScreenState extends State<PlannerScreen> {
   }
   
   Widget _buildProgressBar(Map<String, dynamic> statusInfo) {
-    return Row(
-      children: [
-        Expanded(
-          child: LinearProgressIndicator(
-            value: statusInfo['progress'],
-            backgroundColor: Colors.grey[300],
-            valueColor: AlwaysStoppedAnimation<Color>(statusInfo['color']),
-            minHeight: 4,
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: statusInfo['color'].withOpacity(0.1),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      'Progress',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: statusInfo['color'],
+                      ),
+                    ),
+                    Text(
+                      '${(statusInfo['progress'] * 100).toInt()}%',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                        color: statusInfo['color'],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 6),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(4),
+                  child: LinearProgressIndicator(
+                    value: statusInfo['progress'],
+                    backgroundColor: Colors.grey[300],
+                    valueColor: AlwaysStoppedAnimation<Color>(statusInfo['color']),
+                    minHeight: 6,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  '${statusInfo['visited']} of ${statusInfo['total']} activities completed',
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: Colors.grey[600],
+                  ),
+                ),
+              ],
+            ),
           ),
-        ),
-        const SizedBox(width: 8),
-        Text(
-          '${statusInfo['visited']}/${statusInfo['total']}',
-          style: TextStyle(
-            fontSize: 11,
-            color: Colors.grey[600],
-            fontWeight: FontWeight.w500,
-          ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 
