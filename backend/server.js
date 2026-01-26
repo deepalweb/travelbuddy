@@ -1786,7 +1786,7 @@ async function isAdminRequest(req) {
   return false;
 }
 
-// Trip Plan Schema
+// Trip Plan Schema - COMPLETE with ALL fields
 const tripPlanSchema = new mongoose.Schema({
   userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   tripTitle: String,
@@ -1796,6 +1796,9 @@ const tripPlanSchema = new mongoose.Schema({
   conclusion: { type: String, default: '' },
   totalEstimatedCost: { type: String, default: '$0' },
   estimatedWalkingDistance: { type: String, default: '0 km' },
+  packingTips: [String],
+  transportationTips: [String],
+  culturalEtiquette: [String],
   dailyPlans: [{
     day: Number,
     title: String,
@@ -1807,7 +1810,31 @@ const tripPlanSchema = new mongoose.Schema({
       estimatedCost: String,
       isVisited: { type: Boolean, default: false },
       visitedDate: Date,
-      rating: Number
+      rating: Number,
+      category: String,
+      icon: String,
+      location: {
+        lat: Number,
+        lng: Number,
+        city: String,
+        country: String
+      },
+      fullAddress: String,
+      googlePlaceId: String,
+      photoThumbnail: String,
+      openingHours: String,
+      website: String,
+      phoneNumber: String,
+      priceLevel: Number,
+      userRating: Number,
+      totalRatings: Number,
+      tags: [String],
+      highlights: [String],
+      tips: [String],
+      bestTimeToVisit: String,
+      accessibility: String,
+      bookingRequired: Boolean,
+      bookingUrl: String
     }]
   }],
   shareId: String,
