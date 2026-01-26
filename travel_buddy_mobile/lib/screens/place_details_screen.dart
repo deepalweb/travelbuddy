@@ -450,13 +450,6 @@ class _PlaceDetailsScreenState extends State<PlaceDetailsScreen> with TickerProv
                         _buildExpandableDescription(),
                       ),
                       
-                      // Consolidated AI Features Section
-                      ..._buildSection(
-                        'AI Assistant',
-                        Icons.auto_awesome,
-                        _buildConsolidatedAISection(),
-                      ),
-                      
                       // Business Details (Collapsible)
                       if (_placeDetails != null) ..._buildSection(
                         'Business Details',
@@ -689,17 +682,19 @@ class _PlaceDetailsScreenState extends State<PlaceDetailsScreen> with TickerProv
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        if (!_showReviewForm)
-          SizedBox(
-            width: double.infinity,
-            child: OutlinedButton.icon(
-              onPressed: () => setState(() => _showReviewForm = true),
-              icon: const Icon(Icons.rate_review),
-              label: const Text('Write a Review'),
-            ),
-          )
-        else
+        // Always show write review button
+        SizedBox(
+          width: double.infinity,
+          child: OutlinedButton.icon(
+            onPressed: () => setState(() => _showReviewForm = !_showReviewForm),
+            icon: Icon(_showReviewForm ? Icons.close : Icons.rate_review),
+            label: Text(_showReviewForm ? 'Cancel' : 'Write a Review'),
+          ),
+        ),
+        if (_showReviewForm) ...[
+          const SizedBox(height: 12),
           _buildReviewForm(),
+        ],
         const SizedBox(height: 12),
         if (_isLoadingReviews)
           const Center(child: CircularProgressIndicator())
@@ -1071,36 +1066,41 @@ class _PlaceDetailsScreenState extends State<PlaceDetailsScreen> with TickerProv
     }
     
     try {
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString('auth_token');
+      
       final response = await http.post(
         Uri.parse('${AppConstants.baseUrl}/api/reviews'),
-        headers: {'Content-Type': 'application/json'},
+        headers: {
+          'Content-Type': 'application/json',
+          if (token != null) 'Authorization': 'Bearer $token',
+        },
         body: json.encode({
           'place_id': widget.place.id,
           'rating': _selectedRating,
           'text': _reviewController.text.trim(),
-          'author_name': 'Anonymous User',
+          'author_name': 'Travel Buddy User',
         }),
       );
       
-      if (response.statusCode == 200) {
+      if (response.statusCode == 200 || response.statusCode == 201) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Review submitted successfully!')),
         );
+        setState(() {
+          _showReviewForm = false;
+          _selectedRating = 0;
+          _reviewController.clear();
+        });
         _loadReviews(); // Reload reviews
       } else {
-        throw Exception('Failed to submit review');
+        throw Exception('Failed to submit review: ${response.statusCode}');
       }
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Failed to submit review: $e')),
       );
     }
-    
-    setState(() {
-      _showReviewForm = false;
-      _selectedRating = 0;
-      _reviewController.clear();
-    });
   }
   
   void _getDirections() async {

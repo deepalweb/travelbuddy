@@ -126,39 +126,41 @@ class _SectionPlacesScreenState extends State<SectionPlacesScreen> {
 
   Widget _buildLoadMoreButton(AppProvider appProvider) {
     return Container(
-      margin: const EdgeInsets.only(bottom: 100), // Add bottom margin for navigation
-      child: Card(
-        child: InkWell(
-          onTap: _isLoading ? null : () => _loadMorePlaces(appProvider),
-          child: Container(
-            padding: const EdgeInsets.all(20),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                if (_isLoading)
-                  const CircularProgressIndicator()
-                else ...[
-                  const Icon(Icons.add, size: 32, color: Colors.grey),
-                  const SizedBox(height: 8),
-                  const Text(
-                    'Load More',
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      color: Colors.grey,
-                    ),
-                  ),
+      margin: const EdgeInsets.only(bottom: 100),
+      child: ElevatedButton(
+        onPressed: _isLoading ? null : () => _loadMorePlaces(appProvider),
+        style: ElevatedButton.styleFrom(
+          backgroundColor: Colors.blue,
+          foregroundColor: Colors.white,
+          padding: const EdgeInsets.symmetric(vertical: 16),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+          elevation: 2,
+        ),
+        child: _isLoading
+            ? const SizedBox(
+                height: 20,
+                width: 20,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: Colors.white,
+                ),
+              )
+            : Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(Icons.refresh, size: 20),
+                  const SizedBox(width: 8),
                   Text(
-                    '${_hasMore ? "More places" : "No more places"}',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Colors.grey[600],
+                    _hasMore ? 'Load More Places' : 'No More Places',
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
                     ),
                   ),
                 ],
-              ],
-            ),
-          ),
-        ),
+              ),
       ),
     );
   }

@@ -337,31 +337,32 @@ class PlaceCard extends StatelessWidget {
                   Expanded(
                     child: OutlinedButton.icon(
                       onPressed: () => _showAddToTripDialog(context),
-                      icon: const Icon(Icons.add, size: 16),
-                      label: const Text('Add Trip'),
+                      icon: const Icon(Icons.add, size: 18),
+                      label: const Text('Add Trip', style: TextStyle(fontSize: 14)),
                       style: OutlinedButton.styleFrom(
                         foregroundColor: Colors.blue,
                         side: const BorderSide(color: Colors.blue),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(8),
                         ),
-                        padding: const EdgeInsets.symmetric(vertical: 8),
+                        padding: const EdgeInsets.symmetric(vertical: 12),
                       ),
                     ),
                   ),
                   const SizedBox(width: 8),
                   Expanded(
-                    child: ElevatedButton(
+                    child: ElevatedButton.icon(
                       onPressed: onTap,
+                      icon: const Icon(Icons.info_outline, size: 18),
+                      label: const Text('Details', style: TextStyle(fontSize: 14)),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Color(AppConstants.colors['primary']!),
                         foregroundColor: Colors.white,
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(8),
                         ),
-                        padding: const EdgeInsets.symmetric(vertical: 8),
+                        padding: const EdgeInsets.symmetric(vertical: 12),
                       ),
-                      child: const Text('Details'),
                     ),
                   ),
                 ],
