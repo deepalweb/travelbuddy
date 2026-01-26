@@ -368,6 +368,10 @@ router.delete('/trip-plans/:id', async (req, res) => {
     const User = getUser();
     const TripPlan = getTripPlan();
     
+    if (!TripPlan) {
+      return res.status(500).json({ error: 'TripPlan model not available' });
+    }
+    
     const authHeader = req.headers.authorization;
     if (!authHeader?.startsWith('Bearer ')) {
       return res.status(401).json({ error: 'Authentication required' });
@@ -381,12 +385,15 @@ router.delete('/trip-plans/:id', async (req, res) => {
     const user = await User.findOne({ firebaseUid: uid });
     if (!user) return res.status(404).json({ error: 'User not found' });
 
-    const trip = await TripPlan.findOne({ _id: req.params.id, userId: user._id });
-    if (!trip) return res.status(404).json({ error: 'Trip not found' });
+    const result = await TripPlan.deleteOne({ _id: req.params.id, userId: user._id });
+    
+    if (result.deletedCount === 0) {
+      return res.status(404).json({ error: 'Trip not found' });
+    }
 
-    await trip.deleteOne();
     res.json({ success: true });
   } catch (error) {
+    console.error('❌ Error deleting trip:', error);
     res.status(500).json({ error: error.message });
   }
 });
