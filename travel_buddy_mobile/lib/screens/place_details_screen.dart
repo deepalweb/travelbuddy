@@ -74,7 +74,6 @@ class _PlaceDetailsScreenState extends State<PlaceDetailsScreen> with TickerProv
     _fadeController.forward();
     
     _loadPlaceDetails();
-    _loadReviews();
     _loadNearbyPlaces();
     _loadEnhancedDescription();
     _loadLocalTip();
@@ -100,6 +99,7 @@ class _PlaceDetailsScreenState extends State<PlaceDetailsScreen> with TickerProv
       _placeDetails = cachedDetails;
       _extractPhotoGallery(cachedDetails);
       setState(() {});
+      _loadReviews(); // Load reviews after details
       return;
     }
     
@@ -123,6 +123,7 @@ class _PlaceDetailsScreenState extends State<PlaceDetailsScreen> with TickerProv
         await _cacheDetails(data);
         
         _extractPhotoGallery(data);
+        _loadReviews(); // Load reviews after details
       } else {
         _detailsError = 'Failed to load place details';
         _setFallbackPhoto();
@@ -1926,19 +1927,27 @@ class _PlaceDetailsScreenState extends State<PlaceDetailsScreen> with TickerProv
     );
   }
   
-  // Load reviews from backend
+  // Load reviews from backend (Google reviews)
   Future<void> _loadReviews() async {
     setState(() => _isLoadingReviews = true);
     
     try {
-      final response = await http.get(
-        Uri.parse('${AppConstants.baseUrl}/api/reviews?place_id=${widget.place.id}'),
-        headers: {'Content-Type': 'application/json'},
-      ).timeout(const Duration(seconds: 5));
-      
-      if (response.statusCode == 200) {
-        final data = json.decode(response.body) as List;
-        _reviews = data.cast<Map<String, dynamic>>();
+      // First try to get Google reviews from place details
+      if (_placeDetails != null && _placeDetails!['reviews'] != null) {
+        _reviews = (_placeDetails!['reviews'] as List).cast<Map<String, dynamic>>();
+      } else if (widget.place.id.isNotEmpty) {
+        // Fetch place details to get reviews
+        final response = await http.get(
+          Uri.parse('${AppConstants.baseUrl}/api/places/details?place_id=${widget.place.id}&lang=en'),
+          headers: {'Content-Type': 'application/json'},
+        ).timeout(const Duration(seconds: 10));
+        
+        if (response.statusCode == 200) {
+          final data = json.decode(response.body);
+          if (data['reviews'] != null) {
+            _reviews = (data['reviews'] as List).cast<Map<String, dynamic>>();
+          }
+        }
       }
     } catch (e) {
       print('Failed to load reviews: $e');
