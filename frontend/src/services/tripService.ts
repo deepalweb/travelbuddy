@@ -316,11 +316,17 @@ class TripService {
         headers,
       })
       
-      // Clear localStorage cache for this trip
-      const keys = Object.keys(localStorage)
-      keys.forEach(key => {
-        if (key.includes(tripPlanId)) {
+      // Clear ONLY specific localStorage items for this trip (not all items containing the ID)
+      const specificKeys = [
+        `trip-notes-${tripPlanId}`,
+        `trip-activities-${tripPlanId}`,
+        `trip-cache-${tripPlanId}`
+      ]
+      
+      specificKeys.forEach(key => {
+        if (localStorage.getItem(key)) {
           localStorage.removeItem(key)
+          console.log(`🗑️ Cleared localStorage: ${key}`)
         }
       })
       
