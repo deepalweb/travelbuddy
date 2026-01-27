@@ -10,6 +10,7 @@ import '../models/place.dart';
 import '../services/azure_openai_service.dart';
 import '../services/storage_service.dart';
 import '../services/api_service.dart';
+import '../config/environment.dart';
 import '../providers/app_provider.dart';
 import '../screens/route_plan_screen.dart';
 import '../screens/enhanced_route_plan_screen.dart';
@@ -2164,16 +2165,14 @@ Created with Travel Buddy - Plan your perfect trip!''';
       
       // Build request for backend
       final activitiesData = activities.map((a) => {
-        return {
-          'title': a.activityTitle,
-          'address': a.fullAddress,
-        };
+        'title': a.activityTitle,
+        'address': a.fullAddress,
       }).toList();
       
       print('🤖 Requesting coordinates from backend AI...');
       
       final response = await http.post(
-        Uri.parse('${ApiService.baseUrl}/ai/coordinates'),
+        Uri.parse('${Environment.backendUrl}/api/ai/coordinates'),
         headers: {'Content-Type': 'application/json'},
         body: json.encode({
           'activities': activitiesData,
@@ -2525,132 +2524,4 @@ class _RoutePreferencesBottomSheetState extends State<_RoutePreferencesBottomShe
         ],
       ),
     );
-  }
-}
-
-  Future<List<Place>> _getCoordinatesWithAI(List<ActivityDetail> activities) async {
-    try {
-      final destination = (_currentTripPlan ?? widget.tripPlan).destination;
-      
-      // Build prompt for Azure OpenAI
-      final activitiesText = activities.map((a) => 
-        '- ${a.activityTitle}${a.fullAddress != null ? " (${a.fullAddress})" : ""}'
-      ).join('\n');
-      
-      final prompt = '''You are a location expert. For each activity below in $destination, provide ONLY the latitude and longitude coordinates.
-
-Activities:
-$activitiesText
-
-Return ONLY a JSON array with this exact format (no markdown, no explanation):
-[{"name":"activity name","lat":6.9271,"lng":79.8612},...]
-
-If you cannot find exact coordinates, provide the best estimate for that location in $destination.''';
-
-      print('🤖 Requesting coordinates from Azure OpenAI...');
-      
-      final response = await AzureOpenAIService.generateText(prompt);
-      
-      if (response == null || response.isEmpty) {
-        print('❌ Empty response from AI');
-        return _fallbackCoordinateResolution(activities);
-      }
-      
-      // Parse JSON response
-      final jsonStr = response.trim()
-          .replaceAll('```json', '')
-          .replaceAll('```', '')
-          .trim();
-      
-      final List<dynamic> coordsList = json.decode(jsonStr);
-      print('✅ AI returned ${coordsList.length} coordinates');
-      
-      final places = <Place>[];
-      for (int i = 0; i < activities.length && i < coordsList.length; i++) {
-        final activity = activities[i];
-        final coords = coordsList[i];
-        
-        final lat = coords['lat'] is int ? (coords['lat'] as int).toDouble() : coords['lat'] as double;
-        final lng = coords['lng'] is int ? (coords['lng'] as int).toDouble() : coords['lng'] as double;
-        
-        places.add(Place(
-          id: activity.googlePlaceId ?? 'activity_${activity.activityTitle.hashCode}',
-          name: activity.activityTitle,
-          address: activity.fullAddress ?? activity.location ?? '',
-          latitude: lat,
-          longitude: lng,
-          rating: activity.rating ?? 0.0,
-          type: activity.category ?? 'attraction',
-          photoUrl: activity.photoThumbnail ?? '',
-          description: activity.description,
-          localTip: activity.practicalTip ?? '',
-          handyPhrase: '',
-        ));
-        
-        print('✅ AI coords: ${activity.activityTitle} = $lat, $lng');
-      }
-      
-      return places;
-      
-    } catch (e) {
-      print('❌ AI coordinate error: $e');
-      return _fallbackCoordinateResolution(activities);
-    }
-  }
-  
-  Future<List<Place>> _fallbackCoordinateResolution(List<ActivityDetail> activities) async {
-    print('⚠️ Using fallback coordinate resolution');
-    final places = <Place>[];
-    
-    for (final activity in activities) {
-      double? lat;
-      double? lng;
-      
-      if (activity.location != null && activity.location!.contains(',')) {
-        final parts = activity.location!.split(',');
-        if (parts.length == 2) {
-          lat = double.tryParse(parts[0].trim());
-          lng = double.tryParse(parts[1].trim());
-        }
-      }
-      
-      if (lat == null && activity.googlePlaceId != null && activity.googlePlaceId!.isNotEmpty) {
-        final coords = await _getCoordinatesFromPlaceId(activity.googlePlaceId!);
-        lat = coords?['lat'];
-        lng = coords?['lng'];
-      }
-      
-      if (lat == null && activity.fullAddress != null && activity.fullAddress!.isNotEmpty) {
-        final coords = await _geocodeAddress(activity.fullAddress!);
-        lat = coords?['lat'];
-        lng = coords?['lng'];
-      }
-      
-      if (lat == null) {
-        final placeName = _extractPlaceName(activity.activityTitle);
-        if (placeName.isNotEmpty && placeName.length >= 3) {
-          final coords = await _searchPlaceByName(placeName);
-          lat = coords?['lat'];
-          lng = coords?['lng'];
-        }
-      }
-      
-      if (lat != null && lng != null) {
-        places.add(Place(
-          id: activity.googlePlaceId ?? 'activity_${activity.activityTitle.hashCode}',
-          name: activity.activityTitle,
-          address: activity.fullAddress ?? activity.location ?? '',
-          latitude: lat,
-          longitude: lng,
-          rating: activity.rating ?? 0.0,
-          type: activity.category ?? 'attraction',
-          photoUrl: activity.photoThumbnail ?? '',
-          description: activity.description,
-          localTip: activity.practicalTip ?? '',
-          handyPhrase: '',
-        ));
-      }
-    }
-    
-    return places;
   }
