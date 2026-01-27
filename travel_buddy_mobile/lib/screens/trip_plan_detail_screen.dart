@@ -4,6 +4,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+import 'dart:math' show sin, cos, sqrt, atan2, pi;
 import '../models/trip.dart';
 import '../models/place.dart';
 import '../services/azure_openai_service.dart';
@@ -38,11 +39,9 @@ class _TripPlanDetailScreenState extends State<TripPlanDetailScreen> {
     super.initState();
     _currentTripPlan = widget.tripPlan;
     _loadVisitStatus();
-    // Load after build completes
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _refreshTripPlan();
-      _loadEnhancedIntroduction();
-    });
+    _loadEnhancedIntroduction();
+    // Refresh AFTER loading initial status
+    Future.microtask(() => _refreshTripPlan());
   }
   
   void _loadVisitStatus() {
@@ -94,8 +93,7 @@ class _TripPlanDetailScreenState extends State<TripPlanDetailScreen> {
     if (mounted) {
       setState(() {
         _currentTripPlan = latestTrip;
-        // CRITICAL: Update visit status map from the LOADED data
-        _visitStatus.clear();
+        // DON'T clear - merge with existing status
         for (final day in latestTrip!.dailyPlans) {
           for (final activity in day.activities) {
             _visitStatus[activity.activityTitle] = activity.isVisited;
@@ -116,11 +114,6 @@ class _TripPlanDetailScreenState extends State<TripPlanDetailScreen> {
     print('🔄 Toggling visit status for: $activityTitle');
     print('   Current: $currentStatus → New: $newStatus');
     
-    // Update UI immediately
-    setState(() {
-      _visitStatus[activityTitle] = newStatus;
-    });
-    
     // Find indices for saving
     int dayIndex = -1;
     int activityIndex = -1;
@@ -136,125 +129,77 @@ class _TripPlanDetailScreenState extends State<TripPlanDetailScreen> {
       if (dayIndex != -1) break;
     }
     
-    if (dayIndex != -1 && activityIndex != -1) {
-      print('   Found at: Day $dayIndex, Activity $activityIndex');
-      
-      // Save to storage
-      final activity = _currentTripPlan!.dailyPlans[dayIndex].activities[activityIndex];
-        final updatedActivity = ActivityDetail(
-          timeOfDay: activity.timeOfDay,
-          activityTitle: activity.activityTitle,
-          description: activity.description,
-          estimatedDuration: activity.estimatedDuration,
-          location: activity.location,
-          notes: activity.notes,
-          icon: activity.icon,
-          category: activity.category,
-          startTime: activity.startTime,
-          endTime: activity.endTime,
-          duration: activity.duration,
-          place: activity.place,
-          type: activity.type,
-          estimatedCost: activity.estimatedCost,
-          costBreakdown: activity.costBreakdown,
-          transportFromPrev: activity.transportFromPrev,
-          tips: activity.tips,
-          weatherBackup: activity.weatherBackup,
-          crowdLevel: activity.crowdLevel,
-          imageURL: activity.imageURL,
-          bookingLinks: activity.bookingLinks,
-          googlePlaceId: activity.googlePlaceId,
-          highlight: activity.highlight,
-          socialProof: activity.socialProof,
-          rating: activity.rating,
-          userRatingsTotal: activity.userRatingsTotal,
-          practicalTip: activity.practicalTip,
-          travelMode: activity.travelMode,
-          travelTimeMin: activity.travelTimeMin,
-          estimatedVisitDurationMin: activity.estimatedVisitDurationMin,
-          photoThumbnail: activity.photoThumbnail,
-          fullAddress: activity.fullAddress,
-          openingHours: activity.openingHours,
-          isOpenNow: activity.isOpenNow,
-          weatherNote: activity.weatherNote,
-          tags: activity.tags,
-          bookingLink: activity.bookingLink,
-          isVisited: newStatus,
-          visitedDate: newStatus ? DateTime.now().toIso8601String() : activity.visitedDate,
-        );
-        
-        final updatedActivities = List<ActivityDetail>.from(_currentTripPlan!.dailyPlans[dayIndex].activities);
-        updatedActivities[activityIndex] = updatedActivity;
-        
-        final updatedDailyPlan = DailyTripPlan(
-          day: _currentTripPlan!.dailyPlans[dayIndex].day,
-          title: _currentTripPlan!.dailyPlans[dayIndex].title,
-          theme: _currentTripPlan!.dailyPlans[dayIndex].theme,
-          activities: updatedActivities,
-          photoUrl: _currentTripPlan!.dailyPlans[dayIndex].photoUrl,
-        );
-        
-        final updatedDailyPlans = List<DailyTripPlan>.from(_currentTripPlan!.dailyPlans);
-        updatedDailyPlans[dayIndex] = updatedDailyPlan;
-        
-      _currentTripPlan = TripPlan(
-        id: _currentTripPlan!.id,
-        tripTitle: _currentTripPlan!.tripTitle,
-        destination: _currentTripPlan!.destination,
-        duration: _currentTripPlan!.duration,
-        introduction: _currentTripPlan!.introduction,
-        dailyPlans: updatedDailyPlans,
-        conclusion: _currentTripPlan!.conclusion,
-        accommodationSuggestions: _currentTripPlan!.accommodationSuggestions,
-        transportationTips: _currentTripPlan!.transportationTips,
-        budgetConsiderations: _currentTripPlan!.budgetConsiderations,
-      );
-      
-      // Save to storage
-      final appProvider = Provider.of<AppProvider>(context, listen: false);
-      final isItinerary = appProvider.itineraries.any((itinerary) => itinerary.id == _currentTripPlan!.id);
-      
-      print('💾 Saving to storage...');
-      if (isItinerary) {
-        await appProvider.updateItineraryActivityVisitedStatus(_currentTripPlan!.id, activityIndex, newStatus);
-        print('✅ Saved to itinerary storage');
-      } else {
-        await appProvider.updateActivityVisitedStatus(_currentTripPlan!.id, dayIndex, activityIndex, newStatus);
-        print('✅ Saved to trip plan storage');
-      }
-      
-      // Verify save worked by reloading
-      await Future.delayed(Duration(milliseconds: 200));
-      final storageService = StorageService();
-      final allTrips = await storageService.getTripPlans();
-      final savedTrip = allTrips.firstWhere((t) => t.id == _currentTripPlan!.id, orElse: () => _currentTripPlan!);
-      
-      if (savedTrip.id == _currentTripPlan!.id) {
-        final savedActivity = savedTrip.dailyPlans[dayIndex].activities[activityIndex];
-        print('🔍 Verification: ${savedActivity.activityTitle} isVisited = ${savedActivity.isVisited}');
-        
-        if (savedActivity.isVisited != newStatus) {
-          print('❌ WARNING: Save verification failed! Expected $newStatus but got ${savedActivity.isVisited}');
-        } else {
-          print('✅ Save verified successfully');
-        }
-      }
-      
-      // Show feedback
-      final allActivitiesCount = _currentTripPlan!.dailyPlans.fold<int>(0, (sum, day) => sum + day.activities.length);
-      final newVisitedCount = _visitStatus.values.where((v) => v).length;
-      final completionPercent = allActivitiesCount > 0 ? ((newVisitedCount / allActivitiesCount) * 100).toInt() : 0;
-      
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(newStatus ? '✅ Visited! $completionPercent%' : '⏳ Pending'),
-          backgroundColor: newStatus ? Colors.green : Colors.blue,
-          duration: const Duration(seconds: 1),
-        ),
-      );
-    } else {
+    if (dayIndex == -1 || activityIndex == -1) {
       print('❌ Activity not found in trip plan');
+      return;
     }
+    
+    print('   Found at: Day $dayIndex, Activity $activityIndex');
+    
+    // Update UI immediately
+    setState(() {
+      _visitStatus[activityTitle] = newStatus;
+    });
+    
+    // Save to storage
+    final activity = _currentTripPlan!.dailyPlans[dayIndex].activities[activityIndex];
+    final updatedActivity = activity.copyWith(
+      isVisited: newStatus,
+      visitedDate: newStatus ? DateTime.now().toIso8601String() : null,
+    );
+      
+    final updatedActivities = List<ActivityDetail>.from(_currentTripPlan!.dailyPlans[dayIndex].activities);
+    updatedActivities[activityIndex] = updatedActivity;
+    
+    final updatedDailyPlan = DailyTripPlan(
+      day: _currentTripPlan!.dailyPlans[dayIndex].day,
+      title: _currentTripPlan!.dailyPlans[dayIndex].title,
+      theme: _currentTripPlan!.dailyPlans[dayIndex].theme,
+      activities: updatedActivities,
+      photoUrl: _currentTripPlan!.dailyPlans[dayIndex].photoUrl,
+    );
+    
+    final updatedDailyPlans = List<DailyTripPlan>.from(_currentTripPlan!.dailyPlans);
+    updatedDailyPlans[dayIndex] = updatedDailyPlan;
+    
+    _currentTripPlan = TripPlan(
+      id: _currentTripPlan!.id,
+      tripTitle: _currentTripPlan!.tripTitle,
+      destination: _currentTripPlan!.destination,
+      duration: _currentTripPlan!.duration,
+      introduction: _currentTripPlan!.introduction,
+      dailyPlans: updatedDailyPlans,
+      conclusion: _currentTripPlan!.conclusion,
+      accommodationSuggestions: _currentTripPlan!.accommodationSuggestions,
+      transportationTips: _currentTripPlan!.transportationTips,
+      budgetConsiderations: _currentTripPlan!.budgetConsiderations,
+    );
+    
+    // Save to storage
+    final appProvider = Provider.of<AppProvider>(context, listen: false);
+    final isItinerary = appProvider.itineraries.any((itinerary) => itinerary.id == _currentTripPlan!.id);
+    
+    print('💾 Saving to storage...');
+    if (isItinerary) {
+      await appProvider.updateItineraryActivityVisitedStatus(_currentTripPlan!.id, activityIndex, newStatus);
+      print('✅ Saved to itinerary storage');
+    } else {
+      await appProvider.updateActivityVisitedStatus(_currentTripPlan!.id, dayIndex, activityIndex, newStatus);
+      print('✅ Saved to trip plan storage');
+    }
+    
+    // Show feedback
+    final allActivitiesCount = _currentTripPlan!.dailyPlans.fold<int>(0, (sum, day) => sum + day.activities.length);
+    final newVisitedCount = _visitStatus.values.where((v) => v).length;
+    final completionPercent = allActivitiesCount > 0 ? ((newVisitedCount / allActivitiesCount) * 100).toInt() : 0;
+    
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(newStatus ? '✅ Visited! $completionPercent%' : '⏳ Pending'),
+        backgroundColor: newStatus ? Colors.green : Colors.blue,
+        duration: const Duration(seconds: 1),
+      ),
+    );
   }
 
   void _confirmRemoveActivity(ActivityDetail activity) {
@@ -302,12 +247,16 @@ class _TripPlanDetailScreenState extends State<TripPlanDetailScreen> {
     }
     
     final totalPlaces = allActivities.length;
-    final visitedCount = allActivities.where((activity) => activity.isVisited).length;
+    // Use _visitStatus map as source of truth for UI state
+    final visitedCount = allActivities.where((activity) => 
+      _visitStatus[activity.activityTitle] ?? activity.isVisited
+    ).length;
     final pendingCount = totalPlaces - visitedCount;
     
     print('📊 STATS DEBUG: Total: $totalPlaces, Visited: $visitedCount, Pending: $pendingCount');
     for (final activity in allActivities) {
-      print('   Stats activity: ${activity.activityTitle} - isVisited: ${activity.isVisited}');
+      final status = _visitStatus[activity.activityTitle] ?? activity.isVisited;
+      print('   Stats activity: ${activity.activityTitle} - status: $status (stored: ${activity.isVisited})');
     }
     
     // Calculate total trip distance (start to end)
@@ -359,7 +308,7 @@ class _TripPlanDetailScreenState extends State<TripPlanDetailScreen> {
       
       totalMinutes += minutes;
       
-      if (!activity.isVisited) {
+      if (!(_visitStatus[activity.activityTitle] ?? activity.isVisited)) {
         pendingMinutes += minutes;
       }
     }
@@ -405,7 +354,7 @@ class _TripPlanDetailScreenState extends State<TripPlanDetailScreen> {
       
       totalKm += km;
       
-      if (!activity.isVisited) {
+      if (!(_visitStatus[activity.activityTitle] ?? activity.isVisited)) {
         pendingKm += km;
       }
       
@@ -624,6 +573,11 @@ class _TripPlanDetailScreenState extends State<TripPlanDetailScreen> {
         backgroundColor: Colors.blue[600],
         foregroundColor: Colors.white,
         actions: [
+          IconButton(
+            icon: const Icon(Icons.save),
+            onPressed: _saveProgress,
+            tooltip: 'Save Progress',
+          ),
           IconButton(
             icon: const Icon(Icons.refresh),
             onPressed: _refreshTripPlan,
@@ -844,13 +798,28 @@ class _TripPlanDetailScreenState extends State<TripPlanDetailScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              'Day $dayNumber',
-              style: const TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: Colors.blue,
-              ),
+            Row(
+              children: [
+                Text(
+                  'Day $dayNumber',
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.blue,
+                  ),
+                ),
+                const Spacer(),
+                IconButton(
+                  onPressed: () => _showAddPlaceDialog(dayNumber - 1),
+                  icon: const Icon(Icons.add_location_alt, size: 20),
+                  style: IconButton.styleFrom(
+                    backgroundColor: Colors.blue[50],
+                    foregroundColor: Colors.blue[700],
+                    padding: const EdgeInsets.all(8),
+                  ),
+                  tooltip: 'Add Place',
+                ),
+              ],
             ),
             const SizedBox(height: 8),
             ...dayPlan.activities.map((activity) => Container(
@@ -869,7 +838,7 @@ class _TripPlanDetailScreenState extends State<TripPlanDetailScreen> {
                       Icon(Icons.access_time, size: 16, color: Colors.blue[600]),
                       const SizedBox(width: 6),
                       Text(
-                        activity.timeOfDay,
+                        activity.startTime.isNotEmpty ? activity.startTime : activity.timeOfDay,
                         style: TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.w600,
@@ -1325,21 +1294,61 @@ class _TripPlanDetailScreenState extends State<TripPlanDetailScreen> {
   }
 
   String _calculateTotalDistance() {
-    if (widget.tripPlan.estimatedWalkingDistance.isNotEmpty && widget.tripPlan.estimatedWalkingDistance != '0 km') {
+    // Try trip-level data first
+    if (widget.tripPlan.estimatedWalkingDistance.isNotEmpty && 
+        widget.tripPlan.estimatedWalkingDistance != '0 km') {
       return widget.tripPlan.estimatedWalkingDistance;
     }
-    return '5-10 km';
+    
+    // Calculate from activities with real coordinates
+    double totalKm = 0;
+    ActivityDetail? previousActivity;
+    
+    for (final day in widget.tripPlan.dailyPlans) {
+      for (final activity in day.activities) {
+        if (previousActivity != null) {
+          final prevLat = _extractLatitude(previousActivity);
+          final prevLng = _extractLongitude(previousActivity);
+          final currLat = _extractLatitude(activity);
+          final currLng = _extractLongitude(activity);
+          
+          if (prevLat != null && prevLng != null && currLat != null && currLng != null) {
+            totalKm += _calculateDistanceInKm(prevLat, prevLng, currLat, currLng);
+          }
+        }
+        previousActivity = activity;
+      }
+    }
+    
+    if (totalKm > 0) {
+      return '${totalKm.toStringAsFixed(1)} km';
+    }
+    
+    return 'N/A';
   }
 
   String _calculateTotalTime() {
     int totalMinutes = 0;
+    
     for (final day in widget.tripPlan.dailyPlans) {
       for (final activity in day.activities) {
-        final duration = activity.duration;
-        if (duration.contains('hr')) {
+        // Use estimatedVisitDurationMin if available (most accurate)
+        if (activity.estimatedVisitDurationMin > 0) {
+          totalMinutes += activity.estimatedVisitDurationMin;
+          continue;
+        }
+        
+        // Parse duration string
+        final duration = activity.duration.toLowerCase();
+        if (duration.contains('hr') || duration.contains('h')) {
+          final match = RegExp(r'(\d+\.?\d*)').firstMatch(duration);
+          if (match != null) {
+            totalMinutes += (double.parse(match.group(1)!) * 60).toInt();
+          }
+        } else if (duration.contains('min')) {
           final match = RegExp(r'(\d+)').firstMatch(duration);
           if (match != null) {
-            totalMinutes += int.parse(match.group(1)!) * 60;
+            totalMinutes += int.parse(match.group(1)!);
           }
         }
       }
@@ -1347,33 +1356,60 @@ class _TripPlanDetailScreenState extends State<TripPlanDetailScreen> {
     
     if (totalMinutes > 0) {
       final hours = totalMinutes ~/ 60;
-      return '${hours}h';
+      final mins = totalMinutes % 60;
+      return mins > 0 ? '${hours}h ${mins}m' : '${hours}h';
     }
-    return '6-8h';
+    
+    return 'N/A';
   }
 
   String _calculateTotalCost() {
-    if (widget.tripPlan.totalEstimatedCost.isNotEmpty && widget.tripPlan.totalEstimatedCost != '€0') {
+    // Try trip-level data first
+    if (widget.tripPlan.totalEstimatedCost.isNotEmpty && 
+        widget.tripPlan.totalEstimatedCost != '€0') {
       return widget.tripPlan.totalEstimatedCost;
     }
     
+    // Calculate from activities
     double totalCost = 0;
+    String? currency;
+    
     for (final day in widget.tripPlan.dailyPlans) {
       for (final activity in day.activities) {
         final cost = activity.estimatedCost;
+        
+        // Parse LKR
         if (cost.contains('LKR')) {
-          final match = RegExp(r'LKR\s*(\d+)').firstMatch(cost);
+          final match = RegExp(r'LKR\s*(\d+\.?\d*)').firstMatch(cost);
           if (match != null) {
             totalCost += double.parse(match.group(1)!);
+            currency = 'LKR';
+          }
+        }
+        // Parse EUR/€
+        else if (cost.contains('€') || cost.contains('EUR')) {
+          final match = RegExp(r'[€EUR]\s*(\d+\.?\d*)').firstMatch(cost);
+          if (match != null) {
+            totalCost += double.parse(match.group(1)!);
+            currency = '€';
+          }
+        }
+        // Parse USD/$
+        else if (cost.contains(r'$') || cost.contains('USD')) {
+          final match = RegExp(r'[\$USD]\s*(\d+\.?\d*)').firstMatch(cost);
+          if (match != null) {
+            totalCost += double.parse(match.group(1)!);
+            currency = r'$';
           }
         }
       }
     }
     
-    if (totalCost > 0) {
-      return 'LKR ${totalCost.toInt()}';
+    if (totalCost > 0 && currency != null) {
+      return '$currency ${totalCost.toStringAsFixed(0)}';
     }
-    return 'LKR 2000-5000';
+    
+    return 'N/A';
   }
 
   void _openRoutePlan() {
@@ -1569,7 +1605,7 @@ class _TripPlanDetailScreenState extends State<TripPlanDetailScreen> {
               children: [
                 CircularProgressIndicator(),
                 SizedBox(height: 16),
-                Text('Getting real coordinates...'),
+                Text('Getting coordinates with AI...'),
               ],
             ),
           ),
@@ -1577,80 +1613,39 @@ class _TripPlanDetailScreenState extends State<TripPlanDetailScreen> {
       ),
     );
     
-    // Convert trip activities to places with REAL coordinates
-    final places = <Place>[];
+    // Collect all activities
+    final allActivities = <ActivityDetail>[];
     for (final day in (_currentTripPlan ?? widget.tripPlan).dailyPlans) {
-      for (final activity in day.activities) {
-        double? lat;
-        double? lng;
-        
-        // Try backend coordinates first (from activity.location if it contains lat,lng)
-        if (activity.location != null && activity.location!.contains(',')) {
-          final parts = activity.location!.split(',');
-          if (parts.length == 2) {
-            lat = double.tryParse(parts[0].trim());
-            lng = double.tryParse(parts[1].trim());
-            if (lat != null && lng != null) {
-              print('✅ Backend coords: ${activity.activityTitle} = $lat, $lng');
-            }
-          }
-        }
-        
-        if (lat == null && activity.googlePlaceId != null && activity.googlePlaceId!.isNotEmpty) {
-          final coords = await _getCoordinatesFromPlaceId(activity.googlePlaceId!);
-          lat = coords?['lat'];
-          lng = coords?['lng'];
-        }
-        
-        if (lat == null && activity.fullAddress != null && activity.fullAddress!.isNotEmpty) {
-          final coords = await _geocodeAddress(activity.fullAddress!);
-          lat = coords?['lat'];
-          lng = coords?['lng'];
-        }
-        
-        if (lat == null) {
-          final placeName = _extractPlaceName(activity.activityTitle);
-          if (placeName.isNotEmpty) {
-            final coords = await _searchPlaceByName(placeName);
-            lat = coords?['lat'];
-            lng = coords?['lng'];
-          }
-        }
-        
-        if (lat == null || lng == null) {
-          print('! No coords: ${activity.activityTitle}');
-          continue;
-        }
-        
-        places.add(Place(
-          id: activity.googlePlaceId ?? 'activity_${activity.activityTitle.hashCode}',
-          name: activity.activityTitle,
-          address: activity.fullAddress ?? activity.location ?? '',
-          latitude: lat,
-          longitude: lng,
-          rating: activity.rating ?? 0.0,
-          type: activity.category ?? 'attraction',
-          photoUrl: activity.photoThumbnail ?? '',
-          description: activity.description,
-          localTip: activity.practicalTip ?? '',
-          handyPhrase: '',
-        ));
-      }
+      allActivities.addAll(day.activities);
     }
+    
+    // Use Azure OpenAI to get ALL coordinates at once
+    final places = await _getCoordinatesWithAI(allActivities);
     
     // Close loading
     if (mounted) Navigator.pop(context);
     
-    print('🗺️ Created ${places.length} places with real coordinates');
+    print('🗺️ Created ${places.length} places with coordinates');
     
     if (places.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('No places found to plan route'),
-          backgroundColor: Colors.orange,
+          content: Text('❌ Could not get coordinates for any activities'),
+          backgroundColor: Colors.red,
+          duration: Duration(seconds: 4),
         ),
       );
       return;
+    }
+    
+    if (places.length < allActivities.length) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('⚠️ Got coordinates for ${places.length} of ${allActivities.length} activities'),
+          backgroundColor: Colors.orange,
+          duration: const Duration(seconds: 3),
+        ),
+      );
     }
 
     // Determine start location
@@ -1742,14 +1737,16 @@ class _TripPlanDetailScreenState extends State<TripPlanDetailScreen> {
   
   double _calculateDistanceInKm(double lat1, double lon1, double lat2, double lon2) {
     const double earthRadius = 6371; // km
-    final dLat = (lat2 - lat1) * (3.14159265359 / 180);
-    final dLon = (lon2 - lon1) * (3.14159265359 / 180);
-    final a = (dLat / 2).abs() * (dLat / 2).abs() +
-        (lat1 * (3.14159265359 / 180)).abs() * (lat2 * (3.14159265359 / 180)).abs() *
-        (dLon / 2).abs() * (dLon / 2).abs();
-    final c = 2 * (a.abs() < 1 ? a.abs() : 1.0);
+    final dLat = _toRadians(lat2 - lat1);
+    final dLon = _toRadians(lon2 - lon1);
+    final a = sin(dLat / 2) * sin(dLat / 2) +
+        cos(_toRadians(lat1)) * cos(_toRadians(lat2)) *
+        sin(dLon / 2) * sin(dLon / 2);
+    final c = 2 * atan2(sqrt(a), sqrt(1 - a));
     return earthRadius * c;
   }
+  
+  double _toRadians(double degrees) => degrees * pi / 180;
 
   Future<Map<String, double>?> _getCoordinatesFromPlaceId(String placeId) async {
     try {
@@ -1791,14 +1788,27 @@ class _TripPlanDetailScreenState extends State<TripPlanDetailScreen> {
         .replaceAll('&amp;', '&')
         .replaceAll('&quot;', '"')
         .replaceAll('&#39;', "'")
-        .replaceAll(RegExp(r'^(Visit|Explore|Walk|Climb|Train to|Chill at|Stroll|Train|Walk the|Scenic)\s+', caseSensitive: false), '')
-        .replaceAll(RegExp(r'\s+(Beach|Town|Fort|Market|Dinner|Lunch|Street Food|Local|Eats|Café|Tasting|Tour|Bike|Hike|Falls|Ride|Walk)\s*$', caseSensitive: false), '')
+        .replaceAll(RegExp(r'^(Visit|Explore|Walk|Climb|Train to|Chill at|Stroll|Train|Walk the|Scenic|Private|Fine Dining|Sunset|Breakfast|Lunch|Dinner)\s+', caseSensitive: false), '')
+        .replaceAll(RegExp(r'\s+(Beach|Town|Fort|Market|Dinner|Lunch|Street Food|Local|Eats|Café|Tasting|Tour|Bike|Hike|Falls|Ride|Walk|Show|Cocktail)\s*$', caseSensitive: false), '')
         .replaceAll(RegExp(r'[🍽️☕🏛️🌳🛍️🍸🏯🏖️📍]'), '')
+        .replaceAll(RegExp(r'\s*\([^)]*\)'), '')  // Remove parentheses content
+        .replaceAll(RegExp(r'\s+(at|near|in|overlooking|or similar)\s+.*', caseSensitive: false), '')  // Remove location descriptors
         .trim();
     
     final parts = cleaned.split(RegExp(r'\s*(&|and|,)\s*'));
     if (parts.isNotEmpty && parts[0].trim().isNotEmpty) {
       cleaned = parts[0].trim();
+    }
+    
+    // If still empty or too short, try to extract key location name
+    if (cleaned.isEmpty || cleaned.length < 3) {
+      // Look for capitalized words that might be place names
+      final matches = RegExp(r'[A-Z][a-z]+(?:\s+[A-Z][a-z]+)*').allMatches(activityTitle);
+      if (matches.isNotEmpty) {
+        cleaned = matches.first.group(0) ?? activityTitle;
+      } else {
+        cleaned = activityTitle;
+      }
     }
     
     return cleaned;
@@ -1860,6 +1870,421 @@ Created with Travel Buddy - Plan your perfect trip!''';
       ),
     );
   }
+
+  Future<void> _saveProgress() async {
+    if (_currentTripPlan == null) return;
+    
+    try {
+      // Update all activities with current visit status
+      final updatedDailyPlans = <DailyTripPlan>[];
+      
+      for (final day in _currentTripPlan!.dailyPlans) {
+        final updatedActivities = <ActivityDetail>[];
+        
+        for (final activity in day.activities) {
+          final currentStatus = _visitStatus[activity.activityTitle] ?? activity.isVisited;
+          updatedActivities.add(activity.copyWith(
+            isVisited: currentStatus,
+            visitedDate: currentStatus && activity.visitedDate == null 
+                ? DateTime.now().toIso8601String() 
+                : activity.visitedDate,
+          ));
+        }
+        
+        updatedDailyPlans.add(DailyTripPlan(
+          day: day.day,
+          title: day.title,
+          theme: day.theme,
+          activities: updatedActivities,
+          photoUrl: day.photoUrl,
+        ));
+      }
+      
+      final updatedTrip = TripPlan(
+        id: _currentTripPlan!.id,
+        tripTitle: _currentTripPlan!.tripTitle,
+        destination: _currentTripPlan!.destination,
+        duration: _currentTripPlan!.duration,
+        introduction: _currentTripPlan!.introduction,
+        dailyPlans: updatedDailyPlans,
+        conclusion: _currentTripPlan!.conclusion,
+        accommodationSuggestions: _currentTripPlan!.accommodationSuggestions,
+        transportationTips: _currentTripPlan!.transportationTips,
+        budgetConsiderations: _currentTripPlan!.budgetConsiderations,
+      );
+      
+      // Save to storage
+      final storageService = StorageService();
+      await storageService.saveTripPlan(updatedTrip);
+      
+      setState(() {
+        _currentTripPlan = updatedTrip;
+      });
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('💾 Progress saved successfully!'),
+          backgroundColor: Colors.green,
+          duration: Duration(seconds: 2),
+        ),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('❌ Failed to save: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  void _showAddPlaceDialog(int dayIndex) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        padding: EdgeInsets.only(
+          bottom: MediaQuery.of(context).viewInsets.bottom,
+          left: 20,
+          right: 20,
+          top: 20,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Text(
+                  'Add Place to Day ${dayIndex + 1}',
+                  style: const TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const Spacer(),
+                IconButton(
+                  onPressed: () => Navigator.pop(context),
+                  icon: const Icon(Icons.close),
+                ),
+              ],
+            ),
+            const SizedBox(height: 20),
+            ListTile(
+              leading: const Icon(Icons.edit, color: Colors.green),
+              title: const Text('Add Custom Activity'),
+              subtitle: const Text('Create a custom place or activity'),
+              trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+              onTap: () {
+                Navigator.pop(context);
+                _showCustomActivityDialog(dayIndex);
+              },
+            ),
+            SizedBox(height: MediaQuery.of(context).padding.bottom + 20),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showCustomActivityDialog(int dayIndex) {
+    final titleController = TextEditingController();
+    final descriptionController = TextEditingController();
+    final timeController = TextEditingController(text: '09:00');
+    final durationController = TextEditingController(text: '1h');
+    final costController = TextEditingController(text: '0');
+    
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Add Custom Activity'),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: titleController,
+                decoration: const InputDecoration(
+                  labelText: 'Activity Name *',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: descriptionController,
+                decoration: const InputDecoration(
+                  labelText: 'Description',
+                  border: OutlineInputBorder(),
+                ),
+                maxLines: 3,
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: timeController,
+                      decoration: const InputDecoration(
+                        labelText: 'Time',
+                        border: OutlineInputBorder(),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: TextField(
+                      controller: durationController,
+                      decoration: const InputDecoration(
+                        labelText: 'Duration',
+                        border: OutlineInputBorder(),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: costController,
+                decoration: const InputDecoration(
+                  labelText: 'Estimated Cost',
+                  border: OutlineInputBorder(),
+                  prefixText: 'LKR ',
+                ),
+                keyboardType: TextInputType.number,
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              if (titleController.text.trim().isEmpty) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Please enter activity name'),
+                    backgroundColor: Colors.red,
+                  ),
+                );
+                return;
+              }
+              
+              Navigator.pop(context);
+              _addCustomActivity(
+                dayIndex,
+                titleController.text.trim(),
+                descriptionController.text.trim(),
+                timeController.text.trim(),
+                durationController.text.trim(),
+                costController.text.trim(),
+              );
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.blue,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Add'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _addCustomActivity(
+    int dayIndex,
+    String title,
+    String description,
+    String time,
+    String duration,
+    String cost,
+  ) async {
+    if (_currentTripPlan == null) return;
+    
+    final newActivity = ActivityDetail(
+      timeOfDay: time,
+      activityTitle: title,
+      description: description.isEmpty ? 'Custom activity' : description,
+      startTime: time,
+      duration: duration,
+      estimatedCost: 'LKR $cost',
+    );
+    
+    final updatedActivities = List<ActivityDetail>.from(
+      _currentTripPlan!.dailyPlans[dayIndex].activities,
+    )..add(newActivity);
+    
+    final updatedDailyPlan = DailyTripPlan(
+      day: _currentTripPlan!.dailyPlans[dayIndex].day,
+      title: _currentTripPlan!.dailyPlans[dayIndex].title,
+      theme: _currentTripPlan!.dailyPlans[dayIndex].theme,
+      activities: updatedActivities,
+      photoUrl: _currentTripPlan!.dailyPlans[dayIndex].photoUrl,
+    );
+    
+    final updatedDailyPlans = List<DailyTripPlan>.from(_currentTripPlan!.dailyPlans);
+    updatedDailyPlans[dayIndex] = updatedDailyPlan;
+    
+    _currentTripPlan = TripPlan(
+      id: _currentTripPlan!.id,
+      tripTitle: _currentTripPlan!.tripTitle,
+      destination: _currentTripPlan!.destination,
+      duration: _currentTripPlan!.duration,
+      introduction: _currentTripPlan!.introduction,
+      dailyPlans: updatedDailyPlans,
+      conclusion: _currentTripPlan!.conclusion,
+      accommodationSuggestions: _currentTripPlan!.accommodationSuggestions,
+      transportationTips: _currentTripPlan!.transportationTips,
+      budgetConsiderations: _currentTripPlan!.budgetConsiderations,
+    );
+    
+    final storageService = StorageService();
+    await storageService.saveTripPlan(_currentTripPlan!);
+    
+    setState(() {});
+    
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('✅ Added "$title" to Day ${dayIndex + 1}'),
+        backgroundColor: Colors.green,
+      ),
+    );
+  }
+
+  Future<List<Place>> _getCoordinatesWithAI(List<ActivityDetail> activities) async {
+    try {
+      final destination = (_currentTripPlan ?? widget.tripPlan).destination;
+      
+      // Build request for backend
+      final activitiesData = activities.map((a) => {
+        return {
+          'title': a.activityTitle,
+          'address': a.fullAddress,
+        };
+      }).toList();
+      
+      print('🤖 Requesting coordinates from backend AI...');
+      
+      final response = await http.post(
+        Uri.parse('${ApiService.baseUrl}/ai/coordinates'),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({
+          'activities': activitiesData,
+          'destination': destination,
+        }),
+      );
+      
+      if (response.statusCode != 200) {
+        print('❌ Backend error: ${response.statusCode}');
+        return _fallbackCoordinateResolution(activities);
+      }
+      
+      final data = json.decode(response.body);
+      
+      if (!data['success'] || data['coordinates'] == null) {
+        print('❌ No coordinates from backend');
+        return _fallbackCoordinateResolution(activities);
+      }
+      
+      final List<dynamic> coordsList = data['coordinates'];
+      print('✅ Backend returned ${coordsList.length} coordinates');
+      
+      final places = <Place>[];
+      for (int i = 0; i < activities.length && i < coordsList.length; i++) {
+        final activity = activities[i];
+        final coords = coordsList[i];
+        
+        final lat = coords['lat'] is int ? (coords['lat'] as int).toDouble() : coords['lat'] as double;
+        final lng = coords['lng'] is int ? (coords['lng'] as int).toDouble() : coords['lng'] as double;
+        
+        places.add(Place(
+          id: activity.googlePlaceId ?? 'activity_${activity.activityTitle.hashCode}',
+          name: activity.activityTitle,
+          address: activity.fullAddress ?? activity.location ?? '',
+          latitude: lat,
+          longitude: lng,
+          rating: activity.rating ?? 0.0,
+          type: activity.category ?? 'attraction',
+          photoUrl: activity.photoThumbnail ?? '',
+          description: activity.description,
+          localTip: activity.practicalTip ?? '',
+          handyPhrase: '',
+        ));
+        
+        print('✅ AI coords: ${activity.activityTitle} = $lat, $lng');
+      }
+      
+      return places;
+      
+    } catch (e) {
+      print('❌ AI coordinate error: $e');
+      return _fallbackCoordinateResolution(activities);
+    }
+  }
+  
+  Future<List<Place>> _fallbackCoordinateResolution(List<ActivityDetail> activities) async {
+    print('⚠️ Using fallback coordinate resolution');
+    final places = <Place>[];
+    
+    for (final activity in activities) {
+      double? lat;
+      double? lng;
+      
+      if (activity.location != null && activity.location!.contains(',')) {
+        final parts = activity.location!.split(',');
+        if (parts.length == 2) {
+          lat = double.tryParse(parts[0].trim());
+          lng = double.tryParse(parts[1].trim());
+        }
+      }
+      
+      if (lat == null && activity.googlePlaceId != null && activity.googlePlaceId!.isNotEmpty) {
+        final coords = await _getCoordinatesFromPlaceId(activity.googlePlaceId!);
+        lat = coords?['lat'];
+        lng = coords?['lng'];
+      }
+      
+      if (lat == null && activity.fullAddress != null && activity.fullAddress!.isNotEmpty) {
+        final coords = await _geocodeAddress(activity.fullAddress!);
+        lat = coords?['lat'];
+        lng = coords?['lng'];
+      }
+      
+      if (lat == null) {
+        final placeName = _extractPlaceName(activity.activityTitle);
+        if (placeName.isNotEmpty && placeName.length >= 3) {
+          final coords = await _searchPlaceByName(placeName);
+          lat = coords?['lat'];
+          lng = coords?['lng'];
+        }
+      }
+      
+      if (lat != null && lng != null) {
+        places.add(Place(
+          id: activity.googlePlaceId ?? 'activity_${activity.activityTitle.hashCode}',
+          name: activity.activityTitle,
+          address: activity.fullAddress ?? activity.location ?? '',
+          latitude: lat,
+          longitude: lng,
+          rating: activity.rating ?? 0.0,
+          type: activity.category ?? 'attraction',
+          photoUrl: activity.photoThumbnail ?? '',
+          description: activity.description,
+          localTip: activity.practicalTip ?? '',
+          handyPhrase: '',
+        ));
+      }
+    }
+    
+    return places;
+  }
 }
 
 class _RoutePreferencesBottomSheet extends StatefulWidget {
@@ -1888,10 +2313,11 @@ class _RoutePreferencesBottomSheetState extends State<_RoutePreferencesBottomShe
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       padding: const EdgeInsets.all(20),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
           // Header
           Row(
             children: [
@@ -2010,6 +2436,7 @@ class _RoutePreferencesBottomSheetState extends State<_RoutePreferencesBottomShe
           SizedBox(height: MediaQuery.of(context).padding.bottom),
         ],
       ),
+      ),
     );
   }
 
@@ -2100,3 +2527,130 @@ class _RoutePreferencesBottomSheetState extends State<_RoutePreferencesBottomShe
     );
   }
 }
+
+  Future<List<Place>> _getCoordinatesWithAI(List<ActivityDetail> activities) async {
+    try {
+      final destination = (_currentTripPlan ?? widget.tripPlan).destination;
+      
+      // Build prompt for Azure OpenAI
+      final activitiesText = activities.map((a) => 
+        '- ${a.activityTitle}${a.fullAddress != null ? " (${a.fullAddress})" : ""}'
+      ).join('\n');
+      
+      final prompt = '''You are a location expert. For each activity below in $destination, provide ONLY the latitude and longitude coordinates.
+
+Activities:
+$activitiesText
+
+Return ONLY a JSON array with this exact format (no markdown, no explanation):
+[{"name":"activity name","lat":6.9271,"lng":79.8612},...]
+
+If you cannot find exact coordinates, provide the best estimate for that location in $destination.''';
+
+      print('🤖 Requesting coordinates from Azure OpenAI...');
+      
+      final response = await AzureOpenAIService.generateText(prompt);
+      
+      if (response == null || response.isEmpty) {
+        print('❌ Empty response from AI');
+        return _fallbackCoordinateResolution(activities);
+      }
+      
+      // Parse JSON response
+      final jsonStr = response.trim()
+          .replaceAll('```json', '')
+          .replaceAll('```', '')
+          .trim();
+      
+      final List<dynamic> coordsList = json.decode(jsonStr);
+      print('✅ AI returned ${coordsList.length} coordinates');
+      
+      final places = <Place>[];
+      for (int i = 0; i < activities.length && i < coordsList.length; i++) {
+        final activity = activities[i];
+        final coords = coordsList[i];
+        
+        final lat = coords['lat'] is int ? (coords['lat'] as int).toDouble() : coords['lat'] as double;
+        final lng = coords['lng'] is int ? (coords['lng'] as int).toDouble() : coords['lng'] as double;
+        
+        places.add(Place(
+          id: activity.googlePlaceId ?? 'activity_${activity.activityTitle.hashCode}',
+          name: activity.activityTitle,
+          address: activity.fullAddress ?? activity.location ?? '',
+          latitude: lat,
+          longitude: lng,
+          rating: activity.rating ?? 0.0,
+          type: activity.category ?? 'attraction',
+          photoUrl: activity.photoThumbnail ?? '',
+          description: activity.description,
+          localTip: activity.practicalTip ?? '',
+          handyPhrase: '',
+        ));
+        
+        print('✅ AI coords: ${activity.activityTitle} = $lat, $lng');
+      }
+      
+      return places;
+      
+    } catch (e) {
+      print('❌ AI coordinate error: $e');
+      return _fallbackCoordinateResolution(activities);
+    }
+  }
+  
+  Future<List<Place>> _fallbackCoordinateResolution(List<ActivityDetail> activities) async {
+    print('⚠️ Using fallback coordinate resolution');
+    final places = <Place>[];
+    
+    for (final activity in activities) {
+      double? lat;
+      double? lng;
+      
+      if (activity.location != null && activity.location!.contains(',')) {
+        final parts = activity.location!.split(',');
+        if (parts.length == 2) {
+          lat = double.tryParse(parts[0].trim());
+          lng = double.tryParse(parts[1].trim());
+        }
+      }
+      
+      if (lat == null && activity.googlePlaceId != null && activity.googlePlaceId!.isNotEmpty) {
+        final coords = await _getCoordinatesFromPlaceId(activity.googlePlaceId!);
+        lat = coords?['lat'];
+        lng = coords?['lng'];
+      }
+      
+      if (lat == null && activity.fullAddress != null && activity.fullAddress!.isNotEmpty) {
+        final coords = await _geocodeAddress(activity.fullAddress!);
+        lat = coords?['lat'];
+        lng = coords?['lng'];
+      }
+      
+      if (lat == null) {
+        final placeName = _extractPlaceName(activity.activityTitle);
+        if (placeName.isNotEmpty && placeName.length >= 3) {
+          final coords = await _searchPlaceByName(placeName);
+          lat = coords?['lat'];
+          lng = coords?['lng'];
+        }
+      }
+      
+      if (lat != null && lng != null) {
+        places.add(Place(
+          id: activity.googlePlaceId ?? 'activity_${activity.activityTitle.hashCode}',
+          name: activity.activityTitle,
+          address: activity.fullAddress ?? activity.location ?? '',
+          latitude: lat,
+          longitude: lng,
+          rating: activity.rating ?? 0.0,
+          type: activity.category ?? 'attraction',
+          photoUrl: activity.photoThumbnail ?? '',
+          description: activity.description,
+          localTip: activity.practicalTip ?? '',
+          handyPhrase: '',
+        ));
+      }
+    }
+    
+    return places;
+  }

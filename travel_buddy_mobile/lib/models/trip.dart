@@ -1,4 +1,5 @@
 import 'package:hive/hive.dart';
+import 'package:html_unescape/html_unescape.dart';
 
 part 'trip.g.dart';
 
@@ -70,7 +71,7 @@ class TripPlan extends HiveObject {
 
   factory TripPlan.fromJson(Map<String, dynamic> json) {
     return TripPlan(
-      id: json['id'] ?? '',
+      id: json['_id'] ?? json['id'] ?? '',
       tripTitle: json['tripTitle'] ?? '',
       destination: json['destination'] ?? '',
       duration: json['duration'] ?? '',
@@ -86,6 +87,11 @@ class TripPlan extends HiveObject {
       transportationTips:
           (json['transportationTips'] as List?)?.map((e) => e.toString()).toList(),
       budgetConsiderations: json['budgetConsiderations'],
+      durationDays: json['durationDays'] ?? 1,
+      totalEstimatedCost: json['totalEstimatedCost'] ?? '€0',
+      estimatedWalkingDistance: json['estimatedWalkingDistance'] ?? '0 km',
+      mapPolyline: json['mapPolyline'],
+      metadata: json['metadata'],
     );
   }
 
@@ -101,6 +107,11 @@ class TripPlan extends HiveObject {
       'accommodationSuggestions': accommodationSuggestions,
       'transportationTips': transportationTips,
       'budgetConsiderations': budgetConsiderations,
+      'durationDays': durationDays,
+      'totalEstimatedCost': totalEstimatedCost,
+      'estimatedWalkingDistance': estimatedWalkingDistance,
+      'mapPolyline': mapPolyline,
+      'metadata': metadata,
     };
   }
 }
@@ -170,6 +181,13 @@ class DailyTripPlan extends HiveObject {
               .toList() ??
           [],
       photoUrl: json['photoUrl'],
+      dayEstimatedCost: json['dayEstimatedCost'] ?? '€0',
+      dayWalkingDistance: json['dayWalkingDistance'] ?? '0 km',
+      date: json['date'] ?? '',
+      summary: json['summary'] ?? '',
+      totalWalkingTime: json['totalWalkingTime'] ?? '0 min',
+      totalTravelTime: json['totalTravelTime'] ?? '0 min',
+      dailyRecap: json['dailyRecap'] ?? '',
     );
   }
 
@@ -180,6 +198,13 @@ class DailyTripPlan extends HiveObject {
       'theme': theme,
       'activities': activities.map((e) => e.toJson()).toList(),
       'photoUrl': photoUrl,
+      'dayEstimatedCost': dayEstimatedCost,
+      'dayWalkingDistance': dayWalkingDistance,
+      'date': date,
+      'summary': summary,
+      'totalWalkingTime': totalWalkingTime,
+      'totalTravelTime': totalTravelTime,
+      'dailyRecap': dailyRecap,
     };
   }
 }
@@ -351,7 +376,92 @@ class ActivityDetail extends HiveObject {
     this.visitedDate,
   });
 
+  ActivityDetail copyWith({
+    String? timeOfDay,
+    String? activityTitle,
+    String? description,
+    String? estimatedDuration,
+    String? location,
+    String? notes,
+    String? icon,
+    String? category,
+    String? startTime,
+    String? endTime,
+    String? duration,
+    PlaceInfo? place,
+    String? type,
+    String? estimatedCost,
+    Map<String, String>? costBreakdown,
+    TransportInfo? transportFromPrev,
+    List<String>? tips,
+    WeatherBackup? weatherBackup,
+    String? crowdLevel,
+    String? imageURL,
+    Map<String, String>? bookingLinks,
+    String? googlePlaceId,
+    String? highlight,
+    String? socialProof,
+    double? rating,
+    int? userRatingsTotal,
+    String? practicalTip,
+    String? travelMode,
+    int? travelTimeMin,
+    int? estimatedVisitDurationMin,
+    String? photoThumbnail,
+    String? fullAddress,
+    String? openingHours,
+    bool? isOpenNow,
+    String? weatherNote,
+    List<String>? tags,
+    String? bookingLink,
+    bool? isVisited,
+    String? visitedDate,
+  }) {
+    return ActivityDetail(
+      timeOfDay: timeOfDay ?? this.timeOfDay,
+      activityTitle: activityTitle ?? this.activityTitle,
+      description: description ?? this.description,
+      estimatedDuration: estimatedDuration ?? this.estimatedDuration,
+      location: location ?? this.location,
+      notes: notes ?? this.notes,
+      icon: icon ?? this.icon,
+      category: category ?? this.category,
+      startTime: startTime ?? this.startTime,
+      endTime: endTime ?? this.endTime,
+      duration: duration ?? this.duration,
+      place: place ?? this.place,
+      type: type ?? this.type,
+      estimatedCost: estimatedCost ?? this.estimatedCost,
+      costBreakdown: costBreakdown ?? this.costBreakdown,
+      transportFromPrev: transportFromPrev ?? this.transportFromPrev,
+      tips: tips ?? this.tips,
+      weatherBackup: weatherBackup ?? this.weatherBackup,
+      crowdLevel: crowdLevel ?? this.crowdLevel,
+      imageURL: imageURL ?? this.imageURL,
+      bookingLinks: bookingLinks ?? this.bookingLinks,
+      googlePlaceId: googlePlaceId ?? this.googlePlaceId,
+      highlight: highlight ?? this.highlight,
+      socialProof: socialProof ?? this.socialProof,
+      rating: rating ?? this.rating,
+      userRatingsTotal: userRatingsTotal ?? this.userRatingsTotal,
+      practicalTip: practicalTip ?? this.practicalTip,
+      travelMode: travelMode ?? this.travelMode,
+      travelTimeMin: travelTimeMin ?? this.travelTimeMin,
+      estimatedVisitDurationMin: estimatedVisitDurationMin ?? this.estimatedVisitDurationMin,
+      photoThumbnail: photoThumbnail ?? this.photoThumbnail,
+      fullAddress: fullAddress ?? this.fullAddress,
+      openingHours: openingHours ?? this.openingHours,
+      isOpenNow: isOpenNow ?? this.isOpenNow,
+      weatherNote: weatherNote ?? this.weatherNote,
+      tags: tags ?? this.tags,
+      bookingLink: bookingLink ?? this.bookingLink,
+      isVisited: isVisited ?? this.isVisited,
+      visitedDate: visitedDate ?? this.visitedDate,
+    );
+  }
+
   factory ActivityDetail.fromJson(Map<String, dynamic> json) {
+    final unescape = HtmlUnescape();
     String? locationStr;
     if (json['coordinates'] != null) {
       final coords = json['coordinates'];
@@ -362,11 +472,11 @@ class ActivityDetail extends HiveObject {
     
     return ActivityDetail(
       timeOfDay: json['timeOfDay'] ?? json['start_time'] ?? '',
-      activityTitle: json['activityTitle'] ?? json['name'] ?? '',
-      description: json['description'] ?? '',
+      activityTitle: unescape.convert(json['activityTitle'] ?? json['name'] ?? ''),
+      description: unescape.convert(json['description'] ?? ''),
       estimatedDuration: json['estimatedDuration'] ?? json['duration'],
       location: locationStr,
-      notes: json['notes'],
+      notes: json['notes'] != null ? unescape.convert(json['notes']) : null,
       icon: json['icon'],
       category: json['category'],
       startTime: json['start_time'] ?? '09:00',
@@ -375,11 +485,11 @@ class ActivityDetail extends HiveObject {
       estimatedCost: json['estimatedCost'] ?? '€0',
       googlePlaceId: json['google_place_id'] ?? json['googlePlaceId'],
       fullAddress: json['fullAddress'] ?? json['address'],
-      highlight: json['highlight'],
+      highlight: json['highlight'] != null ? unescape.convert(json['highlight']) : null,
       socialProof: json['social_proof'],
       rating: json['rating']?.toDouble(),
       userRatingsTotal: json['user_ratings_total'],
-      practicalTip: json['practical_tip'],
+      practicalTip: json['practical_tip'] != null ? unescape.convert(json['practical_tip']) : null,
       travelMode: json['travel_mode'] ?? 'walking',
       travelTimeMin: json['travel_time_min'] ?? 0,
       estimatedVisitDurationMin: json['estimated_visit_duration_min'] ?? 60,
@@ -400,6 +510,8 @@ class ActivityDetail extends HiveObject {
       'category': category,
       'start_time': startTime,
       'end_time': endTime,
+      'duration': duration,
+      'estimatedCost': estimatedCost,
       'google_place_id': googlePlaceId,
       'highlight': highlight,
       'social_proof': socialProof,

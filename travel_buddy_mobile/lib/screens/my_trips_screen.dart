@@ -294,6 +294,10 @@ class _MyTripsScreenState extends State<MyTripsScreen> {
   }
 
   void _showDeleteConfirmation(BuildContext context, AppProvider appProvider, TripPlan tripPlan) {
+    // DEBUG: Log the trip plan ID
+    print('🔍 DEBUG: Trip plan ID for deletion: "${tripPlan.id}"');
+    print('🔍 DEBUG: Trip plan title: "${tripPlan.tripTitle}"');
+    
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -309,6 +313,7 @@ class _MyTripsScreenState extends State<MyTripsScreen> {
           TextButton(
             onPressed: () async {
               Navigator.of(context).pop();
+              print('🔍 DEBUG: About to delete trip with ID: "${tripPlan.id}"');
               await appProvider.deleteTripPlan(tripPlan.id);
               if (context.mounted) {
                 ScaffoldMessenger.of(context).showSnackBar(

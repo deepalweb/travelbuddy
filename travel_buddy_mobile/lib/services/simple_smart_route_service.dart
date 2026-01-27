@@ -67,9 +67,21 @@ class SimpleSmartRouteService {
   }) async {
     if (places.isEmpty) return null;
     
+    // If only 1 place, skip directions API (no route needed)
+    if (places.length == 1) {
+      print('⚠️ Only 1 place, skipping directions API');
+      return null;
+    }
+    
     try {
       final origin = '${currentLocation.latitude},${currentLocation.longitude}';
       final destination = '${places.last.latitude},${places.last.longitude}';
+      
+      // Check if origin and destination are the same
+      if (origin == destination) {
+        print('⚠️ Origin and destination are the same, skipping directions API');
+        return null;
+      }
       
       String waypoints = '';
       if (places.length > 1) {
