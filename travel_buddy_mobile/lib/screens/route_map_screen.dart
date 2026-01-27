@@ -310,7 +310,9 @@ class _RouteMapScreenState extends State<RouteMapScreen> {
                 : GoogleMap(
                     onMapCreated: (GoogleMapController controller) {
                       _mapController = controller;
-                      _fitMapToRoute();
+                      Future.delayed(const Duration(milliseconds: 500), () {
+                        _fitMapToRoute();
+                      });
                     },
                     initialCameraPosition: CameraPosition(
                       target: LatLng(widget.currentLocation.latitude, widget.currentLocation.longitude),
@@ -322,6 +324,9 @@ class _RouteMapScreenState extends State<RouteMapScreen> {
                     myLocationButtonEnabled: false,
                     mapType: MapType.normal,
                     zoomControlsEnabled: true,
+                    liteModeEnabled: false,
+                    tiltGesturesEnabled: false,
+                    buildingsEnabled: false,
                   ),
           ),
 
