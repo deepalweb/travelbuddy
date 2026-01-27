@@ -365,35 +365,53 @@ router.get('/trip-plans/:id', async (req, res) => {
 
 router.delete('/trip-plans/:id', async (req, res) => {
   try {
+    console.log('🗑️ DELETE request for trip:', req.params.id);
+    
     const User = getUser();
     const TripPlan = getTripPlan();
     
     if (!TripPlan) {
+      console.error('❌ TripPlan model not available');
       return res.status(500).json({ error: 'TripPlan model not available' });
     }
     
     const authHeader = req.headers.authorization;
     if (!authHeader?.startsWith('Bearer ')) {
+      console.error('❌ No auth header');
       return res.status(401).json({ error: 'Authentication required' });
     }
 
     const token = authHeader.substring(7);
+    console.log('🔑 Extracting UID from token...');
     const uid = await extractUid(token);
     
-    if (!uid) return res.status(401).json({ error: 'Invalid token' });
+    if (!uid) {
+      console.error('❌ Invalid token');
+      return res.status(401).json({ error: 'Invalid token' });
+    }
     
+    console.log('👤 Looking up user with UID:', uid);
     const user = await User.findOne({ firebaseUid: uid });
-    if (!user) return res.status(404).json({ error: 'User not found' });
+    if (!user) {
+      console.error('❌ User not found for UID:', uid);
+      return res.status(404).json({ error: 'User not found' });
+    }
 
+    console.log('🔍 Deleting trip with _id:', req.params.id, 'userId:', user._id);
     const result = await TripPlan.deleteOne({ _id: req.params.id, userId: user._id });
     
+    console.log('📊 Delete result:', result);
+    
     if (result.deletedCount === 0) {
+      console.error('❌ Trip not found or not owned by user');
       return res.status(404).json({ error: 'Trip not found' });
     }
 
+    console.log('✅ Trip deleted successfully');
     res.json({ success: true });
   } catch (error) {
     console.error('❌ Error deleting trip:', error);
+    console.error('❌ Error stack:', error.stack);
     res.status(500).json({ error: error.message });
   }
 });

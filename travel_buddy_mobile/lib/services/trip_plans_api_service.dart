@@ -81,8 +81,11 @@ class TripPlansApiService {
       // Create a fresh Dio instance to bypass cache
       final freshDio = _createAuthenticatedDio();
       
+      // Add timestamp to force fresh request
+      final timestamp = DateTime.now().millisecondsSinceEpoch;
+      
       final response = await freshDio.get(
-        '/api/users/trip-plans',
+        '/api/users/trip-plans?_t=$timestamp',
         options: Options(
           headers: {
             'Authorization': 'Bearer $token',
