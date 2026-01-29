@@ -810,6 +810,17 @@ class _TripPlanDetailScreenState extends State<TripPlanDetailScreen> {
                   ),
                 ),
                 const Spacer(),
+                ElevatedButton.icon(
+                  onPressed: () => _createRouteForDay(dayNumber - 1),
+                  icon: const Icon(Icons.route, size: 16),
+                  label: const Text('Route'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.green,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  ),
+                ),
+                const SizedBox(width: 8),
                 IconButton(
                   onPressed: () => _showAddPlaceDialog(dayNumber - 1),
                   icon: const Icon(Icons.add_location_alt, size: 20),
@@ -1586,6 +1597,115 @@ class _TripPlanDetailScreenState extends State<TripPlanDetailScreen> {
           Navigator.pop(context);
           _openRouteWithPreferences(preferences);
         },
+      ),
+    );
+  }
+
+  void _createRouteForDay(int dayIndex) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => _RoutePreferencesBottomSheet(
+        onPreferencesSelected: (preferences) {
+          Navigator.pop(context);
+          _openRouteForDay(dayIndex, preferences);
+        },
+      ),
+    );
+  }
+
+  void _openRouteForDay(int dayIndex, RoutePreferences preferences) async {
+    final appProvider = Provider.of<AppProvider>(context, listen: false);
+    
+    // Get activities for this specific day only
+    final dayActivities = (_currentTripPlan ?? widget.tripPlan).dailyPlans[dayIndex].activities;
+    
+    if (dayActivities.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('No activities found for this day'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+    
+    // Show loading
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const Center(
+        child: Card(
+          child: Padding(
+            padding: EdgeInsets.all(20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                CircularProgressIndicator(),
+                SizedBox(height: 16),
+                Text('Getting coordinates...'),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+    
+    // Get coordinates for this day's activities
+    final places = await _getCoordinatesWithAI(dayActivities);
+    
+    // Close loading
+    if (mounted) Navigator.pop(context);
+    
+    if (places.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('❌ Could not get coordinates'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    // Determine start location
+    Position startLocation;
+    if (preferences.startFromCurrentLocation) {
+      if (appProvider.currentLocation == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Location not available'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+        return;
+      }
+      startLocation = appProvider.currentLocation!;
+    } else {
+      final firstPlace = places.first;
+      startLocation = Position(
+        latitude: firstPlace.latitude!,
+        longitude: firstPlace.longitude!,
+        timestamp: DateTime.now(),
+        accuracy: 0,
+        altitude: 0,
+        heading: 0,
+        speed: 0,
+        speedAccuracy: 0,
+        altitudeAccuracy: 0,
+        headingAccuracy: 0,
+      );
+    }
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => SmartRouteListScreen(
+          currentLocation: startLocation,
+          places: places,
+          title: 'Day ${dayIndex + 1} Route',
+          preferences: preferences,
+        ),
       ),
     );
   }

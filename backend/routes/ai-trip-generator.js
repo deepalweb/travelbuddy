@@ -129,7 +129,13 @@ User Preferences:
 - Interests: ${interests.join(', ')}
 - Travelers: ${travelers}
 
-IMPORTANT: Include REAL places with actual names, addresses, and specific details for ${destination}. Research actual attractions, restaurants, museums, landmarks. For imageUrl, use Unsplash URLs with relevant search terms like: https://images.unsplash.com/photo-1234567890/place-name?w=400&h=300&fit=crop
+IMPORTANT: 
+1. Include REAL places with actual names, addresses, and specific details for ${destination}
+2. Research actual attractions, restaurants, museums, landmarks
+3. Create 5-7 activities per day with realistic time slots from 8:00 AM to 9:00 PM
+4. Vary activity durations (1-3 hours each)
+5. Include breakfast, lunch, and dinner activities
+6. For imageUrl, use Unsplash URLs with relevant search terms
 
 Return ONLY this JSON structure:
 {
@@ -146,14 +152,16 @@ Return ONLY this JSON structure:
       "title": "Day 1 - Arrival & Exploration",
       "activities": [
         {
-          "timeOfDay": "09:00-11:30",
+          "timeOfDay": "08:00-10:00",
+          "start_time": "08:00",
+          "end_time": "10:00",
           "activityTitle": "REAL place name with location",
           "description": "Detailed description of what to see and do",
           "address": "Full street address",
-          "category": "Place category (Museum, Temple, Market, etc.)",
+          "category": "Place category (Museum, Temple, Market, Restaurant, etc.)",
           "imageUrl": "https://images.unsplash.com/photo-1234567890/place-photo?w=400&h=300",
           "estimatedCost": "$15-25",
-          "duration": "2.5 hours",
+          "duration": "2 hours",
           "isVisited": false
         }
       ]
@@ -313,14 +321,26 @@ function createRealisticItinerary(destination, days, budget, interests, realPlac
   
   for (let day = 1; day <= actualDays; day++) {
     const dayActivities = [];
-    const activitiesPerDay = Math.min(3, destinationData.activities.length);
+    const activitiesPerDay = Math.min(6, destinationData.activities.length);
+    
+    const timeSlots = [
+      { start: '08:00', end: '10:00', duration: '2 hours' },
+      { start: '10:30', end: '12:30', duration: '2 hours' },
+      { start: '13:00', end: '14:30', duration: '1.5 hours' },
+      { start: '15:00', end: '17:00', duration: '2 hours' },
+      { start: '17:30', end: '19:00', duration: '1.5 hours' },
+      { start: '19:30', end: '21:00', duration: '1.5 hours' }
+    ];
     
     for (let i = 0; i < activitiesPerDay; i++) {
       const activityIndex = ((day - 1) * activitiesPerDay + i) % destinationData.activities.length;
       const activity = destinationData.activities[activityIndex];
+      const slot = timeSlots[i];
       
       dayActivities.push({
-        timeOfDay: ['09:00-11:30', '12:30-15:00', '16:00-18:30'][i] || '09:00-12:00',
+        timeOfDay: `${slot.start}-${slot.end}`,
+        start_time: slot.start,
+        end_time: slot.end,
         activityTitle: activity.name,
         description: activity.description,
         address: activity.address || `${activity.name}, ${destination}`,
@@ -329,7 +349,7 @@ function createRealisticItinerary(destination, days, budget, interests, realPlac
         coordinates: activity.coordinates,
         category: activity.category || 'Attraction',
         estimatedCost: budget === 'low' ? activity.costLow : budget === 'high' ? activity.costHigh : activity.costMed,
-        duration: activity.duration,
+        duration: slot.duration,
         isVisited: false
       });
     }
@@ -386,7 +406,7 @@ function getDestinationData(destination) {
           coordinates: { lat: 28.6562, lng: 77.2410 },
           category: 'Historical Monument',
           imageUrl: 'https://images.unsplash.com/photo-1587474260584-136574528ed5?w=400&h=300&fit=crop',
-          costLow: '$5-10', costMed: '$10-20', costHigh: '$25-40', duration: '2.5 hours' 
+          costLow: '$5-10', costMed: '$10-20', costHigh: '$25-40'
         },
         { 
           name: 'India Gate', 
@@ -396,9 +416,14 @@ function getDestinationData(destination) {
           coordinates: { lat: 28.6129, lng: 77.2295 },
           category: 'Monument',
           imageUrl: 'https://images.unsplash.com/photo-1587474260584-136574528ed5?w=400&h=300&fit=crop',
-          costLow: '$0', costMed: '$0', costHigh: '$0', duration: '1.5 hours' 
+          costLow: '$0', costMed: '$0', costHigh: '$0'
         },
-        { name: 'Local Street Food Tour', description: 'Taste authentic Indian cuisine from famous street vendors', costLow: '$5-12', costMed: '$12-25', costHigh: '$30-50', duration: '3 hours' },
+        { name: 'Karim\'s Restaurant', description: 'Historic Mughlai restaurant serving authentic Delhi cuisine since 1913', category: 'Restaurant', costLow: '$8-15', costMed: '$15-25', costHigh: '$30-50' },
+        { name: 'Chandni Chowk Market', description: 'Bustling old market with street food, spices, and traditional goods', category: 'Market', costLow: '$5-12', costMed: '$12-25', costHigh: '$30-50' },
+        { name: 'Qutub Minar', description: 'Tallest brick minaret in the world, UNESCO World Heritage Site', category: 'Historical Monument', costLow: '$5-10', costMed: '$10-20', costHigh: '$25-40' },
+        { name: 'Humayun\'s Tomb', description: 'Magnificent Mughal architecture, inspiration for the Taj Mahal', category: 'UNESCO World Heritage', costLow: '$8-15', costMed: '$15-25', costHigh: '$30-45' },
+        { name: 'Lotus Temple', description: 'Stunning Baháʼí House of Worship shaped like a lotus flower', category: 'Temple', costLow: '$0', costMed: '$0', costHigh: '$0' },
+        { name: 'Akshardham Temple', description: 'Modern Hindu temple complex with intricate carvings and exhibitions', category: 'Temple', costLow: '$0', costMed: '$5-10', costHigh: '$15-25' },
         { 
           name: 'Taj Mahal', 
           description: 'Wonder of the World - Breathtaking marble mausoleum, best visited at sunrise', 
@@ -406,13 +431,17 @@ function getDestinationData(destination) {
           placeId: 'ChIJbf8C1yFZdDkR3n12P4DkKt0',
           coordinates: { lat: 27.1751, lng: 78.0421 },
           category: 'UNESCO World Heritage',
-          costLow: '$15-25', costMed: '$25-40', costHigh: '$50-80', duration: '3 hours' 
+          costLow: '$15-25', costMed: '$25-40', costHigh: '$50-80'
         },
-        { name: 'Agra Fort', description: 'Discover the rich history of the Mughal empire at this UNESCO site', costLow: '$8-15', costMed: '$15-25', costHigh: '$30-45', duration: '2 hours' },
-        { name: 'Mehtab Bagh Gardens', description: 'Enjoy sunset views of the Taj Mahal from across the river', costLow: '$3-8', costMed: '$8-15', costHigh: '$20-30', duration: '1.5 hours' },
-        { name: 'Hawa Mahal Palace', description: 'Marvel at the intricate pink sandstone architecture of the Wind Palace', costLow: '$5-10', costMed: '$10-20', costHigh: '$25-40', duration: '1.5 hours' },
-        { name: 'City Palace Complex', description: 'Explore the royal residence with museums and courtyards', costLow: '$8-15', costMed: '$15-30', costHigh: '$35-55', duration: '2.5 hours' },
-        { name: 'Amber Fort & Elephant Ride', description: 'Experience royal grandeur with an optional elephant ride up the fort', costLow: '$10-20', costMed: '$25-45', costHigh: '$60-100', duration: '3 hours' }
+        { name: 'Agra Fort', description: 'Discover the rich history of the Mughal empire at this UNESCO site', category: 'Historical Fort', costLow: '$8-15', costMed: '$15-25', costHigh: '$30-45' },
+        { name: 'Mehtab Bagh Gardens', description: 'Enjoy sunset views of the Taj Mahal from across the river', category: 'Garden', costLow: '$3-8', costMed: '$8-15', costHigh: '$20-30' },
+        { name: 'Peshawri Restaurant', description: 'Fine dining North-West Frontier cuisine in Agra', category: 'Restaurant', costLow: '$20-35', costMed: '$35-60', costHigh: '$70-120' },
+        { name: 'Hawa Mahal Palace', description: 'Marvel at the intricate pink sandstone architecture of the Wind Palace', category: 'Palace', costLow: '$5-10', costMed: '$10-20', costHigh: '$25-40' },
+        { name: 'City Palace Complex', description: 'Explore the royal residence with museums and courtyards', category: 'Palace', costLow: '$8-15', costMed: '$15-30', costHigh: '$35-55' },
+        { name: 'Amber Fort & Elephant Ride', description: 'Experience royal grandeur with an optional elephant ride up the fort', category: 'Historical Fort', costLow: '$10-20', costMed: '$25-45', costHigh: '$60-100' },
+        { name: 'Jantar Mantar', description: 'UNESCO-listed astronomical observatory with massive instruments', category: 'Observatory', costLow: '$5-10', costMed: '$10-20', costHigh: '$25-40' },
+        { name: 'Jal Mahal', description: 'Beautiful water palace in the middle of Man Sagar Lake', category: 'Palace', costLow: '$0', costMed: '$5-10', costHigh: '$15-25' },
+        { name: 'Chokhi Dhani', description: 'Traditional Rajasthani village resort with cultural performances and dinner', category: 'Cultural Experience', costLow: '$15-25', costMed: '$25-40', costHigh: '$50-80' }
       ],
       tips: ['Carry bottled water and stay hydrated', 'Dress modestly when visiting religious sites', 'Bargain at local markets for better prices', 'Try local transportation like auto-rickshaws']
     },
@@ -421,12 +450,18 @@ function getDestinationData(destination) {
       conclusion: 'Your Parisian adventure captures the essence of French culture, from iconic landmarks to hidden neighborhood gems.',
       dayTitles: ['Classic Paris', 'Art & Culture', 'Montmartre & Sacré-Cœur', 'Seine & Islands', 'Modern Paris'],
       activities: [
-        { name: 'Eiffel Tower & Trocadéro', description: 'Visit the iconic iron lady and enjoy panoramic views from Trocadéro Gardens', costLow: '$15-25', costMed: '$25-40', costHigh: '$50-80', duration: '2.5 hours' },
-        { name: 'Louvre Museum', description: 'Discover world-famous art including the Mona Lisa and Venus de Milo', costLow: '$15-20', costMed: '$20-30', costHigh: '$40-60', duration: '3 hours' },
-        { name: 'Seine River Cruise', description: 'Enjoy a romantic boat ride along the Seine with commentary', costLow: '$12-18', costMed: '$18-30', costHigh: '$35-55', duration: '1.5 hours' },
-        { name: 'Notre-Dame & Sainte-Chapelle', description: 'Explore Gothic architecture and stunning stained glass windows', costLow: '$8-15', costMed: '$15-25', costHigh: '$30-45', duration: '2 hours' },
-        { name: 'Montmartre & Sacré-Cœur', description: 'Wander through artistic streets and visit the beautiful basilica', costLow: '$5-10', costMed: '$10-20', costHigh: '$25-40', duration: '2.5 hours' },
-        { name: 'Champs-Élysées & Arc de Triomphe', description: 'Stroll down the famous avenue and climb the triumphal arch', costLow: '$10-15', costMed: '$15-25', costHigh: '$30-50', duration: '2 hours' }
+        { name: 'Eiffel Tower & Trocadéro', description: 'Visit the iconic iron lady and enjoy panoramic views from Trocadéro Gardens', category: 'Landmark', costLow: '$15-25', costMed: '$25-40', costHigh: '$50-80' },
+        { name: 'Louvre Museum', description: 'Discover world-famous art including the Mona Lisa and Venus de Milo', category: 'Museum', costLow: '$15-20', costMed: '$20-30', costHigh: '$40-60' },
+        { name: 'Seine River Cruise', description: 'Enjoy a romantic boat ride along the Seine with commentary', category: 'Activity', costLow: '$12-18', costMed: '$18-30', costHigh: '$35-55' },
+        { name: 'Notre-Dame & Sainte-Chapelle', description: 'Explore Gothic architecture and stunning stained glass windows', category: 'Cathedral', costLow: '$8-15', costMed: '$15-25', costHigh: '$30-45' },
+        { name: 'Montmartre & Sacré-Cœur', description: 'Wander through artistic streets and visit the beautiful basilica', category: 'Neighborhood', costLow: '$5-10', costMed: '$10-20', costHigh: '$25-40' },
+        { name: 'Champs-Élysées & Arc de Triomphe', description: 'Stroll down the famous avenue and climb the triumphal arch', category: 'Landmark', costLow: '$10-15', costMed: '$15-25', costHigh: '$30-50' },
+        { name: 'Le Marais District', description: 'Explore trendy boutiques, galleries, and historic Jewish quarter', category: 'Neighborhood', costLow: '$0', costMed: '$10-20', costHigh: '$30-50' },
+        { name: 'Musée d\'Orsay', description: 'Impressionist masterpieces in a stunning former railway station', category: 'Museum', costLow: '$12-18', costMed: '$18-28', costHigh: '$35-50' },
+        { name: 'Latin Quarter & Panthéon', description: 'Historic student district with bookshops and the Panthéon monument', category: 'Neighborhood', costLow: '$8-12', costMed: '$12-20', costHigh: '$25-40' },
+        { name: 'Versailles Palace', description: 'Day trip to the opulent palace and gardens of Louis XIV', category: 'Palace', costLow: '$20-30', costMed: '$30-50', costHigh: '$60-100' },
+        { name: 'Le Comptoir du Relais', description: 'Classic French bistro with seasonal menu', category: 'Restaurant', costLow: '$25-40', costMed: '$40-70', costHigh: '$80-130' },
+        { name: 'Angelina Paris', description: 'Famous tearoom known for hot chocolate and Mont-Blanc pastry', category: 'Café', costLow: '$10-18', costMed: '$18-30', costHigh: '$35-55' }
       ],
       tips: ['Learn basic French greetings', 'Visit museums on first Sunday mornings for free entry', 'Try local patisseries for authentic pastries', 'Use the metro for efficient city travel']
     },
@@ -442,7 +477,7 @@ function getDestinationData(destination) {
           placeId: 'ChIJkRyJ_1FH4joRwLhOZnCa4oo',
           coordinates: { lat: 7.2936, lng: 80.6410 },
           category: 'Sacred Temple',
-          costLow: '$3-5', costMed: '$5-10', costHigh: '$15-25', duration: '2 hours' 
+          costLow: '$3-5', costMed: '$5-10', costHigh: '$15-25'
         },
         { 
           name: 'Sigiriya Rock Fortress', 
@@ -451,7 +486,7 @@ function getDestinationData(destination) {
           placeId: 'ChIJtRyggKl94joRoNrpzYYGFws',
           coordinates: { lat: 7.9570, lng: 80.7603 },
           category: 'UNESCO World Heritage',
-          costLow: '$15-20', costMed: '$20-30', costHigh: '$40-60', duration: '3 hours' 
+          costLow: '$15-20', costMed: '$20-30', costHigh: '$40-60'
         },
         { 
           name: 'Galle Fort', 
@@ -460,7 +495,7 @@ function getDestinationData(destination) {
           placeId: 'ChIJ4RyJ_1FH4joRwLhOZnCa4oo',
           coordinates: { lat: 6.0329, lng: 80.2168 },
           category: 'Colonial Fort',
-          costLow: '$0', costMed: '$5-10', costHigh: '$15-25', duration: '2.5 hours' 
+          costLow: '$0', costMed: '$5-10', costHigh: '$15-25'
         },
         { 
           name: 'Dambulla Cave Temple', 
@@ -469,7 +504,7 @@ function getDestinationData(destination) {
           placeId: 'ChIJmRyJ_1FH4joRwLhOZnCa4oo',
           coordinates: { lat: 7.8567, lng: 80.6490 },
           category: 'Cave Temple',
-          costLow: '$5-8', costMed: '$8-15', costHigh: '$20-30', duration: '2 hours' 
+          costLow: '$5-8', costMed: '$8-15', costHigh: '$20-30'
         },
         { 
           name: 'Colombo National Museum', 
@@ -478,7 +513,7 @@ function getDestinationData(destination) {
           placeId: 'ChIJnRyJ_1FH4joRwLhOZnCa4oo',
           coordinates: { lat: 6.9147, lng: 79.8612 },
           category: 'National Museum',
-          costLow: '$2-5', costMed: '$5-10', costHigh: '$15-20', duration: '2.5 hours' 
+          costLow: '$2-5', costMed: '$5-10', costHigh: '$15-20'
         },
         { 
           name: 'Pettah Market', 
@@ -487,8 +522,14 @@ function getDestinationData(destination) {
           placeId: 'ChIJoRyJ_1FH4joRwLhOZnCa4oo',
           coordinates: { lat: 6.9395, lng: 79.8587 },
           category: 'Traditional Market',
-          costLow: '$5-10', costMed: '$10-20', costHigh: '$25-40', duration: '2 hours' 
-        }
+          costLow: '$5-10', costMed: '$10-20', costHigh: '$25-40'
+        },
+        { name: 'Yala National Park Safari', description: 'Wildlife safari to spot leopards, elephants, and exotic birds', category: 'Safari', costLow: '$30-50', costMed: '$50-80', costHigh: '$100-150' },
+        { name: 'Ella Rock Hike', description: 'Scenic mountain hike with breathtaking views of tea plantations', category: 'Hiking', costLow: '$5-10', costMed: '$10-20', costHigh: '$30-50' },
+        { name: 'Nine Arch Bridge', description: 'Iconic railway bridge surrounded by lush greenery', category: 'Landmark', costLow: '$0', costMed: '$0', costHigh: '$5-10' },
+        { name: 'Mirissa Beach & Whale Watching', description: 'Relax on golden sands and spot blue whales in season', category: 'Beach Activity', costLow: '$20-35', costMed: '$35-60', costHigh: '$70-120' },
+        { name: 'Ministry of Crab', description: 'World-renowned restaurant serving fresh Sri Lankan crab', category: 'Restaurant', costLow: '$30-50', costMed: '$50-90', costHigh: '$100-180' },
+        { name: 'Ceylon Tea Trails', description: 'Visit tea plantations and learn about Ceylon tea production', category: 'Cultural Experience', costLow: '$10-20', costMed: '$20-40', costHigh: '$50-90' }
       ],
       tips: ['Dress modestly when visiting temples', 'Try local cuisine like rice and curry', 'Bargain at local markets', 'Respect Buddhist customs and traditions']
     }
