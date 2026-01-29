@@ -108,8 +108,15 @@ async function checkAzureOpenAIStatus() {
 
 // Generate AI trip itinerary using Azure OpenAI
 async function generateAITrip(userPreferences) {
-  const { destination, duration, travelStyle, budget, interests, travelers } = userPreferences;
+  const { destination, duration, travelStyle, budget, interests, travelers, daySettings } = userPreferences;
   const days = parseInt(duration.match(/(\d+)/)?.[1] || '3');
+  
+  // User-customizable day settings with defaults
+  const dayConfig = {
+    startTime: daySettings?.startTime || '08:00',
+    endTime: daySettings?.endTime || '21:00',
+    maxActiveHours: daySettings?.maxActiveHours || 10
+  };
 
   // Check Azure OpenAI status first
   const azureWorking = openai && await checkAzureOpenAIStatus();
@@ -117,7 +124,7 @@ async function generateAITrip(userPreferences) {
   if (!azureWorking) {
     console.log('🔄 Azure OpenAI unavailable, using Google Places API');
     const realPlaces = await fetchRealPlaces(destination);
-    return createRealisticItinerary(destination, days, budget, interests, realPlaces);
+    return createRealisticItinerary(destination, days, budget, interests, realPlaces, dayConfig);
   }
 
   const prompt = `Create a detailed ${days}-day travel itinerary for ${destination} with REAL places, addresses, and attractions.
@@ -273,14 +280,23 @@ Return ONLY this JSON structure:
     console.error('❌ Azure OpenAI failed:', error.message);
     console.log('🔄 Falling back to Google Places API');
     const realPlaces = await fetchRealPlaces(destination);
-    return createRealisticItinerary(destination, days, budget, interests, realPlaces);
+    return createRealisticItinerary(destination, days, budget, interests, realPlaces, dayConfig);
   }
 }
 
 // Create realistic itinerary with destination-specific content
-function createRealisticItinerary(destination, days, budget, interests, realPlaces = []) {
+function createRealisticItinerary(destination, days, budget, interests, realPlaces = [], dayConfig = {}) {
   const destinationData = getDestinationData(destination);
   const actualDays = Math.max(1, days);
+  
+  // Apply user day settings or defaults
+  const DAY_START_TIME = dayConfig.startTime || '08:00';
+  const DAY_END_TIME = dayConfig.endTime || '21:00';
+  const MAX_HOURS = dayConfig.maxActiveHours || 10;
+  
+  const DAY_START = parseInt(DAY_START_TIME.split(':')[0]) * 60 + parseInt(DAY_START_TIME.split(':')[1]);
+  const DAY_END = parseInt(DAY_END_TIME.split(':')[0]) * 60 + parseInt(DAY_END_TIME.split(':')[1]);
+  const MAX_ACTIVE_HOURS = MAX_HOURS * 60;
   
   // Use real places from Google Places API if available
   if (realPlaces && realPlaces.length > 0) {
@@ -321,27 +337,61 @@ function createRealisticItinerary(destination, days, budget, interests, realPlac
   
   for (let day = 1; day <= actualDays; day++) {
     const dayActivities = [];
-    const DAY_START = 8 * 60; // 08:00 in minutes
-    const DAY_END = 21 * 60; // 21:00 in minutes
-    const MAX_ACTIVE_HOURS = 10 * 60; // 10 hours in minutes
-    
     let currentTime = DAY_START;
     let totalActiveTime = 0;
     let activityCount = 0;
     let previousActivity = null;
+    let lastMealTime = DAY_START;
     
     // Dynamic activity scheduling based on time budget
     while (currentTime < DAY_END && totalActiveTime < MAX_ACTIVE_HOURS && activityCount < destinationData.activities.length) {
+      // Auto-insert meals
+      if (shouldInsertMeal(currentTime, lastMealTime)) {
+        const mealActivity = createMealActivity(currentTime, destination);
+        dayActivities.push(mealActivity);
+        currentTime += 60; // 1 hour for meal
+        lastMealTime = currentTime;
+        continue;
+      }
+      
       const activityIndex = ((day - 1) * 20 + activityCount) % destinationData.activities.length;
       const activity = destinationData.activities[activityIndex];
+      
+      // AI: Schedule sunrise/sunset activities at optimal times
+      const optimalTime = getOptimalTimeForActivity(activity, currentTime);
+      if (optimalTime && optimalTime > currentTime) {
+        currentTime = optimalTime;
+      }
       
       // Calculate travel time from previous activity using Google Directions API
       let travelTimeMin = 0;
       let travelDistance = '0 km';
+      let travelMode = 'walking';
+      
       if (previousActivity && previousActivity.coordinates && activity.coordinates) {
-        const travelInfo = await calculateTravelTime(previousActivity.coordinates, activity.coordinates);
+        // Smart mode selection based on distance
+        const distance = calculateDistance(
+          previousActivity.coordinates.lat,
+          previousActivity.coordinates.lng,
+          activity.coordinates.lat,
+          activity.coordinates.lng
+        );
+        
+        // Auto-select transport mode
+        if (distance > 10) {
+          travelMode = 'driving'; // Long distance: drive
+        } else if (distance > 3) {
+          travelMode = 'transit'; // Medium distance: public transit
+        } else if (distance > 1) {
+          travelMode = 'bicycling'; // Short-medium: bike
+        } else {
+          travelMode = 'walking'; // Short: walk
+        }
+        
+        const travelInfo = await calculateTravelTime(previousActivity.coordinates, activity.coordinates, travelMode);
         travelTimeMin = travelInfo.duration;
         travelDistance = travelInfo.distance;
+        travelMode = travelInfo.mode;
       }
       
       // Add travel time
@@ -373,7 +423,7 @@ function createRealisticItinerary(destination, days, budget, interests, realPlac
         duration: `${Math.floor(visitDuration / 60)}h ${visitDuration % 60}min`,
         travel_time_min: travelTimeMin,
         travel_distance: travelDistance,
-        travel_mode: 'walking',
+        travel_mode: travelMode,
         isVisited: false
       });
       
@@ -386,7 +436,12 @@ function createRealisticItinerary(destination, days, budget, interests, realPlac
     dailyPlans.push({
       day,
       title: `Day ${day} - ${destinationData.dayTitles[(day-1) % destinationData.dayTitles.length]}`,
-      activities: dayActivities
+      activities: dayActivities,
+      daySettings: {
+        startTime: DAY_START_TIME,
+        endTime: DAY_END_TIME,
+        maxActiveHours: MAX_HOURS
+      }
     });
   }
   
@@ -433,12 +488,84 @@ function createRealisticItinerary(destination, days, budget, interests, realPlac
   return itinerary;
 }
 
-// Helper: Calculate travel time using Google Directions API or fallback
-async function calculateTravelTime(origin, destination) {
+// Helper: Check if meal should be inserted
+function shouldInsertMeal(currentTime, lastMealTime) {
+  const timeSinceLastMeal = currentTime - lastMealTime;
+  const LUNCH_TIME = 12 * 60 + 30; // 12:30
+  const DINNER_TIME = 19 * 60; // 19:00
+  
+  // Insert lunch around 12:30 if 3+ hours since last meal
+  if (currentTime >= LUNCH_TIME && currentTime < LUNCH_TIME + 60 && timeSinceLastMeal >= 180) {
+    return true;
+  }
+  
+  // Insert dinner around 19:00 if 4+ hours since last meal
+  if (currentTime >= DINNER_TIME && currentTime < DINNER_TIME + 60 && timeSinceLastMeal >= 240) {
+    return true;
+  }
+  
+  return false;
+}
+
+// Helper: Create meal activity
+function createMealActivity(currentTime, destination) {
+  const isLunch = currentTime < 15 * 60;
+  const startTime = formatTime(currentTime);
+  const endTime = formatTime(currentTime + 60);
+  
+  return {
+    timeOfDay: `${startTime}-${endTime}`,
+    start_time: startTime,
+    end_time: endTime,
+    activityTitle: isLunch ? '🍽️ Lunch Break' : '🍽️ Dinner',
+    description: `Enjoy local cuisine at a nearby restaurant in ${destination}`,
+    category: 'Restaurant',
+    estimatedCost: '$15-30',
+    duration: '1h',
+    travel_time_min: 0,
+    travel_distance: '0 km',
+    travel_mode: 'walking',
+    isVisited: false,
+    isMealBreak: true
+  };
+}
+
+// Helper: Get optimal time for activity (AI suggestions)
+function getOptimalTimeForActivity(activity, currentTime) {
+  const activityName = activity.name.toLowerCase();
+  const category = (activity.category || '').toLowerCase();
+  
+  // Sunrise activities (5:30-7:00 AM)
+  if (activityName.includes('sunrise') || activityName.includes('sigiriya') || activityName.includes('angkor')) {
+    const sunriseTime = 5.5 * 60; // 5:30 AM
+    if (currentTime < sunriseTime) return sunriseTime;
+  }
+  
+  // Sunset activities (5:00-6:30 PM)
+  if (activityName.includes('sunset') || activityName.includes('beach') && currentTime > 15 * 60) {
+    const sunsetTime = 17 * 60; // 5:00 PM
+    if (currentTime < sunsetTime && currentTime > 14 * 60) return sunsetTime;
+  }
+  
+  // Museums/Indoor - avoid peak hours (10 AM - 2 PM)
+  if (category.includes('museum') && currentTime >= 10 * 60 && currentTime < 14 * 60) {
+    return 14 * 60; // Schedule after 2 PM
+  }
+  
+  // Markets - best in morning (7-10 AM)
+  if (category.includes('market') && currentTime < 7 * 60) {
+    return 7 * 60;
+  }
+  
+  return null; // No optimal time suggestion
+}
+
+// Helper: Calculate travel time using Google Directions API with multiple modes
+async function calculateTravelTime(origin, destination, mode = 'walking') {
   // Try Google Directions API first
   if (process.env.GOOGLE_PLACES_API_KEY && origin && destination) {
     try {
-      const url = `https://maps.googleapis.com/maps/api/directions/json?origin=${origin.lat},${origin.lng}&destination=${destination.lat},${destination.lng}&mode=walking&key=${process.env.GOOGLE_PLACES_API_KEY}`;
+      const url = `https://maps.googleapis.com/maps/api/directions/json?origin=${origin.lat},${origin.lng}&destination=${destination.lat},${destination.lng}&mode=${mode}&key=${process.env.GOOGLE_PLACES_API_KEY}`;
       const response = await fetch(url);
       const data = await response.json();
       
@@ -446,7 +573,8 @@ async function calculateTravelTime(origin, destination) {
         const leg = data.routes[0].legs[0];
         return {
           duration: Math.ceil(leg.duration.value / 60), // Convert to minutes
-          distance: (leg.distance.value / 1000).toFixed(1) + ' km'
+          distance: (leg.distance.value / 1000).toFixed(1) + ' km',
+          mode: mode
         };
       }
     } catch (error) {
@@ -454,11 +582,20 @@ async function calculateTravelTime(origin, destination) {
     }
   }
   
-  // Fallback: Calculate using Haversine
+  // Fallback: Calculate using distance and mode-specific speeds
   const distance = calculateDistance(origin.lat, origin.lng, destination.lat, destination.lng);
+  const speeds = {
+    walking: 5,    // 5 km/h
+    driving: 40,   // 40 km/h in city
+    bicycling: 15, // 15 km/h
+    transit: 25    // 25 km/h average
+  };
+  
+  const speed = speeds[mode] || speeds.walking;
   return {
-    duration: Math.ceil(distance * 12), // ~12 min per km walking
-    distance: `${distance.toFixed(1)} km`
+    duration: Math.ceil((distance / speed) * 60), // Convert to minutes
+    distance: `${distance.toFixed(1)} km`,
+    mode: mode
   };
 }
 

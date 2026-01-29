@@ -1044,10 +1044,14 @@ class _TripPlanDetailScreenState extends State<TripPlanDetailScreen> {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(Icons.directions_walk, size: 14, color: Colors.blue[700]),
+                Icon(
+                  _getTravelModeIcon(activity.travelMode),
+                  size: 14,
+                  color: Colors.blue[700],
+                ),
                 const SizedBox(width: 4),
                 Text(
-                  '${activity.travelTimeMin} min travel from previous',
+                  '${activity.travelTimeMin} min from previous',
                   style: TextStyle(
                     fontSize: 11,
                     color: Colors.blue[700],
@@ -2007,6 +2011,20 @@ class _TripPlanDetailScreenState extends State<TripPlanDetailScreen> {
         ),
       ),
     );
+  }
+
+  IconData _getTravelModeIcon(String mode) {
+    switch (mode.toLowerCase()) {
+      case 'driving':
+        return Icons.directions_car;
+      case 'transit':
+        return Icons.directions_transit;
+      case 'bicycling':
+        return Icons.directions_bike;
+      case 'walking':
+      default:
+        return Icons.directions_walk;
+    }
   }
 
   double? _extractLatitude(ActivityDetail activity) {
