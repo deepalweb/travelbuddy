@@ -285,7 +285,7 @@ Return ONLY this JSON structure:
 }
 
 // Create realistic itinerary with destination-specific content
-function createRealisticItinerary(destination, days, budget, interests, realPlaces = [], dayConfig = {}) {
+async function createRealisticItinerary(destination, days, budget, interests, realPlaces = [], dayConfig = {}) {
   const destinationData = getDestinationData(destination);
   const actualDays = Math.max(1, days);
   
