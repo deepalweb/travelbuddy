@@ -4,7 +4,7 @@ import 'package:geolocator/geolocator.dart';
 import '../models/place.dart';
 import '../models/route_models.dart';
 import '../services/route_tracking_service.dart';
-import '../services/smart_route_service.dart';
+import '../services/simple_smart_route_service.dart';
 
 class RouteMapScreen extends StatefulWidget {
   final Position currentLocation;
@@ -31,7 +31,7 @@ class _RouteMapScreenState extends State<RouteMapScreen> {
   late RouteTrackingService _trackingService;
   bool _isTracking = false;
   bool _isLoadingRoute = true;
-  SmartRouteResult? _smartRoute;
+  SimpleRouteResult? _routeResult;
   List<Place> _optimizedPlaces = [];
 
   @override
@@ -48,20 +48,28 @@ class _RouteMapScreenState extends State<RouteMapScreen> {
     });
 
     try {
-      final preferences = widget.preferences ?? const RoutePreferences(transportMode: TransportMode.walking);
+      print('🗺️ Loading route with ${widget.places.length} places');
+      print('📍 Current location: ${widget.currentLocation.latitude}, ${widget.currentLocation.longitude}');
       
-      _smartRoute = await SmartRouteService.createSmartRoute(
+      // Use real Google Directions API
+      final routeResult = await SimpleSmartRouteService.createRoute(
         currentLocation: widget.currentLocation,
         places: widget.places,
-        preferences: preferences,
+        mode: widget.preferences?.transportMode ?? TransportMode.walking,
       );
       
-      _optimizedPlaces = _smartRoute!.optimizedPlaces;
-      _trackingService.initializeRoute(_optimizedPlaces);
+      _optimizedPlaces = routeResult.places;
+      _routeResult = routeResult;
       
+      _trackingService.initializeRoute(_optimizedPlaces);
       _setupMarkersAndRoute();
+      
+      print('✅ Route setup complete with real directions');
+      print('   Markers created: ${_markers.length}');
+      print('   Polylines created: ${_polylines.length}');
+      print('   Polyline points: ${routeResult.polylinePoints.length}');
     } catch (e) {
-      print('Smart route loading error: $e');
+      print('❌ Route loading error: $e');
       _optimizedPlaces = widget.places;
       _trackingService.initializeRoute(_optimizedPlaces);
       _setupMarkersAndRoute();
@@ -91,47 +99,37 @@ class _RouteMapScreenState extends State<RouteMapScreen> {
   }
 
   void _updateMarkersFromTracking() {
+    print('🎯 Updating markers from tracking...');
     final markers = <Marker>{};
 
-    // Add current location marker (dynamic if tracking)
+    // Add start marker (green)
     final currentPos = _trackingService.currentLocation ?? widget.currentLocation;
     markers.add(
       Marker(
         markerId: const MarkerId('current_location'),
         position: LatLng(currentPos.latitude, currentPos.longitude),
         icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen),
-        infoWindow: InfoWindow(
-          title: _isTracking ? 'You are here' : 'Starting Point',
-          snippet: _isTracking ? 'Live location' : 'Route start',
+        infoWindow: const InfoWindow(
+          title: '📍 Start',
+          snippet: 'Your current location',
         ),
       ),
     );
 
-    // Add place markers with status-based colors
+    // Add numbered place markers
     for (int i = 0; i < _optimizedPlaces.length; i++) {
       final place = _optimizedPlaces[i];
       if (place.latitude != null && place.longitude != null) {
         final status = _trackingService.placeStatuses[place.id] ?? PlaceStatus.pending;
-        final isCurrentTarget = _trackingService.currentTarget?.id == place.id;
+        final isLast = i == _optimizedPlaces.length - 1;
         
         BitmapDescriptor markerColor;
-        String statusText;
-        
-        switch (status) {
-          case PlaceStatus.visited:
-            markerColor = BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen);
-            statusText = '✅ Visited';
-            break;
-          case PlaceStatus.approaching:
-            markerColor = BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueOrange);
-            statusText = '🎯 Arriving...';
-            break;
-          case PlaceStatus.pending:
-          default:
-            markerColor = isCurrentTarget 
-                ? BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueYellow)
-                : BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed);
-            statusText = isCurrentTarget ? '🎯 Next target' : '⏳ Pending';
+        if (status == PlaceStatus.visited) {
+          markerColor = BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen);
+        } else if (isLast) {
+          markerColor = BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed);
+        } else {
+          markerColor = BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueOrange);
         }
 
         markers.add(
@@ -141,7 +139,7 @@ class _RouteMapScreenState extends State<RouteMapScreen> {
             icon: markerColor,
             infoWindow: InfoWindow(
               title: '${i + 1}. ${place.name}',
-              snippet: '$statusText\n${place.address}',
+              snippet: place.address,
             ),
             onTap: () => _onMarkerTap(place),
           ),
@@ -155,21 +153,22 @@ class _RouteMapScreenState extends State<RouteMapScreen> {
   }
 
   void _setupSmartPolyline() {
+    print('🛣️ Setting up polylines...');
     final polylines = <Polyline>{};
     
-    if (_smartRoute != null && _smartRoute!.polylinePoints.isNotEmpty) {
-      // Use actual road route from Google Directions
+    if (_routeResult != null && _routeResult!.polylinePoints.isNotEmpty) {
+      print('   Using real route polyline with ${_routeResult!.polylinePoints.length} points');
       polylines.add(
         Polyline(
           polylineId: const PolylineId('smart_route'),
-          points: _smartRoute!.polylinePoints,
+          points: _routeResult!.polylinePoints,
           color: _isTracking ? Colors.green : _getRouteColor(),
           width: 5,
-          patterns: _isTracking ? [] : [PatternItem.dash(15), PatternItem.gap(8)],
         ),
       );
     } else {
       // Fallback to simple route
+      print('   Using simple route fallback');
       final polylinePoints = <LatLng>[];
       final currentPos = _trackingService.currentLocation ?? widget.currentLocation;
       polylinePoints.add(LatLng(currentPos.latitude, currentPos.longitude));
@@ -180,6 +179,7 @@ class _RouteMapScreenState extends State<RouteMapScreen> {
         }
       }
 
+      print('   Polyline points: ${polylinePoints.length}');
       if (polylinePoints.length > 1) {
         polylines.add(
           Polyline(
@@ -190,9 +190,13 @@ class _RouteMapScreenState extends State<RouteMapScreen> {
             patterns: [PatternItem.dash(20), PatternItem.gap(10)],
           ),
         );
+        print('   ✅ Polyline created');
+      } else {
+        print('   ⚠️ Not enough points for polyline');
       }
     }
 
+    print('   Total polylines: ${polylines.length}');
     setState(() {
       _polylines = polylines;
     });
@@ -271,7 +275,7 @@ class _RouteMapScreenState extends State<RouteMapScreen> {
           ),
           
           // Optimization info banner
-          if (_smartRoute != null && !_isTracking)
+          if (_routeResult != null && !_isTracking)
             Container(
               width: double.infinity,
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -282,7 +286,7 @@ class _RouteMapScreenState extends State<RouteMapScreen> {
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      _smartRoute!.optimizationSummary,
+                      'Route optimized: ${_routeResult!.distanceText}, ${_routeResult!.durationText}',
                       style: TextStyle(
                         fontSize: 12,
                         color: Colors.purple[700],
@@ -308,25 +312,28 @@ class _RouteMapScreenState extends State<RouteMapScreen> {
                     ),
                   )
                 : GoogleMap(
-                    onMapCreated: (GoogleMapController controller) {
+                    onMapCreated: (GoogleMapController controller) async {
+                      print('🗺️ Map created callback - controller received');
                       _mapController = controller;
-                      Future.delayed(const Duration(milliseconds: 500), () {
+                      print('   Markers available: ${_markers.length}');
+                      print('   Polylines available: ${_polylines.length}');
+                      await Future.delayed(const Duration(milliseconds: 1000));
+                      if (mounted) {
+                        print('📍 Fitting map to route');
                         _fitMapToRoute();
-                      });
+                      }
                     },
                     initialCameraPosition: CameraPosition(
                       target: LatLng(widget.currentLocation.latitude, widget.currentLocation.longitude),
-                      zoom: 12,
+                      zoom: 13,
                     ),
                     markers: _markers,
                     polylines: _polylines,
-                    myLocationEnabled: true,
+                    myLocationEnabled: false,
                     myLocationButtonEnabled: false,
                     mapType: MapType.normal,
                     zoomControlsEnabled: true,
-                    liteModeEnabled: false,
-                    tiltGesturesEnabled: false,
-                    buildingsEnabled: false,
+                    padding: const EdgeInsets.only(bottom: 200, top: 50),
                   ),
           ),
 
@@ -354,15 +361,15 @@ class _RouteMapScreenState extends State<RouteMapScreen> {
                     _buildInfoItem(
                       icon: Icons.route,
                       label: 'Distance',
-                      value: _smartRoute != null 
-                          ? '${(_smartRoute!.totalDistance / 1000).toStringAsFixed(1)} km'
+                      value: _routeResult != null 
+                          ? _routeResult!.distanceText
                           : 'Loading...',
                     ),
                     _buildInfoItem(
                       icon: Icons.access_time,
                       label: 'Est. Time',
-                      value: _smartRoute != null 
-                          ? '${_smartRoute!.totalDuration.inHours}h ${_smartRoute!.totalDuration.inMinutes % 60}m'
+                      value: _routeResult != null 
+                          ? _routeResult!.durationText
                           : 'Loading...',
                     ),
                     _buildInfoItem(
@@ -370,7 +377,7 @@ class _RouteMapScreenState extends State<RouteMapScreen> {
                       label: _isTracking ? 'Progress' : 'Stops',
                       value: _isTracking 
                           ? '${_trackingService.completedCount}/${_optimizedPlaces.length}'
-                          : '${_optimizedPlaces.length}${_smartRoute?.hasBreaks == true ? ' (+breaks)' : ''}',
+                          : '${_optimizedPlaces.length}',
                     ),
                   ],
                 ),
@@ -424,12 +431,22 @@ class _RouteMapScreenState extends State<RouteMapScreen> {
   }
 
   void _fitMapToRoute() {
-    if (_mapController == null || widget.places.isEmpty) return;
+    print('🎯 Fitting map to route...');
+    if (_mapController == null) {
+      print('   ⚠️ Map controller is null');
+      return;
+    }
+    if (widget.places.isEmpty) {
+      print('   ⚠️ No places to fit');
+      return;
+    }
 
     final bounds = _calculateBounds();
+    print('   Bounds: SW(${bounds.southwest.latitude}, ${bounds.southwest.longitude}) NE(${bounds.northeast.latitude}, ${bounds.northeast.longitude})');
     _mapController!.animateCamera(
       CameraUpdate.newLatLngBounds(bounds, 100.0),
     );
+    print('   ✅ Camera animation started');
   }
 
   Widget _buildRouteBanner() {
@@ -625,9 +642,9 @@ class _RouteMapScreenState extends State<RouteMapScreen> {
   }
 
   Color _getRouteColor() {
-    if (_smartRoute?.preferences.transportMode == null) return Colors.blue;
+    if (widget.preferences?.transportMode == null) return Colors.blue;
     
-    switch (_smartRoute!.preferences.transportMode) {
+    switch (widget.preferences!.transportMode) {
       case TransportMode.walking:
         return Colors.green;
       case TransportMode.driving:
