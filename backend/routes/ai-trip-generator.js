@@ -436,7 +436,16 @@ function createRealisticItinerary(destination, days, budget, interests, realPlac
     dailyPlans.push({
       day,
       title: `Day ${day} - ${destinationData.dayTitles[(day-1) % destinationData.dayTitles.length]}`,
+      startTime: DAY_START_TIME,
+      endTime: formatTime(currentTime),
+      totalPlannedTime: `${Math.floor(totalActiveTime / 60)}h ${totalActiveTime % 60}m`,
+      totalWalkingDistance: dayActivities.reduce((sum, act) => {
+        const dist = parseFloat(act.travel_distance);
+        return sum + (isNaN(dist) ? 0 : dist);
+      }, 0).toFixed(1) + ' km',
+      status: totalActiveTime > MAX_ACTIVE_HOURS * 0.9 ? 'busy' : 'comfortable',
       activities: dayActivities,
+      aiInsight: generateDayInsight(dayActivities, day),
       daySettings: {
         startTime: DAY_START_TIME,
         endTime: DAY_END_TIME,
@@ -458,6 +467,32 @@ function createRealisticItinerary(destination, days, budget, interests, realPlac
     travelTips: destinationData.tips,
     createdAt: new Date().toISOString()
   };
+  
+  // Calculate trip-level statistics
+  const totalWalkingKm = dailyPlans.reduce((sum, day) => {
+    return sum + parseFloat(day.totalWalkingDistance || '0');
+  }, 0);
+  
+  const totalActivities = dailyPlans.reduce((sum, day) => sum + day.activities.length, 0);
+  
+  const totalSightseeingMin = dailyPlans.reduce((sum, day) => {
+    return sum + day.activities.reduce((daySum, act) => {
+      if (act.isMealBreak) return daySum;
+      const match = act.duration.match(/(\d+)h/);
+      const minMatch = act.duration.match(/(\d+)min/);
+      return daySum + (match ? parseInt(match[1]) * 60 : 0) + (minMatch ? parseInt(minMatch[1]) : 0);
+    }, 0);
+  }, 0);
+  
+  itinerary.tripSummary = {
+    totalWalkingDistance: `${totalWalkingKm.toFixed(1)} km`,
+    totalSightseeingTime: `${Math.floor(totalSightseeingMin / 60)}h ${totalSightseeingMin % 60}m`,
+    totalPlaces: totalActivities,
+    estimatedBudget: itinerary.totalEstimatedCost
+  };
+  
+  // Add overflow warnings
+  itinerary.warnings = [];
   
   // Geocode activities without coordinates
   (async () => {
@@ -486,6 +521,41 @@ function createRealisticItinerary(destination, days, budget, interests, realPlac
   }
   
   return itinerary;
+}
+
+// Helper: Generate AI insight for the day
+function generateDayInsight(activities, dayNumber) {
+  const insights = [];
+  
+  const hasSunrise = activities.some(a => 
+    a.start_time && parseInt(a.start_time.split(':')[0]) < 7
+  );
+  if (hasSunrise) insights.push('Early start for sunrise experience');
+  
+  const hasSunset = activities.some(a => 
+    a.start_time && parseInt(a.start_time.split(':')[0]) >= 17 && 
+    (a.category?.toLowerCase().includes('beach') || a.activityTitle.toLowerCase().includes('sunset'))
+  );
+  if (hasSunset) insights.push('Sunset activity optimized for golden hour');
+  
+  const mealCount = activities.filter(a => a.isMealBreak).length;
+  if (mealCount > 0) insights.push(`${mealCount} meal break${mealCount > 1 ? 's' : ''} auto-scheduled`);
+  
+  const hasMuseum = activities.some(a => 
+    a.category?.toLowerCase().includes('museum') && 
+    a.start_time && parseInt(a.start_time.split(':')[0]) >= 14
+  );
+  if (hasMuseum) insights.push('Museum visits scheduled to avoid peak crowds');
+  
+  const hasMarket = activities.some(a => 
+    a.category?.toLowerCase().includes('market') && 
+    a.start_time && parseInt(a.start_time.split(':')[0]) < 10
+  );
+  if (hasMarket) insights.push('Market visit scheduled for best morning experience');
+  
+  return insights.length > 0 
+    ? `💡 ${insights.join('. ')}.`
+    : `💡 Day ${dayNumber} is well-balanced with varied activities.`;
 }
 
 // Helper: Check if meal should be inserted

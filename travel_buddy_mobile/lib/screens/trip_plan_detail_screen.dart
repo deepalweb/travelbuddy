@@ -322,136 +322,19 @@ class _TripPlanDetailScreenState extends State<TripPlanDetailScreen> {
     }
     
     final totalPlaces = allActivities.length;
-    // Use _visitStatus map as source of truth for UI state
     final visitedCount = allActivities.where((activity) => 
       _visitStatus[activity.activityTitle] ?? activity.isVisited
     ).length;
-    final pendingCount = totalPlaces - visitedCount;
     
-    print('📊 STATS DEBUG: Total: $totalPlaces, Visited: $visitedCount, Pending: $pendingCount');
-    for (final activity in allActivities) {
-      final status = _visitStatus[activity.activityTitle] ?? activity.isVisited;
-      print('   Stats activity: ${activity.activityTitle} - status: $status (stored: ${activity.isVisited})');
-    }
-    
-    // Calculate total trip distance (start to end)
-    double totalTripDistance = 0;
-    if (allActivities.length >= 2) {
-      final startActivity = allActivities.first;
-      final endActivity = allActivities.last;
-      
-      final startLat = _extractLatitude(startActivity);
-      final startLng = _extractLongitude(startActivity);
-      final endLat = _extractLatitude(endActivity);
-      final endLng = _extractLongitude(endActivity);
-      
-      if (startLat != null && startLng != null && endLat != null && endLng != null) {
-        totalTripDistance = _calculateDistanceInKm(startLat, startLng, endLat, endLng);
-        print('🗺️ Total trip distance (start to end): ${totalTripDistance.toStringAsFixed(1)}km');
-      }
-    }
-    
-    // Calculate total and pending time
-    int totalMinutes = 0;
-    int pendingMinutes = 0;
-    bool hasRealTimeData = false;
-    
-    for (final activity in allActivities) {
-      int minutes = 0;
-      
-      // Try estimatedVisitDurationMin first (most accurate)
-      if (activity.estimatedVisitDurationMin > 0) {
-        minutes = activity.estimatedVisitDurationMin;
-        hasRealTimeData = true;
-      } else {
-        // Parse duration string - handles "2hr", "2h", "90min", "1.5h", "2-3h"
-        final duration = activity.duration.toLowerCase();
-        if (duration.contains('hr') || duration.contains('h')) {
-          final match = RegExp(r'(\d+\.?\d*)').firstMatch(duration);
-          if (match != null) {
-            minutes = (double.parse(match.group(1)!) * 60).toInt();
-            hasRealTimeData = true;
-          }
-        } else if (duration.contains('min')) {
-          final match = RegExp(r'(\d+)').firstMatch(duration);
-          if (match != null) {
-            minutes = int.parse(match.group(1)!);
-            hasRealTimeData = true;
-          }
-        }
-      }
-      
-      totalMinutes += minutes;
-      
-      if (!(_visitStatus[activity.activityTitle] ?? activity.isVisited)) {
-        pendingMinutes += minutes;
-      }
-    }
-    
-    final totalHours = (totalMinutes / 60).ceil();
-    final pendingHours = (pendingMinutes / 60).ceil();
-    
-    // Calculate total and pending distance
-    double totalKm = 0;
-    double pendingKm = 0;
-    bool hasRealDistanceData = false;
-    
-    // Calculate distance between consecutive activities
-    ActivityDetail? previousActivity;
-    for (final activity in allActivities) {
-      double km = 0;
-      
-      // If we have coordinates, calculate real distance from previous activity
-      if (previousActivity != null) {
-        final prevLat = _extractLatitude(previousActivity);
-        final prevLng = _extractLongitude(previousActivity);
-        final currLat = _extractLatitude(activity);
-        final currLng = _extractLongitude(activity);
-        
-        if (prevLat != null && prevLng != null && currLat != null && currLng != null) {
-          km = _calculateDistanceInKm(prevLat, prevLng, currLat, currLng);
-          hasRealDistanceData = true;
-        }
-      }
-      
-      // Fallback: check if activity has distance data
-      if (km == 0 && activity.estimatedDuration != null && activity.estimatedDuration!.contains('km')) {
-        final match = RegExp(r'(\d+\.?\d*)').firstMatch(activity.estimatedDuration!);
-        if (match != null) {
-          km = double.parse(match.group(1)!);
-          hasRealDistanceData = true;
-        }
-      } else if (km == 0 && activity.travelTimeMin > 0) {
-        // Calculate: walking speed ~5km/h
-        km = (activity.travelTimeMin / 60) * 5;
-        hasRealDistanceData = true;
-      }
-      
-      totalKm += km;
-      
-      if (!(_visitStatus[activity.activityTitle] ?? activity.isVisited)) {
-        pendingKm += km;
-      }
-      
-      previousActivity = activity;
-    }
-    
-    // If no real data, estimate: ~1.5km between activities
-    if (!hasRealDistanceData && allActivities.length > 1) {
-      totalKm = (allActivities.length - 1) * 1.5;
-      pendingKm = (pendingCount > 0 ? pendingCount - 1 : 0) * 1.5;
-      hasRealDistanceData = true; // We have an estimate
-    }
-    
-    final totalKmStr = totalKm > 0 
-        ? '${totalKm.toStringAsFixed(1)}km' 
-        : '0km';
-    final pendingKmStr = pendingKm > 0 
-        ? '${pendingKm.toStringAsFixed(1)}km' 
-        : '0km';
+    // Get trip summary from metadata
+    final tripSummary = _currentTripPlan!.metadata?['tripSummary'] as Map<String, dynamic>?;
+    final totalWalking = tripSummary?['totalWalkingDistance'] ?? 'N/A';
+    final totalTime = tripSummary?['totalSightseeingTime'] ?? 'N/A';
+    final totalBudget = tripSummary?['estimatedBudget'] ?? _currentTripPlan!.totalEstimatedCost;
     
     return Card(
-      color: Colors.grey[50],
+      elevation: 3,
+      color: Colors.white,
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -459,136 +342,92 @@ class _TripPlanDetailScreenState extends State<TripPlanDetailScreen> {
           children: [
             Row(
               children: [
-                const Icon(Icons.analytics, color: Colors.purple),
-                const SizedBox(width: 8),
-                const Text(
-                  'Trip Progress',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.purple[50],
+                    borderRadius: BorderRadius.circular(8),
                   ),
+                  child: Icon(Icons.analytics, color: Colors.purple[700], size: 24),
                 ),
-                const Spacer(),
-                Text(
-                  '${((visitedCount / totalPlaces) * 100).toInt()}%',
+                const SizedBox(width: 12),
+                const Text(
+                  'Trip Summary',
                   style: TextStyle(
                     fontSize: 20,
                     fontWeight: FontWeight.bold,
-                    color: visitedCount == totalPlaces ? Colors.green : Colors.purple,
                   ),
                 ),
               ],
+            ),
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [Colors.blue[50]!, Colors.purple[50]!],
+                ),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Column(
+                children: [
+                  _buildSummaryRow(Icons.place, 'Total Places', '$totalPlaces', Colors.blue),
+                  const Divider(height: 24),
+                  _buildSummaryRow(Icons.directions_walk, 'Walking Distance', totalWalking, Colors.green),
+                  const Divider(height: 24),
+                  _buildSummaryRow(Icons.schedule, 'Sightseeing Time', totalTime, Colors.orange),
+                  const Divider(height: 24),
+                  _buildSummaryRow(Icons.payments, 'Estimated Budget', totalBudget, Colors.purple),
+                ],
+              ),
             ),
             const SizedBox(height: 12),
-            // Progress Bar
-            ClipRRect(
-              borderRadius: BorderRadius.circular(8),
-              child: LinearProgressIndicator(
-                value: totalPlaces > 0 ? visitedCount / totalPlaces : 0,
-                minHeight: 8,
-                backgroundColor: Colors.grey[200],
-                valueColor: AlwaysStoppedAnimation<Color>(
-                  visitedCount == totalPlaces ? Colors.green : Colors.purple,
-                ),
+            LinearProgressIndicator(
+              value: totalPlaces > 0 ? visitedCount / totalPlaces : 0,
+              minHeight: 8,
+              backgroundColor: Colors.grey[200],
+              valueColor: AlwaysStoppedAnimation<Color>(
+                visitedCount == totalPlaces ? Colors.green : Colors.blue,
               ),
             ),
-            const SizedBox(height: 4),
+            const SizedBox(height: 8),
             Text(
-              visitedCount == totalPlaces 
-                  ? '🎉 Trip Complete! Amazing journey!' 
-                  : '$visitedCount of $totalPlaces places visited',
+              '$visitedCount of $totalPlaces completed (• ${((visitedCount / totalPlaces) * 100).toInt()}%)',
               style: TextStyle(
-                fontSize: 12,
-                color: visitedCount == totalPlaces ? Colors.green : Colors.grey[600],
-                fontWeight: visitedCount == totalPlaces ? FontWeight.bold : FontWeight.normal,
+                fontSize: 13,
+                color: Colors.grey[700],
+                fontWeight: FontWeight.w500,
               ),
             ),
-            const SizedBox(height: 16),
-            Row(
-              children: [
-                Expanded(
-                  child: _buildStatItem(
-                    '$totalPlaces',
-                    'Total Places',
-                    Icons.place,
-                    Colors.blue,
-                  ),
-                ),
-                Expanded(
-                  child: _buildStatItem(
-                    '$visitedCount',
-                    'Visited',
-                    Icons.check_circle,
-                    Colors.green,
-                  ),
-                ),
-                Expanded(
-                  child: _buildStatItem(
-                    '$pendingCount',
-                    'Pending',
-                    Icons.pending,
-                    Colors.orange,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            Row(
-              children: [
-                Expanded(
-                  child: _buildStatItem(
-                    '$totalKmStr / $pendingKmStr',
-                    'Total / Pending KM',
-                    Icons.directions_walk,
-                    Colors.indigo,
-                  ),
-                ),
-                Expanded(
-                  child: _buildStatItem(
-                    hasRealTimeData ? '${totalHours}h / ${pendingHours}h' : '${totalPlaces}h / ${pendingCount}h',
-                    'Total / Pending Time',
-                    Icons.schedule,
-                    Colors.teal,
-                  ),
-                ),
-              ],
-            ),
-            if (totalTripDistance > 0) ...[
-              const SizedBox(height: 16),
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.blue[50],
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.blue[200]!),
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(Icons.route, color: Colors.blue[700], size: 20),
-                    const SizedBox(width: 8),
-                    Text(
-                      'Trip Distance (Start to End): ',
-                      style: TextStyle(
-                        fontSize: 13,
-                        color: Colors.grey[700],
-                      ),
-                    ),
-                    Text(
-                      '${totalTripDistance.toStringAsFixed(1)}km',
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.blue[700],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildSummaryRow(IconData icon, String label, String value, Color color) {
+    return Row(
+      children: [
+        Icon(icon, color: color, size: 20),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Text(
+            label,
+            style: TextStyle(
+              fontSize: 14,
+              color: Colors.grey[700],
+            ),
+          ),
+        ),
+        Text(
+          value,
+          style: TextStyle(
+            fontSize: 15,
+            fontWeight: FontWeight.bold,
+            color: color,
+          ),
+        ),
+      ],
     );
   }
 
@@ -866,32 +705,143 @@ class _TripPlanDetailScreenState extends State<TripPlanDetailScreen> {
   }
 
   Widget _buildDayPlan(int dayNumber, DailyTripPlan dayPlan) {
+    // Get day metadata
+    final startTime = dayPlan.date.isNotEmpty ? dayPlan.date.split('-')[0] : '08:00';
+    final endTime = dayPlan.date.isNotEmpty && dayPlan.date.contains('-') ? dayPlan.date.split('-')[1] : '21:00';
+    final totalTime = dayPlan.totalWalkingTime.isNotEmpty ? dayPlan.totalWalkingTime : 'N/A';
+    final walkingDist = dayPlan.dayWalkingDistance.isNotEmpty ? dayPlan.dayWalkingDistance : 'N/A';
+    final status = dayPlan.summary.toLowerCase().contains('busy') ? 'busy' : 'comfortable';
+    final aiInsight = dayPlan.dailyRecap.isNotEmpty ? dayPlan.dailyRecap : null;
+    
     return Card(
-      margin: const EdgeInsets.only(bottom: 12),
+      margin: const EdgeInsets.only(bottom: 16),
+      elevation: 2,
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // Day Header
             Row(
               children: [
-                Text(
-                  'Day $dayNumber',
-                  style: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.blue,
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: Colors.blue[600],
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Text(
+                    'Day $dayNumber',
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                    ),
                   ),
                 ),
-                const Spacer(),
-                ElevatedButton.icon(
-                  onPressed: () => _createRouteForDay(dayNumber - 1),
-                  icon: const Icon(Icons.route, size: 16),
-                  label: const Text('Route'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.green,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    dayPlan.title,
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            // Day Stats
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.grey[50],
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.grey[200]!),
+              ),
+              child: Column(
+                children: [
+                  Row(
+                    children: [
+                      Icon(Icons.access_time, size: 16, color: Colors.grey[700]),
+                      const SizedBox(width: 6),
+                      Text('Time: $startTime – $endTime', style: TextStyle(fontSize: 13, color: Colors.grey[700])),
+                      const Spacer(),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: status == 'busy' ? Colors.orange[100] : Colors.green[100],
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Text(
+                          status == 'busy' ? '⚠️ Busy' : '✅ Comfortable',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                            color: status == 'busy' ? Colors.orange[900] : Colors.green[900],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      Icon(Icons.schedule, size: 16, color: Colors.grey[700]),
+                      const SizedBox(width: 6),
+                      Text('Planned: $totalTime', style: TextStyle(fontSize: 13, color: Colors.grey[700])),
+                      const SizedBox(width: 16),
+                      Icon(Icons.directions_walk, size: 16, color: Colors.grey[700]),
+                      const SizedBox(width: 6),
+                      Text('Walking: $walkingDist', style: TextStyle(fontSize: 13, color: Colors.grey[700])),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            if (aiInsight != null) ...[
+              const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.purple[50],
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.purple[200]!),
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Icon(Icons.lightbulb, size: 18, color: Colors.purple[700]),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        aiInsight,
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.purple[900],
+                          fontStyle: FontStyle.italic,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+            const SizedBox(height: 16),
+            // Action Buttons
+            Row(
+              children: [
+                Expanded(
+                  child: ElevatedButton.icon(
+                    onPressed: () => _createRouteForDay(dayNumber - 1),
+                    icon: const Icon(Icons.route, size: 16),
+                    label: const Text('Route'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.green,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 10),
+                    ),
                   ),
                 ),
                 const SizedBox(width: 8),
@@ -901,12 +851,13 @@ class _TripPlanDetailScreenState extends State<TripPlanDetailScreen> {
                   style: IconButton.styleFrom(
                     backgroundColor: Colors.blue[50],
                     foregroundColor: Colors.blue[700],
-                    padding: const EdgeInsets.all(8),
                   ),
                   tooltip: 'Add Place',
                 ),
               ],
             ),
+            const SizedBox(height: 16),
+            const Divider(height: 1),
             const SizedBox(height: 16),
             // Timeline View
             ...dayPlan.activities.asMap().entries.map((entry) {
