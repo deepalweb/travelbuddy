@@ -321,26 +321,52 @@ function createRealisticItinerary(destination, days, budget, interests, realPlac
   
   for (let day = 1; day <= actualDays; day++) {
     const dayActivities = [];
-    const activitiesPerDay = Math.min(6, destinationData.activities.length);
+    const DAY_START = 8 * 60; // 08:00 in minutes
+    const DAY_END = 21 * 60; // 21:00 in minutes
+    const MAX_ACTIVE_HOURS = 10 * 60; // 10 hours in minutes
     
-    const timeSlots = [
-      { start: '08:00', end: '10:00', duration: '2 hours' },
-      { start: '10:30', end: '12:30', duration: '2 hours' },
-      { start: '13:00', end: '14:30', duration: '1.5 hours' },
-      { start: '15:00', end: '17:00', duration: '2 hours' },
-      { start: '17:30', end: '19:00', duration: '1.5 hours' },
-      { start: '19:30', end: '21:00', duration: '1.5 hours' }
-    ];
+    let currentTime = DAY_START;
+    let totalActiveTime = 0;
+    let activityCount = 0;
+    let previousActivity = null;
     
-    for (let i = 0; i < activitiesPerDay; i++) {
-      const activityIndex = ((day - 1) * activitiesPerDay + i) % destinationData.activities.length;
+    // Dynamic activity scheduling based on time budget
+    while (currentTime < DAY_END && totalActiveTime < MAX_ACTIVE_HOURS && activityCount < destinationData.activities.length) {
+      const activityIndex = ((day - 1) * 20 + activityCount) % destinationData.activities.length;
       const activity = destinationData.activities[activityIndex];
-      const slot = timeSlots[i];
+      
+      // Calculate travel time from previous activity
+      let travelTimeMin = 0;
+      let travelDistance = '0 km';
+      if (previousActivity && previousActivity.coordinates && activity.coordinates) {
+        const distance = calculateDistance(
+          previousActivity.coordinates.lat,
+          previousActivity.coordinates.lng,
+          activity.coordinates.lat,
+          activity.coordinates.lng
+        );
+        travelDistance = `${distance.toFixed(1)} km`;
+        travelTimeMin = Math.ceil(distance * 12); // ~12 min per km walking
+      }
+      
+      // Add travel time
+      currentTime += travelTimeMin;
+      
+      // Estimate visit duration based on category
+      const visitDuration = estimateVisitDuration(activity.category);
+      
+      // Check if activity fits in remaining time
+      if (currentTime + visitDuration > DAY_END || totalActiveTime + visitDuration > MAX_ACTIVE_HOURS) {
+        break;
+      }
+      
+      const startTime = formatTime(currentTime);
+      const endTime = formatTime(currentTime + visitDuration);
       
       dayActivities.push({
-        timeOfDay: `${slot.start}-${slot.end}`,
-        start_time: slot.start,
-        end_time: slot.end,
+        timeOfDay: `${startTime}-${endTime}`,
+        start_time: startTime,
+        end_time: endTime,
         activityTitle: activity.name,
         description: activity.description,
         address: activity.address || `${activity.name}, ${destination}`,
@@ -349,9 +375,17 @@ function createRealisticItinerary(destination, days, budget, interests, realPlac
         coordinates: activity.coordinates,
         category: activity.category || 'Attraction',
         estimatedCost: budget === 'low' ? activity.costLow : budget === 'high' ? activity.costHigh : activity.costMed,
-        duration: slot.duration,
+        duration: `${Math.floor(visitDuration / 60)}h ${visitDuration % 60}min`,
+        travel_time_min: travelTimeMin,
+        travel_distance: travelDistance,
+        travel_mode: 'walking',
         isVisited: false
       });
+      
+      currentTime += visitDuration;
+      totalActiveTime += visitDuration;
+      previousActivity = activity;
+      activityCount++;
     }
     
     dailyPlans.push({
@@ -387,7 +421,69 @@ function createRealisticItinerary(destination, days, budget, interests, realPlac
     }
   })();
   
+  // Add overflow warning if needed
+  itinerary.warnings = [];
+  for (const day of dailyPlans) {
+    const totalHours = day.activities.reduce((sum, act) => {
+      const duration = act.duration.match(/(\d+)h/);
+      const minutes = act.duration.match(/(\d+)min/);
+      return sum + (duration ? parseInt(duration[1]) * 60 : 0) + (minutes ? parseInt(minutes[1]) : 0);
+    }, 0) / 60;
+    
+    if (totalHours > 10) {
+      itinerary.warnings.push(`Day ${day.day} has ${totalHours.toFixed(1)} hours of activities. Consider moving some to another day.`);
+    }
+  }
+  
   return itinerary;
+}
+
+// Helper: Calculate distance between two coordinates (Haversine formula)
+function calculateDistance(lat1, lon1, lat2, lon2) {
+  const R = 6371; // Earth radius in km
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLon = (lon2 - lon1) * Math.PI / 180;
+  const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+            Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+            Math.sin(dLon/2) * Math.sin(dLon/2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  return R * c;
+}
+
+// Helper: Estimate visit duration based on activity type
+function estimateVisitDuration(category) {
+  const durations = {
+    'Museum': 90,
+    'Temple': 90,
+    'Sacred Temple': 90,
+    'Cathedral': 75,
+    'Palace': 120,
+    'Historical Monument': 90,
+    'Historical Fort': 120,
+    'UNESCO World Heritage': 120,
+    'Monument': 60,
+    'Landmark': 45,
+    'Observatory': 75,
+    'Garden': 60,
+    'Market': 90,
+    'Traditional Market': 90,
+    'Restaurant': 75,
+    'Café': 45,
+    'Beach Activity': 120,
+    'Safari': 180,
+    'Hiking': 150,
+    'Cultural Experience': 120,
+    'Neighborhood': 90,
+    'Activity': 90
+  };
+  return durations[category] || 90; // Default 90 minutes
+}
+
+// Helper: Format minutes to HH:MM
+function formatTime(minutes) {
+  const hours = Math.floor(minutes / 60);
+  const mins = minutes % 60;
+  return `${hours.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}`;
 }
 
 // Destination-specific data

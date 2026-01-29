@@ -884,6 +884,32 @@ class _TripPlanDetailScreenState extends State<TripPlanDetailScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        if (activity.travelTimeMin > 0) ...[
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: BoxDecoration(
+              color: Colors.blue[50],
+              borderRadius: BorderRadius.circular(4),
+              border: Border.all(color: Colors.blue[200]!),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.directions_walk, size: 14, color: Colors.blue[700]),
+                const SizedBox(width: 4),
+                Text(
+                  '${activity.travelTimeMin} min travel from previous',
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: Colors.blue[700],
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 8),
+        ],
         if (activity.description.isNotEmpty) ...[
           Text(
             activity.description,
