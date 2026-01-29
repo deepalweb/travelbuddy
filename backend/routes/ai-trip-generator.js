@@ -335,18 +335,13 @@ function createRealisticItinerary(destination, days, budget, interests, realPlac
       const activityIndex = ((day - 1) * 20 + activityCount) % destinationData.activities.length;
       const activity = destinationData.activities[activityIndex];
       
-      // Calculate travel time from previous activity
+      // Calculate travel time from previous activity using Google Directions API
       let travelTimeMin = 0;
       let travelDistance = '0 km';
       if (previousActivity && previousActivity.coordinates && activity.coordinates) {
-        const distance = calculateDistance(
-          previousActivity.coordinates.lat,
-          previousActivity.coordinates.lng,
-          activity.coordinates.lat,
-          activity.coordinates.lng
-        );
-        travelDistance = `${distance.toFixed(1)} km`;
-        travelTimeMin = Math.ceil(distance * 12); // ~12 min per km walking
+        const travelInfo = await calculateTravelTime(previousActivity.coordinates, activity.coordinates);
+        travelTimeMin = travelInfo.duration;
+        travelDistance = travelInfo.distance;
       }
       
       // Add travel time
@@ -436,6 +431,35 @@ function createRealisticItinerary(destination, days, budget, interests, realPlac
   }
   
   return itinerary;
+}
+
+// Helper: Calculate travel time using Google Directions API or fallback
+async function calculateTravelTime(origin, destination) {
+  // Try Google Directions API first
+  if (process.env.GOOGLE_PLACES_API_KEY && origin && destination) {
+    try {
+      const url = `https://maps.googleapis.com/maps/api/directions/json?origin=${origin.lat},${origin.lng}&destination=${destination.lat},${destination.lng}&mode=walking&key=${process.env.GOOGLE_PLACES_API_KEY}`;
+      const response = await fetch(url);
+      const data = await response.json();
+      
+      if (data.status === 'OK' && data.routes[0]) {
+        const leg = data.routes[0].legs[0];
+        return {
+          duration: Math.ceil(leg.duration.value / 60), // Convert to minutes
+          distance: (leg.distance.value / 1000).toFixed(1) + ' km'
+        };
+      }
+    } catch (error) {
+      console.error('Google Directions API error:', error.message);
+    }
+  }
+  
+  // Fallback: Calculate using Haversine
+  const distance = calculateDistance(origin.lat, origin.lng, destination.lat, destination.lng);
+  return {
+    duration: Math.ceil(distance * 12), // ~12 min per km walking
+    distance: `${distance.toFixed(1)} km`
+  };
 }
 
 // Helper: Calculate distance between two coordinates (Haversine formula)

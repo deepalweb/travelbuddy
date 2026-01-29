@@ -203,6 +203,80 @@ class _TripPlanDetailScreenState extends State<TripPlanDetailScreen> {
     );
   }
 
+  void _moveActivityToNextDay(int fromDayIndex, int activityIndex) async {
+    if (_currentTripPlan == null) return;
+    
+    final toDayIndex = fromDayIndex + 1;
+    
+    // Check if next day exists
+    if (toDayIndex >= _currentTripPlan!.dailyPlans.length) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('⚠️ No next day available. This is the last day.'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+    
+    final activity = _currentTripPlan!.dailyPlans[fromDayIndex].activities[activityIndex];
+    
+    // Remove from current day
+    final updatedFromActivities = List<ActivityDetail>.from(
+      _currentTripPlan!.dailyPlans[fromDayIndex].activities,
+    )..removeAt(activityIndex);
+    
+    // Add to next day
+    final updatedToActivities = List<ActivityDetail>.from(
+      _currentTripPlan!.dailyPlans[toDayIndex].activities,
+    )..add(activity);
+    
+    // Update both days
+    final updatedDailyPlans = List<DailyTripPlan>.from(_currentTripPlan!.dailyPlans);
+    
+    updatedDailyPlans[fromDayIndex] = DailyTripPlan(
+      day: _currentTripPlan!.dailyPlans[fromDayIndex].day,
+      title: _currentTripPlan!.dailyPlans[fromDayIndex].title,
+      theme: _currentTripPlan!.dailyPlans[fromDayIndex].theme,
+      activities: updatedFromActivities,
+      photoUrl: _currentTripPlan!.dailyPlans[fromDayIndex].photoUrl,
+    );
+    
+    updatedDailyPlans[toDayIndex] = DailyTripPlan(
+      day: _currentTripPlan!.dailyPlans[toDayIndex].day,
+      title: _currentTripPlan!.dailyPlans[toDayIndex].title,
+      theme: _currentTripPlan!.dailyPlans[toDayIndex].theme,
+      activities: updatedToActivities,
+      photoUrl: _currentTripPlan!.dailyPlans[toDayIndex].photoUrl,
+    );
+    
+    _currentTripPlan = TripPlan(
+      id: _currentTripPlan!.id,
+      tripTitle: _currentTripPlan!.tripTitle,
+      destination: _currentTripPlan!.destination,
+      duration: _currentTripPlan!.duration,
+      introduction: _currentTripPlan!.introduction,
+      dailyPlans: updatedDailyPlans,
+      conclusion: _currentTripPlan!.conclusion,
+      accommodationSuggestions: _currentTripPlan!.accommodationSuggestions,
+      transportationTips: _currentTripPlan!.transportationTips,
+      budgetConsiderations: _currentTripPlan!.budgetConsiderations,
+    );
+    
+    // Save to storage
+    final storageService = StorageService();
+    await storageService.saveTripPlan(_currentTripPlan!);
+    
+    setState(() {});
+    
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('✅ Moved "${activity.activityTitle}" to Day ${toDayIndex + 1}'),
+        backgroundColor: Colors.green,
+      ),
+    );
+  }
+
   void _confirmRemoveActivity(ActivityDetail activity) {
     showDialog(
       context: context,
@@ -833,48 +907,123 @@ class _TripPlanDetailScreenState extends State<TripPlanDetailScreen> {
                 ),
               ],
             ),
-            const SizedBox(height: 8),
-            ...dayPlan.activities.map((activity) => Container(
-              margin: const EdgeInsets.only(bottom: 12),
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.grey[50],
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: Colors.grey[200]!),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Icon(Icons.access_time, size: 16, color: Colors.blue[600]),
-                      const SizedBox(width: 6),
-                      Text(
-                        activity.startTime.isNotEmpty ? activity.startTime : activity.timeOfDay,
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.blue[700],
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    activity.activityTitle,
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  _buildActivityDetails(activity),
-                ],
-              ),
-            )),
+            const SizedBox(height: 16),
+            // Timeline View
+            ...dayPlan.activities.asMap().entries.map((entry) {
+              final index = entry.key;
+              final activity = entry.value;
+              final isLast = index == dayPlan.activities.length - 1;
+              return _buildTimelineActivity(activity, isLast, dayNumber - 1, index);
+            }),
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildTimelineActivity(ActivityDetail activity, bool isLast, int dayIndex, int activityIndex) {
+    final isVisited = _visitStatus[activity.activityTitle] ?? activity.isVisited;
+    
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Timeline indicator
+        Column(
+          children: [
+            Container(
+              width: 12,
+              height: 12,
+              decoration: BoxDecoration(
+                color: isVisited ? Colors.green : Colors.blue,
+                shape: BoxShape.circle,
+                border: Border.all(color: Colors.white, width: 2),
+              ),
+            ),
+            if (!isLast)
+              Container(
+                width: 2,
+                height: 80,
+                color: Colors.grey[300],
+              ),
+          ],
+        ),
+        const SizedBox(width: 12),
+        // Activity content
+        Expanded(
+          child: Container(
+            margin: const EdgeInsets.only(bottom: 12),
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: isVisited ? Colors.grey[100] : Colors.blue[50],
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: isVisited ? Colors.grey[300]! : Colors.blue[200]!),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Icon(Icons.access_time, size: 14, color: Colors.blue[700]),
+                    const SizedBox(width: 4),
+                    Text(
+                      activity.startTime.isNotEmpty ? activity.startTime : activity.timeOfDay,
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.blue[700],
+                      ),
+                    ),
+                    const Spacer(),
+                    PopupMenuButton<String>(
+                      icon: Icon(Icons.more_vert, size: 18, color: Colors.grey[600]),
+                      onSelected: (value) {
+                        if (value == 'move_next') {
+                          _moveActivityToNextDay(dayIndex, activityIndex);
+                        } else if (value == 'remove') {
+                          _confirmRemoveActivity(activity);
+                        }
+                      },
+                      itemBuilder: (context) => [
+                        const PopupMenuItem(
+                          value: 'move_next',
+                          child: Row(
+                            children: [
+                              Icon(Icons.arrow_forward, size: 16),
+                              SizedBox(width: 8),
+                              Text('Move to next day'),
+                            ],
+                          ),
+                        ),
+                        const PopupMenuItem(
+                          value: 'remove',
+                          child: Row(
+                            children: [
+                              Icon(Icons.delete_outline, size: 16, color: Colors.red),
+                              SizedBox(width: 8),
+                              Text('Remove', style: TextStyle(color: Colors.red)),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  activity.activityTitle,
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.bold,
+                    decoration: isVisited ? TextDecoration.lineThrough : null,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                _buildActivityDetails(activity),
+              ],
+            ),
+          ),
+        ),
+      ],
     );
   }
 
