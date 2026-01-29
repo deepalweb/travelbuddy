@@ -981,6 +981,15 @@ try {
   console.error('❌ Failed to load routes endpoints:', error);
 }
 
+// Load directions endpoint
+try {
+  const directionsRouter = (await import('./routes/directions.js')).default;
+  app.use('/api/routes', directionsRouter);
+  console.log('✅ Directions endpoint loaded');
+} catch (error) {
+  console.error('❌ Failed to load directions endpoint:', error);
+}
+
 // Load AI coordinates routes
 try {
   const aiCoordinatesRouter = (await import('./routes/ai-coordinates.js')).default;
