@@ -35,8 +35,11 @@ class _RouteMapScreenState extends State<RouteMapScreen> {
   void _setupMarkers() {
     final markers = <Marker>{};
     
-    for (int i = 0; i < widget.places.length; i++) {
-      final place = widget.places[i];
+    // Limit to 10 markers to prevent crashes
+    final limitedPlaces = widget.places.take(10).toList();
+    
+    for (int i = 0; i < limitedPlaces.length; i++) {
+      final place = limitedPlaces[i];
       if (place.latitude != null && place.longitude != null) {
         markers.add(
           Marker(
@@ -56,13 +59,16 @@ class _RouteMapScreenState extends State<RouteMapScreen> {
   void _openInGoogleMaps() async {
     if (widget.places.isEmpty) return;
 
+    // Limit waypoints to prevent URL too long error
+    final limitedPlaces = widget.places.take(10).toList();
+
     final origin = '${widget.currentLocation.latitude},${widget.currentLocation.longitude}';
-    final destination = '${widget.places.last.latitude},${widget.places.last.longitude}';
+    final destination = '${limitedPlaces.last.latitude},${limitedPlaces.last.longitude}';
     
     String waypoints = '';
-    if (widget.places.length > 1) {
-      waypoints = widget.places
-          .sublist(0, widget.places.length - 1)
+    if (limitedPlaces.length > 1) {
+      waypoints = limitedPlaces
+          .sublist(0, limitedPlaces.length - 1)
           .map((p) => '${p.latitude},${p.longitude}')
           .join('|');
     }
