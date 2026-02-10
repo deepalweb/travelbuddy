@@ -304,6 +304,22 @@ class ApiService {
     }
   }
 
+  Future<List<Place>> searchPlaces(String query, String destination) async {
+    try {
+      final response = await _dio.get('/api/places/search', queryParameters: {
+        'q': query,
+        'destination': destination,
+      });
+      if (response.statusCode == 200 && response.data is List) {
+        return (response.data as List).map((json) => Place.fromJson(json)).toList();
+      }
+      return [];
+    } catch (e) {
+      print('Error searching places: $e');
+      return [];
+    }
+  }
+
   // User API with offline cache
   Future<CurrentUser?> getUser() async {
     // Return cached user first

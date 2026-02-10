@@ -1,7 +1,7 @@
 import express from 'express';
 import fetch from 'node-fetch';
 import OpenAI from 'openai';
-import { EnhancedPlacesSearch } from '../enhanced-places-search.js';
+import { AzureMapsSearch } from '../services/azureMapsSearch.js';
 import { PlacesOptimizer } from '../places-optimization.js';
 import PlacesCache from '../models/PlacesCache.js';
 import costTracker from '../services/costTracker.js';
@@ -90,21 +90,21 @@ router.get('/hybrid', async (req, res) => {
       }
     }
     
-    // Fill gaps with Google Places if needed
-    if (results.length < limit && process.env.GOOGLE_PLACES_API_KEY) {
+    // Fill gaps with Azure Maps if needed
+    if (results.length < limit && process.env.AZURE_MAPS_API_KEY) {
       try {
-        const enhancedSearch = new EnhancedPlacesSearch(process.env.GOOGLE_PLACES_API_KEY);
-        const googlePlaces = await enhancedSearch.searchPlacesComprehensive(
+        const azureMapsSearch = new AzureMapsSearch(process.env.AZURE_MAPS_API_KEY);
+        const azurePlaces = await azureMapsSearch.searchPlacesComprehensive(
           parseFloat(lat), parseFloat(lng), query, 20000
         );
         
         const needed = limit - results.length;
-        const additionalPlaces = googlePlaces.slice(0, needed).map(place => ({ ...place, source: 'google' }));
+        const additionalPlaces = azurePlaces.slice(0, needed).map(place => ({ ...place, source: 'azure' }));
         results = [...results, ...additionalPlaces];
         
-        console.log(`🔍 Added ${additionalPlaces.length} Google Places`);
-      } catch (googleError) {
-        console.warn('⚠️ Google Places failed:', googleError.message);
+        console.log(`🔍 Added ${additionalPlaces.length} Azure Maps Places`);
+      } catch (azureError) {
+        console.warn('⚠️ Azure Maps failed:', azureError.message);
       }
     }
     
@@ -124,18 +124,18 @@ router.get('/hybrid', async (req, res) => {
 });
 
 // 🔥 HYBRID ARCHITECTURE: Industry Standard
-// Layer 1: Google Places API (core discovery + place identity)
+// Layer 1: Azure Maps (core discovery + place identity)
 // Layer 2: Azure OpenAI (AI enrichment)
 // Layer 3: Custom algorithm (categorization + ranking)
 // Layer 4: User data (personalization)
 router.get('/mobile/nearby', async (req, res) => {
   try {
     const { lat, lng, q, radius = 25000, limit = 150, offset = 0, userId } = req.query;
-    const apiKey = process.env.GOOGLE_PLACES_API_KEY;
+    const apiKey = process.env.AZURE_MAPS_API_KEY;
     
     if (!apiKey) {
-      console.error('❌ GOOGLE_PLACES_API_KEY not configured');
-      return res.status(500).json({ error: 'GOOGLE_PLACES_API_KEY not configured' });
+      console.error('❌ AZURE_MAPS_API_KEY not configured');
+      return res.status(500).json({ error: 'AZURE_MAPS_API_KEY not configured' });
     }
 
     if (!lat || !lng) {
@@ -169,16 +169,16 @@ router.get('/mobile/nearby', async (req, res) => {
     console.log(`🔥 HYBRID: ${query} within ${searchRadius}m`);
     costTracker.trackAPICall('nearby');
 
-    // LAYER 1: Google Places API (Core Discovery + Place Identity)
-    const enhancedSearch = new EnhancedPlacesSearch(apiKey);
-    let results = await enhancedSearch.searchPlacesComprehensive(
+    // LAYER 1: Azure Maps (Core Discovery + Place Identity)
+    const azureMapsSearch = new AzureMapsSearch(apiKey);
+    let results = await azureMapsSearch.searchPlacesComprehensive(
       parseFloat(lat), 
       parseFloat(lng), 
       query, 
       searchRadius
     );
     
-    console.log(`✅ Layer 1 (Google): ${results.length} places with real IDs`);
+    console.log(`✅ Layer 1 (Azure Maps): ${results.length} places with real IDs`);
     
     if (results.length === 0) {
       return res.json({
@@ -252,13 +252,13 @@ router.get('/mobile/nearby', async (req, res) => {
 router.post('/mobile/batch', async (req, res) => {
   try {
     const { lat, lng, queries, radius = 20000 } = req.body;
-    const apiKey = process.env.GOOGLE_PLACES_API_KEY;
+    const apiKey = process.env.AZURE_MAPS_API_KEY;
     
     console.log(`🔍 Batch API Key Check: ${apiKey ? 'Present' : 'Missing'}`);
     
     if (!apiKey) {
-      console.error('❌ GOOGLE_PLACES_API_KEY not configured for batch');
-      return res.status(500).json({ error: 'GOOGLE_PLACES_API_KEY not configured' });
+      console.error('❌ AZURE_MAPS_API_KEY not configured for batch');
+      return res.status(500).json({ error: 'AZURE_MAPS_API_KEY not configured' });
     }
 
     if (!lat || !lng || !Array.isArray(queries)) {
@@ -267,7 +267,7 @@ router.post('/mobile/batch', async (req, res) => {
 
     console.log(`🔍 Mobile batch search for ${queries.length} categories`);
 
-    const enhancedSearch = new EnhancedPlacesSearch(apiKey);
+    const azureMapsSearch = new AzureMapsSearch(apiKey);
     const results = {};
     
     // Process each query in parallel for faster results
@@ -277,7 +277,7 @@ router.post('/mobile/batch', async (req, res) => {
       try {
         console.log(`🔍 Searching ${category}: ${query}`);
         
-        let places = await enhancedSearch.searchPlacesComprehensive(
+        let places = await azureMapsSearch.searchPlacesComprehensive(
           parseFloat(lat), 
           parseFloat(lng), 
           query, 
@@ -320,45 +320,17 @@ router.post('/mobile/batch', async (req, res) => {
   }
 });
 
-// Get place photo by reference
+// Get place photo - fallback to Unsplash (Azure Maps has limited photos)
 router.get('/photo', async (req, res) => {
   try {
-    const { ref, w = 800 } = req.query;
-    const apiKey = process.env.GOOGLE_PLACES_API_KEY;
+    const { ref, w = 800, query = 'travel' } = req.query;
     
-    if (!apiKey) {
-      return res.status(500).json({ error: 'Google Places API key not configured' });
-    }
-    
-    if (!ref) {
-      return res.status(400).json({ error: 'Photo reference required' });
-    }
-    
-    const photoUrl = `https://maps.googleapis.com/maps/api/place/photo?photoreference=${ref}&maxwidth=${w}&key=${apiKey}`;
-    
-    // Proxy the photo instead of redirecting to avoid CORS issues
-    const fetch = (await import('node-fetch')).default;
-    const response = await fetch(photoUrl);
-    
-    if (!response.ok) {
-      console.error(`Photo fetch failed: ${response.status} for ref ${ref}`);
-      // Fallback to unsplash
-      return res.redirect(`https://source.unsplash.com/800x600/?travel,destination`);
-    }
-    
-    // Forward content type and cache headers
-    const contentType = response.headers.get('content-type');
-    if (contentType) {
-      res.setHeader('Content-Type', contentType);
-    }
-    res.setHeader('Cache-Control', 'public, max-age=86400'); // Cache for 24 hours
-    
-    // Stream the image
-    return response.body.pipe(res);
+    // Azure Maps doesn't have photo API like Google, use Unsplash
+    const unsplashUrl = `https://source.unsplash.com/${w}x600/?${encodeURIComponent(query)},destination`;
+    return res.redirect(unsplashUrl);
     
   } catch (error) {
     console.error('❌ Photo fetch error:', error);
-    // Fallback to unsplash instead of error
     return res.redirect(`https://source.unsplash.com/800x600/?travel,destination`);
   }
 });
@@ -446,25 +418,38 @@ router.get('/images', async (req, res) => {
 router.get('/details', async (req, res) => {
   try {
     const { place_id } = req.query;
-    const apiKey = process.env.GOOGLE_PLACES_API_KEY;
+    const apiKey = process.env.AZURE_MAPS_API_KEY;
     
     if (!apiKey) {
-      return res.status(500).json({ error: 'Google Places API key not configured' });
+      return res.status(500).json({ error: 'Azure Maps API key not configured' });
     }
     
     if (!place_id) {
       return res.status(400).json({ error: 'place_id required' });
     }
     
-    const detailsUrl = `https://maps.googleapis.com/maps/api/place/details/json?place_id=${place_id}&fields=name,rating,formatted_phone_number,formatted_address,opening_hours,website,photos,user_ratings_total&key=${apiKey}`;
+    // Azure Maps POI details endpoint
+    const detailsUrl = `https://atlas.microsoft.com/search/address/json?subscription-key=${apiKey}&api-version=1.0&query=${encodeURIComponent(place_id)}`;
     
     const response = await fetch(detailsUrl);
     const data = await response.json();
     
-    if (data.status === 'OK') {
-      res.json(data.result);
+    if (data.results && data.results.length > 0) {
+      const result = data.results[0];
+      const poi = result.poi || {};
+      const address = result.address || {};
+      
+      res.json({
+        name: poi.name || 'Unknown',
+        formatted_address: address.freeformAddress || '',
+        formatted_phone_number: poi.phone || '',
+        website: poi.url || '',
+        rating: 4.0,
+        user_ratings_total: 100,
+        source: 'azure_maps'
+      });
     } else {
-      res.status(400).json({ error: data.status, message: data.error_message });
+      res.status(404).json({ error: 'Place not found' });
     }
     
   } catch (error) {

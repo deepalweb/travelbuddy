@@ -1086,7 +1086,7 @@ try {
 // Load posts routes
 try {
   const postsRouter = (await import('./routes/posts.js')).default;
-  app.use('/api/posts', requireFeature('posts'), postsRouter);
+  app.use('/api/posts', requireFeature('posts'), postsRouter);`n`n// Travel Moments Routes`ntry {`n  const momentsRouter = (await import('./routes/moments.js')).default;`n  app.use('/api/moments', momentsRouter);`n  console.log('? Moments routes loaded');`n} catch (error) {`n  console.error('? Failed to load moments routes:', error);`n}
   console.log('✅ Posts routes loaded');
 } catch (error) {
   console.error('❌ Failed to load posts routes:', error);
@@ -1806,7 +1806,7 @@ async function isAdminRequest(req) {
 
 // Trip Plan Schema - COMPLETE with ALL fields
 const tripPlanSchema = new mongoose.Schema({
-  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  userId: { type: String, required: true },
   tripTitle: String,
   destination: String,
   duration: String,
@@ -1876,7 +1876,7 @@ console.log('✅ TripPlan model registered successfully');
 
 // Post Schema
 const postSchema = new mongoose.Schema({
-  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  userId: { type: String, required: true },
   content: {
     title: String,
     text: String,
@@ -2032,7 +2032,7 @@ try {
 
 // One-Day Itinerary Schema
 const itinerarySchema = new mongoose.Schema({
-  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  userId: { type: String, required: true },
   title: String,
   introduction: String,
   dailyPlan: [Object], // Array with one element for one-day plans
@@ -6659,5 +6659,6 @@ app.get('/api/admin/moderation/stats', requireAdminAuth, async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 });
+
 
 

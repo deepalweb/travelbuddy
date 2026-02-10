@@ -2643,10 +2643,10 @@ class _HomeScreenState extends State<HomeScreen> {
   }
   
   Map<String, dynamic> _getDefaultEmergencyNumbers() {
-    // Detect country from location or use international standard
-    final location = context.read<AppProvider>().currentLocation;
+    final appProvider = context.read<AppProvider>();
+    final location = appProvider.currentLocation;
     
-    // Basic country detection based on coordinates
+    // Use real GPS coordinates for country detection
     if (location != null) {
       final lat = location.latitude;
       final lng = location.longitude;
@@ -2693,7 +2693,7 @@ class _HomeScreenState extends State<HomeScreen> {
       }
     }
     
-    // International fallback
+    // International fallback (only when GPS unavailable)
     return {
       'country': 'International',
       'police': '112',
@@ -3322,9 +3322,19 @@ class _HomeScreenState extends State<HomeScreen> {
   double? _calculateDealDistanceKm(dynamic deal, AppProvider appProvider) {
     if (appProvider.currentLocation == null) return null;
     
-    // Mock coordinates - replace with actual deal location from backend
-    final dealLat = 6.9271; // Colombo center
-    final dealLng = 79.8612;
+    // Use real deal coordinates from backend
+    double? dealLat;
+    double? dealLng;
+    
+    if (deal is Deal && deal.location != null) {
+      dealLat = deal.location!.lat;
+      dealLng = deal.location!.lng;
+    } else if (deal.location != null) {
+      dealLat = deal.location['lat']?.toDouble();
+      dealLng = deal.location['lng']?.toDouble();
+    }
+    
+    if (dealLat == null || dealLng == null) return null;
     
     final distance = Geolocator.distanceBetween(
       appProvider.currentLocation!.latitude,

@@ -3,6 +3,8 @@ import 'package:provider/provider.dart';
 import '../models/community_post.dart';
 import '../models/travel_enums.dart';
 import '../providers/community_provider.dart';
+import '../providers/app_provider.dart';
+import '../config/environment.dart';
 import '../widgets/post_detail_view.dart';
 import '../screens/user_profile_screen.dart';
 import '../screens/post_comments_screen.dart';
@@ -116,6 +118,8 @@ class _CommunityPostCardState extends State<CommunityPostCard> with TickerProvid
             ),
           ),
           _buildPostTypeChip(),
+          const SizedBox(width: 8),
+          _buildPostMenu(context),
         ],
       ),
     );
@@ -209,7 +213,14 @@ class _CommunityPostCardState extends State<CommunityPostCard> with TickerProvid
     );
   }
 
+  String _getImageUrl(String url) {
+    if (url.startsWith('http')) return url;
+    return '${Environment.backendUrl}$url';
+  }
+
   Widget _buildImages() {
+    print('🖼️ Post images: ${widget.post.images}');
+    
     if (widget.post.images.length == 1) {
       return GestureDetector(
         onTap: () => _showImageGallery(context, 0),
@@ -220,7 +231,7 @@ class _CommunityPostCardState extends State<CommunityPostCard> with TickerProvid
           child: ClipRRect(
             borderRadius: BorderRadius.circular(12),
             child: Image.network(
-              widget.post.images.first,
+              _getImageUrl(widget.post.images.first),
               height: 250,
               width: double.infinity,
               fit: BoxFit.cover,
@@ -270,7 +281,7 @@ class _CommunityPostCardState extends State<CommunityPostCard> with TickerProvid
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(8),
                 child: Image.network(
-                  widget.post.images[index],
+                  _getImageUrl(widget.post.images[index]),
                   width: 150,
                   height: 200,
                   fit: BoxFit.cover,
@@ -476,7 +487,7 @@ class _CommunityPostCardState extends State<CommunityPostCard> with TickerProvid
               return InteractiveViewer(
                 child: Center(
                   child: Image.network(
-                    widget.post.images[index],
+                    _getImageUrl(widget.post.images[index]),
                     fit: BoxFit.contain,
                     loadingBuilder: (context, child, loadingProgress) {
                       if (loadingProgress == null) return child;
@@ -530,5 +541,150 @@ class _CommunityPostCardState extends State<CommunityPostCard> with TickerProvid
         ),
       );
     }
+  }
+
+  Widget _buildPostMenu(BuildContext context) {
+    final appProvider = context.watch<AppProvider>();
+    final currentUserId = appProvider.currentUser?.mongoId ?? appProvider.currentUser?.uid;
+    final isOwner = currentUserId == widget.post.userId;
+
+    if (!isOwner) return const SizedBox.shrink();
+
+    return PopupMenuButton<String>(
+      icon: Icon(Icons.more_vert, color: Colors.grey[600], size: 20),
+      onSelected: (value) {
+        if (value == 'edit') {
+          _showEditDialog(context);
+        } else if (value == 'delete') {
+          _showDeleteDialog(context);
+        }
+      },
+      itemBuilder: (context) => [
+        const PopupMenuItem(
+          value: 'edit',
+          child: Row(
+            children: [
+              Icon(Icons.edit, size: 20),
+              SizedBox(width: 12),
+              Text('Edit'),
+            ],
+          ),
+        ),
+        const PopupMenuItem(
+          value: 'delete',
+          child: Row(
+            children: [
+              Icon(Icons.delete, size: 20, color: Colors.red),
+              SizedBox(width: 12),
+              Text('Delete', style: TextStyle(color: Colors.red)),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  void _showEditDialog(BuildContext context) {
+    final contentController = TextEditingController(text: widget.post.content);
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Edit Post'),
+        content: TextField(
+          controller: contentController,
+          maxLines: 5,
+          decoration: const InputDecoration(
+            hintText: 'What\'s on your mind?',
+            border: OutlineInputBorder(),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              final newContent = contentController.text.trim();
+              if (newContent.isEmpty) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Content cannot be empty')),
+                );
+                return;
+              }
+
+              Navigator.pop(context);
+              
+              final provider = context.read<CommunityProvider>();
+              final success = await provider.editPost(
+                postId: widget.post.id,
+                content: newContent,
+                location: widget.post.location,
+              );
+
+              if (success) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Post updated successfully'),
+                    backgroundColor: Colors.green,
+                  ),
+                );
+              } else {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Failed to update post'),
+                    backgroundColor: Colors.red,
+                  ),
+                );
+              }
+            },
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showDeleteDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete Post'),
+        content: const Text('Are you sure you want to delete this post? This action cannot be undone.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              Navigator.pop(context);
+              
+              final provider = context.read<CommunityProvider>();
+              final success = await provider.deletePost(widget.post.id);
+
+              if (success) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Post deleted successfully'),
+                    backgroundColor: Colors.green,
+                  ),
+                );
+              } else {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Failed to delete post'),
+                    backgroundColor: Colors.red,
+                  ),
+                );
+              }
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
   }
 }

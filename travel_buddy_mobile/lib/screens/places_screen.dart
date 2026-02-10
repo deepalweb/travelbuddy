@@ -27,6 +27,7 @@ class _PlacesScreenState extends State<PlacesScreen> {
   final _searchDebouncer = ApiDebouncer(delay: Duration(milliseconds: 500));
   bool _showOpenOnly = false;
   bool _showOfflineMap = false;
+  bool _isOnline = true; // Network status
   
   // Category lazy loading state
   final Map<String, List<dynamic>> _categoryPlaces = {};
@@ -35,6 +36,7 @@ class _PlacesScreenState extends State<PlacesScreen> {
   final List<String> _categories = ['food', 'landmarks', 'culture', 'nature', 'shopping', 'spa'];
   final ScrollController _scrollController = ScrollController();
   bool _isLoadingCategory = false; // Prevent duplicate loads
+  bool _isLoadingMore = false; // Pagination loading state
 
   @override
   void dispose() {
@@ -47,6 +49,8 @@ class _PlacesScreenState extends State<PlacesScreen> {
   @override
   void initState() {
     super.initState();
+    _checkConnectivity();
+    _scrollController.addListener(_onScroll);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final appProvider = Provider.of<AppProvider>(context, listen: false);
       if (appProvider.currentLocation != null) {
@@ -55,7 +59,36 @@ class _PlacesScreenState extends State<PlacesScreen> {
     });
   }
   
+  void _onScroll() {
+    if (_scrollController.position.pixels >= _scrollController.position.maxScrollExtent - 200) {
+      _loadMorePlaces();
+    }
+  }
+  
+  Future<void> _loadMorePlaces() async {
+    if (_isLoadingMore) return;
+    final appProvider = context.read<AppProvider>();
+    final placesService = PlacesService();
+    if (!placesService.hasMoreResults) return;
+    
+    setState(() => _isLoadingMore = true);
+    await appProvider.loadNearbyPlaces(loadMore: true);
+    setState(() => _isLoadingMore = false);
+  }
+  
+  Future<void> _checkConnectivity() async {
+    final result = await Connectivity().checkConnectivity();
+    setState(() => _isOnline = result != ConnectivityResult.none);
+    Connectivity().onConnectivityChanged.listen((result) {
+      setState(() => _isOnline = result != ConnectivityResult.none);
+    });
+  }
+  
   Future<void> _loadAllCategories() async {
+    await _loadAllCategoriesWithForceRefresh(forceRefresh: false);
+  }
+  
+  Future<void> _loadAllCategoriesWithForceRefresh({bool forceRefresh = true}) async {
     final appProvider = context.read<AppProvider>();
     if (appProvider.currentLocation == null) {
       await appProvider.getCurrentLocation();
@@ -71,6 +104,7 @@ class _PlacesScreenState extends State<PlacesScreen> {
         query: query,
         radius: appProvider.selectedRadius,
         topN: 2,
+        forceRefresh: forceRefresh,
       );
       
       if (places.isNotEmpty) {
@@ -157,23 +191,73 @@ class _PlacesScreenState extends State<PlacesScreen> {
           ),
           body: Column(
             children: [
+              // Network status banner
+              if (!_isOnline)
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
+                  color: Colors.orange[100],
+                  child: Row(
+                    children: [
+                      Icon(Icons.cloud_off, size: 16, color: Colors.orange[900]),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'You\'re offline. Showing cached places.',
+                          style: TextStyle(fontSize: 12, color: Colors.orange[900]),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              
               // Compact header - removed duplicate
               
               // Search Bar
               if (!appProvider.showFavoritesOnly)
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  child: SearchBarWidget(
-                    controller: _searchController,
-                    onSearch: (query) {
-                      _searchDebouncer.call(() {
-                        if (query.trim().isNotEmpty) {
-                          appProvider.performInstantSearch(query.trim());
-                        } else {
-                          appProvider.clearSearchAndShowSections();
-                        }
-                      });
-                    },
+                  child: Column(
+                    children: [
+                      SearchBarWidget(
+                        controller: _searchController,
+                        onSearch: (query) {
+                          _searchDebouncer.call(() {
+                            if (query.trim().isNotEmpty) {
+                              appProvider.performInstantSearch(query.trim());
+                            } else {
+                              appProvider.clearSearchAndShowSections();
+                            }
+                          });
+                        },
+                      ),
+                      // Cache status indicator
+                      if (appProvider.currentLocation != null)
+                        Container(
+                          margin: const EdgeInsets.only(top: 8),
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: Colors.green[50],
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(color: Colors.green[200]!),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.offline_pin, size: 14, color: Colors.green[700]),
+                              const SizedBox(width: 6),
+                              Text(
+                                'Offline ready • Pull to refresh',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: Colors.green[900],
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                    ],
                   ),
                 ),
               
@@ -244,23 +328,63 @@ class _PlacesScreenState extends State<PlacesScreen> {
                       )
                     : RefreshIndicator(
                   onRefresh: () async {
+                    // Get fresh location
+                    await appProvider.getCurrentLocation();
+                    
                     if (appProvider.showFavoritesOnly) {
                       await appProvider.loadNearbyPlaces();
                     } else if (_searchController.text.isNotEmpty) {
                       await appProvider.performInstantSearch(_searchController.text.trim());
                     } else {
-                      // Refresh categories
+                      // Force refresh categories with new location
                       setState(() {
                         _categoryPlaces.clear();
                       });
-                      await _loadAllCategories();
+                      await _loadAllCategoriesWithForceRefresh();
                     }
                   },
-                  child: appProvider.showFavoritesOnly
-                      ? _buildFavoritesList(appProvider)
-                      : _searchController.text.isNotEmpty 
-                          ? _buildSearchResults(appProvider)
-                          : _buildCategoryResults(appProvider),
+                  child: Stack(
+                    children: [
+                      appProvider.showFavoritesOnly
+                          ? _buildFavoritesList(appProvider)
+                          : _searchController.text.isNotEmpty 
+                              ? _buildSearchResults(appProvider)
+                              : _buildCategoryResults(appProvider),
+                      if (_isLoadingMore)
+                        Positioned(
+                          bottom: 16,
+                          left: 0,
+                          right: 0,
+                          child: Center(
+                            child: Container(
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(24),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withOpacity(0.1),
+                                    blurRadius: 8,
+                                  ),
+                                ],
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  SizedBox(
+                                    width: 16,
+                                    height: 16,
+                                    child: CircularProgressIndicator(strokeWidth: 2),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Text('Loading more...', style: TextStyle(fontSize: 12)),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
                 ),
               ),
             ],
@@ -900,9 +1024,10 @@ class _PlacesScreenState extends State<PlacesScreen> {
   }
   
   Widget _buildSearchResults(AppProvider appProvider) {
-    if (appProvider.isPlacesLoading) {
+    if (appProvider.isPlacesLoading && appProvider.places.isEmpty) {
       // Google Maps-style skeleton grid
       return CustomScrollView(
+        controller: _scrollController,
         slivers: [
           SliverPadding(
             padding: const EdgeInsets.all(16),
@@ -1019,7 +1144,7 @@ class _PlacesScreenState extends State<PlacesScreen> {
             ],
           ),
         ),
-        // Search results list
+        // Search results list with scroll detection
         Expanded(
           child: _buildPlacesListViewFiltered(filteredPlaces),
         ),
@@ -1029,6 +1154,7 @@ class _PlacesScreenState extends State<PlacesScreen> {
 
   Widget _buildPlacesListViewFiltered(List<dynamic> places) {
     return CustomScrollView(
+      controller: _scrollController,
       physics: const AlwaysScrollableScrollPhysics(),
       slivers: [
         SliverPadding(

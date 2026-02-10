@@ -73,10 +73,18 @@ class _PlaceDetailsScreenState extends State<PlaceDetailsScreen> with TickerProv
     
     _fadeController.forward();
     
+    // Cache place details for instant loading
+    _cachePlaceDetails();
+    
     _loadPlaceDetails();
     _loadNearbyPlaces();
     _loadEnhancedDescription();
     _loadLocalTip();
+  }
+  
+  Future<void> _cachePlaceDetails() async {
+    final placesService = PlacesService();
+    await placesService.cachePlaceDetails(widget.place);
   }
   
   @override

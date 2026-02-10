@@ -2241,6 +2241,17 @@ Created with Travel Buddy - Plan your perfect trip!''';
             ),
             const SizedBox(height: 20),
             ListTile(
+              leading: const Icon(Icons.search, color: Colors.blue),
+              title: const Text('Search Places'),
+              subtitle: const Text('Find and add real places from Google'),
+              trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+              onTap: () {
+                Navigator.pop(context);
+                _showPlaceSearchDialog(dayIndex);
+              },
+            ),
+            const Divider(),
+            ListTile(
               leading: const Icon(Icons.edit, color: Colors.green),
               title: const Text('Add Custom Activity'),
               subtitle: const Text('Create a custom place or activity'),
@@ -2253,6 +2264,159 @@ Created with Travel Buddy - Plan your perfect trip!''';
             SizedBox(height: MediaQuery.of(context).padding.bottom + 20),
           ],
         ),
+      ),
+    );
+  }
+
+  void _showPlaceSearchDialog(int dayIndex) {
+    final searchController = TextEditingController();
+    List<Place> searchResults = [];
+    bool isSearching = false;
+    
+    showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: const Text('Search Places'),
+          content: SizedBox(
+            width: double.maxFinite,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: searchController,
+                  decoration: InputDecoration(
+                    labelText: 'Search for a place',
+                    border: const OutlineInputBorder(),
+                    suffixIcon: IconButton(
+                      icon: const Icon(Icons.search),
+                      onPressed: () async {
+                        if (searchController.text.trim().isEmpty) return;
+                        
+                        setDialogState(() => isSearching = true);
+                        
+                        final apiService = ApiService();
+                        final results = await apiService.searchPlaces(
+                          searchController.text.trim(),
+                          (_currentTripPlan ?? widget.tripPlan).destination,
+                        );
+                        
+                        setDialogState(() {
+                          searchResults = results;
+                          isSearching = false;
+                        });
+                      },
+                    ),
+                  ),
+                  onSubmitted: (value) async {
+                    if (value.trim().isEmpty) return;
+                    
+                    setDialogState(() => isSearching = true);
+                    
+                    final apiService = ApiService();
+                    final results = await apiService.searchPlaces(
+                      value.trim(),
+                      (_currentTripPlan ?? widget.tripPlan).destination,
+                    );
+                    
+                    setDialogState(() {
+                      searchResults = results;
+                      isSearching = false;
+                    });
+                  },
+                ),
+                const SizedBox(height: 16),
+                if (isSearching)
+                  const CircularProgressIndicator()
+                else if (searchResults.isNotEmpty)
+                  SizedBox(
+                    height: 300,
+                    child: ListView.builder(
+                      shrinkWrap: true,
+                      itemCount: searchResults.length,
+                      itemBuilder: (context, index) {
+                        final place = searchResults[index];
+                        return ListTile(
+                          leading: const Icon(Icons.place),
+                          title: Text(place.name),
+                          subtitle: Text(place.address),
+                          trailing: const Icon(Icons.add_circle, color: Colors.green),
+                          onTap: () {
+                            Navigator.pop(context);
+                            _addPlaceToDay(dayIndex, place);
+                          },
+                        );
+                      },
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _addPlaceToDay(int dayIndex, Place place) async {
+    if (_currentTripPlan == null) return;
+    
+    final newActivity = ActivityDetail(
+      timeOfDay: '09:00',
+      activityTitle: place.name,
+      description: place.description,
+      startTime: '09:00',
+      duration: '1h 30min',
+      estimatedCost: 'LKR 500',
+      location: '${place.latitude},${place.longitude}',
+      fullAddress: place.address,
+      googlePlaceId: place.id,
+      rating: place.rating,
+      category: place.type,
+    );
+    
+    final updatedActivities = List<ActivityDetail>.from(
+      _currentTripPlan!.dailyPlans[dayIndex].activities,
+    )..add(newActivity);
+    
+    final updatedDailyPlan = DailyTripPlan(
+      day: _currentTripPlan!.dailyPlans[dayIndex].day,
+      title: _currentTripPlan!.dailyPlans[dayIndex].title,
+      theme: _currentTripPlan!.dailyPlans[dayIndex].theme,
+      activities: updatedActivities,
+      photoUrl: _currentTripPlan!.dailyPlans[dayIndex].photoUrl,
+    );
+    
+    final updatedDailyPlans = List<DailyTripPlan>.from(_currentTripPlan!.dailyPlans);
+    updatedDailyPlans[dayIndex] = updatedDailyPlan;
+    
+    _currentTripPlan = TripPlan(
+      id: _currentTripPlan!.id,
+      tripTitle: _currentTripPlan!.tripTitle,
+      destination: _currentTripPlan!.destination,
+      duration: _currentTripPlan!.duration,
+      introduction: _currentTripPlan!.introduction,
+      dailyPlans: updatedDailyPlans,
+      conclusion: _currentTripPlan!.conclusion,
+      accommodationSuggestions: _currentTripPlan!.accommodationSuggestions,
+      transportationTips: _currentTripPlan!.transportationTips,
+      budgetConsiderations: _currentTripPlan!.budgetConsiderations,
+    );
+    
+    final storageService = StorageService();
+    await storageService.saveTripPlan(_currentTripPlan!);
+    
+    setState(() {});
+    
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('✅ Added "${place.name}" to Day ${dayIndex + 1}'),
+        backgroundColor: Colors.green,
       ),
     );
   }

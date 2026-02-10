@@ -13,6 +13,36 @@ const openai = new OpenAI({
   },
 });
 
+// Mobile places nearby endpoint with optimization
+router.get('/nearby', async (req, res) => {
+  try {
+    const { lat, lng, q, radius = 20000, limit = 20, minRating = 2.5 } = req.query;
+    
+    if (!lat || !lng) {
+      return res.status(400).json({ error: 'lat and lng required' });
+    }
+
+    const url = `https://maps.googleapis.com/maps/api/place/textsearch/json?query=${encodeURIComponent(q || 'points of interest')}&location=${lat},${lng}&radius=${radius}&key=${process.env.GOOGLE_PLACES_API_KEY}`;
+    
+    const response = await fetch(url);
+    const data = await response.json();
+    
+    if (data.status === 'OK') {
+      // Filter by rating on backend
+      const filtered = data.results
+        .filter(place => !place.rating || place.rating >= parseFloat(minRating))
+        .slice(0, parseInt(limit));
+      
+      res.json({ status: 'OK', results: filtered });
+    } else {
+      res.json({ status: data.status, results: [] });
+    }
+  } catch (error) {
+    console.error('Mobile places error:', error);
+    res.status(500).json({ error: 'Failed to fetch places' });
+  }
+});
+
 // Mobile places discovery endpoint
 router.post('/discover', async (req, res) => {
   try {

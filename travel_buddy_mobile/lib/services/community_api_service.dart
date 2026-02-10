@@ -45,6 +45,12 @@ class CommunityApiService {
     String? username,
   }) async {
     try {
+      print('📤 Creating post:');
+      print('  content: $content');
+      print('  location: $location');
+      print('  images: $images');
+      print('  userId: $userId');
+      
       final response = await http.post(
         Uri.parse('$_baseUrl/api/community/posts'),
         headers: {'Content-Type': 'application/json'},
@@ -56,6 +62,9 @@ class CommunityApiService {
           'userId': userId,
         }),
       );
+
+      print('📥 Response: ${response.statusCode}');
+      print('📥 Body: ${response.body}');
 
       if (response.statusCode == 201) {
         return community.CommunityPost.fromJson(json.decode(response.body));

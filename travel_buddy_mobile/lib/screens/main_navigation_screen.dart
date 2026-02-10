@@ -5,7 +5,6 @@ import 'home_screen.dart';
 import 'places_screen.dart';
 import 'deals_screen.dart';
 import 'planner_screen.dart';
-
 import 'community_screen_v2.dart';
 import 'profile_screen.dart';
 

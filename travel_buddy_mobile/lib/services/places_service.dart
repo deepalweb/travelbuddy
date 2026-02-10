@@ -7,9 +7,7 @@ import 'package:hive/hive.dart';
 import '../models/place.dart';
 import '../config/environment.dart';
 import '../utils/debug_logger.dart';
-import 'gemini_places_service.dart';
 import 'storage_service.dart';
-import 'azure_blob_service.dart';
 
 class PlacesService {
   static final PlacesService _instance = PlacesService._internal();
@@ -22,28 +20,32 @@ class PlacesService {
     DebugLogger.info('🔄 API counter reset on initialization');
   }
 
-  final AzureAIPlacesService _azureAIService = AzureAIPlacesService();
-  final AzureBlobService _azureBlobService = AzureBlobService();
+
   
   // Cache and rate limiting
   final Map<String, List<Place>> _cache = {};
   final Map<String, DateTime> _cacheTimestamps = {};
   final Map<String, DateTime> _lastApiCalls = {};
-  static const Duration _cacheExpiry = Duration(hours: 24); // Extended for cost savings
-  static const Duration _rateLimitDelay = Duration(milliseconds: 500); // Faster rate limit
+  final Map<String, Map<String, double>> _cacheLocations = {}; // Store lat/lng for each cache key
+  static const Duration _cacheExpiry = Duration(days: 365); // Never expire - keep forever for offline access
+  static const Duration _rateLimitDelay = Duration(milliseconds: 500);
   
   // Subscription limits
   int _dailyApiCalls = 0;
   DateTime _lastResetDate = DateTime.now();
   
-  // Daily API limits by subscription tier
+  // Daily API limits by subscription tier (optimized for cost)
   static const Map<String, int> _subscriptionLimits = {
-    'free': 50,
-    'basic': 100, 
-    'premium': 200,
-    'pro': 500,
+    'free': 10,      // 10 searches/day = ~$8/month
+    'basic': 30,     // 30 searches/day = ~$24/month  
+    'premium': 100,  // 100 searches/day = ~$80/month
+    'pro': 300,      // 300 searches/day = ~$240/month
   };
 
+  // Pagination state
+  int _currentOffset = 0;
+  bool _hasMoreResults = true;
+  
   // Optimized: Cache + Category-specific queries
   Future<List<Place>> fetchPlacesPipeline({
     required double latitude,
@@ -55,15 +57,35 @@ class PlacesService {
     String? userType,
     String? vibe,
     String? language,
-    bool forceRefresh = false,
+    bool forceRefresh = false, // User can manually refresh
     String? categoryFilter,
+    bool loadMore = false, // NEW: Pagination support
   }) async {
     // Use actual query instead of hardcoded 'tourist attractions'
     final cacheKey = '${latitude.toStringAsFixed(2)}_${longitude.toStringAsFixed(2)}_$query';
     
-    // Check cache first
+    // Reset pagination on new search
+    if (!loadMore) {
+      _currentOffset = 0;
+      _hasMoreResults = true;
+    }
+    
+    // Check if location changed significantly (>5km)
+    bool locationChanged = false;
+    if (_cacheLocations.containsKey(cacheKey)) {
+      final cachedLat = _cacheLocations[cacheKey]!['lat']!;
+      final cachedLng = _cacheLocations[cacheKey]!['lng']!;
+      locationChanged = hasLocationChangedSignificantly(cachedLat, cachedLng, latitude, longitude);
+      
+      if (locationChanged) {
+        DebugLogger.log('📍 Location changed significantly - forcing refresh');
+        forceRefresh = true;
+      }
+    }
+    
+    // Check cache first (unless user manually refreshed or location changed)
     if (!forceRefresh && _isValidCache(cacheKey)) {
-      DebugLogger.log('⚡ Cache hit (${_cache[cacheKey]!.length} places)');
+      DebugLogger.log('⚡ Cache hit (${_cache[cacheKey]!.length} places) - Offline ready');
       final cached = _cache[cacheKey]!;
       return cached.skip(offset).take(topN).toList();
     }
@@ -75,21 +97,29 @@ class PlacesService {
         _lastApiCalls[cacheKey] = DateTime.now();
         await _incrementApiCall();
         
-        final realPlaces = await _fetchRealPlaces(latitude, longitude, query, radius, 0, 150)
+        // COST OPTIMIZATION: Only fetch 20 places (was 150), backend filters by rating
+        // Pagination: Use offset for loading more
+        final fetchOffset = loadMore ? _currentOffset : 0;
+        final realPlaces = await _fetchRealPlaces(latitude, longitude, query, radius, fetchOffset, 20)
             .timeout(const Duration(seconds: 8));
+        
+        // Update pagination state
+        if (realPlaces.isNotEmpty) {
+          _currentOffset = fetchOffset + realPlaces.length;
+          _hasMoreResults = realPlaces.length >= 20;
+        } else {
+          _hasMoreResults = false;
+        }
         
         if (realPlaces.isNotEmpty) {
           final filtered = realPlaces
-              .where((p) => p.rating >= 2.5 && _isWithinRadius(p, latitude, longitude, radius))
+              .where((p) => _isWithinRadius(p, latitude, longitude, radius))
               .toList();
           
-          // Enrich with AI descriptions (async, non-blocking)
-          _enrichPlacesWithAI(filtered);
-          
-          // Save to cache, offline storage, and Azure Blob
+          // Save to cache and offline storage only
           _updateCache(cacheKey, filtered);
+          _cacheLocations[cacheKey] = {'lat': latitude, 'lng': longitude};
           _saveToOfflineStorage(cacheKey, filtered);
-          _azureBlobService.savePlacesToBlob(cacheKey, filtered); // Azure Blob backup
           
           DebugLogger.log('✅ Cached ${filtered.length} places');
           
@@ -131,33 +161,10 @@ class PlacesService {
       return offline.skip(offset).take(topN).toList();
     }
     
-    // Try Azure Blob as final fallback
-    final azurePlaces = await _azureBlobService.loadPlacesFromBlob(cacheKey);
-    if (azurePlaces.isNotEmpty) {
-      DebugLogger.log('☁️ Using Azure Blob storage (${azurePlaces.length} places)');
-      return azurePlaces.skip(offset).take(topN).toList();
-    }
-    
     return [];
   }
   
-  // Background refresh disabled
-  void _refreshCacheInBackground(double lat, double lng, String query, int radius, int topN, String cacheKey) async {
-    // Disabled - not needed
-  }
-  
-  // Enrich real places with AI descriptions (non-blocking)
-  void _enrichPlacesWithAI(List<Place> places) async {
-    if (places.isEmpty) return;
-    
-    try {
-      DebugLogger.log('🤖 Enriching ${places.length} places with AI descriptions');
-      await _azureAIService.enrichPlaces(places);
-      DebugLogger.log('✅ AI enrichment complete');
-    } catch (e) {
-      DebugLogger.log('⚠️ AI enrichment failed (non-critical): $e');
-    }
-  }
+
   
   // Filter places by category keywords (post-processing)
   List<Place> _filterByCategory(List<Place> places, String category, String originalQuery) {
@@ -199,101 +206,7 @@ class PlacesService {
   
   double _toRadians(double degrees) => degrees * math.pi / 180;
   
-  // Enhanced AI Places using Gemini service
-  Future<List<Place>> _fetchAIPlaces(double lat, double lng, String query, int radius, String? userType, String? vibe, String? language) async {
-    try {
-      DebugLogger.log('🤖 Using Azure OpenAI for places generation (cost-effective)');
-      
-      final places = await _azureAIService.generatePlaces(
-        latitude: lat,
-        longitude: lng,
-        category: query,
-        limit: 50,
-        userType: userType ?? 'Solo traveler',
-        vibe: vibe ?? 'Cultural',
-        language: language ?? 'English',
-      );
-      
-      if (places.isNotEmpty) {
-        DebugLogger.log('🤖 Azure OpenAI generated ${places.length} high-quality places');
-        return places;
-      }
-      
-      // Fallback to backend AI if Azure OpenAI fails
-      return await _fetchBackendAIPlaces(lat, lng, query, radius, userType, vibe, language);
-      
-    } catch (e) {
-      DebugLogger.log('❌ Azure OpenAI failed: $e, trying backend AI');
-      return await _fetchBackendAIPlaces(lat, lng, query, radius, userType, vibe, language);
-    }
-  }
-  
-  // Fallback backend AI method
-  Future<List<Place>> _fetchBackendAIPlaces(double lat, double lng, String query, int radius, String? userType, String? vibe, String? language) async {
-    final aiLimit = 50;
-    final url = '${Environment.backendUrl}/api/places/ai/nearby?lat=$lat&lng=$lng&category=$query&radius=$radius&limit=$aiLimit';
-    final params = <String>[];
-    if (userType != null) params.add('userType=${Uri.encodeComponent(userType)}');
-    if (vibe != null) params.add('vibe=${Uri.encodeComponent(vibe)}');
-    if (language != null) params.add('language=${Uri.encodeComponent(language)}');
-    
-    final finalUrl = params.isEmpty ? url : '$url&${params.join('&')}';
-    
-    try {
-      final response = await _makeRequestWithRetry(() => http.get(
-        Uri.parse(finalUrl),
-        headers: {'Content-Type': 'application/json'},
-      ));
-      
-      if (response.statusCode == 200) {
-        final data = json.decode(response.body);
-        if (data['status'] == 'OK' && data['results'] != null) {
-          final List<dynamic> places = data['results'];
-          return places.map((json) => Place.fromJson({
-            ...json,
-            'ai_generated': true,
-            'description': json['description'] ?? 'A great place to visit in the area.',
-            'localTip': json['tips'] ?? 'Check opening hours before visiting.',
-            'handyPhrase': 'Hello, thank you!',
-          })).toList();
-        }
-      }
-    } catch (e) {
-      print('❌ Backend AI Places API failed: $e');
-    }
-    return [];
-  }
-  
-  // Get full travel plan content from AI
-  Future<Map<String, dynamic>?> fetchAITravelPlan({
-    required double latitude,
-    required double longitude,
-    String userType = 'Solo traveler',
-    String vibe = 'Cultural', 
-    String language = 'English',
-    int radius = 10,
-  }) async {
-    final url = '${Environment.backendUrl}/api/places/ai/travel-plan?lat=$latitude&lng=$longitude&userType=${Uri.encodeComponent(userType)}&vibe=${Uri.encodeComponent(vibe)}&language=${Uri.encodeComponent(language)}&radius=$radius';
-    print('🤖 Fetching AI travel plan: $url');
-    
-    try {
-      final response = await _makeRequestWithRetry(() => http.get(
-        Uri.parse(url),
-        headers: {'Content-Type': 'application/json'},
-      ));
-      
-      if (response.statusCode == 200) {
-        final data = json.decode(response.body);
-        if (data['status'] == 'OK') {
-          print('🤖 Got AI travel plan with ${data['places']?.length ?? 0} places');
-          return data;
-        }
-      }
-    } catch (e) {
-      print('❌ AI Travel Plan failed: $e');
-    }
-    return null;
-  }
+
   
   Future<List<Place>> _fetchRealPlaces(double lat, double lng, String query, int radius, [int offset = 0, int limit = 150]) async {
     final mobileUrl = '${Environment.backendUrl}/api/places/mobile/nearby?lat=$lat&lng=$lng&q=$query&radius=$radius&limit=$limit';
@@ -499,6 +412,47 @@ class PlacesService {
   void _notifyLimitReached() {
     // This will be called by UI to show upgrade dialog
     print('💡 Consider upgrading subscription for more API calls');
+  }
+
+  // Check if user location changed significantly (>5km)
+  bool hasLocationChangedSignificantly(double oldLat, double oldLng, double newLat, double newLng) {
+    const earthRadius = 6371000; // meters
+    final dLat = _toRadians(newLat - oldLat);
+    final dLng = _toRadians(newLng - oldLng);
+    final a = math.sin(dLat / 2) * math.sin(dLat / 2) +
+        math.cos(_toRadians(oldLat)) * math.cos(_toRadians(newLat)) *
+        math.sin(dLng / 2) * math.sin(dLng / 2);
+    final c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a));
+    final distance = earthRadius * c;
+    return distance > 5000; // 5km threshold
+  }
+
+  // Get cache age for a location
+  Duration? getCacheAge(double latitude, double longitude, String query) {
+    final cacheKey = '${latitude.toStringAsFixed(2)}_${longitude.toStringAsFixed(2)}_$query';
+    if (_cacheTimestamps.containsKey(cacheKey)) {
+      return DateTime.now().difference(_cacheTimestamps[cacheKey]!);
+    }
+    return null;
+  }
+  
+  // Check if more results available
+  bool get hasMoreResults => _hasMoreResults;
+  
+  // Cache place details for instant detail screen
+  final Map<String, Place> _placeDetailsCache = {};
+  
+  Future<void> cachePlaceDetails(Place place) async {
+    _placeDetailsCache[place.id] = place;
+    await _saveToOfflineStorage('place_${place.id}', [place]);
+  }
+  
+  Future<Place?> getCachedPlaceDetails(String placeId) async {
+    if (_placeDetailsCache.containsKey(placeId)) {
+      return _placeDetailsCache[placeId];
+    }
+    final cached = await _loadFromOfflineStorage('place_$placeId');
+    return cached.isNotEmpty ? cached.first : null;
   }
 
 
