@@ -35,11 +35,11 @@ export const AITripGenerator: React.FC<AITripGeneratorProps> = ({ onTripGenerate
 
     setGenerating(true)
     try {
-      const apiUrl = config?.apiBaseUrl || 'https://travelbuddy-b2c6hgbbgeh4esdh.eastus2-01.azurewebsites.net'
+      const apiUrl = config?.apiBaseUrl || 'http://localhost:3000'
       const headers: Record<string, string> = {
         'Content-Type': 'application/json',
       }
-      
+
       // Add authentication headers
       const demoToken = localStorage.getItem('demo_token')
       if (demoToken) {
@@ -48,7 +48,7 @@ export const AITripGenerator: React.FC<AITripGeneratorProps> = ({ onTripGenerate
       if (user?.id) {
         headers['x-user-id'] = user.id
       }
-      
+
       const response = await fetch(`${apiUrl}/api/ai-trips/generate`, {
         method: 'POST',
         headers,
@@ -67,18 +67,27 @@ export const AITripGenerator: React.FC<AITripGeneratorProps> = ({ onTripGenerate
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({ error: 'Unknown error' }))
-        
+
+        // Handle Azure OpenAI unavailable (503)
+        if (response.status === 503) {
+          alert('AI trip generation service is temporarily unavailable. Please try again later or contact support.')
+          return
+        }
+
+        // Handle subscription limits (429)
         if (response.status === 429 && errorData.upgradeRequired) {
           alert(`Upgrade required: ${errorData.error}. Please upgrade to ${errorData.nextTier} plan to continue.`)
           return
         }
-        
+
+        // Handle authentication (401)
         if (response.status === 401 && errorData.upgradeRequired) {
           alert('Please log in or upgrade your account to use AI trip generation.')
           return
         }
-        
-        throw new Error(errorData.error || `HTTP error! status: ${response.status}`)
+
+        // Handle general errors
+        throw new Error(errorData.message || errorData.error || `HTTP error! status: ${response.status}`)
       }
 
       const tripData = await response.json()
@@ -86,7 +95,7 @@ export const AITripGenerator: React.FC<AITripGeneratorProps> = ({ onTripGenerate
     } catch (error) {
       console.error('Failed to generate trip:', error)
       const errorMessage = error instanceof Error ? error.message : 'Failed to generate trip'
-      
+
       if (errorMessage.includes('not configured')) {
         alert('Service temporarily unavailable. Please try again later or contact support.')
       } else if (errorMessage.includes('Network')) {
@@ -280,11 +289,10 @@ export const AITripGenerator: React.FC<AITripGeneratorProps> = ({ onTripGenerate
                 key={style.id}
                 type="button"
                 onClick={() => setFormData({ ...formData, travelStyle: style.id })}
-                className={`p-4 rounded-xl border-2 text-left transition-all ${
-                  formData.travelStyle === style.id
-                    ? 'border-blue-500 bg-blue-50 text-blue-700'
-                    : 'border-gray-200 hover:border-gray-300 text-gray-700'
-                }`}
+                className={`p-4 rounded-xl border-2 text-left transition-all ${formData.travelStyle === style.id
+                  ? 'border-blue-500 bg-blue-50 text-blue-700'
+                  : 'border-gray-200 hover:border-gray-300 text-gray-700'
+                  }`}
               >
                 <div className="font-medium">{style.label}</div>
                 <div className="text-sm text-gray-500 mt-1">{style.desc}</div>
@@ -306,11 +314,10 @@ export const AITripGenerator: React.FC<AITripGeneratorProps> = ({ onTripGenerate
                   key={interest.id}
                   type="button"
                   onClick={() => toggleInterest(interest.id)}
-                  className={`p-3 rounded-xl border-2 text-center transition-all ${
-                    isSelected
-                      ? 'border-blue-500 bg-blue-50 text-blue-700'
-                      : 'border-gray-200 hover:border-gray-300 text-gray-700'
-                  }`}
+                  className={`p-3 rounded-xl border-2 text-center transition-all ${isSelected
+                    ? 'border-blue-500 bg-blue-50 text-blue-700'
+                    : 'border-gray-200 hover:border-gray-300 text-gray-700'
+                    }`}
                 >
                   <IconComponent className="w-5 h-5 mx-auto mb-2" />
                   <div className="text-xs font-medium">{interest.label}</div>
@@ -329,8 +336,8 @@ export const AITripGenerator: React.FC<AITripGeneratorProps> = ({ onTripGenerate
           >
             Cancel
           </Button>
-          <Button 
-            onClick={generateTrip} 
+          <Button
+            onClick={generateTrip}
             disabled={generating || !formData.destination || !formData.duration}
             className="flex-1 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white py-3 rounded-xl font-medium disabled:opacity-50 disabled:cursor-not-allowed transition-all"
           >

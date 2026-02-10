@@ -1,6 +1,6 @@
-const express = require('express');
+import express from 'express';
 const router = express.Router();
-const axios = require('axios');
+import axios from 'axios';
 
 // Google Directions API endpoint
 router.post('/directions', async (req, res) => {
@@ -31,4 +31,4 @@ router.post('/directions', async (req, res) => {
   }
 });
 
-module.exports = router;
+export default router;

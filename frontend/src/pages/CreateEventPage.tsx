@@ -46,10 +46,10 @@ export const CreateEventPage: React.FC = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
-    
+
     try {
-      const apiUrl = config?.apiBaseUrl || 'http://localhost:3001';
-      
+      const apiUrl = config?.apiBaseUrl || 'http://localhost:3000';
+
       const eventData = {
         name: formData.name,
         category: formData.category,
@@ -69,10 +69,10 @@ export const CreateEventPage: React.FC = () => {
         image: imagePreview || 'https://images.unsplash.com/photo-1492684223066-81342ee5ff30?w=800',
         isFree: formData.isFree
       };
-      
+
       const userId = localStorage.getItem('travelbuddy_userId') || `user_${Date.now()}`
       localStorage.setItem('travelbuddy_userId', userId)
-      
+
       const token = localStorage.getItem('token');
       const response = await fetch(`${apiUrl}/api/events`, {
         method: 'POST',
@@ -82,13 +82,13 @@ export const CreateEventPage: React.FC = () => {
         },
         body: JSON.stringify({ ...eventData, userId })
       });
-      
+
       if (!response.ok) {
         const error = await response.json().catch(() => ({ error: 'Unknown error' }));
         console.error('Backend error:', error);
         throw new Error(error.error || 'Failed to create event');
       }
-      
+
       setSuccess(true);
       setTimeout(() => navigate('/events'), 2000);
     } catch (error) {
@@ -179,7 +179,7 @@ export const CreateEventPage: React.FC = () => {
                   type="text"
                   required
                   value={formData.name}
-                  onChange={(e) => setFormData({...formData, name: e.target.value})}
+                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                   className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-purple-600 focus:outline-none"
                   placeholder="Summer Music Festival 2024"
                 />
@@ -191,7 +191,7 @@ export const CreateEventPage: React.FC = () => {
                 <select
                   required
                   value={formData.category}
-                  onChange={(e) => setFormData({...formData, category: e.target.value})}
+                  onChange={(e) => setFormData({ ...formData, category: e.target.value })}
                   className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-purple-600 focus:outline-none"
                 >
                   <option value="music">🎵 Music</option>
@@ -210,7 +210,7 @@ export const CreateEventPage: React.FC = () => {
                 <textarea
                   required
                   value={formData.description}
-                  onChange={(e) => setFormData({...formData, description: e.target.value})}
+                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                   className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-purple-600 focus:outline-none h-32 resize-none"
                   placeholder="Describe your event, what attendees can expect, highlights, etc."
                 />
@@ -226,7 +226,7 @@ export const CreateEventPage: React.FC = () => {
                       type="date"
                       required
                       value={formData.date}
-                      onChange={(e) => setFormData({...formData, date: e.target.value})}
+                      onChange={(e) => setFormData({ ...formData, date: e.target.value })}
                       className="w-full pl-12 pr-4 py-3 border-2 border-gray-200 rounded-xl focus:border-purple-600 focus:outline-none"
                     />
                   </div>
@@ -236,7 +236,7 @@ export const CreateEventPage: React.FC = () => {
                   <input
                     type="date"
                     value={formData.endDate}
-                    onChange={(e) => setFormData({...formData, endDate: e.target.value})}
+                    onChange={(e) => setFormData({ ...formData, endDate: e.target.value })}
                     className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-purple-600 focus:outline-none"
                   />
                 </div>
@@ -248,7 +248,7 @@ export const CreateEventPage: React.FC = () => {
                       type="time"
                       required
                       value={formData.time}
-                      onChange={(e) => setFormData({...formData, time: e.target.value})}
+                      onChange={(e) => setFormData({ ...formData, time: e.target.value })}
                       className="w-full pl-12 pr-4 py-3 border-2 border-gray-200 rounded-xl focus:border-purple-600 focus:outline-none"
                     />
                   </div>
@@ -272,14 +272,14 @@ export const CreateEventPage: React.FC = () => {
                     type="checkbox"
                     id="isFree"
                     checked={formData.isFree}
-                    onChange={(e) => setFormData({...formData, isFree: e.target.checked, price: e.target.checked ? '0' : formData.price})}
+                    onChange={(e) => setFormData({ ...formData, isFree: e.target.checked, price: e.target.checked ? '0' : formData.price })}
                     className="w-5 h-5 text-purple-600 rounded"
                   />
                   <label htmlFor="isFree" className="text-sm font-semibold text-gray-700">
                     This is a free event
                   </label>
                 </div>
-                
+
                 {!formData.isFree && (
                   <div className="grid grid-cols-2 gap-4">
                     <div>
@@ -290,7 +290,7 @@ export const CreateEventPage: React.FC = () => {
                           type="number"
                           required={!formData.isFree}
                           value={formData.price}
-                          onChange={(e) => setFormData({...formData, price: e.target.value})}
+                          onChange={(e) => setFormData({ ...formData, price: e.target.value })}
                           className="w-full pl-12 pr-4 py-3 border-2 border-gray-200 rounded-xl focus:border-purple-600 focus:outline-none"
                           placeholder="150"
                         />
@@ -301,7 +301,7 @@ export const CreateEventPage: React.FC = () => {
                       <select
                         required={!formData.isFree}
                         value={formData.currency}
-                        onChange={(e) => setFormData({...formData, currency: e.target.value})}
+                        onChange={(e) => setFormData({ ...formData, currency: e.target.value })}
                         className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-purple-600 focus:outline-none"
                       >
                         <option value="USD">USD ($)</option>
@@ -322,7 +322,7 @@ export const CreateEventPage: React.FC = () => {
                   <input
                     type="number"
                     value={formData.capacity}
-                    onChange={(e) => setFormData({...formData, capacity: e.target.value})}
+                    onChange={(e) => setFormData({ ...formData, capacity: e.target.value })}
                     className="w-full pl-12 pr-4 py-3 border-2 border-gray-200 rounded-xl focus:border-purple-600 focus:outline-none"
                     placeholder="5000"
                   />

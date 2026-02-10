@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react'
-import { SortOption } from '../components/SortControls'
+import type { SortOption } from '../components/SortControls'
 
 interface Place {
   id: string

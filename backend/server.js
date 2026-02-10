@@ -76,11 +76,11 @@ function normalizeAndFilter(results, centerLat, centerLng, radiusMeters, options
       business_status: r.business_status || 'OPERATIONAL',
       photos: Array.isArray(r.photos)
         ? r.photos.slice(0, 3).map(p => ({
-            photo_reference: p.photo_reference,
-            width: p.width,
-            height: p.height,
-            html_attributions: p.html_attributions
-          }))
+          photo_reference: p.photo_reference,
+          width: p.width,
+          height: p.height,
+          html_attributions: p.html_attributions
+        }))
         : [],
       distance_m: d
     };
@@ -102,11 +102,15 @@ const __dirname = path.dirname(__filename);
 // This is a fallback for local/dev and certain deployment layouts; Azure App Settings still take precedence.
 try {
   dotenv.config({ path: path.join(__dirname, '.env') });
-} catch {}
+} catch { }
 
 const app = express();
 // Enable trust proxy for Azure App Service
-app.set('trust proxy', true);
+if (process.env.NODE_ENV === 'production') {
+  app.set('trust proxy', 1);
+} else {
+  app.set('trust proxy', false);
+}
 // Enable gzip compression for faster API responses
 app.use(compression({ threshold: 1024 }));
 const PORT = process.env.PORT || 8080;
@@ -125,13 +129,13 @@ if (process.env.NODE_ENV === 'production') {
     if (enrichCache.size > 1000) enrichCache.clear();
     if (detailsCache.size > 500) detailsCache.clear();
   }, 3600000); // Every hour
-  
+
   // Global error handlers
   process.on('uncaughtException', (error) => {
     console.error('💥 Uncaught Exception:', error.message);
     // Don't exit in production
   });
-  
+
   process.on('unhandledRejection', (reason) => {
     console.error('💥 Unhandled Rejection:', reason);
   });
@@ -145,15 +149,15 @@ app.use((req, res, next) => {
     'https://travelbuddylk.com',
     'https://travelbuddy-b2c6hgbbgeh4esdh.eastus2-01.azurewebsites.net'
   ];
-  
+
   if (!origin || allowedOrigins.includes(origin)) {
     res.header('Access-Control-Allow-Origin', origin || '*');
   }
-  
+
   res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
   res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, Accept, Origin, X-Requested-With, x-user-id, x-firebase-uid, x-user-tier, x-admin-secret, x-csrf-token, X-CSRF-Token, cache-control, Cache-Control, pragma, Pragma, expires, Expires');
   res.header('Access-Control-Allow-Credentials', 'true');
-  
+
   if (req.method === 'OPTIONS') {
     return res.sendStatus(200);
   }
@@ -168,7 +172,7 @@ if (process.env.ENABLE_HTTPS === 'true') {
     const fs = await import('fs');
     const keyPath = process.env.SSL_KEY_PATH || './ssl/key.pem';
     const certPath = process.env.SSL_CERT_PATH || './ssl/cert.pem';
-    
+
     if (existsSync(keyPath) && existsSync(certPath)) {
       const options = {
         key: fs.readFileSync(keyPath),
@@ -221,7 +225,7 @@ io.on('connection', (socket) => {
   // Send initial cost snapshot to new connections
   try {
     socket.emit('api_cost_update', buildCostSnapshot());
-  } catch {}
+  } catch { }
   socket.on('disconnect', () => {
     console.log('📊 Metrics client disconnected', socket.id);
   });
@@ -265,14 +269,14 @@ function recordUsage({ api, action, status, durationMs, meta }) {
   // Emit updated cost snapshot as well for listeners
   try {
     io.emit('api_cost_update', buildCostSnapshot());
-  } catch {}
+  } catch { }
   // Persist to Mongo (best-effort)
   try {
     if (ApiEvent && !SKIP_MONGO) {
       const doc = new ApiEvent({ ts: new Date(event.ts), api, action, status, durationMs, meta });
-      doc.save().catch(() => {});
+      doc.save().catch(() => { });
     }
-  } catch {}
+  } catch { }
 }
 
 // --- Cost analytics ---
@@ -292,7 +296,7 @@ function buildCostSnapshot(windowMinutes = 60) {
   const windowStart = now - windowMs;
   const within = usageState.events.filter(e => e.ts >= windowStart);
   const shouldCount = (e) => costConfig.includeErrors ? true : e.status === 'success';
-  const apis = ['openai','maps','places'];
+  const apis = ['openai', 'maps', 'places'];
 
   const totalsCount = Object.fromEntries(apis.map(api => {
     const totalCalls = usageState.events.filter(e => e.api === api && shouldCount(e)).length;
@@ -343,11 +347,11 @@ const openai = process.env.AZURE_OPENAI_API_KEY ? new OpenAI({
 // Enhanced dishes endpoint with full specification
 app.post('/api/dishes/generate', async (req, res) => {
   const startTime = Date.now();
-  
+
   try {
-    const { 
-      latitude, 
-      longitude, 
+    const {
+      latitude,
+      longitude,
       destination,
       filters = {},
       language = 'en'
@@ -394,7 +398,7 @@ app.post('/api/dishes/generate', async (req, res) => {
     // Build enhanced Gemini prompt
     const filterText = buildDishFilters(filters);
     const restaurantContext = restaurants.map(r => `${r.name} (${r.rating}/5, ${r.vicinity})`).join(', ');
-    
+
     const prompt = `Generate 6 popular local dishes for ${locationName}.
     ${filterText}
     Available restaurants: ${restaurantContext}
@@ -434,7 +438,7 @@ app.post('/api/dishes/generate', async (req, res) => {
       temperature: 0.7
     });
     const responseText = completion.choices[0].message.content;
-    
+
     // Parse response
     let dishesData;
     try {
@@ -460,7 +464,7 @@ app.post('/api/dishes/generate', async (req, res) => {
 
   } catch (error) {
     console.error('❌ Error generating dishes:', error);
-    
+
     recordUsage({
       api: 'openai',
       action: 'generate_enhanced_dishes',
@@ -511,7 +515,7 @@ async function enhanceDishesWithRealData(dishesData, restaurants) {
     for (const dish of dishesData.dishes) {
       if (dish.recommended_places) {
         for (const place of dish.recommended_places) {
-          const matched = restaurants.find(r => 
+          const matched = restaurants.find(r =>
             r.name.toLowerCase().includes(place.name.toLowerCase())
           );
           if (matched) {
@@ -572,7 +576,7 @@ try {
   usageCounterSchema.index({ userKey: 1, api: 1, date: 1 }, { unique: true });
   UsageCounter = mongoose.model('UsageCounter', usageCounterSchema);
 } catch (e) {
-  try { UsageCounter = mongoose.model('UsageCounter'); } catch {}
+  try { UsageCounter = mongoose.model('UsageCounter'); } catch { }
 }
 
 // Persisted API usage event model (for long-term analytics)
@@ -589,7 +593,7 @@ try {
   apiEventSchema.index({ api: 1, ts: 1 });
   ApiEvent = mongoose.model('ApiEvent', apiEventSchema);
 } catch (e) {
-  try { ApiEvent = mongoose.model('ApiEvent'); } catch {}
+  try { ApiEvent = mongoose.model('ApiEvent'); } catch { }
 }
 
 // In-memory fallbacks for rate limiting and daily quotas
@@ -618,7 +622,7 @@ async function getUserTier(req) {
     try {
       const u = await User.findById(uid).select('tier').lean();
       if (u?.tier && TIER_POLICY[u.tier]) return u.tier;
-    } catch {}
+    } catch { }
   }
   return 'free';
 }
@@ -761,44 +765,44 @@ const corsOptions = {
   origin: function (origin, callback) {
     // Allow requests with no origin (like mobile apps or curl requests)
     if (!origin) return callback(null, true);
-    
+
     // ALWAYS allow Azure App Service domains
     if (origin.includes('.azurewebsites.net') || origin.includes('.azurestaticapps.net')) {
       return callback(null, true);
     }
-    
+
     // Allow production domains
     if (origin === 'https://travelbuddylk.com') {
       return callback(null, true);
     }
-    
+
     // Allow configured domains
     const allowedOrigins = [
-      process.env.CLIENT_URL, 
-      process.env.WEBSITE_HOSTNAME, 
+      process.env.CLIENT_URL,
+      process.env.WEBSITE_HOSTNAME,
       `https://${process.env.WEBSITE_HOSTNAME}`
     ].filter(Boolean);
-    
+
     if (allowedOrigins.includes(origin)) {
       return callback(null, true);
     }
-    
+
     // Development - be very permissive
     const devOrigins = [
-      'http://localhost:3000', 
-      'http://localhost:5173', 
-      'http://localhost:3001', 
+      'http://localhost:3000',
+      'http://localhost:5173',
+      'http://localhost:3001',
       'http://127.0.0.1:3000',
       'http://localhost:4173'
     ];
-    if (devOrigins.includes(origin) || 
-        origin?.includes('localhost') || 
-        origin?.includes('127.0.0.1') ||
-        origin?.startsWith('http://localhost:') ||
-        origin?.startsWith('http://127.0.0.1:')) {
+    if (devOrigins.includes(origin) ||
+      origin?.includes('localhost') ||
+      origin?.includes('127.0.0.1') ||
+      origin?.startsWith('http://localhost:') ||
+      origin?.startsWith('http://127.0.0.1:')) {
       return callback(null, true);
     }
-    
+
     console.log('CORS blocked origin:', origin);
     // In development, allow all origins as fallback
     if (process.env.NODE_ENV !== 'production') {
@@ -1272,7 +1276,7 @@ try {
   });
   Config = mongoose.model('Config', configSchema);
 } catch (e) {
-  try { Config = mongoose.model('Config'); } catch {}
+  try { Config = mongoose.model('Config'); } catch { }
 }
 
 // Enhanced User Schema with 4-Role System
@@ -1296,11 +1300,11 @@ const userSchema = new mongoose.Schema({
     interests: [String],
     accessibility: [String]
   },
-  
+
   // Social Features
   followers: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
   following: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
-  
+
   // Travel Stats
   travelStats: {
     totalPlacesVisited: { type: Number, default: 0 },
@@ -1313,18 +1317,18 @@ const userSchema = new mongoose.Schema({
   totalDistanceKm: { type: Number, default: 0 },
   travelStreak: { type: Number, default: 0 },
   favoriteCategory: { type: String, default: 'Exploring' },
-  
+
   // Profile-Based System
   profileType: { type: String, default: 'traveler', enum: ['traveler', 'business', 'service', 'creator'] },
   enabledModules: { type: [String], default: ['places'] },
   profileSetupComplete: { type: Boolean, default: false },
-  
+
   // Multi-Role System
   roles: { type: [String], default: ['user'], enum: ['user', 'merchant', 'transport_provider', 'travel_agent', 'admin'] },
   activeRole: { type: String, default: 'user', enum: ['user', 'merchant', 'transport_provider', 'travel_agent', 'admin'] },
   permissions: [String],
   isVerified: { type: Boolean, default: false },
-  
+
   // Business Profile (for merchants)
   businessProfile: {
     businessName: String,
@@ -1338,7 +1342,7 @@ const userSchema = new mongoose.Schema({
     approvedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
     approvedAt: Date
   },
-  
+
   // Travel Agent Profile
   agentProfile: {
     agencyName: String,
@@ -1359,7 +1363,7 @@ const userSchema = new mongoose.Schema({
     approvedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
     approvedAt: Date
   },
-  
+
   // Transport Provider Profile
   transportProfile: {
     companyName: String,
@@ -1377,14 +1381,14 @@ const userSchema = new mongoose.Schema({
     approvedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
     approvedAt: Date
   },
-  
+
   // Subscription
   tier: { type: String, default: 'free', enum: ['free', 'basic', 'premium', 'pro'] },
   subscriptionTier: { type: String, default: 'free', enum: ['free', 'basic', 'premium', 'pro'] },
   subscriptionStatus: { type: String, default: 'none', enum: ['none', 'trial', 'active', 'expired', 'canceled'] },
   subscriptionEndDate: Date,
   trialEndDate: Date,
-  
+
   // User Preferences
   homeCurrency: { type: String, default: 'USD' },
   language: { type: String, default: 'en' },
@@ -1393,7 +1397,7 @@ const userSchema = new mongoose.Schema({
   favoritePlaces: [String],
   bookmarkedPosts: [String],
   profilePicture: { type: String, default: null },
-  
+
   // Legacy fields (for backward compatibility)
   isAdmin: { type: Boolean, default: false },
   isMerchant: { type: Boolean, default: false },
@@ -1404,7 +1408,7 @@ const userSchema = new mongoose.Schema({
     businessPhone: String,
     verificationStatus: String
   },
-  
+
   createdAt: { type: Date, default: Date.now }
 });
 
@@ -1522,9 +1526,9 @@ app.get('/api/auth/status', async (req, res) => {
 
     res.json(status);
   } catch (error) {
-    res.status(500).json({ 
-      error: 'Failed to check auth status', 
-      details: error.message 
+    res.status(500).json({
+      error: 'Failed to check auth status',
+      details: error.message
     });
   }
 });
@@ -1546,7 +1550,7 @@ app.post('/api/trips/generate', enforcePolicy('openai'), async (req, res) => {
   res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
   res.header('Access-Control-Allow-Credentials', 'true');
   const startTime = Date.now();
-  
+
   try {
     console.log('🚀 Trip generation request received:', req.body);
     const { destination, duration, budget, interests = [], selectedPlaces = [] } = req.body;
@@ -1555,9 +1559,9 @@ app.post('/api/trips/generate', enforcePolicy('openai'), async (req, res) => {
       console.log('❌ Missing required fields:', { destination, duration });
       return res.status(400).json({ error: 'Destination and duration are required' });
     }
-    
+
     console.log('📍 Selected places from Explore:', selectedPlaces.length);
-    
+
     console.log('✅ Request validation passed');
     console.log('🔑 Azure OpenAI Config:', {
       endpoint: process.env.AZURE_OPENAI_ENDPOINT ? 'configured' : 'missing',
@@ -1568,7 +1572,7 @@ app.post('/api/trips/generate', enforcePolicy('openai'), async (req, res) => {
     const { travelers, travelStyle, interests: interestArray } = req.body;
     const travelerProfile = getTravelerProfile(travelers, budget);
     const profileAdjustments = getProfileAdjustments(travelerProfile);
-    
+
     // Build selected places context
     let selectedPlacesContext = '';
     if (selectedPlaces && selectedPlaces.length > 0) {
@@ -1583,7 +1587,7 @@ app.post('/api/trips/generate', enforcePolicy('openai'), async (req, res) => {
       });
       selectedPlacesContext += `\nThese ${selectedPlaces.length} places MUST be included in the daily itinerary. Build the trip around visiting these specific locations.\n`;
     }
-    
+
     const prompt = `Create a comprehensive TravelBuddy Trip Template for ${destination} (${duration}).${selectedPlacesContext}
 
 TRIP DETAILS:
@@ -1596,9 +1600,9 @@ TRIP DETAILS:
 - Profile: ${travelerProfile} travelers
 
 STYLE REQUIREMENTS:
-${travelStyle === 'relaxed' ? '- Slow pace, plenty of rest time, max 2-3 activities per day\n- Include relaxation breaks and leisurely meals\n- Focus on comfort and minimal rushing' : 
-  travelStyle === 'packed' ? '- Maximum activities, efficient scheduling, 4-5 activities per day\n- Early starts and full days\n- Optimize time with strategic planning' : 
-  '- Balanced mix of activities and downtime, 3-4 activities per day\n- Mix of must-see attractions and local experiences\n- Reasonable pace with flexibility'}
+${travelStyle === 'relaxed' ? '- Slow pace, plenty of rest time, max 2-3 activities per day\n- Include relaxation breaks and leisurely meals\n- Focus on comfort and minimal rushing' :
+        travelStyle === 'packed' ? '- Maximum activities, efficient scheduling, 4-5 activities per day\n- Early starts and full days\n- Optimize time with strategic planning' :
+          '- Balanced mix of activities and downtime, 3-4 activities per day\n- Mix of must-see attractions and local experiences\n- Reasonable pace with flexibility'}
 
 PROFILE ADJUSTMENTS:
 ${profileAdjustments}
@@ -1619,7 +1623,7 @@ Return ONLY valid JSON with detailed, personalized content:
   "destination": "${destination}",
   "duration": "${duration}",
   "introduction": "🌍 **Welcome to ${destination}!**\n\n🏃 **Your Pace:** ${travelStyle || 'balanced'} - ${travelStyle === 'relaxed' ? 'Take your time and savor each moment' : travelStyle === 'packed' ? 'Maximum experiences in minimum time' : 'Perfect balance of adventure and relaxation'}\n💰 **Budget:** ${budget} range\n👥 **Group:** ${travelers} ${travelerProfile} travelers\n🎯 **Focus:** ${interestArray?.join(', ') || 'General exploration'}\n\nThis carefully crafted itinerary combines must-see attractions with authentic local experiences, tailored specifically for your travel style and interests. Get ready for an unforgettable journey!",
-  "conclusion": "🎉 **Trip Highlights Recap**\n\nYour ${destination} adventure offers the perfect blend of ${interestArray?.slice(0,2).join(' and ') || 'sightseeing and culture'}. From iconic landmarks to hidden local gems, this itinerary ensures you experience the best of what ${destination} has to offer.\n\n💡 **Final Tips:**\n- Download offline maps and translation apps\n- Keep copies of important documents\n- Stay flexible - some of the best travel moments are unplanned!\n\nSafe travels and enjoy every moment of your ${destination} adventure! 🌟",
+  "conclusion": "🎉 **Trip Highlights Recap**\n\nYour ${destination} adventure offers the perfect blend of ${interestArray?.slice(0, 2).join(' and ') || 'sightseeing and culture'}. From iconic landmarks to hidden local gems, this itinerary ensures you experience the best of what ${destination} has to offer.\n\n💡 **Final Tips:**\n- Download offline maps and translation apps\n- Keep copies of important documents\n- Stay flexible - some of the best travel moments are unplanned!\n\nSafe travels and enjoy every moment of your ${destination} adventure! 🌟",
   "totalEstimatedCost": "${budget === 'low' ? '$300-600' : budget === 'medium' ? '$600-1200' : '$1200-2500'} per person for ${duration}",
   "estimatedWalkingDistance": "${travelStyle === 'relaxed' ? '3-5 km' : travelStyle === 'packed' ? '8-12 km' : '5-8 km'} per day average",
   "dailyPlans": [
@@ -1703,9 +1707,9 @@ Return ONLY valid JSON with detailed, personalized content:
       messages: [{ role: "user", content: prompt }],
       temperature: 0.7
     });
-    
+
     const responseText = completion.choices[0].message.content;
-    
+
     let tripData;
     try {
       const jsonMatch = responseText.match(/\{[\s\S]*\}/);
@@ -1735,7 +1739,7 @@ Return ONLY valid JSON with detailed, personalized content:
       message: error.message,
       code: error.code
     });
-    
+
     recordUsage({
       api: 'openai',
       action: 'generate_trip',
@@ -1760,7 +1764,7 @@ Return ONLY valid JSON with detailed, personalized content:
       if (doc && doc.data) {
         if (typeof doc.data.includeErrors === 'boolean') costConfig.includeErrors = doc.data.includeErrors;
         if (doc.data.rates) {
-          for (const k of ['openai','maps','places']) {
+          for (const k of ['openai', 'maps', 'places']) {
             if (doc.data.rates[k] != null && !isNaN(doc.data.rates[k])) {
               costConfig.rates[k] = parseFloat(doc.data.rates[k]);
             }
@@ -1799,7 +1803,7 @@ async function isAdminRequest(req) {
     try {
       const u = await User.findById(String(userId)).select('isAdmin').lean();
       if (u && u.isAdmin) return true;
-    } catch {}
+    } catch { }
   }
   return false;
 }
@@ -1858,6 +1862,79 @@ const tripPlanSchema = new mongoose.Schema({
       bookingUrl: String
     }]
   }],
+  // New detailed format fields
+  dailyItinerary: [{
+    day: Number,
+    date: String,
+    theme: String,
+    activities: [{
+      timeSlot: String,
+      activityType: String,
+      activityTitle: String,
+      details: String,
+      cost: String,
+      notes: String,
+      imageUrl: String,
+      googleMapsUrl: String,
+      isVisited: { type: Boolean, default: false },
+      rating: Number,
+      coordinates: {
+        lat: Number,
+        lng: Number
+      },
+      location: String,
+      googlePlaceId: String,
+      fullAddress: String,
+      overnight: {
+        name: String,
+        price: String,
+        note: String
+      }
+    }]
+  }],
+  tripOverview: {
+    totalTravelDays: String,
+    keyAttractions: [String],
+    transportSummary: String,
+    hotels: [String],
+    estimatedTotalBudget: String,
+    tripStyle: String,
+    bestFor: [String],
+    accommodationType: String
+  },
+  expenseBreakdown: {
+    fixed: {
+      accommodation: {
+        desc: String,
+        cost: String
+      },
+      transport: {
+        desc: String,
+        cost: String
+      },
+      tickets: {
+        desc: String,
+        cost: String
+      }
+    },
+    variable: {
+      dining: {
+        desc: String,
+        cost: String
+      },
+      localTransport: {
+        desc: String,
+        cost: String
+      }
+    },
+    total: String
+  },
+  preTripPreparation: {
+    booking: [String],
+    packing: [String],
+    weather: String,
+    notes: [String]
+  },
   shareId: String,
   localId: String,
   createdAt: { type: Date, default: Date.now }
@@ -2097,7 +2174,7 @@ console.log('✅ Dish model registered successfully');
 
 // CORS configuration for both web and mobile
 const allowedOrigins = [
-  'http://localhost:3000', 'http://localhost:8080', 
+  'http://localhost:3000', 'http://localhost:8080',
   'capacitor://localhost', 'ionic://localhost',
   'https://your-web-domain.com', // Add your production web domain
   'file://' // For mobile app file protocol
@@ -2146,7 +2223,7 @@ app.post('/api/enrichment/batch', async (req, res) => {
 app.get('/api/suggestions/personalized', async (req, res) => {
   try {
     const { userId, interests, latitude, longitude } = req.query;
-    
+
     if (!userId || !latitude || !longitude) {
       return res.status(400).json({ error: 'userId, latitude, and longitude are required' });
     }
@@ -2155,10 +2232,10 @@ app.get('/api/suggestions/personalized', async (req, res) => {
     if (!user) {
       user = await User.findById(userId);
     }
-    
+
     const userInterests = interests ? interests.split(',') : (user?.selectedInterests || ['sightseeing']);
     const suggestions = [];
-    
+
     const hour = new Date().getHours();
     if (hour < 12) {
       suggestions.push({
@@ -2169,7 +2246,7 @@ app.get('/api/suggestions/personalized', async (req, res) => {
       });
     } else if (hour < 17) {
       suggestions.push({
-        type: 'activity', 
+        type: 'activity',
         title: 'Afternoon Exploration',
         description: 'Great time to visit museums or outdoor attractions',
         reason: 'Ideal afternoon timing'
@@ -2182,7 +2259,7 @@ app.get('/api/suggestions/personalized', async (req, res) => {
         reason: 'Perfect evening activity'
       });
     }
-    
+
     for (const interest of userInterests.slice(0, 2)) {
       suggestions.push({
         type: 'place',
@@ -2191,7 +2268,7 @@ app.get('/api/suggestions/personalized', async (req, res) => {
         reason: `Based on your interest in ${interest}`
       });
     }
-    
+
     res.json(suggestions.slice(0, 5));
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -2202,17 +2279,17 @@ app.get('/api/suggestions/personalized', async (req, res) => {
 app.get('/api/places/ai/nearby', enforcePolicy('openai'), async (req, res) => {
   const { lat, lng, category, limit = 50, userType, vibe, language } = req.query;
   if (!lat || !lng) return res.status(400).json({ error: 'lat and lng required' });
-  
+
   try {
     const prompt = `Generate ${limit} realistic places near ${lat},${lng} for category "${category || 'attractions'}".
-Return JSON: {"status":"OK","results":[{"place_id":"ai_123","name":"Place Name","vicinity":"Address","rating":4.2,"types":["${category||'establishment'}"],"geometry":{"location":{"lat":${lat},"lng":${lng}}},"description":"Brief description","tips":"Local tip"}]}`;
-    
+Return JSON: {"status":"OK","results":[{"place_id":"ai_123","name":"Place Name","vicinity":"Address","rating":4.2,"types":["${category || 'establishment'}"],"geometry":{"location":{"lat":${lat},"lng":${lng}}},"description":"Brief description","tips":"Local tip"}]}`;
+
     const completion = await openai.chat.completions.create({
       model: process.env.AZURE_OPENAI_DEPLOYMENT_NAME,
       messages: [{ role: "user", content: prompt }],
       temperature: 0.7
     });
-    
+
     const jsonMatch = completion.choices[0].message.content.match(/\{[\s\S]*\}/);
     const data = jsonMatch ? JSON.parse(jsonMatch[0]) : { status: 'OK', results: [] };
     res.json(data);
@@ -2224,16 +2301,16 @@ Return JSON: {"status":"OK","results":[{"place_id":"ai_123","name":"Place Name",
 app.get('/api/places/ai/travel-plan', enforcePolicy('openai'), async (req, res) => {
   const { lat, lng, userType = 'Solo traveler', vibe = 'Cultural', language = 'English', radius = 10 } = req.query;
   if (!lat || !lng) return res.status(400).json({ error: 'lat and lng required' });
-  
+
   try {
     const prompt = `Create travel plan for ${lat},${lng} (${userType}, ${vibe} vibe, ${language}). Return JSON: {"status":"OK","places":[{"name":"Place","description":"Info","category":"attraction"}],"itinerary":{"morning":["Activity 1"],"afternoon":["Activity 2"],"evening":["Activity 3"]}}`;
-    
+
     const completion = await openai.chat.completions.create({
       model: process.env.AZURE_OPENAI_DEPLOYMENT_NAME,
       messages: [{ role: "user", content: prompt }],
       temperature: 0.7
     });
-    
+
     const jsonMatch = completion.choices[0].message.content.match(/\{[\s\S]*\}/);
     const data = jsonMatch ? JSON.parse(jsonMatch[0]) : { status: 'OK', places: [], itinerary: {} };
     res.json(data);
@@ -2245,18 +2322,18 @@ app.get('/api/places/ai/travel-plan', enforcePolicy('openai'), async (req, res) 
 app.post('/api/places/ai/batch', enforcePolicy('openai'), async (req, res) => {
   const { lat, lng, categories, userPreferences } = req.body;
   if (!lat || !lng || !categories) return res.status(400).json({ error: 'lat, lng, categories required' });
-  
+
   try {
     const results = {};
     for (const category of categories) {
       const prompt = `Generate 15 places near ${lat},${lng} for "${category}". Return JSON array: [{"name":"Place","description":"Info","rating":4.0,"place_id":"ai_${Date.now()}"}]`;
-      
+
       const completion = await openai.chat.completions.create({
         model: process.env.AZURE_OPENAI_DEPLOYMENT_NAME,
         messages: [{ role: "user", content: prompt }],
         temperature: 0.7
       });
-      
+
       const jsonMatch = completion.choices[0].message.content.match(/\[[\s\S]*\]/);
       results[category] = jsonMatch ? JSON.parse(jsonMatch[0]) : [];
     }
@@ -2296,17 +2373,17 @@ app.get('/api/usage/aggregate/daily', async (req, res) => {
       const byDay = new Map();
       for (const e of usageState.events) {
         if (e.ts < since.getTime()) continue;
-        const day = new Date(e.ts).toISOString().slice(0,10);
+        const day = new Date(e.ts).toISOString().slice(0, 10);
         const key = `${day}|${e.api}|${e.status}`;
-        byDay.set(key, (byDay.get(key)||0)+1);
+        byDay.set(key, (byDay.get(key) || 0) + 1);
       }
       const daysOut = [];
-      const dayKeys = new Set([...byDay.keys()].map(k=>k.split('|')[0]));
+      const dayKeys = new Set([...byDay.keys()].map(k => k.split('|')[0]));
       const sortedDays = [...dayKeys].sort();
       for (const d of sortedDays) {
-        const perApi = { openai: { success:0, error:0 }, maps:{ success:0, error:0 }, places:{ success:0, error:0 } };
-        for (const api of ['openai','maps','places']) {
-          for (const status of ['success','error']) {
+        const perApi = { openai: { success: 0, error: 0 }, maps: { success: 0, error: 0 }, places: { success: 0, error: 0 } };
+        for (const api of ['openai', 'maps', 'places']) {
+          for (const status of ['success', 'error']) {
             perApi[api][status] = byDay.get(`${d}|${api}|${status}`) || 0;
           }
         }
@@ -2323,12 +2400,12 @@ app.get('/api/usage/aggregate/daily', async (req, res) => {
     const map = new Map();
     for (const r of rows) {
       const { day, api, status } = r._id;
-      if (!map.has(day)) map.set(day, { openai:{success:0,error:0}, maps:{success:0,error:0}, places:{success:0,error:0} });
+      if (!map.has(day)) map.set(day, { openai: { success: 0, error: 0 }, maps: { success: 0, error: 0 }, places: { success: 0, error: 0 } });
       map.get(day)[api][status] = r.count;
     }
     const daysOut = [...map.keys()].sort().map(d => {
       const perApi = map.get(d);
-      const total = Object.values(perApi).reduce((s,v)=> s + v.success + v.error, 0);
+      const total = Object.values(perApi).reduce((s, v) => s + v.success + v.error, 0);
       return { day: d, perApi, total };
     });
     res.json({ range: { since: since.toISOString() }, days: daysOut });
@@ -2346,17 +2423,17 @@ app.get('/api/usage/aggregate/monthly', async (req, res) => {
       const byMonth = new Map();
       for (const e of usageState.events) {
         const dt = new Date(e.ts);
-        const ym = dt.toISOString().slice(0,7);
+        const ym = dt.toISOString().slice(0, 7);
         const key = `${ym}|${e.api}|${e.status}`;
-        byMonth.set(key, (byMonth.get(key)||0)+1);
+        byMonth.set(key, (byMonth.get(key) || 0) + 1);
       }
-      const ymKeys = new Set([...byMonth.keys()].map(k=>k.split('|')[0]));
+      const ymKeys = new Set([...byMonth.keys()].map(k => k.split('|')[0]));
       const out = [...ymKeys].sort().map(ym => {
-        const perApi = { openai:{success:0,error:0}, maps:{success:0,error:0}, places:{success:0,error:0} };
-        for (const api of ['openai','maps','places']) {
-          for (const status of ['success','error']) perApi[api][status] = byMonth.get(`${ym}|${api}|${status}`)||0;
+        const perApi = { openai: { success: 0, error: 0 }, maps: { success: 0, error: 0 }, places: { success: 0, error: 0 } };
+        for (const api of ['openai', 'maps', 'places']) {
+          for (const status of ['success', 'error']) perApi[api][status] = byMonth.get(`${ym}|${api}|${status}`) || 0;
         }
-        const total = Object.values(perApi).reduce((s,v)=> s + v.success + v.error, 0);
+        const total = Object.values(perApi).reduce((s, v) => s + v.success + v.error, 0);
         return { month: ym, perApi, total };
       });
       return res.json({ range: { since: since.toISOString() }, months: out });
@@ -2369,12 +2446,12 @@ app.get('/api/usage/aggregate/monthly', async (req, res) => {
     const map = new Map();
     for (const r of rows) {
       const { month, api, status } = r._id;
-      if (!map.has(month)) map.set(month, { openai:{success:0,error:0}, maps:{success:0,error:0}, places:{success:0,error:0} });
+      if (!map.has(month)) map.set(month, { openai: { success: 0, error: 0 }, maps: { success: 0, error: 0 }, places: { success: 0, error: 0 } });
       map.get(month)[api][status] = r.count;
     }
     const monthsOut = [...map.keys()].sort().map(m => {
       const perApi = map.get(m);
-      const total = Object.values(perApi).reduce((s,v)=> s + v.success + v.error, 0);
+      const total = Object.values(perApi).reduce((s, v) => s + v.success + v.error, 0);
       return { month: m, perApi, total };
     });
     res.json({ range: { since: since.toISOString() }, months: monthsOut });
@@ -2387,30 +2464,30 @@ app.get('/api/usage/stats', async (req, res) => {
   try {
     const windowMinutes = Math.min(1440, Math.max(5, parseInt(String(req.query.window || '60'), 10)));
     const since = new Date(Date.now() - windowMinutes * 60 * 1000);
-    const apis = ['openai','maps','places'];
+    const apis = ['openai', 'maps', 'places'];
     const result = {};
     if (!ApiEvent || SKIP_MONGO) {
       const recent = usageState.events.filter(e => e.ts >= since.getTime());
       for (const api of apis) {
         const rows = recent.filter(e => e.api === api);
         const calls = rows.length;
-        const success = rows.filter(r=>r.status==='success').length;
-        const error = rows.filter(r=>r.status==='error').length;
-        const durs = rows.map(r=>r.durationMs||0).filter(v=>v>0).sort((a,b)=>a-b);
-        const p = (p) => durs.length ? durs[Math.min(durs.length-1, Math.floor((p/100)*durs.length))] : 0;
-        result[api] = { calls, success, error, p50: p(50), p95: p(95), avgMs: durs.length ? Math.round(durs.reduce((s,v)=>s+v,0)/durs.length) : 0 };
+        const success = rows.filter(r => r.status === 'success').length;
+        const error = rows.filter(r => r.status === 'error').length;
+        const durs = rows.map(r => r.durationMs || 0).filter(v => v > 0).sort((a, b) => a - b);
+        const p = (p) => durs.length ? durs[Math.min(durs.length - 1, Math.floor((p / 100) * durs.length))] : 0;
+        result[api] = { calls, success, error, p50: p(50), p95: p(95), avgMs: durs.length ? Math.round(durs.reduce((s, v) => s + v, 0) / durs.length) : 0 };
       }
       return res.json({ windowMinutes, perApi: result });
     }
-    const rows = await ApiEvent.find({ ts: { $gte: since } }, { api:1, status:1, durationMs:1 }).limit(50000).lean().exec();
+    const rows = await ApiEvent.find({ ts: { $gte: since } }, { api: 1, status: 1, durationMs: 1 }).limit(50000).lean().exec();
     for (const api of apis) {
-      const subset = rows.filter(r=>r.api===api);
+      const subset = rows.filter(r => r.api === api);
       const calls = subset.length;
-      const success = subset.filter(r=>r.status==='success').length;
-      const error = subset.filter(r=>r.status==='error').length;
-      const durs = subset.map(r=>r.durationMs||0).filter(v=>v>0).sort((a,b)=>a-b);
-      const perc = (p) => durs.length ? durs[Math.min(durs.length-1, Math.floor((p/100)*durs.length))] : 0;
-      result[api] = { calls, success, error, p50: perc(50), p95: perc(95), avgMs: durs.length ? Math.round(durs.reduce((s,v)=>s+v,0)/durs.length) : 0 };
+      const success = subset.filter(r => r.status === 'success').length;
+      const error = subset.filter(r => r.status === 'error').length;
+      const durs = subset.map(r => r.durationMs || 0).filter(v => v > 0).sort((a, b) => a - b);
+      const perc = (p) => durs.length ? durs[Math.min(durs.length - 1, Math.floor((p / 100) * durs.length))] : 0;
+      result[api] = { calls, success, error, p50: perc(50), p95: perc(95), avgMs: durs.length ? Math.round(durs.reduce((s, v) => s + v, 0) / durs.length) : 0 };
     }
     res.json({ windowMinutes, perApi: result });
   } catch (e) {
@@ -2434,13 +2511,13 @@ app.get('/api/usage/timeseries', async (req, res) => {
       since = new Date(Date.now() - windowMin * 60 * 1000);
       until = new Date();
     }
-    const apis = String(req.query.apis || 'openai,maps,places').split(',').map(s=>s.trim()).filter(Boolean);
+    const apis = String(req.query.apis || 'openai,maps,places').split(',').map(s => s.trim()).filter(Boolean);
     const statusFilter = String(req.query.status || 'all'); // all|success|error
     let bucket = String(req.query.bucket || 'auto');
     if (bucket === 'auto') {
       const windowMin = Math.max(1, Math.round((until - since) / 60000));
       if (windowMin <= 180) bucket = 'minute';
-      else if (windowMin <= 60*24*7) bucket = 'hour';
+      else if (windowMin <= 60 * 24 * 7) bucket = 'hour';
       else bucket = 'day';
     }
     const fmt = bucket === 'minute' ? '%Y-%m-%dT%H:%M:00Z' : (bucket === 'hour' ? '%Y-%m-%dT%H:00:00Z' : '%Y-%m-%d');
@@ -2450,9 +2527,9 @@ app.get('/api/usage/timeseries', async (req, res) => {
       const map = new Map(); // key: tsBucket -> { api: { success, error } }
       const floorToBucket = (ts) => {
         const d = new Date(ts);
-        if (bucket === 'minute') d.setUTCSeconds(0,0);
-        else if (bucket === 'hour') d.setUTCMinutes(0,0,0);
-        else { d.setUTCHours(0,0,0,0); }
+        if (bucket === 'minute') d.setUTCSeconds(0, 0);
+        else if (bucket === 'hour') d.setUTCMinutes(0, 0, 0);
+        else { d.setUTCHours(0, 0, 0, 0); }
         return d.toISOString().replace(/\.\d{3}Z$/, 'Z');
       };
       for (const e of usageState.events) {
@@ -2462,13 +2539,13 @@ app.get('/api/usage/timeseries', async (req, res) => {
         const key = floorToBucket(e.ts);
         if (!map.has(key)) map.set(key, {});
         const bucketObj = map.get(key);
-        bucketObj[e.api] = bucketObj[e.api] || { success:0, error:0 };
+        bucketObj[e.api] = bucketObj[e.api] || { success: 0, error: 0 };
         bucketObj[e.api][e.status] += 1;
       }
       const points = [...map.keys()].sort().map(t => {
         const perApi = {};
         for (const a of apis) {
-          const v = (map.get(t) || {})[a] || { success:0, error:0 };
+          const v = (map.get(t) || {})[a] || { success: 0, error: 0 };
           perApi[a] = { ...v, total: v.success + v.error };
         }
         return { t, perApi };
@@ -2477,7 +2554,7 @@ app.get('/api/usage/timeseries', async (req, res) => {
     }
 
     // Mongo aggregation path
-  const match = { ts: { $gte: since, $lte: until }, api: { $in: apis } };
+    const match = { ts: { $gte: since, $lte: until }, api: { $in: apis } };
     if (statusFilter !== 'all') Object.assign(match, { status: statusFilter });
     const rows = await ApiEvent.aggregate([
       { $match: match },
@@ -2490,13 +2567,13 @@ app.get('/api/usage/timeseries', async (req, res) => {
       if (!byT.has(t)) byT.set(t, {});
       const obj = byT.get(t);
       const a = r._id.api;
-      obj[a] = obj[a] || { success:0, error:0 };
+      obj[a] = obj[a] || { success: 0, error: 0 };
       obj[a][r._id.status] = (obj[a][r._id.status] || 0) + r.c;
     }
     const points = [...byT.keys()].sort().map(t => {
       const perApi = {};
       for (const a of apis) {
-        const v = (byT.get(t) || {})[a] || { success:0, error:0 };
+        const v = (byT.get(t) || {})[a] || { success: 0, error: 0 };
         perApi[a] = { ...v, total: v.success + v.error };
       }
       return { t, perApi };
@@ -2513,7 +2590,7 @@ app.get('/api/usage/policy', async (req, res) => {
     const tier = await getUserTier(req);
     const userKey = getRequestUserKey(req);
     const date = getDateKey();
-    const apis = ['places','maps','openai'];
+    const apis = ['places', 'maps', 'openai'];
     const used = {};
     for (const api of apis) {
       used[api] = await getDailyCount(userKey, api);
@@ -2557,7 +2634,7 @@ app.post('/api/usage/cost/config', async (req, res) => {
     const { includeErrors, rates } = req.body || {};
     if (typeof includeErrors === 'boolean') costConfig.includeErrors = includeErrors;
     if (rates && typeof rates === 'object') {
-      for (const k of ['openai','maps','places']) {
+      for (const k of ['openai', 'maps', 'places']) {
         if (rates[k] != null && !isNaN(rates[k])) {
           costConfig.rates[k] = parseFloat(rates[k]);
         }
@@ -2591,9 +2668,9 @@ app.get('/api/places/sections', enforcePolicy('places'), async (req, res) => {
     for (const section of sections) {
       try {
         const url = new URL('https://maps.googleapis.com/maps/api/place/textsearch/json');
-        const query = section.category === 'food' ? 'restaurants' : 
-                     section.category === 'landmarks' ? 'tourist attractions' :
-                     section.category === 'culture' ? 'museums' : 'parks';
+        const query = section.category === 'food' ? 'restaurants' :
+          section.category === 'landmarks' ? 'tourist attractions' :
+            section.category === 'culture' ? 'museums' : 'parks';
         url.searchParams.set('query', query);
         url.searchParams.set('location', `${lat},${lng}`);
         url.searchParams.set('radius', '10000');
@@ -2629,7 +2706,7 @@ app.get('/api/places/mobile/nearby', enforcePolicy('places'), async (req, res) =
 
     const query = q || (category && category !== 'all' ? category : 'points of interest');
     const searchRadius = parseInt(radius || '15000', 10);
-    
+
     const url = new URL('https://maps.googleapis.com/maps/api/place/textsearch/json');
     url.searchParams.set('query', query);
     url.searchParams.set('location', `${lat},${lng}`);
@@ -2650,7 +2727,7 @@ app.get('/api/places/mobile/nearby', enforcePolicy('places'), async (req, res) =
     }
 
     const places = normalizeAndFilter(data.results, lat, lng, searchRadius, { enforceRadius: true, sortByDistance: true }).slice(0, 60);
-    
+
     recordUsage({ api: 'places', action: 'mobile_nearby', status: 'success' });
     res.json(places);
   } catch (error) {
@@ -2675,8 +2752,8 @@ app.get('/api/places/mobile/sections', enforcePolicy('places'), async (req, res)
 
     for (const section of sections) {
       try {
-        const query = section.category === 'food' ? 'restaurants' : 
-                     section.category === 'landmarks' ? 'attractions' : 'museums';
+        const query = section.category === 'food' ? 'restaurants' :
+          section.category === 'landmarks' ? 'attractions' : 'museums';
         const url = new URL('https://maps.googleapis.com/maps/api/place/textsearch/json');
         url.searchParams.set('query', query);
         url.searchParams.set('location', `${lat},${lng}`);
@@ -2732,7 +2809,7 @@ app.get('/api/places/search', enforcePolicy('places'), async (req, res) => {
     }
 
     const places = normalizeAndFilter(data.results, lat, lng, searchRadius, { enforceRadius: true, sortByDistance: true }).slice(0, 50);
-    
+
     recordUsage({ api: 'places', action: 'search', status: 'success', meta: { query } });
     res.json(places);
   } catch (error) {
@@ -2744,7 +2821,7 @@ app.get('/api/places/search', enforcePolicy('places'), async (req, res) => {
 // Places API proxy - fetch factual places from Google Places Text Search
 app.get('/api/places/nearby', enforcePolicy('places'), async (req, res) => {
   try {
-  const { lat, lng, q, radius, enforceRadius, sort } = req.query;
+    const { lat, lng, q, radius, enforceRadius, sort } = req.query;
     const apiKey = process.env.GOOGLE_PLACES_API_KEY;
     if (!apiKey) {
       recordUsage({ api: 'places', action: 'nearby', status: 'error', meta: { reason: 'missing_key' } });
@@ -2756,12 +2833,12 @@ app.get('/api/places/nearby', enforcePolicy('places'), async (req, res) => {
     }
 
     const query = (q || '').toString().trim() || 'points of interest';
-  const DEFAULT_RADIUS = parseInt(process.env.DEFAULT_PLACES_RADIUS_M || '20000', 10);
-  let searchRadius = parseInt((radius || String(DEFAULT_RADIUS)).toString(), 10);
-  const maxR = req._policy?.features?.radiusMaxM;
-  if (maxR && Number.isFinite(maxR)) searchRadius = Math.min(searchRadius, maxR);
-  const enforce = String(enforceRadius ?? 'true').toLowerCase() !== 'false';
-  const sortByDistance = String(sort || 'distance').toLowerCase() === 'distance';
+    const DEFAULT_RADIUS = parseInt(process.env.DEFAULT_PLACES_RADIUS_M || '20000', 10);
+    let searchRadius = parseInt((radius || String(DEFAULT_RADIUS)).toString(), 10);
+    const maxR = req._policy?.features?.radiusMaxM;
+    if (maxR && Number.isFinite(maxR)) searchRadius = Math.min(searchRadius, maxR);
+    const enforce = String(enforceRadius ?? 'true').toLowerCase() !== 'false';
+    const sortByDistance = String(sort || 'distance').toLowerCase() === 'distance';
 
     const key = makePlacesKey(lat, lng, query, searchRadius);
     const cached = getFromPlacesCache(key);
@@ -2773,7 +2850,7 @@ app.get('/api/places/nearby', enforcePolicy('places'), async (req, res) => {
       return res.json(cached.data);
     }
 
-  const url = new URL('https://maps.googleapis.com/maps/api/place/textsearch/json');
+    const url = new URL('https://maps.googleapis.com/maps/api/place/textsearch/json');
     url.searchParams.set('query', query);
     url.searchParams.set('location', `${lat},${lng}`);
     url.searchParams.set('radius', String(searchRadius));
@@ -2790,7 +2867,7 @@ app.get('/api/places/nearby', enforcePolicy('places'), async (req, res) => {
 
     // If we have stale cache, return it immediately and refresh in background (SWR)
     if (cached && !isFresh) {
-    res.json(cached.data);
+      res.json(cached.data);
       // background refresh
       const started = Date.now();
       doFetch()
@@ -2805,7 +2882,7 @@ app.get('/api/places/nearby', enforcePolicy('places'), async (req, res) => {
             recordUsage({ api: 'places', action: 'nearby', status: 'error', durationMs: Date.now() - started, meta: { swr: true, status: data.status } });
             return;
           }
-      const normalized = normalizeAndFilter(data.results, lat, lng, searchRadius, { enforceRadius: enforce, sortByDistance });
+          const normalized = normalizeAndFilter(data.results, lat, lng, searchRadius, { enforceRadius: enforce, sortByDistance });
           setPlacesCache(key, normalized);
           recordUsage({ api: 'places', action: 'nearby', status: 'success', durationMs: Date.now() - started, meta: { swr: true, cache: 'set' } });
         })
@@ -2830,13 +2907,13 @@ app.get('/api/places/nearby', enforcePolicy('places'), async (req, res) => {
       return res.status(502).json({ error: 'Places API status not OK', details: data.status, message: data.error_message });
     }
 
-  let normalized = normalizeAndFilter(data.results, lat, lng, searchRadius, { enforceRadius: enforce, sortByDistance });
+    let normalized = normalizeAndFilter(data.results, lat, lng, searchRadius, { enforceRadius: enforce, sortByDistance });
 
-  setPlacesCache(key, normalized);
-  recordUsage({ api: 'places', action: 'nearby', status: 'success', durationMs: Date.now() - start, meta: { cache: 'set' } });
-  const limit = req._policy?.features?.resultsPerSearch || 150;
-  const sendList = normalized.slice(0, limit);
-  res.json(sendList);
+    setPlacesCache(key, normalized);
+    recordUsage({ api: 'places', action: 'nearby', status: 'success', durationMs: Date.now() - start, meta: { cache: 'set' } });
+    const limit = req._policy?.features?.resultsPerSearch || 150;
+    const sendList = normalized.slice(0, limit);
+    res.json(sendList);
   } catch (error) {
     recordUsage({ api: 'places', action: 'nearby', status: 'error', meta: { err: error?.message || String(error) } });
     res.status(500).json({ error: 'Failed to fetch places', details: error?.message || String(error) });
@@ -2848,13 +2925,13 @@ app.post('/api/users/sync', async (req, res) => {
   try {
     const authHeader = req.headers['authorization'] || '';
     const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
-    
+
     if (!token) return res.status(401).json({ error: 'No token provided' });
 
     // Extract Firebase UID from token
     let firebaseUid = null;
     let email = null;
-    
+
     try {
       const parts = token.split('.');
       if (parts.length === 3) {
@@ -2871,7 +2948,7 @@ app.post('/api/users/sync', async (req, res) => {
 
     // Find or create unified user account
     let user = await User.findOne({ firebaseUid });
-    
+
     if (!user) {
       user = new User({
         firebaseUid,
@@ -2892,12 +2969,12 @@ app.post('/api/users/sync', async (req, res) => {
       });
       await user.save();
     }
-    
+
     // Return user with all cross-platform data
     const userData = await User.findById(user._id)
       .populate('followers', 'username profilePicture')
       .populate('following', 'username profilePicture');
-    
+
     res.json(userData);
   } catch (error) {
     res.status(500).json({ error: 'Sync failed', details: error.message });
@@ -2909,7 +2986,7 @@ app.post('/api/users/sync', async (req, res) => {
 app.get('/api/users/:userId/all-data', async (req, res) => {
   try {
     const userId = req.params.userId;
-    
+
     // Find user by Firebase UID or MongoDB ID
     let user = await User.findOne({ firebaseUid: userId });
     if (!user) user = await User.findById(userId);
@@ -2948,7 +3025,7 @@ app.post('/api/users/:userId/sync-data', async (req, res) => {
   try {
     const userId = req.params.userId;
     const { tripPlans, posts, favorites, userProfile } = req.body;
-    
+
     let user = await User.findOne({ firebaseUid: userId });
     if (!user) user = await User.findById(userId);
     if (!user) return res.status(404).json({ error: 'User not found' });
@@ -2998,14 +3075,14 @@ const flexAuth = async (req, res, next) => {
     const authHeader = req.headers.authorization;
     const token = authHeader?.split(' ')[1];
     const userId = req.headers['x-user-id'] || req.headers['x-firebase-uid'];
-    
-    console.log('🔐 FlexAuth check:', { 
-      hasToken: !!token, 
+
+    console.log('🔐 FlexAuth check:', {
+      hasToken: !!token,
       hasUserId: !!userId,
       authHeader: authHeader ? 'present' : 'missing',
       userIdHeader: userId ? 'present' : 'missing'
     });
-    
+
     if (token) {
       try {
         // Try Firebase first
@@ -3018,7 +3095,7 @@ const flexAuth = async (req, res, next) => {
       } catch (e) {
         console.log('⚠️ Firebase auth failed:', e.message);
       }
-      
+
       try {
         // Try to decode Firebase JWT without verification (for development)
         const parts = token.split('.');
@@ -3034,7 +3111,7 @@ const flexAuth = async (req, res, next) => {
       } catch (e) {
         console.log('⚠️ Firebase JWT decode failed:', e.message);
       }
-      
+
       try {
         // Fallback to simple token
         const decoded = Buffer.from(token, 'base64').toString('utf8');
@@ -3048,20 +3125,20 @@ const flexAuth = async (req, res, next) => {
         console.log('⚠️ Simple token auth failed:', e.message);
       }
     }
-    
+
     if (userId) {
       req.user = { uid: userId };
       console.log('✅ User ID header auth successful');
       return next();
     }
-    
+
     // For development, allow creating posts without strict auth
     if (process.env.NODE_ENV !== 'production') {
       req.user = { uid: 'dev-user-' + Date.now() };
       console.log('⚠️ Using development fallback user');
       return next();
     }
-    
+
     console.log('❌ No valid authentication found');
     return res.status(401).json({ error: 'Authentication required' });
   } catch (error) {
@@ -3077,12 +3154,12 @@ app.post('/api/users', validateUser, asyncHandler(async (req, res) => {
     if (!username && !email) {
       return res.status(400).json({ error: 'username or email is required' });
     }
-    
+
     // Validate email format
     if (email && !validator.isEmail(email)) {
       return res.status(400).json({ error: 'Invalid email format' });
     }
-    
+
     // Try find existing by email or username
     const existing = await User.findOne({
       $or: [
@@ -3094,7 +3171,7 @@ app.post('/api/users', validateUser, asyncHandler(async (req, res) => {
 
     if (existing) {
       // Only update SAFE fields if provided
-      const updatable = ['tier','subscriptionStatus','subscriptionEndDate','trialEndDate','homeCurrency','language','selectedInterests','hasCompletedWizard','profilePicture'];
+      const updatable = ['tier', 'subscriptionStatus', 'subscriptionEndDate', 'trialEndDate', 'homeCurrency', 'language', 'selectedInterests', 'hasCompletedWizard', 'profilePicture'];
       let changed = false;
       for (const key of updatable) {
         if (Object.prototype.hasOwnProperty.call(rest, key) && rest[key] !== undefined) {
@@ -3116,7 +3193,7 @@ app.post('/api/users', validateUser, asyncHandler(async (req, res) => {
         safeFields[field] = rest[field];
       }
     });
-    
+
     const user = new User(safeFields);
     await user.save();
     res.json(user);
@@ -3142,23 +3219,23 @@ app.get('/api/users/:id', flexAuth, async (req, res) => {
       .populate('followers', 'username profilePicture')
       .populate('following', 'username profilePicture')
       .select('-__v');
-    
+
     if (!user) {
       user = await User.findById(req.params.id)
         .populate('followers', 'username profilePicture')
         .populate('following', 'username profilePicture')
         .select('-__v');
     }
-    
+
     if (!user) return res.status(404).json({ error: 'User not found' });
-    
+
     // Add cross-platform sync info
     const userData = {
       ...user.toObject(),
       lastSyncTime: new Date().toISOString(),
       platformSupport: ['web', 'mobile']
     };
-    
+
     res.json(userData);
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -3171,15 +3248,15 @@ app.get('/api/users/profile/:userId', async (req, res) => {
     let user = await User.findOne({ firebaseUid: req.params.userId })
       .populate('followers', 'username profilePicture')
       .populate('following', 'username profilePicture');
-    
+
     if (!user) {
       user = await User.findById(req.params.userId)
         .populate('followers', 'username profilePicture')
         .populate('following', 'username profilePicture');
     }
-    
+
     if (!user) return res.status(404).json({ error: 'User not found' });
-    
+
     const profile = {
       id: user._id,
       firebaseUid: user.firebaseUid,
@@ -3192,7 +3269,7 @@ app.get('/api/users/profile/:userId', async (req, res) => {
       travelStats: user.travelStats,
       memberSince: user.createdAt
     };
-    
+
     res.json(profile);
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -3212,7 +3289,7 @@ app.get('/api/users/:id/stats', async (req, res) => {
     let tripCount = 0;
     let postCount = 0;
     let itineraryCount = 0;
-    
+
     try {
       if (global.TripPlan) {
         tripCount = await global.TripPlan.countDocuments({ userId: user._id });
@@ -3221,7 +3298,7 @@ app.get('/api/users/:id/stats', async (req, res) => {
       console.warn('TripPlan count failed:', e.message);
       tripCount = 0;
     }
-    
+
     try {
       if (global.Post) {
         postCount = await global.Post.countDocuments({ userId: user._id });
@@ -3230,7 +3307,7 @@ app.get('/api/users/:id/stats', async (req, res) => {
       console.warn('Post count failed:', e.message);
       postCount = 0;
     }
-    
+
     try {
       if (global.Itinerary) {
         itineraryCount = await global.Itinerary.countDocuments({ userId: user._id });
@@ -3239,7 +3316,7 @@ app.get('/api/users/:id/stats', async (req, res) => {
       console.warn('Itinerary count failed:', e.message);
       itineraryCount = 0;
     }
-    
+
     const favoriteCount = user.favoritePlaces ? user.favoritePlaces.length : 0;
 
     const stats = {
@@ -3316,7 +3393,7 @@ app.put('/api/users/:id', requireAuth, asyncHandler(async (req, res) => {
     console.log('[PUT /api/users/:id] incoming body:', { id: req.params.id, body: req.body, ip: req.ip || req.headers['x-forwarded-for'] || req.connection?.remoteAddress });
 
     // Only allow specific fields and ignore undefined to avoid erasing values
-    const allowed = ['username','email','tier','subscriptionStatus','subscriptionEndDate','trialEndDate','homeCurrency','language','selectedInterests','hasCompletedWizard','isAdmin','isMerchant','merchantInfo','profilePicture'];
+    const allowed = ['username', 'email', 'tier', 'subscriptionStatus', 'subscriptionEndDate', 'trialEndDate', 'homeCurrency', 'language', 'selectedInterests', 'hasCompletedWizard', 'isAdmin', 'isMerchant', 'merchantInfo', 'profilePicture'];
     const payload = {};
     for (const k of allowed) {
       if (Object.prototype.hasOwnProperty.call(req.body || {}, k) && req.body[k] !== undefined) {
@@ -3351,17 +3428,17 @@ app.put('/api/users/:id/profile-picture', async (req, res) => {
     if (!profilePicture) {
       return res.status(400).json({ error: 'Profile picture URL is required' });
     }
-    
+
     const user = await User.findByIdAndUpdate(
-      req.params.id, 
-      { profilePicture }, 
+      req.params.id,
+      { profilePicture },
       { new: true }
     );
-    
+
     if (!user) {
       return res.status(404).json({ error: 'User not found' });
     }
-    
+
     res.json({ success: true, profilePicture: user.profilePicture });
   } catch (error) {
     res.status(400).json({ error: error.message });
@@ -3390,7 +3467,7 @@ app.put('/api/users/:id/travel-style', async (req, res) => {
       user = await User.findById(req.params.id);
     }
     if (!user) return res.status(404).json({ error: 'User not found' });
-    
+
     user.travelStyle = travelStyle;
     await user.save();
     res.json({ success: true, travelStyle: user.travelStyle });
@@ -3407,16 +3484,16 @@ app.post('/api/posts', requireAuth, validatePost, asyncHandler(async (req, res) 
     if (Array.isArray(images) && images.length > 2) {
       return res.status(400).json({ error: 'Max 2 images allowed' });
     }
-    
+
     // Validate content length
     if (body.content?.text && body.content.text.length > 1000) {
       return res.status(400).json({ error: 'Post content too long' });
     }
-    
+
     // Add user info from authenticated user
     body.userId = req.user.id;
     body.moderationStatus = 'approved'; // Auto-approve for now
-    
+
     const post = new Post(body);
     const saved = await post.save();
     res.json(saved);
@@ -3431,12 +3508,12 @@ app.get('/api/posts', async (req, res) => {
     const page = Math.max(1, parseInt(req.query.page || '1', 10));
     const skip = (page - 1) * limit;
     const cursor = req.query.cursor;
-    
+
     let query = { moderationStatus: { $ne: 'rejected' } };
     if (cursor) {
       query.createdAt = { $lt: new Date(cursor) };
     }
-    
+
     const posts = await Post.find(query, {
       userId: 1, content: 1, author: 1, engagement: 1,
       tags: 1, category: 1, createdAt: 1
@@ -3445,10 +3522,10 @@ app.get('/api/posts', async (req, res) => {
       .limit(limit)
       .skip(cursor ? 0 : skip)
       .lean();
-    
+
     const nextCursor = posts.length === limit ? posts[posts.length - 1].createdAt : null;
     const hasMore = posts.length === limit;
-    
+
     res.json({ posts, pagination: { hasMore, nextCursor, page, limit } });
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -3466,32 +3543,32 @@ app.get('/api/community/posts', async (req, res) => {
     console.log('🔍 Community posts request received');
     console.log('📋 Query params:', req.query);
     console.log('🗄️ Database state:', mongoose.connection.readyState);
-    
+
     const limit = Math.min(50, parseInt(req.query.limit || '20', 10));
     const cursor = req.query.cursor;
-    
+
     // Check total posts in database first
     const totalPosts = await Post.countDocuments();
     console.log(`📊 Total posts in database: ${totalPosts}`);
-    
+
     if (totalPosts === 0) {
       console.log('⚠️ No posts found in database at all');
       return res.json([]);
     }
-    
+
     // Check posts by moderation status
     const approvedCount = await Post.countDocuments({ moderationStatus: 'approved' });
     const noStatusCount = await Post.countDocuments({ moderationStatus: { $exists: false } });
     const rejectedCount = await Post.countDocuments({ moderationStatus: 'rejected' });
     const pendingCount = await Post.countDocuments({ moderationStatus: 'pending' });
-    
+
     console.log('📈 Posts by status:');
     console.log(`  - Approved: ${approvedCount}`);
     console.log(`  - No status: ${noStatusCount}`);
     console.log(`  - Rejected: ${rejectedCount}`);
     console.log(`  - Pending: ${pendingCount}`);
-    
-    let query = { 
+
+    let query = {
       $or: [
         { moderationStatus: 'approved' },
         { moderationStatus: { $exists: false } }
@@ -3500,16 +3577,16 @@ app.get('/api/community/posts', async (req, res) => {
     if (cursor) {
       query.createdAt = { $lt: new Date(cursor) };
     }
-    
+
     console.log('🔍 Fetching posts with query:', JSON.stringify(query));
-    
+
     const posts = await Post.find(query)
       .sort({ createdAt: -1 })
       .limit(limit)
       .lean();
-    
+
     console.log(`✅ Found ${posts.length} posts matching query`);
-    
+
     if (posts.length > 0) {
       console.log('📝 Sample post:', {
         id: posts[0]._id,
@@ -3518,7 +3595,7 @@ app.get('/api/community/posts', async (req, res) => {
         hasContent: !!posts[0].content
       });
     }
-    
+
     // Return posts directly for mobile compatibility
     res.json(posts);
   } catch (error) {
@@ -3533,14 +3610,14 @@ app.get('/api/posts/community', async (req, res) => {
   res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
   res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, x-user-id, x-firebase-uid');
   res.header('Access-Control-Allow-Credentials', 'true');
-  
+
   try {
     const users = await User.find()
       .select('username profilePicture tier')
       .sort({ createdAt: -1 })
       .limit(10)
       .lean();
-    
+
     const topTravelers = users.map(user => ({
       id: user._id,
       name: user.username,
@@ -3548,7 +3625,7 @@ app.get('/api/posts/community', async (req, res) => {
       tier: user.tier || 'free',
       verified: user.tier === 'premium' || user.tier === 'pro'
     }));
-    
+
     res.json(topTravelers);
   } catch (error) {
     console.error('❌ Error fetching top travelers:', error);
@@ -3562,12 +3639,12 @@ app.post('/api/posts/community', flexAuth, async (req, res) => {
   res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
   res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, x-user-id, x-firebase-uid');
   res.header('Access-Control-Allow-Credentials', 'true');
-  
+
   try {
     const body = req.body || {};
     console.log('📝 Creating post - Raw body:', JSON.stringify(body, null, 2));
     console.log('👤 Auth user:', req.user);
-    
+
     // Ensure userId is set from authenticated user
     if (!body.userId && req.user?.uid) {
       // Try to find the user in the database to get the MongoDB ObjectId
@@ -3596,18 +3673,18 @@ app.post('/api/posts/community', flexAuth, async (req, res) => {
         body.userId = new mongoose.Types.ObjectId();
       }
     }
-    
+
     // Ensure moderationStatus is approved by default
     if (!body.moderationStatus) {
       body.moderationStatus = 'approved';
     }
-    
+
     console.log('📝 Final post data:', JSON.stringify(body, null, 2));
-    
+
     const post = new Post(body);
     const saved = await post.save();
     console.log('✅ Post saved successfully:', saved._id);
-    
+
     res.json(saved);
   } catch (error) {
     console.error('❌ Post creation error:', error);
@@ -3626,12 +3703,12 @@ app.post('/api/community/posts', flexAuth, async (req, res) => {
     console.log('📝 Creating post - Raw body:', JSON.stringify(body, null, 2));
     console.log('👤 Auth user:', req.user);
     console.log('🗜️ Database state:', mongoose.connection.readyState);
-    
+
     const images = body?.content?.images;
     if (Array.isArray(images) && images.length > 2) {
       return res.status(400).json({ error: 'Max 2 images allowed' });
     }
-    
+
     if (!body.userId && req.user?.uid) {
       // Try to find the user in the database to get the MongoDB ObjectId
       try {
@@ -3659,19 +3736,19 @@ app.post('/api/community/posts', flexAuth, async (req, res) => {
         body.userId = new mongoose.Types.ObjectId();
       }
     }
-    
+
     // Ensure moderationStatus is approved by default
     if (!body.moderationStatus) {
       body.moderationStatus = 'approved';
     }
-    
+
     console.log('📝 Final post data:', JSON.stringify(body, null, 2));
-    
+
     const post = new Post(body);
     console.log('💾 Attempting to save post...');
     const saved = await post.save();
     console.log('✅ Post saved successfully:', saved._id);
-    
+
     // Verify post was actually saved
     const verification = await Post.findById(saved._id);
     if (verification) {
@@ -3679,7 +3756,7 @@ app.post('/api/community/posts', flexAuth, async (req, res) => {
     } else {
       console.log('❌ Post verification failed - not found in database');
     }
-    
+
     // Broadcast new post to all connected clients
     try {
       io.emit('new_post', saved);
@@ -3687,7 +3764,7 @@ app.post('/api/community/posts', flexAuth, async (req, res) => {
     } catch (e) {
       console.warn('Failed to broadcast new post:', e?.message);
     }
-    
+
     res.json(saved);
   } catch (error) {
     console.error('❌ Post creation error:', error);
@@ -3744,7 +3821,7 @@ app.post('/api/posts/:id/bookmark', flexAuth, async (req, res) => {
     } else {
       user.bookmarkedPosts = [...bookmarks, req.params.id];
     }
-    
+
     await user.save();
     res.json({ success: true, bookmarked: !isBookmarked });
   } catch (error) {
@@ -3764,7 +3841,7 @@ app.get('/api/posts/bookmarked', flexAuth, async (req, res) => {
     const posts = await Post.find({ _id: { $in: user.bookmarkedPosts } })
       .sort({ createdAt: -1 })
       .lean();
-    
+
     res.json(posts);
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -3780,7 +3857,7 @@ app.post('/api/posts/:id/comments', flexAuth, async (req, res) => {
     }
     const post = await Post.findById(req.params.id);
     if (!post) return res.status(404).json({ error: 'Post not found' });
-    
+
     const commentUserId = userId || req.user?.uid;
     post.commentsList.push({ userId: commentUserId, username, text: text.trim() });
     post.engagement.comments = (post.engagement.comments || 0) + 1;
@@ -3822,7 +3899,7 @@ app.post('/api/posts/:postId/comments/:commentId/like', async (req, res) => {
       comment.likedBy.push(likerKey);
       comment.likes = (comment.likes || 0) + 1;
     }
-    
+
     await post.save();
     return res.json({
       success: true,
@@ -3860,22 +3937,22 @@ app.put('/api/posts/:id', async (req, res) => {
 app.post('/api/reviews', requireAuth, validateReview, asyncHandler(async (req, res) => {
   try {
     const { place_id, rating, text, author_name } = req.body;
-    
+
     if (!place_id || !rating || !text) {
       return res.status(400).json({ error: 'Missing required fields' });
     }
-    
+
     // Validate rating range
     const numRating = parseInt(rating);
     if (numRating < 1 || numRating > 5) {
       return res.status(400).json({ error: 'Rating must be between 1 and 5' });
     }
-    
+
     // Validate text length
     if (text.length < 10 || text.length > 500) {
       return res.status(400).json({ error: 'Review text must be between 10 and 500 characters' });
     }
-    
+
     const review = new Review({
       placeId: place_id,
       rating: numRating,
@@ -3884,7 +3961,7 @@ app.post('/api/reviews', requireAuth, validateReview, asyncHandler(async (req, r
       time: Math.floor(Date.now() / 1000),
       createdAt: new Date()
     });
-    
+
     await review.save();
     res.json({ success: true });
   } catch (error) {
@@ -3897,16 +3974,16 @@ app.get('/api/reviews', async (req, res) => {
   try {
     const placeId = req.query.place_id;
     if (!placeId) return res.json([]);
-    
+
     const reviews = await Review.find({ placeId }).populate('userId', 'username').sort({ createdAt: -1 });
-    
+
     const formatted = reviews.map(r => ({
       author_name: r.author_name || r.userId?.username || 'Anonymous User',
       rating: r.rating,
       text: r.text,
       time: r.time || Math.floor(r.createdAt.getTime() / 1000)
     }));
-    
+
     res.json(formatted);
   } catch (error) {
     res.json([]);
@@ -3919,12 +3996,12 @@ app.get('/api/reviews', async (req, res) => {
 app.post('/api/trips', requireAuth, validateTrip, asyncHandler(async (req, res) => {
   try {
     const tripData = { ...req.body, userId: req.user.id };
-    
+
     // Validate trip data
     if (!tripData.tripTitle || !tripData.destination) {
       return res.status(400).json({ error: 'Trip title and destination are required' });
     }
-    
+
     const trip = new TripPlan(tripData);
     await trip.save();
     res.json(trip);
@@ -3982,17 +4059,17 @@ app.put('/api/trip-plans/:id/activity-status', async (req, res) => {
   try {
     const { dayIndex, activityIndex, isVisited } = req.body;
     const trip = await TripPlan.findById(req.params.id);
-    
+
     if (!trip) {
       return res.status(404).json({ error: 'Trip not found' });
     }
-    
+
     if (trip.dailyPlans[dayIndex] && trip.dailyPlans[dayIndex].activities[activityIndex]) {
       trip.dailyPlans[dayIndex].activities[activityIndex].isVisited = isVisited;
       trip.dailyPlans[dayIndex].activities[activityIndex].visitedDate = isVisited ? new Date().toISOString() : null;
       await trip.save();
     }
-    
+
     res.json({ success: true });
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -4005,7 +4082,7 @@ app.patch('/api/users/trip-plans/:id/activities', async (req, res) => {
     const { dayIndex, activityIndex, isVisited, visitedDate } = req.body;
     const trip = await TripPlan.findById(req.params.id);
     if (!trip) return res.status(404).json({ error: 'Trip not found' });
-    
+
     if (trip.dailyPlans[dayIndex]?.activities[activityIndex]) {
       trip.dailyPlans[dayIndex].activities[activityIndex].isVisited = isVisited;
       trip.dailyPlans[dayIndex].activities[activityIndex].visitedDate = visitedDate;
@@ -4018,95 +4095,80 @@ app.patch('/api/users/trip-plans/:id/activities', async (req, res) => {
 });
 
 // HIGH PRIORITY: Social Features
-app.get('/api/users/followers', async (req, res) => {
+app.get('/api/users/followers', requireAuth, async (req, res) => {
   try {
-    const userId = req.headers['x-user-id'] || req.headers['x-firebase-uid'];
-    let user = await User.findOne({ firebaseUid: userId }).populate('followers', 'username profilePicture');
-    if (!user) {
-      user = await User.findById(userId).populate('followers', 'username profilePicture');
-    }
-    res.json(user?.followers || []);
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-app.get('/api/users/following', async (req, res) => {
-  try {
-    const userId = req.headers['x-user-id'] || req.headers['x-firebase-uid'];
-    let user = await User.findOne({ firebaseUid: userId }).populate('following', 'username profilePicture');
-    if (!user) {
-      user = await User.findById(userId).populate('following', 'username profilePicture');
-    }
-    res.json(user?.following || []);
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-app.get('/api/users/followers/count', async (req, res) => {
-  try {
-    const userId = req.headers['x-user-id'] || req.headers['x-firebase-uid'];
-    let user = await User.findOne({ firebaseUid: userId });
-    if (!user) {
-      user = await User.findById(userId);
-    }
-    res.json({ count: user?.followers?.length || 0 });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-app.get('/api/users/following/count', async (req, res) => {
-  try {
-    const userId = req.headers['x-user-id'] || req.headers['x-firebase-uid'];
-    let user = await User.findOne({ firebaseUid: userId });
-    if (!user) {
-      user = await User.findById(userId);
-    }
-    res.json({ count: user?.following?.length || 0 });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-app.delete('/api/users/profile', async (req, res) => {
-  try {
-    const userId = req.headers['x-user-id'] || req.headers['x-firebase-uid'];
-    if (!userId) return res.status(401).json({ error: 'User ID required' });
-    
-    let user = await User.findOne({ firebaseUid: userId });
-    if (!user) {
-      user = await User.findById(userId);
-    }
+    const firebaseUid = req.user.uid;
+    const user = await User.findOne({ firebaseUid }).populate('followers', 'username profilePicture');
     if (!user) return res.status(404).json({ error: 'User not found' });
-    
+    res.json(user.followers || []);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.get('/api/users/following', requireAuth, async (req, res) => {
+  try {
+    const firebaseUid = req.user.uid;
+    const user = await User.findOne({ firebaseUid }).populate('following', 'username profilePicture');
+    if (!user) return res.status(404).json({ error: 'User not found' });
+    res.json(user.following || []);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.get('/api/users/followers/count', requireAuth, async (req, res) => {
+  try {
+    const firebaseUid = req.user.uid;
+    const user = await User.findOne({ firebaseUid });
+    if (!user) return res.status(404).json({ error: 'User not found' });
+    res.json({ count: user.followers?.length || 0 });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.get('/api/users/following/count', requireAuth, async (req, res) => {
+  try {
+    const firebaseUid = req.user.uid;
+    const user = await User.findOne({ firebaseUid });
+    if (!user) return res.status(404).json({ error: 'User not found' });
+    res.json({ count: user.following?.length || 0 });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.delete('/api/users/profile', requireAuth, async (req, res) => {
+  try {
+    const firebaseUid = req.user.uid;
+    const user = await User.findOne({ firebaseUid });
+    if (!user) return res.status(404).json({ error: 'User not found' });
+
     // Delete user and all associated data
     await Promise.all([
       User.findByIdAndDelete(user._id),
       TripPlan.deleteMany({ userId: user._id }),
       Post.deleteMany({ userId: user._id })
     ]);
-    
+
     res.json({ success: true, message: 'User account deleted' });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 });
 
-app.post('/api/users/follow/:userId', async (req, res) => {
+app.post('/api/users/follow/:userId', requireAuth, async (req, res) => {
   try {
-    const followerId = req.headers['x-user-id'] || req.headers['x-firebase-uid'];
+    const firebaseUid = req.user.uid;
     const followeeId = req.params.userId;
-    
-    let follower = await User.findOne({ firebaseUid: followerId });
-    if (!follower) follower = await User.findById(followerId);
-    
-    let followee = await User.findOne({ firebaseUid: followeeId });
-    if (!followee) followee = await User.findById(followeeId);
-    
-    if (!follower || !followee) return res.status(404).json({ error: 'User not found' });
-    
+
+    const follower = await User.findOne({ firebaseUid });
+    if (!follower) return res.status(404).json({ error: 'Follower user not found' });
+
+    const followee = await User.findById(followeeId);
+    if (!followee) return res.status(404).json({ error: 'Target user not found' });
+
     await User.findByIdAndUpdate(follower._id, { $addToSet: { following: followee._id } });
     await User.findByIdAndUpdate(followee._id, { $addToSet: { followers: follower._id } });
     res.json({ success: true });
@@ -4115,19 +4177,17 @@ app.post('/api/users/follow/:userId', async (req, res) => {
   }
 });
 
-app.delete('/api/users/follow/:userId', async (req, res) => {
+app.delete('/api/users/follow/:userId', requireAuth, async (req, res) => {
   try {
-    const followerId = req.headers['x-user-id'] || req.headers['x-firebase-uid'];
+    const firebaseUid = req.user.uid;
     const followeeId = req.params.userId;
-    
-    let follower = await User.findOne({ firebaseUid: followerId });
-    if (!follower) follower = await User.findById(followerId);
-    
-    let followee = await User.findOne({ firebaseUid: followeeId });
-    if (!followee) followee = await User.findById(followeeId);
-    
-    if (!follower || !followee) return res.status(404).json({ error: 'User not found' });
-    
+
+    const follower = await User.findOne({ firebaseUid });
+    if (!follower) return res.status(404).json({ error: 'Follower user not found' });
+
+    const followee = await User.findById(followeeId);
+    if (!followee) return res.status(404).json({ error: 'Target user not found' });
+
     await User.findByIdAndUpdate(follower._id, { $pull: { following: followee._id } });
     await User.findByIdAndUpdate(followee._id, { $pull: { followers: follower._id } });
     res.json({ success: true });
@@ -4140,7 +4200,7 @@ app.delete('/api/users/follow/:userId', async (req, res) => {
 app.get('/api/safety/info', async (req, res) => {
   const { lat, lng } = req.query;
   if (!lat || !lng) return res.status(400).json({ error: 'lat and lng required' });
-  
+
   res.json({
     safetyLevel: 'moderate',
     warnings: ['Be aware of pickpockets in tourist areas'],
@@ -4152,7 +4212,7 @@ app.get('/api/safety/info', async (req, res) => {
 app.get('/api/safety/alerts', async (req, res) => {
   const { lat, lng, radius = 10000 } = req.query;
   if (!lat || !lng) return res.status(400).json({ error: 'lat and lng required' });
-  
+
   res.json([
     {
       id: 'alert_1',
@@ -4172,7 +4232,7 @@ app.post('/api/safety/report', async (req, res) => {
     if (!type || !description || !location) {
       return res.status(400).json({ error: 'type, description, and location required' });
     }
-    
+
     const report = {
       id: `report_${Date.now()}`,
       type,
@@ -4182,7 +4242,7 @@ app.post('/api/safety/report', async (req, res) => {
       reportedAt: new Date(),
       status: 'pending'
     };
-    
+
     res.json({ success: true, reportId: report.id });
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -4192,7 +4252,7 @@ app.post('/api/safety/report', async (req, res) => {
 app.get('/api/emergency/services', async (req, res) => {
   const { lat, lng, radius = 5000 } = req.query;
   if (!lat || !lng) return res.status(400).json({ error: 'lat and lng required' });
-  
+
   res.json([
     { type: 'hospital', name: 'General Hospital', address: 'Near your location', phone: '911', latitude: lat, longitude: lng, distance: 1.2 },
     { type: 'police', name: 'Police Station', address: 'Downtown', phone: '911', latitude: lat, longitude: lng, distance: 0.8 }
@@ -4213,7 +4273,7 @@ app.get('/api/users/travel-stats', async (req, res) => {
       user = await User.findById(userId);
     }
     if (!user) return res.status(404).json({ error: 'User not found' });
-    
+
     const stats = {
       totalPlacesVisited: user?.favoritePlaces?.length || 0,
       totalTrips: await TripPlan.countDocuments({ userId: user._id }),
@@ -4235,7 +4295,7 @@ app.put('/api/users/travel-stats', async (req, res) => {
       user = await User.findById(userId);
     }
     if (!user) return res.status(404).json({ error: 'User not found' });
-    
+
     await User.findByIdAndUpdate(user._id, { travelStats: req.body });
     res.json({ success: true });
   } catch (error) {
@@ -4252,7 +4312,7 @@ app.get('/api/trips/recent', async (req, res) => {
       .sort({ createdAt: -1 })
       .limit(limit)
       .lean();
-    
+
     res.json(trips);
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -4267,7 +4327,7 @@ app.get('/api/users/:userId/trips', async (req, res) => {
       user = await User.findById(req.params.userId);
     }
     if (!user) return res.status(404).json({ error: 'User not found' });
-    
+
     const trips = await TripPlan.find({ userId: user._id });
     res.json(trips);
   } catch (error) {
@@ -4276,17 +4336,12 @@ app.get('/api/users/:userId/trips', async (req, res) => {
 });
 
 // User trip plans alias for mobile app
-app.get('/api/users/trip-plans', async (req, res) => {
+app.get('/api/users/trip-plans', requireAuth, async (req, res) => {
   try {
-    const userId = req.headers['x-user-id'] || req.headers['x-firebase-uid'];
-    if (!userId) return res.status(401).json({ error: 'User ID required' });
-    
-    let user = await User.findOne({ firebaseUid: userId });
-    if (!user) {
-      user = await User.findById(userId);
-    }
+    const firebaseUid = req.user.uid;
+    const user = await User.findOne({ firebaseUid });
     if (!user) return res.status(404).json({ error: 'User not found' });
-    
+
     const trips = await TripPlan.find({ userId: user._id }).sort({ createdAt: -1 });
     res.json(trips);
   } catch (error) {
@@ -4294,17 +4349,12 @@ app.get('/api/users/trip-plans', async (req, res) => {
   }
 });
 
-app.post('/api/users/trip-plans', async (req, res) => {
+app.post('/api/users/trip-plans', requireAuth, async (req, res) => {
   try {
-    const userId = req.headers['x-user-id'] || req.headers['x-firebase-uid'];
-    if (!userId) return res.status(401).json({ error: 'User ID required' });
-    
-    let user = await User.findOne({ firebaseUid: userId });
-    if (!user) {
-      user = await User.findById(userId);
-    }
+    const firebaseUid = req.user.uid;
+    const user = await User.findOne({ firebaseUid });
     if (!user) return res.status(404).json({ error: 'User not found' });
-    
+
     const tripData = { ...req.body, userId: user._id };
     const trip = new TripPlan(tripData);
     await trip.save();
@@ -4314,23 +4364,18 @@ app.post('/api/users/trip-plans', async (req, res) => {
   }
 });
 
-app.put('/api/users/trip-plans/:id', async (req, res) => {
+app.put('/api/users/trip-plans/:id', requireAuth, async (req, res) => {
   try {
-    const userId = req.headers['x-user-id'] || req.headers['x-firebase-uid'];
-    if (!userId) return res.status(401).json({ error: 'User ID required' });
-    
-    let user = await User.findOne({ firebaseUid: userId });
-    if (!user) {
-      user = await User.findById(userId);
-    }
+    const firebaseUid = req.user.uid;
+    const user = await User.findOne({ firebaseUid });
     if (!user) return res.status(404).json({ error: 'User not found' });
-    
+
     const trip = await TripPlan.findOneAndUpdate(
       { _id: req.params.id, userId: user._id },
       req.body,
       { new: true }
     );
-    
+
     if (!trip) return res.status(404).json({ error: 'Trip plan not found' });
     res.json(trip);
   } catch (error) {
@@ -4338,12 +4383,13 @@ app.put('/api/users/trip-plans/:id', async (req, res) => {
   }
 });
 
-app.delete('/api/users/trip-plans/:id', async (req, res) => {
+app.delete('/api/users/trip-plans/:id', requireAuth, async (req, res) => {
   try {
-    const userId = req.headers['x-user-id'] || req.headers['x-firebase-uid'];
-    if (!userId) return res.status(401).json({ error: 'User ID required' });
-    
-    await TripPlan.findByIdAndDelete(req.params.id);
+    const firebaseUid = req.user.uid;
+    const user = await User.findOne({ firebaseUid });
+    if (!user) return res.status(404).json({ error: 'User not found' });
+
+    await TripPlan.findOneAndDelete({ _id: req.params.id, userId: user._id });
     res.json({ success: true });
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -4354,15 +4400,15 @@ app.post('/api/users/trip-plans/sync', async (req, res) => {
   try {
     const userId = req.headers['x-user-id'] || req.headers['x-firebase-uid'];
     if (!userId) return res.status(401).json({ error: 'User ID required' });
-    
+
     let user = await User.findOne({ firebaseUid: userId });
     if (!user) {
       user = await User.findById(userId);
     }
     if (!user) return res.status(404).json({ error: 'User not found' });
-    
+
     const { tripPlans } = req.body;
-    
+
     for (const plan of tripPlans) {
       plan.userId = user._id;
       await TripPlan.findOneAndUpdate(
@@ -4371,7 +4417,7 @@ app.post('/api/users/trip-plans/sync', async (req, res) => {
         { upsert: true }
       );
     }
-    
+
     res.json({ success: true });
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -4385,7 +4431,7 @@ app.get('/api/users/:userId/trip-plans', async (req, res) => {
       user = await User.findById(req.params.userId);
     }
     if (!user) return res.status(404).json({ error: 'User not found' });
-    
+
     const trips = await TripPlan.find({ userId: user._id });
     res.json(trips);
   } catch (error) {
@@ -4400,7 +4446,7 @@ app.post('/api/users/:userId/trip-plans', async (req, res) => {
       user = await User.findById(req.params.userId);
     }
     if (!user) return res.status(404).json({ error: 'User not found' });
-    
+
     const tripData = { ...req.body, userId: user._id };
     const trip = new TripPlan(tripData);
     await trip.save();
@@ -4431,13 +4477,16 @@ app.get('/api/shared/trip-plans/:shareId', async (req, res) => {
   }
 });
 
-app.post('/api/users/trip-plans/sync', async (req, res) => {
+app.post('/api/users/trip-plans/sync', requireAuth, async (req, res) => {
   try {
-    const userId = req.headers['x-user-id'];
+    const firebaseUid = req.user.uid;
+    const user = await User.findOne({ firebaseUid });
+    if (!user) return res.status(404).json({ error: 'User not found' });
+
     const { tripPlans } = req.body;
-    
+
     for (const plan of tripPlans) {
-      plan.userId = userId;
+      plan.userId = user._id; // Corrected to use MongoDB _id from the looked-up user
       await TripPlan.findOneAndUpdate({ localId: plan.localId }, plan, { upsert: true });
     }
     res.json({ success: true });
@@ -4447,23 +4496,20 @@ app.post('/api/users/trip-plans/sync', async (req, res) => {
 });
 
 // MEDIUM PRIORITY: User Subscription Management
-app.put('/api/users/subscription', async (req, res) => {
+app.put('/api/users/subscription', requireAuth, async (req, res) => {
   try {
-    const userId = req.headers['x-user-id'] || req.headers['x-firebase-uid'];
+    const firebaseUid = req.user.uid;
     const { tier, status, endDate } = req.body;
-    
-    let user = await User.findOne({ firebaseUid: userId });
-    if (!user) {
-      user = await User.findById(userId);
-    }
+
+    const user = await User.findOne({ firebaseUid });
     if (!user) return res.status(404).json({ error: 'User not found' });
-    
+
     const updatedUser = await User.findByIdAndUpdate(user._id, {
       tier,
       subscriptionStatus: status,
       subscriptionEndDate: endDate
     }, { new: true });
-    
+
     res.json(updatedUser);
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -4474,16 +4520,16 @@ app.put('/api/users/subscription', async (req, res) => {
 
 app.post('/api/ai/safety-content', enforcePolicy('openai'), async (req, res) => {
   const { latitude, longitude, location, contentType } = req.body;
-  
+
   try {
     const prompt = `Generate safety information for ${location} (${latitude}, ${longitude}). Return JSON: {"safetyLevel":"moderate","warnings":["Warning 1"],"tips":["Tip 1"],"emergencyNumbers":{"police":"911"}}`;
-    
+
     const completion = await openai.chat.completions.create({
       model: process.env.AZURE_OPENAI_DEPLOYMENT_NAME,
       messages: [{ role: "user", content: prompt }],
       temperature: 0.7
     });
-    
+
     const jsonMatch = completion.choices[0].message.content.match(/\{[\s\S]*\}/);
     const data = jsonMatch ? JSON.parse(jsonMatch[0]) : { safetyLevel: 'moderate', warnings: [], tips: [] };
     res.json(data);
@@ -4520,7 +4566,7 @@ app.post('/api/users/:userId/favorites', async (req, res) => {
       user = await User.findById(req.params.userId);
     }
     if (!user) return res.status(404).json({ error: 'User not found' });
-    
+
     if (!user.favoritePlaces.includes(req.body.placeId)) {
       user.favoritePlaces.push(req.body.placeId);
       await user.save();
@@ -4552,7 +4598,7 @@ app.delete('/api/users/:userId/favorites/:placeId', async (req, res) => {
       user = await User.findById(req.params.userId);
     }
     if (!user) return res.status(404).json({ error: 'User not found' });
-    
+
     user.favoritePlaces = user.favoritePlaces.filter(id => id !== req.params.placeId);
     await user.save();
     res.json({ success: true });
@@ -4605,16 +4651,16 @@ app.post('/api/reports', async (req, res) => {
   try {
     const report = new Report(req.body);
     await report.save();
-    
+
     // Auto-flag post if multiple reports
     const reportCount = await Report.countDocuments({ postId: req.body.postId });
     if (reportCount >= 3) {
-      await Post.findByIdAndUpdate(req.body.postId, { 
+      await Post.findByIdAndUpdate(req.body.postId, {
         requiresReview: true,
         moderationStatus: 'pending'
       });
     }
-    
+
     res.json({ success: true });
   } catch (error) {
     res.status(400).json({ error: error.message });
@@ -4678,7 +4724,7 @@ app.get('/api/runtime-config', (req, res) => {
 app.get('/api/firebase-debug', (req, res) => {
   const currentDomain = req.get('host') || req.hostname
   const origin = req.get('origin') || `${req.protocol}://${currentDomain}`
-  
+
   res.json({
     currentDomain,
     origin,
@@ -4709,19 +4755,19 @@ app.get('/api/weather/forecast', async (req, res) => {
     }
 
     const googleApiKey = process.env.GOOGLE_PLACES_API_KEY;
-    
+
     if (googleApiKey) {
       try {
         // Try OpenWeatherMap API for real weather data
         const weatherUrl = `https://api.openweathermap.org/data/2.5/forecast?lat=${lat}&lon=${lng}&appid=${googleApiKey}&units=metric`;
         console.log('🌤️ Fetching REAL weather forecast from OpenWeatherMap');
-        
+
         const weatherResponse = await fetch(weatherUrl);
-        
+
         if (weatherResponse.ok) {
           const weatherData = await weatherResponse.json();
           console.log('✅ Got REAL weather forecast data');
-          
+
           // Parse real weather data
           const hourlyForecast = weatherData.list.slice(0, 8).map(item => ({
             time: new Date(item.dt * 1000),
@@ -4731,10 +4777,10 @@ app.get('/api/weather/forecast', async (req, res) => {
             emoji: getWeatherEmoji(item.weather[0].main),
             precipitation: item.rain?.['3h'] || 0
           }));
-          
+
           const dailyForecast = [];
           const dailyMap = new Map();
-          
+
           weatherData.list.forEach(item => {
             const date = new Date(item.dt * 1000).toISOString().split('T')[0];
             if (!dailyMap.has(date)) {
@@ -4750,13 +4796,13 @@ app.get('/api/weather/forecast', async (req, res) => {
             day.conditions.push(item.weather[0].main);
             day.precipitation += item.rain?.['3h'] || 0;
           });
-          
+
           dailyMap.forEach((day, date) => {
             if (dailyForecast.length < 5) {
-              const mostCommonCondition = day.conditions.sort((a,b) => 
+              const mostCommonCondition = day.conditions.sort((a, b) =>
                 day.conditions.filter(v => v === a).length - day.conditions.filter(v => v === b).length
               ).pop();
-              
+
               dailyForecast.push({
                 date,
                 tempMax: Math.round(Math.max(...day.temps)),
@@ -4768,7 +4814,7 @@ app.get('/api/weather/forecast', async (req, res) => {
               });
             }
           });
-          
+
           return res.json({
             daily: dailyForecast,
             hourly: hourlyForecast
@@ -4778,32 +4824,32 @@ app.get('/api/weather/forecast', async (req, res) => {
         console.warn('⚠️ OpenWeatherMap API failed, trying fallback:', apiError.message);
       }
     }
-    
+
     // Fallback: Use Google Geocoding for location-aware mock data
     if (googleApiKey) {
       try {
         const geocodeUrl = `https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lng}&key=${googleApiKey}`;
         const geocodeResponse = await fetch(geocodeUrl);
-        
+
         if (geocodeResponse.ok) {
           const geocodeData = await geocodeResponse.json();
           const locationName = geocodeData.results?.[0]?.formatted_address || 'Unknown Location';
           console.log('🌍 Using location-aware fallback for:', locationName);
-          
+
           const isNorthern = parseFloat(lat) > 0;
           const isTropical = Math.abs(parseFloat(lat)) < 23.5;
           const isCoastal = locationName.toLowerCase().includes('coast');
-          
+
           let baseTemp = 20;
           if (isTropical) baseTemp = 28;
           else if (Math.abs(parseFloat(lat)) > 60) baseTemp = 5;
           else if (Math.abs(parseFloat(lat)) > 45) baseTemp = 15;
-          
+
           if (isCoastal) baseTemp += 3;
-          
+
           const conditions = isTropical ? ['sunny', 'partly_cloudy', 'rainy'] : ['sunny', 'cloudy', 'partly_cloudy'];
           const condition = conditions[Math.floor(Math.random() * conditions.length)];
-          
+
           const hourlyForecast = Array.from({ length: 24 }, (_, i) => {
             const hour = new Date(Date.now() + i * 60 * 60 * 1000);
             const tempVariation = Math.sin((i - 6) * Math.PI / 12) * 4;
@@ -4816,7 +4862,7 @@ app.get('/api/weather/forecast', async (req, res) => {
               precipitation: condition === 'rainy' ? Math.random() * 3 : 0
             };
           });
-          
+
           const dailyForecast = Array.from({ length: 5 }, (_, i) => ({
             date: new Date(Date.now() + i * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
             tempMax: Math.round(baseTemp + 3 + Math.random() * 3),
@@ -4826,7 +4872,7 @@ app.get('/api/weather/forecast', async (req, res) => {
             precipitation: Math.random() * 2,
             emoji: getWeatherEmoji(condition)
           }));
-          
+
           return res.json({
             daily: dailyForecast,
             hourly: hourlyForecast
@@ -4836,12 +4882,12 @@ app.get('/api/weather/forecast', async (req, res) => {
         console.warn('⚠️ Geocoding failed:', geocodeError.message);
       }
     }
-    
+
     // Final fallback
     console.log('🎭 Using basic fallback forecast');
     const baseTemp = 22;
     const condition = 'sunny';
-    
+
     const forecastData = {
       daily: Array.from({ length: 5 }, (_, i) => ({
         date: new Date(Date.now() + i * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
@@ -4864,7 +4910,7 @@ app.get('/api/weather/forecast', async (req, res) => {
         };
       })
     };
-    
+
     res.json(forecastData);
   } catch (error) {
     res.status(500).json({ error: 'Failed to fetch weather forecast', details: error.message });
@@ -4891,19 +4937,19 @@ app.get('/api/weather/google', async (req, res) => {
     }
 
     const googleApiKey = process.env.GOOGLE_PLACES_API_KEY;
-    
+
     // Try OpenWeatherMap API for REAL weather data
     if (googleApiKey) {
       try {
         const weatherUrl = `https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lng}&appid=${googleApiKey}&units=metric`;
         console.log('🌤️ Fetching REAL current weather from OpenWeatherMap');
-        
+
         const weatherResponse = await fetch(weatherUrl);
-        
+
         if (weatherResponse.ok) {
           const weatherData = await weatherResponse.json();
           console.log('✅ Got REAL current weather data');
-          
+
           const realWeatherData = {
             location: {
               lat: parseFloat(lat),
@@ -4920,7 +4966,7 @@ app.get('/api/weather/google', async (req, res) => {
               iconUrl: `https://openweathermap.org/img/w/${weatherData.weather[0].icon}.png`
             }
           };
-          
+
           console.log(`🌡️ Real temperature: ${realWeatherData.current.temperature}°C`);
           console.log(`🌤️ Real condition: ${realWeatherData.current.condition}`);
           return res.json(realWeatherData);
@@ -4928,38 +4974,38 @@ app.get('/api/weather/google', async (req, res) => {
       } catch (apiError) {
         console.warn('⚠️ OpenWeatherMap API failed, using fallback:', apiError.message);
       }
-      
+
       try {
         // Fallback: Use Google Geocoding to get location info for weather context
         const geocodeUrl = `https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lng}&key=${googleApiKey}`;
         const geocodeResponse = await fetch(geocodeUrl);
-        
+
         if (geocodeResponse.ok) {
           const geocodeData = await geocodeResponse.json();
           const locationName = geocodeData.results?.[0]?.formatted_address || 'Unknown Location';
-          
+
           // Generate location-aware realistic weather using Google's location data
           const getLocationBasedWeather = (lat, lng, locationName) => {
             const isNorthern = lat > 0;
             const isTropical = Math.abs(lat) < 23.5;
             const isCoastal = locationName.toLowerCase().includes('coast') || locationName.toLowerCase().includes('beach');
-            
+
             let baseTemp = 20;
             if (isTropical) baseTemp = 28;
             else if (Math.abs(lat) > 60) baseTemp = 5;
             else if (Math.abs(lat) > 45) baseTemp = 15;
-            
-            const season = isNorthern ? 
+
+            const season = isNorthern ?
               (new Date().getMonth() < 3 || new Date().getMonth() > 10 ? 'winter' : 'summer') :
               (new Date().getMonth() < 3 || new Date().getMonth() > 10 ? 'summer' : 'winter');
-            
+
             if (season === 'winter') baseTemp -= 10;
             if (isCoastal) baseTemp += 3;
-            
-            const conditions = isTropical ? 
-              ['sunny', 'partly_cloudy', 'rainy'] : 
+
+            const conditions = isTropical ?
+              ['sunny', 'partly_cloudy', 'rainy'] :
               ['sunny', 'cloudy', 'partly_cloudy', 'rainy'];
-            
+
             return {
               temperature: Math.max(0, Math.round(baseTemp + (Math.random() - 0.5) * 10)),
               condition: conditions[Math.floor(Math.random() * conditions.length)],
@@ -4967,9 +5013,9 @@ app.get('/api/weather/google', async (req, res) => {
               windSpeed: Math.round(isCoastal ? 10 + Math.random() * 15 : 5 + Math.random() * 10)
             };
           };
-          
+
           const weather = getLocationBasedWeather(parseFloat(lat), parseFloat(lng), locationName);
-          
+
           const smartWeatherData = {
             location: {
               lat: parseFloat(lat),
@@ -5005,7 +5051,7 @@ app.get('/api/weather/google', async (req, res) => {
               }))
             }
           };
-          
+
           console.log('✅ Using Google-enhanced location-aware weather data');
           return res.json(smartWeatherData);
         }
@@ -5013,12 +5059,12 @@ app.get('/api/weather/google', async (req, res) => {
         console.warn('⚠️ Google API failed:', apiError.message);
       }
     }
-    
+
     // Final fallback to basic mock data
     console.log('🎭 Using basic mock weather data as final fallback');
     const temp = Math.round(15 + Math.random() * 20);
     const condition = ['sunny', 'cloudy', 'partly_cloudy', 'rainy'][Math.floor(Math.random() * 4)];
-    
+
     const mockWeatherData = {
       location: {
         lat: parseFloat(lat),
@@ -5080,12 +5126,12 @@ app.post('/api/admin/moderate/:postId', requireAdminAuth, async (req, res) => {
   try {
     const { action } = req.body; // 'approve', 'reject', 'flag'
     const status = action === 'approve' ? 'approved' : action === 'reject' ? 'rejected' : 'pending';
-    
+
     await Post.findByIdAndUpdate(req.params.postId, {
       moderationStatus: status,
       requiresReview: action === 'flag'
     });
-    
+
     res.json({ success: true });
   } catch (error) {
     res.status(400).json({ error: error.message });
@@ -5101,10 +5147,10 @@ app.get('/api/csrf-token', (req, res) => {
 
 // CORS test endpoint
 app.get('/api/cors-test', (req, res) => {
-  res.json({ 
-    message: 'CORS is working!', 
+  res.json({
+    message: 'CORS is working!',
     origin: req.headers.origin,
-    timestamp: new Date().toISOString() 
+    timestamp: new Date().toISOString()
   });
 });
 
@@ -5117,8 +5163,8 @@ app.get('/api/health', (req, res) => {
 
 // Root endpoint for domain verification
 app.get('/', (req, res) => {
-  res.json({ 
-    message: 'TravelBuddy API Server', 
+  res.json({
+    message: 'TravelBuddy API Server',
     status: 'running',
     version: '1.2.0',
     endpoints: {
@@ -5148,8 +5194,8 @@ app.get('/health', (req, res) => {
 
 // Test endpoint to verify deployment
 app.get('/api/test-deployment', (req, res) => {
-  res.json({ 
-    message: 'Deployment successful', 
+  res.json({
+    message: 'Deployment successful',
     timestamp: new Date().toISOString(),
     endpoints: {
       localDishes: '/api/dishes/local',
@@ -5197,7 +5243,7 @@ app.get('/api/posts/count', async (req, res) => {
 app.post('/api/debug/create-test-posts', async (req, res) => {
   try {
     console.log('📝 Creating test posts...');
-    
+
     const testPosts = [
       {
         userId: new mongoose.Types.ObjectId(),
@@ -5242,10 +5288,10 @@ app.post('/api/debug/create-test-posts', async (req, res) => {
         category: 'travel'
       }
     ];
-    
+
     const createdPosts = await Post.insertMany(testPosts);
     console.log(`✅ Created ${createdPosts.length} test posts`);
-    
+
     res.json({
       success: true,
       created: createdPosts.length,
@@ -5271,10 +5317,10 @@ app.get('/api/ai/test-key', (req, res) => {
 // Azure OpenAI Place Search
 app.get('/api/search/places', enforcePolicy('openai'), async (req, res) => {
   const startTime = Date.now();
-  
+
   try {
     const { q: query, category, rating } = req.query;
-    
+
     if (!query) {
       return res.status(400).json({ error: 'Search query is required' });
     }
@@ -5302,9 +5348,9 @@ app.get('/api/search/places', enforcePolicy('openai'), async (req, res) => {
       messages: [{ role: "user", content: prompt }],
       temperature: 0.7
     });
-    
+
     const text = completion.choices[0].message.content;
-    
+
     // Parse JSON response
     let places;
     try {
@@ -5316,7 +5362,7 @@ app.get('/api/search/places', enforcePolicy('openai'), async (req, res) => {
 
     recordUsage({ api: 'openai', action: 'search_places', status: 'success', durationMs: Date.now() - startTime });
     res.json(places);
-    
+
   } catch (error) {
     recordUsage({ api: 'openai', action: 'search_places', status: 'error', durationMs: Date.now() - startTime });
     res.status(500).json({ error: 'Search failed', details: error.message });
@@ -5348,10 +5394,10 @@ Return only a JSON array of tags: ["tag1", "tag2"]`
       messages: [{ role: "user", content: prompt }],
       temperature: 0.3
     })
-    
+
     const text = completion.choices[0].message.content
     let tags = []
-    
+
     try {
       const jsonMatch = text.match(/\[.*\]/)
       if (jsonMatch) {
@@ -5360,12 +5406,12 @@ Return only a JSON array of tags: ["tag1", "tag2"]`
     } catch (parseError) {
       // Fallback: extract tags from text
       const availableTags = ['Adventure', 'Food', 'Culture', 'Nature', 'Photography', 'Beach', 'Mountain', 'City']
-      tags = availableTags.filter(tag => 
-        title.toLowerCase().includes(tag.toLowerCase()) || 
+      tags = availableTags.filter(tag =>
+        title.toLowerCase().includes(tag.toLowerCase()) ||
         content.toLowerCase().includes(tag.toLowerCase())
       ).slice(0, 3)
     }
-    
+
     res.json({ tags: tags.slice(0, 4) })
   } catch (error) {
     console.error('AI tagging error:', error)
@@ -5386,18 +5432,18 @@ app.get('/api/ai/test-generate', async (req, res) => {
       messages: [{ role: "user", content: 'Say hello in JSON format: {"message": "your response"}' }],
       temperature: 0.7
     });
-    
+
     const text = completion.choices[0].message.content;
-    
+
     res.json({
       success: true,
       response: text,
       timestamp: new Date().toISOString()
     });
   } catch (error) {
-    res.status(500).json({ 
-      error: 'OpenAI test failed', 
-      details: error.message 
+    res.status(500).json({
+      error: 'OpenAI test failed',
+      details: error.message
     });
   }
 });
@@ -5414,12 +5460,12 @@ app.get('/api/weather/test-real', async (req, res) => {
     const testLat = parseFloat(process.env.TEST_LATITUDE || '40.7128');
     const testLng = parseFloat(process.env.TEST_LONGITUDE || '-74.0060');
     const url = `https://api.openweathermap.org/data/2.5/weather?lat=${testLat}&lon=${testLng}&appid=${weatherKey}&units=metric`;
-    
+
     const response = await fetch(url);
     if (!response.ok) {
-      return res.status(response.status).json({ 
-        error: 'OpenWeatherMap API error', 
-        status: response.status 
+      return res.status(response.status).json({
+        error: 'OpenWeatherMap API error',
+        status: response.status
       });
     }
 
@@ -5433,9 +5479,9 @@ app.get('/api/weather/test-real', async (req, res) => {
       timestamp: new Date().toISOString()
     });
   } catch (error) {
-    res.status(500).json({ 
-      error: 'Weather test failed', 
-      details: error.message 
+    res.status(500).json({
+      error: 'Weather test failed',
+      details: error.message
     });
   }
 });
@@ -5510,16 +5556,16 @@ if (ENABLE_FIREBASE_AUTH && !adminAuth) {
 app.post('/api/auth/register', async (req, res) => {
   try {
     const { username, email, password } = req.body;
-    
+
     if (!username || !email || !password) {
       return res.status(400).json({ error: 'Username, email, and password are required' });
     }
 
     // Check if user already exists
-    const existingUser = await User.findOne({ 
-      $or: [{ email }, { username }] 
+    const existingUser = await User.findOne({
+      $or: [{ email }, { username }]
     });
-    
+
     if (existingUser) {
       return res.status(400).json({ error: 'User already exists with this email or username' });
     }
@@ -5531,12 +5577,12 @@ app.post('/api/auth/register', async (req, res) => {
       // In production, hash the password with bcrypt
       // password: await bcrypt.hash(password, 10)
     });
-    
+
     await user.save();
-    
+
     // Generate a simple token (use JWT in production)
     const token = Buffer.from(`${user._id}:${Date.now()}`).toString('base64');
-    
+
     res.json({
       success: true,
       user: {
@@ -5556,14 +5602,14 @@ app.post('/api/auth/register', async (req, res) => {
 app.post('/api/auth/login', async (req, res) => {
   try {
     const { email, password } = req.body;
-    
+
     if (!email || !password) {
       return res.status(400).json({ error: 'Email and password are required' });
     }
 
     // Find user by email
     const user = await User.findOne({ email });
-    
+
     if (!user) {
       return res.status(401).json({ error: 'Invalid credentials' });
     }
@@ -5573,12 +5619,12 @@ app.post('/api/auth/login', async (req, res) => {
     // if (!isValidPassword) {
     //   return res.status(401).json({ error: 'Invalid credentials' });
     // }
-    
+
     // For now, accept any password (development only)
-    
+
     // Generate a simple token (use JWT in production)
     const token = Buffer.from(`${user._id}:${Date.now()}`).toString('base64');
-    
+
     res.json({
       success: true,
       user: {
@@ -5600,7 +5646,7 @@ app.get('/api/auth/profile', async (req, res) => {
   try {
     const authHeader = req.headers['authorization'] || '';
     const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
-    
+
     if (!token) {
       return res.status(401).json({ error: 'No token provided' });
     }
@@ -5608,9 +5654,9 @@ app.get('/api/auth/profile', async (req, res) => {
     // Decode simple token (use JWT verification in production)
     const decoded = Buffer.from(token, 'base64').toString('utf8');
     const [userId] = decoded.split(':');
-    
+
     const user = await User.findById(userId);
-    
+
     if (!user) {
       return res.status(401).json({ error: 'Invalid token' });
     }
@@ -5635,7 +5681,7 @@ app.put('/api/auth/profile', async (req, res) => {
   try {
     const authHeader = req.headers['authorization'] || '';
     const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
-    
+
     if (!token) {
       return res.status(401).json({ error: 'No token provided' });
     }
@@ -5643,15 +5689,15 @@ app.put('/api/auth/profile', async (req, res) => {
     // Decode simple token (use JWT verification in production)
     const decoded = Buffer.from(token, 'base64').toString('utf8');
     const [userId] = decoded.split(':');
-    
+
     const { username, email } = req.body;
-    
+
     const user = await User.findByIdAndUpdate(
       userId,
       { $set: { username, email } },
       { new: true }
     );
-    
+
     if (!user) {
       return res.status(404).json({ error: 'User not found' });
     }
@@ -5707,7 +5753,7 @@ app.post('/api/auth/firebase-login', async (req, res) => {
     console.log('🔍 Looking for existing user...');
     // Upsert user by firebaseUid/email
     let user = await User.findOne({ $or: [{ firebaseUid: uid }, ...(email ? [{ email }] : [])] });
-    
+
     if (!user) {
       console.log('👤 Creating new user...');
       user = new User({
@@ -5724,7 +5770,7 @@ app.post('/api/auth/firebase-login', async (req, res) => {
       if (email && user.email !== email) user.email = email;
       if (name && !user.username.includes('@')) user.username = name;
     }
-    
+
     // Reflect admin claim into our user document for convenience
     if (typeof user.isAdmin === 'boolean') {
       if (!!user.isAdmin !== !!isAdmin) {
@@ -5734,7 +5780,7 @@ app.post('/api/auth/firebase-login', async (req, res) => {
       // initialize if field missing
       user.isAdmin = true;
     }
-    
+
     console.log('💾 Saving user to database...');
     const savedUser = await user.save();
     console.log('✅ User saved successfully:', savedUser._id);
@@ -5783,8 +5829,8 @@ app.get('/api/places/details', enforcePolicy('places'), async (req, res) => {
       'price_level',
       'photos'
     ];
-    const isPremium = ['premium','pro'].includes(req._tier);
-    const fields = isPremium ? baseFields.concat(['rating','user_ratings_total']) : baseFields;
+    const isPremium = ['premium', 'pro'].includes(req._tier);
+    const fields = isPremium ? baseFields.concat(['rating', 'user_ratings_total']) : baseFields;
     url.searchParams.set('fields', fields.join(','));
     url.searchParams.set('key', apiKey);
 
@@ -5814,21 +5860,21 @@ app.get('/api/places/details', enforcePolicy('places'), async (req, res) => {
       price_level: r.price_level,
       photos: Array.isArray(r.photos)
         ? r.photos.slice(0, Math.max(1, Math.min(6, req._policy?.features?.photosPerPlace || 6))).map(p => ({
-            photo_reference: p.photo_reference,
-            width: p.width,
-            height: p.height,
-            html_attributions: p.html_attributions
-          }))
+          photo_reference: p.photo_reference,
+          width: p.width,
+          height: p.height,
+          html_attributions: p.html_attributions
+        }))
         : []
     };
 
     detailsCache.set(key, { data: normalized, ts: Date.now() });
     // cache-control headers to allow CDN/browser caching
     res.setHeader('Cache-Control', 'public, max-age=86400, s-maxage=86400');
-  recordUsage({ api: 'places', action: 'details', status: 'success', durationMs: Date.now() - start, meta: { cache: 'set' } });
+    recordUsage({ api: 'places', action: 'details', status: 'success', durationMs: Date.now() - start, meta: { cache: 'set' } });
     res.json(normalized);
   } catch (err) {
-  recordUsage({ api: 'places', action: 'details', status: 'error', meta: { err: err?.message || String(err) } });
+    recordUsage({ api: 'places', action: 'details', status: 'error', meta: { err: err?.message || String(err) } });
     res.status(500).json({ error: 'Failed to fetch place details', details: err?.message || String(err) });
   }
 });
@@ -5838,7 +5884,7 @@ app.get('/api/db-check', async (req, res) => {
   try {
     const dbState = mongoose.connection.readyState;
     const dbStatus = dbState === 1 ? 'connected' : dbState === 2 ? 'connecting' : 'disconnected';
-    
+
     const [userCount, postCount, reviewCount, tripCount, dealCount, eventCount] = await Promise.all([
       User.countDocuments(),
       Post.countDocuments(),
@@ -5847,10 +5893,10 @@ app.get('/api/db-check', async (req, res) => {
       Deal.countDocuments(),
       Event.countDocuments()
     ]);
-    
+
     // Get recent users for debugging
     const recentUsers = await User.find().sort({ createdAt: -1 }).limit(5).select('username email firebaseUid createdAt');
-    
+
     res.json({
       database: {
         status: dbStatus,
@@ -5878,16 +5924,16 @@ app.get('/api/dishes', async (req, res) => {
   try {
     const { city, country, cuisine, limit = 20 } = req.query;
     const query = {};
-    
+
     if (city) query['location.city'] = new RegExp(city, 'i');
     if (country) query['location.country'] = new RegExp(country, 'i');
     if (cuisine) query.cuisine = new RegExp(cuisine, 'i');
-    
+
     const dishes = await Dish.find(query)
       .sort({ isPopular: -1, createdAt: -1 })
       .limit(Math.min(50, parseInt(limit, 10)))
       .lean();
-    
+
     res.json(dishes);
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -5897,11 +5943,11 @@ app.get('/api/dishes', async (req, res) => {
 app.get('/api/dishes/local', enforcePolicy('openai'), async (req, res) => {
   try {
     const { lat, lng, limit = 10 } = req.query;
-    
+
     if (!lat || !lng) {
       return res.status(400).json({ error: 'lat and lng are required' });
     }
-    
+
     const dishes = await getAILocalDishes(parseFloat(lat), parseFloat(lng), parseInt(limit, 10));
     res.json(dishes);
   } catch (error) {
@@ -5952,9 +5998,9 @@ Return ONLY a valid JSON array with this exact structure:
       messages: [{ role: "user", content: prompt }],
       temperature: 0.7
     });
-    
+
     const text = completion.choices[0].message.content;
-    
+
     if (!text) {
       throw new Error('No response from OpenAI');
     }
@@ -5966,7 +6012,7 @@ Return ONLY a valid JSON array with this exact structure:
     }
 
     const aiDishes = JSON.parse(jsonMatch[0]);
-    
+
     // Transform to mobile app format
     const mobileDishes = aiDishes.map(dish => ({
       id: Math.random().toString(36).substr(2, 9),
@@ -6069,7 +6115,7 @@ function generateMockLocalDishes(lat, lng) {
       culturalNote: 'Traditional comfort food with local ingredients'
     }
   ];
-  
+
   return dishes.slice(0, 8); // Return up to 8 dishes
 }
 
@@ -6102,7 +6148,7 @@ function generateCulturalNote(dishName, cuisine) {
 // Mock emergency services generator
 function generateMockEmergencyServices(lat, lng, serviceType, limit) {
   const mockServices = [];
-  
+
   const policeNames = [
     'Central Police Station',
     'Metropolitan Police Division',
@@ -6110,7 +6156,7 @@ function generateMockEmergencyServices(lat, lng, serviceType, limit) {
     'District Police Station',
     'Community Police Post'
   ];
-  
+
   const hospitalNames = [
     'General Hospital',
     'Medical Center',
@@ -6118,17 +6164,17 @@ function generateMockEmergencyServices(lat, lng, serviceType, limit) {
     'City Hospital',
     'Regional Medical Center'
   ];
-  
+
   const streets = [
-    'Main Street', 'Central Avenue', 'Hospital Road', 'Police Lane', 
+    'Main Street', 'Central Avenue', 'Hospital Road', 'Police Lane',
     'Emergency Drive', 'Safety Boulevard', 'Service Road', 'Station Street'
   ];
-  
+
   for (let i = 0; i < limit; i++) {
     const names = serviceType === 'police' ? policeNames : hospitalNames;
     const street = streets[Math.floor(Math.random() * streets.length)];
     const number = Math.floor(Math.random() * 999) + 1;
-    
+
     const service = {
       id: Math.random().toString(36).substr(2, 9),
       name: names[i % names.length],
@@ -6145,7 +6191,7 @@ function generateMockEmergencyServices(lat, lng, serviceType, limit) {
     };
     mockServices.push(service);
   }
-  
+
   return mockServices;
 }
 
@@ -6175,7 +6221,7 @@ async function getRealEmergencyServices(lat, lng, serviceType, limit) {
   const places = data.results.slice(0, limit).map(place => {
     const distance = haversineMeters(lat, lng, place.geometry.location.lat, place.geometry.location.lng);
     const distanceKm = (distance / 1000).toFixed(1);
-    
+
     return {
       id: place.place_id,
       name: place.name,
@@ -6219,11 +6265,11 @@ app.post('/api/dishes', async (req, res) => {
 app.get('/api/emergency/police', async (req, res) => {
   try {
     const { lat, lng, limit = 3 } = req.query;
-    
+
     if (!lat || !lng) {
       return res.status(400).json({ error: 'lat and lng are required' });
     }
-    
+
     const policeStations = await getRealEmergencyServices(parseFloat(lat), parseFloat(lng), 'police station', parseInt(limit, 10));
     res.json(policeStations);
   } catch (error) {
@@ -6237,11 +6283,11 @@ app.get('/api/emergency/police', async (req, res) => {
 app.get('/api/emergency/hospitals', async (req, res) => {
   try {
     const { lat, lng, limit = 3 } = req.query;
-    
+
     if (!lat || !lng) {
       return res.status(400).json({ error: 'lat and lng are required' });
     }
-    
+
     const hospitals = await getRealEmergencyServices(parseFloat(lat), parseFloat(lng), 'hospital', parseInt(limit, 10));
     res.json(hospitals);
   } catch (error) {
@@ -6294,16 +6340,16 @@ Return ONLY a valid JSON array with this exact structure:
       messages: [{ role: "user", content: prompt }],
       temperature: 0.7
     });
-    
+
     const text = completion.choices[0].message.content;
-    
+
     if (!text) {
       throw new Error('No response from OpenAI');
     }
 
     // Extract JSON from response
     console.log('Raw AI Response:', text);
-    
+
     let jsonMatch = text.match(/\[.*\]/s);
     if (!jsonMatch) {
       // Try to find JSON in code blocks
@@ -6324,12 +6370,12 @@ Return ONLY a valid JSON array with this exact structure:
       console.error('Attempted to parse:', jsonMatch[0]);
       throw new Error('Failed to parse AI JSON response');
     }
-    
+
     if (!Array.isArray(aiServices)) {
       console.error('AI response is not an array:', aiServices);
       throw new Error('AI response must be an array');
     }
-    
+
     // Transform to mobile app format
     const mobileServices = aiServices.map(service => ({
       id: Math.random().toString(36).substr(2, 9),
@@ -6350,7 +6396,7 @@ Return ONLY a valid JSON array with this exact structure:
     return mobileServices;
   } catch (error) {
     recordUsage({ api: 'openai', action: `emergency_${serviceType}`, status: 'error', durationMs: Date.now() - start, meta: { err: error?.message } });
-    
+
     // Fallback to mock data when AI fails
     console.log('AI failed, using fallback mock data');
     return generateMockEmergencyServices(lat, lng, serviceType, limit);
@@ -6364,11 +6410,11 @@ app.post('/api/users/setup-profile', async (req, res) => {
     if (!userId || !profileType) {
       return res.status(400).json({ error: 'userId and profileType required' });
     }
-    
+
     const user = await User.findByIdAndUpdate(
       userId,
-      { 
-        $set: { 
+      {
+        $set: {
           profileType,
           enabledModules: modules || [],
           profileSetupComplete: true
@@ -6376,7 +6422,7 @@ app.post('/api/users/setup-profile', async (req, res) => {
       },
       { new: true }
     );
-    
+
     if (!user) return res.status(404).json({ error: 'User not found' });
     res.json({ success: true, user });
   } catch (error) {
@@ -6389,13 +6435,13 @@ app.put('/api/services/profile', async (req, res) => {
   try {
     const { userId, ...serviceData } = req.body;
     if (!userId) return res.status(400).json({ error: 'userId required' });
-    
+
     const user = await User.findByIdAndUpdate(
       userId,
       { $set: { serviceProfile: serviceData } },
       { new: true }
     );
-    
+
     if (!user) return res.status(404).json({ error: 'User not found' });
     res.json({ success: true, serviceProfile: user.serviceProfile });
   } catch (error) {
@@ -6418,13 +6464,13 @@ app.put('/api/business/profile', async (req, res) => {
   try {
     const { userId, ...businessData } = req.body;
     if (!userId) return res.status(400).json({ error: 'userId required' });
-    
+
     const user = await User.findByIdAndUpdate(
       userId,
       { $set: { businessProfile: businessData } },
       { new: true }
     );
-    
+
     if (!user) return res.status(404).json({ error: 'User not found' });
     res.json({ success: true, businessProfile: user.businessProfile });
   } catch (error) {
@@ -6485,8 +6531,8 @@ try {
   console.error('❌ CRITICAL: Failed to load admin routes:', error);
   console.error('Stack trace:', error.stack);
   app.all('/api/admin/*', (req, res) => {
-    res.status(503).json({ 
-      error: 'Admin routes failed to load', 
+    res.status(503).json({
+      error: 'Admin routes failed to load',
       details: error.message,
       timestamp: new Date().toISOString()
     });
@@ -6502,6 +6548,24 @@ try {
   console.error('❌ Failed to load deals routes:', error);
 }
 
+// AI Trip Generator routes
+try {
+  const aiTripsRouter = (await import('./routes/ai-trip-generator.js')).default;
+  app.use('/api/ai-trips', aiTripsRouter);
+  console.log('✅ AI Trip routes loaded');
+} catch (error) {
+  console.error('❌ Failed to load AI Trip routes:', error);
+}
+
+// General AI routes
+try {
+  const aiRouter = (await import('./routes/ai.js')).default;
+  app.use('/api/ai', aiRouter);
+  console.log('✅ AI routes loaded');
+} catch (error) {
+  console.error('❌ Failed to load AI routes:', error);
+}
+
 
 
 
@@ -6513,11 +6577,11 @@ try {
 // Serve React app (catch-all for SPA routing)
 app.get('*', (req, res) => {
   // Skip API routes and static assets
-  if (req.path.startsWith('/api') || 
-      req.path.includes('.')) {
+  if (req.path.startsWith('/api') ||
+    req.path.includes('.')) {
     return res.status(404).json({ error: 'Not found' });
   }
-  
+
   // Serve index.html for SPA routing
   const indexPaths = [
     staticPath ? path.join(staticPath, 'index.html') : null,
@@ -6525,13 +6589,13 @@ app.get('*', (req, res) => {
     path.join(__dirname, '../dist/index.html'),
     path.join(__dirname, '../frontend/dist/index.html')
   ].filter(Boolean);
-  
+
   for (const indexPath of indexPaths) {
     if (existsSync(indexPath)) {
       return res.sendFile(indexPath);
     }
   }
-  
+
   res.status(404).send('Frontend not built. Please run npm run build.');
 });
 
@@ -6558,7 +6622,7 @@ app.post('/api/subscriptions/start-trial', async (req, res) => {
     const { userId, tier } = req.body || {};
     if (!userId || !tier) return res.status(400).json({ error: 'userId and tier are required' });
     // Only paid tiers support trials
-    if (!['basic','premium','pro'].includes(tier)) return res.status(400).json({ error: 'trial not available for this tier' });
+    if (!['basic', 'premium', 'pro'].includes(tier)) return res.status(400).json({ error: 'trial not available for this tier' });
 
     const trialEnd = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
     const updated = await User.findByIdAndUpdate(
@@ -6647,7 +6711,7 @@ app.get('/api/admin/moderation/stats', requireAdminAuth, async (req, res) => {
     const flaggedPosts = await Post.countDocuments({ requiresReview: true });
     const pendingReports = await Report.countDocuments({ status: 'pending' });
     const rejectedPosts = await Post.countDocuments({ moderationStatus: 'rejected' });
-    
+
     res.json({
       totalPosts,
       flaggedPosts,

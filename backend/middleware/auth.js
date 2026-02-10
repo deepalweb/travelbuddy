@@ -23,7 +23,7 @@ export const requireAuth = async (req, res, next) => {
     }
 
     const token = authHeader.substring(7);
-    
+
     // Handle demo tokens
     if (token.startsWith('demo-token-')) {
       req.user = {
@@ -33,15 +33,26 @@ export const requireAuth = async (req, res, next) => {
       };
       return next();
     }
-    
+
     // Verify Firebase token
+    // DEVELOPMENT OVERRIDE: If no admin credentials, accept any token
+    if (process.env.NODE_ENV === 'development' && !process.env.FIREBASE_ADMIN_CREDENTIALS_JSON) {
+      console.warn('⚠️ Dev Auth Bypass: Accepting token without verification (Admin SDK not configured)');
+      req.user = {
+        uid: 'dev-user-firebase-bypass',
+        email: 'dev@example.com',
+        emailVerified: true
+      };
+      return next();
+    }
+
     const decodedToken = await admin.auth().verifyIdToken(token);
     req.user = {
       uid: decodedToken.uid,
       email: decodedToken.email,
       emailVerified: decodedToken.email_verified
     };
-    
+
     next();
   } catch (error) {
     console.error('Auth error:', error.message);
@@ -86,11 +97,11 @@ export const requireOwnership = (getOwnerId) => {
       if (!ownerId) {
         return res.status(404).json({ error: 'Resource not found' });
       }
-      
+
       if (ownerId.toString() !== req.user.uid) {
         return res.status(403).json({ error: 'Access denied' });
       }
-      
+
       next();
     } catch (error) {
       return res.status(500).json({ error: 'Authorization check failed' });
@@ -131,12 +142,12 @@ export const devBypass = (req, res, next) => {
   if (process.env.NODE_ENV === 'production') {
     return res.status(403).json({ error: 'Development endpoint disabled' });
   }
-  
+
   req.user = {
     uid: 'dev-user-123',
     email: 'dev@localhost',
     emailVerified: true
   };
-  
+
   next();
 };

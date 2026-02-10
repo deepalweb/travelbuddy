@@ -1,18 +1,90 @@
-import { apiService } from './apiService'
+// API service utilities
+
+// New detailed trip structure
+export interface Activity {
+  timeSlot: string
+  activityType: string
+  activityTitle: string
+  details: string
+  cost: string
+  notes: string
+  imageUrl?: string
+  googleMapsUrl?: string
+  isVisited?: boolean
+  rating?: number
+}
+
+export interface DailyPlan {
+  day: number
+  date: string
+  theme: string
+  activities: Activity[]
+  overnight?: {
+    name: string
+    price: string
+    note: string
+  }
+}
+
+export interface ExpenseCategory {
+  desc: string
+  cost: string
+}
+
+export interface ExpenseBreakdown {
+  fixed: {
+    accommodation: ExpenseCategory
+    transport: ExpenseCategory
+    tickets: ExpenseCategory
+  }
+  variable: {
+    dining: ExpenseCategory
+    localTransport: ExpenseCategory
+  }
+  total: string
+}
+
+export interface TripOverview {
+  totalTravelDays: string
+  keyAttractions: string[]
+  transportSummary: string
+  hotels: string[]
+  estimatedTotalBudget: string
+  tripStyle?: string
+  bestFor?: string[]
+  accommodationType?: string
+}
+
+export interface PreTripPreparation {
+  booking: string[]
+  packing: string[]
+  weather: string
+  notes: string[]
+}
 
 export interface TripPlan {
-  id: string
+  _id: string
   tripTitle: string
   destination: string
   duration: string
   introduction: string
-  dailyPlans: DailyTripPlan[]
-  conclusion: string
+  tripOverview: TripOverview
+  dailyItinerary: DailyPlan[]
+  expenseBreakdown: ExpenseBreakdown
+  preTripPreparation: PreTripPreparation
+  createdAt: string
+  // Legacy fields for backward compatibility
+  totalEstimatedCost?: string
+  estimatedWalkingDistance?: string
+  // Old structure fields (for backward compatibility)
+  dailyPlans?: DailyTripPlan[]
+  conclusion?: string
   accommodationSuggestions?: string[]
   transportationTips?: string[]
   budgetConsiderations?: string[]
 }
 
+// Legacy interfaces for backward compatibility
 export interface DailyTripPlan {
   day: number
   title: string
@@ -78,7 +150,7 @@ class TripService {
       console.log('🔐 Using demo token for authentication')
       return demoToken
     }
-    
+
     // Try Firebase token
     try {
       const { auth } = await import('../lib/firebase')
@@ -87,17 +159,17 @@ class TripService {
         console.log('🔐 Using Firebase token for authentication')
         return token
       }
-    } catch (firebaseError) {
-      console.log('⚠️ Firebase not available:', firebaseError.message)
+    } catch (firebaseError: any) {
+      console.log('⚠️ Firebase not available:', firebaseError?.message || 'Unknown error')
     }
-    
+
     // Fallback to other stored tokens
     const authToken = localStorage.getItem('auth_token')
     if (authToken) {
       console.log('🔐 Using fallback auth token')
       return authToken
     }
-    
+
     console.log('❌ No authentication token found')
     return null
   }
@@ -107,21 +179,21 @@ class TripService {
     const headers: Record<string, string> = {
       'Content-Type': 'application/json'
     }
-    
+
     const token = await this.getAuthToken()
     if (token) {
       headers['Authorization'] = `Bearer ${token}`
     }
-    
+
     return headers
   }
 
   private async request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
     const url = `${this.baseURL}/api${endpoint}`
-    
+
     // Get auth headers and merge with provided headers
     const authHeaders = await this.getAuthHeaders()
-    
+
     const config: RequestInit = {
       headers: {
         ...authHeaders,
@@ -132,25 +204,25 @@ class TripService {
 
     console.log(`🚀 Making request to: ${url}`)
     console.log(`🔑 Auth headers:`, Object.keys(authHeaders))
-    
+
     const response = await fetch(url, config)
-    
+
     console.log(`📊 Response status: ${response.status} ${response.statusText}`)
-    
+
     if (!response.ok) {
       const errorText = await response.text()
       console.log(`❌ Error response:`, errorText)
-      
+
       let errorData
       try {
         errorData = JSON.parse(errorText)
       } catch {
         errorData = { message: errorText || 'Request failed' }
       }
-      
+
       throw new Error(errorData.message || `HTTP ${response.status}: ${response.statusText}`)
     }
-    
+
     const data = await response.json()
     console.log(`✅ Success response:`, Array.isArray(data) ? `Array with ${data.length} items` : 'Object')
     return data
@@ -193,7 +265,7 @@ class TripService {
   // Update trip plan
   async updateTripPlan(tripPlan: TripPlan): Promise<boolean> {
     try {
-      await this.request(`/users/trip-plans/${tripPlan.id}`, {
+      await this.request(`/users/trip-plans/${tripPlan._id}`, {
         method: 'PUT',
         body: JSON.stringify(tripPlan),
       })
@@ -208,9 +280,9 @@ class TripService {
 
   // Update activity visited status
   async updateActivityStatus(
-    tripPlanId: string, 
-    dayIndex: number, 
-    activityIndex: number, 
+    tripPlanId: string,
+    dayIndex: number,
+    activityIndex: number,
     isVisited: boolean
   ): Promise<boolean> {
     try {
@@ -324,15 +396,15 @@ class TripService {
         method: 'DELETE',
         headers,
       })
-      
+
       const specificKeys = [
         `trip-notes-${tripPlanId}`,
         `trip-activities-${tripPlanId}`,
         `trip-cache-${tripPlanId}`
       ]
-      
+
       specificKeys.forEach(key => localStorage.removeItem(key))
-      
+
       return true
     } catch (error) {
       console.error('Error deleting trip plan:', error)
@@ -366,8 +438,24 @@ class TripService {
     }
   }
 
+  // Update trip plan
+  async updateTrip(tripId: string, tripPlan: Partial<TripPlan>): Promise<boolean> {
+    try {
+      const headers = await this.getAuthHeaders()
+      await this.request(`/users/trip-plans/${tripId}`, {
+        method: 'PUT',
+        headers,
+        body: JSON.stringify(tripPlan),
+      })
+      return true
+    } catch (error) {
+      console.error('Error updating trip:', error)
+      return false
+    }
+  }
+
   // Alias for getUserTripPlans (compatibility)
-  async getTrips(userId?: string): Promise<TripPlan[]> {
+  async getTrips(): Promise<TripPlan[]> {
     return this.getUserTripPlans()
   }
 }

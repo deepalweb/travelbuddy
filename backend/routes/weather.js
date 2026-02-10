@@ -1,12 +1,12 @@
-const express = require('express');
+import express from 'express';
 const router = express.Router();
-const axios = require('axios');
+import axios from 'axios';
 
 // Get current weather using Google Weather API
 router.get('/current', async (req, res) => {
   try {
     const { lat, lng } = req.query;
-    
+
     if (!lat || !lng) {
       return res.status(400).json({ error: 'Latitude and longitude required' });
     }
@@ -28,7 +28,7 @@ router.get('/current', async (req, res) => {
     );
 
     const data = response.data;
-    
+
     res.json({
       temperature: Math.round(data.temperature?.value || 28),
       condition: data.weatherCode?.toLowerCase() || 'sunny',
@@ -47,7 +47,7 @@ router.get('/current', async (req, res) => {
 router.get('/forecast', async (req, res) => {
   try {
     const { lat, lng } = req.query;
-    
+
     if (!lat || !lng) {
       return res.status(400).json({ error: 'Latitude and longitude required' });
     }
@@ -89,4 +89,4 @@ router.get('/forecast', async (req, res) => {
   }
 });
 
-module.exports = router;
+export default router;

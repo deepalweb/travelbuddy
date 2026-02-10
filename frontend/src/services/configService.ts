@@ -29,17 +29,17 @@ class ConfigService {
   }
 
   private async fetchConfig(): Promise<RuntimeConfig> {
-    const baseUrl = import.meta.env.PROD 
-      ? window.location.origin 
+    const baseUrl = import.meta.env.PROD
+      ? window.location.origin
       : (import.meta.env.VITE_API_BASE_URL || 'https://travelbuddy-b2c6hgbbgeh4esdh.eastus2-01.azurewebsites.net');
-    
+
     try {
       const response = await fetch(`${baseUrl}/api/runtime-config`);
       if (!response.ok) {
         throw new Error(`Config fetch failed: ${response.status}`);
       }
       const runtimeConfig = await response.json();
-      
+
       return {
         apiBaseUrl: baseUrl,
         firebase: runtimeConfig.firebase,
@@ -56,9 +56,9 @@ class ConfigService {
 
   private getBuildTimeConfig(): RuntimeConfig {
     return {
-      apiBaseUrl: import.meta.env.PROD 
-        ? window.location.origin 
-        : 'http://localhost:3001',
+      apiBaseUrl: import.meta.env.PROD
+        ? window.location.origin
+        : (import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000'),
       firebase: {
         apiKey: import.meta.env.VITE_FIREBASE_API_KEY || '',
         authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || '',

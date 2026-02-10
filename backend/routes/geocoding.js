@@ -1,11 +1,12 @@
-const express = require('express');
+import express from 'express';
 const router = express.Router();
+import fetch from 'node-fetch';
 
 // Geocoding endpoint to get coordinates for destinations
 router.get('/geocode', async (req, res) => {
   try {
     const { address } = req.query;
-    
+
     if (!address) {
       return res.status(400).json({ error: 'Address parameter is required' });
     }
@@ -17,7 +18,7 @@ router.get('/geocode', async (req, res) => {
     }
 
     const geocodeUrl = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(address)}&key=${googleApiKey}`;
-    
+
     const response = await fetch(geocodeUrl);
     const data = await response.json();
 
@@ -39,4 +40,4 @@ router.get('/geocode', async (req, res) => {
   }
 });
 
-module.exports = router;
+export default router;

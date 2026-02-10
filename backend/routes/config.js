@@ -1,4 +1,4 @@
-const express = require('express');
+import express from 'express';
 const router = express.Router();
 
 // GET /api/config/keys - Return API keys for mobile app
@@ -9,4 +9,4 @@ router.get('/keys', (req, res) => {
   });
 });
 
-module.exports = router;
+export default router;

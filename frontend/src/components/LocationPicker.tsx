@@ -8,8 +8,8 @@ interface LocationData {
     lat: number
     lng: number
   }
-  city?: string
-  country?: string
+  city: string
+  country: string
 }
 
 interface LocationPickerProps {
@@ -31,7 +31,7 @@ export const LocationPicker: React.FC<LocationPickerProps> = ({ value, onChange,
         async (position) => {
           const lat = position.coords.latitude
           const lng = position.coords.longitude
-          
+
           // Reverse geocode to get address
           try {
             const address = await reverseGeocode(lat, lng)
@@ -44,7 +44,9 @@ export const LocationPicker: React.FC<LocationPickerProps> = ({ value, onChange,
           } catch (error) {
             onChange({
               address: `${lat.toFixed(6)}, ${lng.toFixed(6)}`,
-              coordinates: { lat, lng }
+              coordinates: { lat, lng },
+              city: '',
+              country: ''
             })
           }
           setLoading(false)
@@ -104,8 +106,8 @@ export const LocationPicker: React.FC<LocationPickerProps> = ({ value, onChange,
         lat: parseFloat(suggestion.lat),
         lng: parseFloat(suggestion.lon)
       },
-      city: suggestion.address?.city || suggestion.address?.town || suggestion.address?.village,
-      country: suggestion.address?.country
+      city: suggestion.address?.city || suggestion.address?.town || suggestion.address?.village || '',
+      country: suggestion.address?.country || ''
     })
     setSearchQuery('')
     setSuggestions([])
@@ -138,7 +140,7 @@ export const LocationPicker: React.FC<LocationPickerProps> = ({ value, onChange,
             className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
           />
         </div>
-        
+
         {/* Suggestions Dropdown */}
         {suggestions.length > 0 && (
           <div className="mt-2 bg-white border border-gray-200 rounded-lg shadow-lg max-h-60 overflow-y-auto">

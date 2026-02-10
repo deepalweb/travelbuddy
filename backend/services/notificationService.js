@@ -1,17 +1,28 @@
-const admin = require('firebase-admin');
+import admin from 'firebase-admin';
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 let initialized = false;
 
-function initializeFirebase() {
+export function initializeFirebase() {
   if (initialized) return;
-  
+
   try {
     // Try to initialize with service account
-    const serviceAccount = require('../firebase-service-account.json');
-    admin.initializeApp({
-      credential: admin.credential.cert(serviceAccount)
-    });
-    console.log('✅ Firebase Admin initialized with service account');
+    const serviceAccountPath = path.join(__dirname, '../firebase-service-account.json');
+    if (fs.existsSync(serviceAccountPath)) {
+      const serviceAccount = JSON.parse(fs.readFileSync(serviceAccountPath, 'utf8'));
+      admin.initializeApp({
+        credential: admin.credential.cert(serviceAccount)
+      });
+      console.log('✅ Firebase Admin initialized with service account');
+    } else {
+      throw new Error('Service account file not found');
+    }
     initialized = true;
   } catch (error) {
     console.warn('⚠️ Firebase service account not found, using default credentials');
@@ -24,10 +35,10 @@ function initializeFirebase() {
   }
 }
 
-async function sendNotification(fcmToken, title, body, data = {}) {
+export async function sendNotification(fcmToken, title, body, data = {}) {
   if (!initialized) initializeFirebase();
   if (!initialized) return false;
-  
+
   const message = {
     notification: { title, body },
     data: Object.keys(data).reduce((acc, key) => {
@@ -36,7 +47,7 @@ async function sendNotification(fcmToken, title, body, data = {}) {
     }, {}),
     token: fcmToken
   };
-  
+
   try {
     await admin.messaging().send(message);
     console.log(`✅ Notification sent to ${fcmToken.substring(0, 20)}...`);
@@ -47,10 +58,10 @@ async function sendNotification(fcmToken, title, body, data = {}) {
   }
 }
 
-async function sendToTopic(topic, title, body, data = {}) {
+export async function sendToTopic(topic, title, body, data = {}) {
   if (!initialized) initializeFirebase();
   if (!initialized) return false;
-  
+
   const message = {
     notification: { title, body },
     data: Object.keys(data).reduce((acc, key) => {
@@ -59,7 +70,7 @@ async function sendToTopic(topic, title, body, data = {}) {
     }, {}),
     topic
   };
-  
+
   try {
     await admin.messaging().send(message);
     console.log(`✅ Notification sent to topic: ${topic}`);
@@ -70,10 +81,10 @@ async function sendToTopic(topic, title, body, data = {}) {
   }
 }
 
-async function sendToMultipleTokens(tokens, title, body, data = {}) {
+export async function sendToMultipleTokens(tokens, title, body, data = {}) {
   if (!initialized) initializeFirebase();
   if (!initialized || !tokens || tokens.length === 0) return;
-  
+
   const message = {
     notification: { title, body },
     data: Object.keys(data).reduce((acc, key) => {
@@ -82,7 +93,7 @@ async function sendToMultipleTokens(tokens, title, body, data = {}) {
     }, {}),
     tokens: tokens.slice(0, 500) // FCM limit
   };
-  
+
   try {
     const response = await admin.messaging().sendMulticast(message);
     console.log(`✅ Sent to ${response.successCount}/${tokens.length} devices`);
@@ -93,7 +104,7 @@ async function sendToMultipleTokens(tokens, title, body, data = {}) {
   }
 }
 
-module.exports = {
+export default {
   initializeFirebase,
   sendNotification,
   sendToTopic,
