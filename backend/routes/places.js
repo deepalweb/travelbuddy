@@ -1,7 +1,7 @@
 import express from 'express';
 import fetch from 'node-fetch';
 import OpenAI from 'openai';
-import { EnhancedPlacesSearch } from '../enhanced-places-search.js';
+import { AzureMapsSearch } from '../services/azureMapsSearch.js';
 import { PlacesOptimizer } from '../places-optimization.js';
 import PlacesCache from '../models/PlacesCache.js';
 import costTracker from '../services/costTracker.js';
@@ -131,11 +131,11 @@ router.get('/hybrid', async (req, res) => {
 router.get('/mobile/nearby', async (req, res) => {
   try {
     const { lat, lng, q, radius = 25000, limit = 150, offset = 0, userId } = req.query;
-    const apiKey = process.env.GOOGLE_PLACES_API_KEY;
+    const apiKey = process.env.AZURE_MAPS_API_KEY;
     
     if (!apiKey) {
-      console.error('❌ GOOGLE_PLACES_API_KEY not configured');
-      return res.status(500).json({ error: 'GOOGLE_PLACES_API_KEY not configured' });
+      console.error('❌ AZURE_MAPS_API_KEY not configured');
+      return res.status(500).json({ error: 'AZURE_MAPS_API_KEY not configured' });
     }
 
     if (!lat || !lng) {
@@ -147,19 +147,14 @@ router.get('/mobile/nearby', async (req, res) => {
     const maxResults = parseInt(limit, 10);
     const skipResults = parseInt(offset, 10);
 
-    // Create cache key (rounded to 2 decimals for better cache hits)
     const cacheKey = `${parseFloat(lat).toFixed(2)}_${parseFloat(lng).toFixed(2)}_${query}_${searchRadius}`;
     
-    // Check database cache first (24 hour expiry)
     try {
       const cached = await PlacesCache.findOne({ key: cacheKey });
       if (cached) {
         costTracker.trackCacheHit();
         console.log(`✅ Cache HIT: ${cacheKey} | Hits: ${cached.hits}`);
-        
-        // Increment hit counter
         await PlacesCache.updateOne({ key: cacheKey }, { $inc: { hits: 1 } });
-        
         return res.json(cached.data);
       }
     } catch (cacheError) {
@@ -169,16 +164,15 @@ router.get('/mobile/nearby', async (req, res) => {
     console.log(`🔥 HYBRID: ${query} within ${searchRadius}m`);
     costTracker.trackAPICall('nearby');
 
-    // LAYER 1: Google Places API (Core Discovery + Place Identity)
-    const enhancedSearch = new EnhancedPlacesSearch(apiKey);
-    let results = await enhancedSearch.searchPlacesComprehensive(
+    const azureMapsSearch = new AzureMapsSearch(apiKey);
+    let results = await azureMapsSearch.searchPlacesComprehensive(
       parseFloat(lat), 
       parseFloat(lng), 
       query, 
       searchRadius
     );
     
-    console.log(`✅ Layer 1 (Google): ${results.length} places with real IDs`);
+    console.log(`✅ Layer 1 (Azure Maps): ${results.length} places with real IDs`);
     
     if (results.length === 0) {
       return res.json({
