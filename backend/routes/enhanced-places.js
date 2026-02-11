@@ -1,6 +1,7 @@
 import express from 'express';
 import fetch from 'node-fetch';
 import OpenAI from 'openai';
+import { AzureMapsSearch } from '../services/azureMapsSearch.js';
 
 const router = express.Router();
 
@@ -14,34 +15,17 @@ const openai = process.env.AZURE_OPENAI_API_KEY ? new OpenAI({
   },
 }) : null;
 
-// Step 1: Get real places from Google Places API
-async function fetchGooglePlaces(lat, lng, query, radius = 5000, pageToken = null) {
-  const apiKey = process.env.GOOGLE_PLACES_API_KEY;
-  if (!apiKey) throw new Error('Google Places API key required');
+// Step 1: Get real places from Azure Maps
+async function fetchAzurePlaces(lat, lng, query, radius = 5000) {
+  const apiKey = process.env.AZURE_MAPS_API_KEY;
+  if (!apiKey) throw new Error('Azure Maps API key required');
 
-  let url;
-  if (pageToken) {
-    // Use next page token for pagination
-    url = `https://maps.googleapis.com/maps/api/place/nearbysearch/json?pagetoken=${pageToken}&key=${apiKey}`;
-  } else if (lat && lng) {
-    // Nearby search with coordinates
-    url = `https://maps.googleapis.com/maps/api/place/nearbysearch/json?location=${lat},${lng}&radius=${radius}&keyword=${encodeURIComponent(query)}&key=${apiKey}`;
-  } else {
-    // Text search for location-based queries - add travel keywords for better results
-    const searchQuery = `tourist attractions landmarks museums parks beaches temples restaurants hotels things to do in ${query}`;
-    url = `https://maps.googleapis.com/maps/api/place/textsearch/json?query=${encodeURIComponent(searchQuery)}&key=${apiKey}`;
-  }
-  
-  const response = await fetch(url);
-  const data = await response.json();
-  
-  if (data.status !== 'OK') {
-    throw new Error(`Google Places API error: ${data.status}`);
-  }
+  const azureMapsSearch = new AzureMapsSearch(apiKey);
+  const results = await azureMapsSearch.searchPlacesComprehensive(lat, lng, query, radius);
   
   return {
-    results: data.results || [],
-    nextPageToken: data.next_page_token || null
+    results: results || [],
+    nextPageToken: null
   };
 }
 
@@ -87,24 +71,22 @@ Generate JSON:
   }
 }
 
-// Step 3: Format for frontend with real Google photos
-function formatPlaceForFrontend(googlePlace, aiEnhancement) {
-  const photoUrl = googlePlace.photos?.[0] 
-    ? `/api/places/photo?ref=${googlePlace.photos[0].photo_reference}&w=800`
-    : `https://source.unsplash.com/800x600/?${encodeURIComponent(googlePlace.name)}`;
+// Step 3: Format for frontend with Unsplash photos
+function formatPlaceForFrontend(azurePlace, aiEnhancement) {
+  const photoUrl = `https://source.unsplash.com/800x600/?${encodeURIComponent(azurePlace.name)},travel`;
 
   return {
-    id: googlePlace.place_id,
-    name: googlePlace.name,
+    id: azurePlace.place_id,
+    name: azurePlace.name,
     description: aiEnhancement.description,
-    category: googlePlace.types?.[0]?.replace(/_/g, ' ') || 'place',
-    rating: googlePlace.rating || 4.0,
+    category: azurePlace.types?.[0]?.replace(/_/g, ' ') || 'place',
+    rating: azurePlace.rating || 4.0,
     priceLevel: aiEnhancement.priceLevel,
     location: {
-      address: googlePlace.vicinity,
+      address: azurePlace.formatted_address,
       coordinates: {
-        lat: googlePlace.geometry.location.lat,
-        lng: googlePlace.geometry.location.lng
+        lat: azurePlace.geometry.location.lat,
+        lng: azurePlace.geometry.location.lng
       }
     },
     image: photoUrl,
@@ -112,35 +94,38 @@ function formatPlaceForFrontend(googlePlace, aiEnhancement) {
     bestTime: aiEnhancement.bestTime,
     insiderTip: aiEnhancement.insiderTip,
     estimatedDuration: aiEnhancement.estimatedDuration,
-    openHours: googlePlace.opening_hours?.open_now ? "Open now" : "Check hours",
+    openHours: "Check hours",
     contact: {
-      phone: "Available on details",
-      website: "Available on details"
+      phone: azurePlace.phone || "Available on details",
+      website: azurePlace.website || "Available on details"
     },
-    tags: googlePlace.types?.slice(0, 3) || [],
-    source: 'google_ai_enhanced'
+    tags: azurePlace.types?.slice(0, 3) || [],
+    source: 'azure_ai_enhanced'
   };
 }
 
 // Main enhanced search endpoint
 router.get('/search', async (req, res) => {
   try {
-    const { lat, lng, q: query, radius = 5000, limit = 10, pageToken } = req.query;
+    const { lat, lng, q: query, radius = 5000, limit = 10 } = req.query;
     
-    if (!query && !pageToken) {
-      return res.status(400).json({ error: 'Query or pageToken parameter required' });
+    if (!query) {
+      return res.status(400).json({ error: 'Query parameter required' });
     }
 
-    const searchType = lat && lng ? 'nearby' : 'location';
-    console.log(`🔍 Enhanced ${searchType} search: "${query}"${lat && lng ? ` near ${lat}, ${lng}` : ''}${pageToken ? ' (next page)' : ''}`);
+    if (!lat || !lng) {
+      return res.status(400).json({ error: 'lat and lng parameters required' });
+    }
 
-    // Step 1: Get real places from Google
-    const googleData = await fetchGooglePlaces(lat, lng, query, radius, pageToken);
-    console.log(`📍 Google found ${googleData.results.length} places`);
+    console.log(`🔍 Enhanced search: "${query}" near ${lat}, ${lng}`);
+
+    // Step 1: Get real places from Azure Maps
+    const azureData = await fetchAzurePlaces(lat, lng, query, radius);
+    console.log(`📍 Azure Maps found ${azureData.results.length} places`);
 
     // Step 2: Enhance each place with AI (parallel processing)
     const enhancedPlaces = await Promise.all(
-      googleData.results.slice(0, limit).map(async (place) => {
+      azureData.results.slice(0, limit).map(async (place) => {
         const aiEnhancement = await enhancePlaceWithAI(place);
         return formatPlaceForFrontend(place, aiEnhancement);
       })
@@ -153,9 +138,9 @@ router.get('/search', async (req, res) => {
       query: query,
       results: enhancedPlaces,
       total: enhancedPlaces.length,
-      nextPageToken: googleData.nextPageToken,
-      hasMore: !!googleData.nextPageToken,
-      source: 'google_places_ai_enhanced'
+      nextPageToken: null,
+      hasMore: false,
+      source: 'azure_maps_ai_enhanced'
     });
 
   } catch (error) {
