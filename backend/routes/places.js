@@ -490,4 +490,12 @@ router.get('/cost-stats', async (req, res) => {
   }
 });
 
+// Debug endpoint
+router.get('/debug/env', async (req, res) => {
+  res.json({
+    azureMapsKeyExists: !!process.env.AZURE_MAPS_API_KEY,
+    azureMapsKeyLength: process.env.AZURE_MAPS_API_KEY?.length || 0
+  });
+});
+
 export default router;
