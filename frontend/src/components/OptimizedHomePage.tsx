@@ -1,4 +1,4 @@
-import React, { useState, useEffect, lazy, Suspense } from 'react'
+import React, { useState, useEffect } from 'react'
 
 // Enhanced custom CSS for animations
 const customStyles = `
@@ -157,29 +157,20 @@ const customStyles = `
   }
 `
 import { Link } from 'react-router-dom'
-import { Search, ArrowRight, MapPin, Star, Calendar, Plane, Hotel, DollarSign, Sparkles, Clock, Car, Heart, ChevronDown } from 'lucide-react'
+import { Search, ArrowRight, MapPin, Star, Calendar, Plane, Hotel, Sparkles, Clock, Car, Heart, ChevronDown } from 'lucide-react'
 import { Button } from './Button'
 import { Card, CardContent } from './Card'
 import { ImageWithFallback } from './ImageWithFallback'
-import { useUserLocation } from '../hooks/useUserLocation'
 import { SEOHead } from './SEOHead'
 import { useAuth } from '../contexts/AuthContext'
+import { motion, AnimatePresence } from 'framer-motion'
 
-// Lazy load heavy components
-const LazyDestinationGrid = lazy(() => import('./LazyDestinationGrid'))
-const LazyDealsSection = lazy(() => import('./LazyDealsSection'))
 
-// Loading component
-const SectionLoader = () => (
-  <div className="flex justify-center py-12">
-    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-  </div>
-)
 
 // FAQ Accordion Component
 const FAQAccordion = () => {
   const [openIndex, setOpenIndex] = useState<number | null>(null)
-  
+
   const faqs = [
     {
       icon: "🤖",
@@ -212,7 +203,7 @@ const FAQAccordion = () => {
       answer: "Yes! You can share itineraries via link, export to PDF, or collaborate in real-time. Friends can add suggestions, vote on activities, and make changes together - perfect for group travel planning."
     }
   ]
-  
+
   return (
     <div className="space-y-4">
       {faqs.map((faq, index) => (
@@ -233,18 +224,15 @@ const FAQAccordion = () => {
                   <p className="text-xs text-gray-500 mt-1">Click to see answer</p>
                 </div>
               </div>
-              <div className={`w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center transition-all duration-300 ${
-                openIndex === index ? 'rotate-180 bg-blue-600' : 'group-hover:bg-blue-200'
-              }`}>
-                <ChevronDown className={`w-4 h-4 transition-colors duration-300 ${
-                  openIndex === index ? 'text-white' : 'text-blue-600'
-                }`} />
+              <div className={`w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center transition-all duration-300 ${openIndex === index ? 'rotate-180 bg-blue-600' : 'group-hover:bg-blue-200'
+                }`}>
+                <ChevronDown className={`w-4 h-4 transition-colors duration-300 ${openIndex === index ? 'text-white' : 'text-blue-600'
+                  }`} />
               </div>
             </button>
-            
-            <div className={`overflow-hidden transition-all duration-300 ease-in-out ${
-              openIndex === index ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'
-            }`}>
+
+            <div className={`overflow-hidden transition-all duration-300 ease-in-out ${openIndex === index ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'
+              }`}>
               <div className="px-6 pb-6">
                 <div className="bg-gradient-to-r from-blue-50 to-purple-50 rounded-xl p-4 border-l-4 border-blue-500">
                   <p className="text-gray-700 leading-relaxed">{faq.answer}</p>
@@ -260,54 +248,23 @@ const FAQAccordion = () => {
 
 // Month-based dynamic destinations
 const getMonthlyDestinations = () => {
-  const currentMonth = new Date().getMonth()
-  const monthlyDestinations = {
-    0: [ // January
-      { id: 1, name: 'Dubai', country: 'UAE', image: 'https://images.unsplash.com/photo-1512453979798-5ea266f8880c?w=400&h=300&fit=crop&auto=format&q=60', rating: 4.8, reason: 'Perfect weather', popular: true },
-      { id: 2, name: 'Goa', country: 'India', image: 'https://images.unsplash.com/photo-1512343879784-a960bf40e7f2?w=400&h=300&fit=crop&auto=format&q=60', rating: 4.6, reason: 'Peak season' },
-      { id: 3, name: 'Patagonia', country: 'Chile', image: 'https://images.unsplash.com/photo-1551632811-561732d1e306?w=400&h=300&fit=crop&auto=format&q=60', rating: 4.9, reason: 'Summer season' },
-      { id: 4, name: 'New Zealand', country: 'South Island', image: 'https://images.unsplash.com/photo-1469474968028-56623f02e42e?w=400&h=300&fit=crop&auto=format&q=60', rating: 4.7, reason: 'Summer adventures' },
-      { id: 5, name: 'Thailand', country: 'Bangkok', image: 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=400&h=300&fit=crop&auto=format&q=60', rating: 4.5, reason: 'Cool & dry' },
-      { id: 6, name: 'Myanmar', country: 'Bagan', image: 'https://images.unsplash.com/photo-1570366583862-f91883984fde?w=400&h=300&fit=crop&auto=format&q=60', rating: 4.6, reason: 'Ideal climate' },
-      { id: 7, name: 'Egypt', country: 'Cairo', image: 'https://images.unsplash.com/photo-1539650116574-75c0c6d73f6e?w=400&h=300&fit=crop&auto=format&q=60', rating: 4.4, reason: 'Mild temperatures' },
-      { id: 8, name: 'Argentina', country: 'Buenos Aires', image: 'https://images.unsplash.com/photo-1589909202802-8f4aadce1849?w=400&h=300&fit=crop&auto=format&q=60', rating: 4.5, reason: 'Summer vibes' },
-      { id: 9, name: 'Australia', country: 'Sydney', image: 'https://images.unsplash.com/photo-1506973035872-a4ec16b8e8d9?w=400&h=300&fit=crop&auto=format&q=60', rating: 4.8, reason: 'Beach season', trending: true }
-    ],
-    10: [ // November
-      { id: 1, name: 'Kyoto', country: 'Japan', image: 'https://images.unsplash.com/photo-1493976040374-85c8e12f0c0e?w=400&h=300&fit=crop&auto=format&q=60', rating: 4.9, reason: 'Autumn foliage', popular: true },
-      { id: 2, name: 'Dubai', country: 'UAE', image: 'https://images.unsplash.com/photo-1512453979798-5ea266f8880c?w=400&h=300&fit=crop&auto=format&q=60', rating: 4.8, reason: 'Ideal weather' },
-      { id: 3, name: 'Patagonia', country: 'Chile', image: 'https://images.unsplash.com/photo-1551632811-561732d1e306?w=400&h=300&fit=crop&auto=format&q=60', rating: 4.9, reason: 'Peak season' },
-      { id: 4, name: 'India', country: 'Rajasthan', image: 'https://images.unsplash.com/photo-1524492412937-b28074a5d7da?w=400&h=300&fit=crop&auto=format&q=60', rating: 4.7, reason: 'Pleasant weather' },
-      { id: 5, name: 'Myanmar', country: 'Bagan', image: 'https://images.unsplash.com/photo-1570366583862-f91883984fde?w=400&h=300&fit=crop&auto=format&q=60', rating: 4.6, reason: 'Cool & dry', trending: true },
-      { id: 6, name: 'Nepal', country: 'Kathmandu', image: 'https://images.unsplash.com/photo-1544735716-392fe2489ffa?w=400&h=300&fit=crop&auto=format&q=60', rating: 4.5, reason: 'Clear mountain views' },
-      { id: 7, name: 'Egypt', country: 'Luxor', image: 'https://images.unsplash.com/photo-1539650116574-75c0c6d73f6e?w=400&h=300&fit=crop&auto=format&q=60', rating: 4.4, reason: 'Comfortable temps' },
-      { id: 8, name: 'Vietnam', country: 'Hanoi', image: 'https://images.unsplash.com/photo-1559592413-7cec4d0d2d8f?w=400&h=300&fit=crop&auto=format&q=60', rating: 4.6, reason: 'Perfect climate' },
-      { id: 9, name: 'Cambodia', country: 'Siem Reap', image: 'https://images.unsplash.com/photo-1578662996442-48f60103fc96?w=400&h=300&fit=crop&auto=format&q=60', rating: 4.5, reason: 'Dry season starts' }
-    ]
-  }
-  
-  // Default to November if month not defined, or use January as fallback
-  return monthlyDestinations[currentMonth] || monthlyDestinations[10] || monthlyDestinations[0]
+  const allDestinations = [
+    { id: 1, name: 'Dubai', country: 'UAE', image: 'https://images.unsplash.com/photo-1512453979798-5ea266f8880c?w=400&h=300&fit=crop&auto=format&q=60', rating: 4.8, vibe: 'Luxury', reason: 'Iconic heights', popular: true },
+    { id: 2, name: 'Kyoto', country: 'Japan', image: 'https://images.unsplash.com/photo-1493976040374-85c8e12f0c0e?w=400&h=300&fit=crop&auto=format&q=60', rating: 4.9, vibe: 'Zen', reason: 'Ancient peace', popular: true },
+    { id: 3, name: 'Patagonia', country: 'Chile', image: 'https://images.unsplash.com/photo-1551632811-561732d1e306?w=400&h=300&fit=crop&auto=format&q=60', rating: 4.9, vibe: 'Adventure', reason: 'Wild frontiers' },
+    { id: 4, name: 'Goa', country: 'India', image: 'https://images.unsplash.com/photo-1512343879784-a960bf40e7f2?w=400&h=300&fit=crop&auto=format&q=60', rating: 4.6, vibe: 'Party', reason: 'Beach bliss' },
+    { id: 5, name: 'Ella', country: 'Sri Lanka', image: 'https://images.unsplash.com/photo-1544735716-392fe2489ffa?w=400&h=300&fit=crop&auto=format&q=60', rating: 4.7, vibe: 'Zen', reason: 'Mountain tea', trending: true },
+    { id: 6, name: 'Sydney', country: 'Australia', image: 'https://images.unsplash.com/photo-1506973035872-a4ec16b8e8d9?w=400&h=300&fit=crop&auto=format&q=60', rating: 4.8, vibe: 'Adventure', reason: 'Harbor energy' },
+    { id: 7, name: 'Paris', country: 'France', image: 'https://images.unsplash.com/photo-1502602898657-3e91760cbb34?w=400&h=300&fit=crop&auto=format&q=60', rating: 4.7, vibe: 'Luxury', reason: 'Culinay art' },
+    { id: 8, name: 'Bali', country: 'Indonesia', image: 'https://images.unsplash.com/photo-1537996194471-e657df975ab4?w=400&h=300&fit=crop&auto=format&q=60', rating: 4.8, vibe: 'Zen', reason: 'Tropical spirit' },
+    { id: 9, name: 'Ibiza', country: 'Spain', image: 'https://images.unsplash.com/photo-1541079512776-503a093d50e5?w=400&h=300&fit=crop&auto=format&q=60', rating: 4.5, vibe: 'Party', reason: 'Electric nights' },
+  ]
+  return allDestinations
 }
 
 const featuredDestinations = getMonthlyDestinations()
+const vibes = ['All', 'Adventure', 'Zen', 'Luxury', 'Party']
 
-const quickDeals = [
-  {
-    id: 1,
-    title: 'AI Trip Planning',
-    discount: 'FREE',
-    description: 'Create unlimited personalized itineraries',
-    urgent: true
-  },
-  {
-    id: 2,
-    title: 'Premium Features',
-    discount: '$9.99/month', 
-    description: 'Advanced AI insights & offline maps',
-    urgent: false
-  }
-]
 
 // User testimonials and social proof
 const socialProof = {
@@ -330,12 +287,27 @@ const socialProof = {
 }
 
 export const OptimizedHomePage: React.FC = () => {
-  const { location } = useUserLocation()
   const { user } = useAuth()
-  const [searchQuery, setSearchQuery] = useState('')
-  const [isSearching, setIsSearching] = useState(false)
   const [currentSublineIndex, setCurrentSublineIndex] = useState(0)
   const [currentScreenIndex, setCurrentScreenIndex] = useState(0)
+  const [quickPlanDestination, setQuickPlanDestination] = useState('')
+  const [quickPlanDays, setQuickPlanDays] = useState('3')
+  const [isGeneratingPreview, setIsGeneratingPreview] = useState(false)
+  const [activeStory, setActiveStory] = useState<any>(null)
+  const [selectedVibe, setSelectedVibe] = useState('All')
+  const [isAIChatOpen, setIsAIChatOpen] = useState(false)
+  const [aiMessage, setAiMessage] = useState('')
+  const [chatHistory, setChatHistory] = useState([
+    { role: 'assistant', text: "Hi! I'm your TravelBuddy AI. Ask me anything about your next trip!" }
+  ])
+
+  const communityStories = [
+    { id: 1, name: 'Alex', avatar: 'https://i.pravatar.cc/150?u=alex', image: 'https://images.unsplash.com/photo-1544735716-392fe2489ffa?w=800', location: 'Ella, Sri Lanka', text: 'Watching the sunrise at Nine Arch Bridge was peak magic! ✨' },
+    { id: 2, name: 'Elena', avatar: 'https://i.pravatar.cc/150?u=elena', image: 'https://images.unsplash.com/photo-1512453979798-5ea266f8880c?w=800', location: 'Dubai, UAE', text: 'AI recommended this hidden desert camp. Best dinner ever! 🏜️' },
+    { id: 3, name: 'Kaito', avatar: 'https://i.pravatar.cc/150?u=kaito', image: 'https://images.unsplash.com/photo-1493976040374-85c8e12f0c0e?w=800', location: 'Kyoto, Japan', text: 'Finally saw the Fushimi Inari gates. The 7AM tip was a lifesaver! ⛩️' },
+    { id: 4, name: 'Sarah', avatar: 'https://i.pravatar.cc/150?u=sarah', image: 'https://images.unsplash.com/photo-1506973035872-a4ec16b8e8d9?w=800', location: 'Sydney, Australia', text: 'Morning surf session at Bondi. Bondi to Coogee walk is a MUST. 🏄‍♀️' },
+    { id: 5, name: 'Mark', avatar: 'https://i.pravatar.cc/150?u=mark', image: 'https://images.unsplash.com/photo-1551632811-561732d1e306?w=800', location: 'Patagonia', text: 'Glacier trekking at its finest. Cold but incredibly worth it! ❄️' },
+  ]
 
   // Personalized rotating sublines for authenticated users
   const personalizedSublines = [
@@ -372,9 +344,9 @@ export const OptimizedHomePage: React.FC = () => {
           <div className="p-3 space-y-3">
             <div className="bg-white rounded-lg shadow-sm border border-gray-200">
               <div className="h-24 rounded-t-lg relative overflow-hidden">
-                <img 
-                  src="https://picsum.photos/300/200?random=1" 
-                  alt="Eiffel Tower" 
+                <img
+                  src="https://picsum.photos/300/200?random=1"
+                  alt="Eiffel Tower"
                   className="w-full h-full object-cover"
                 />
                 <div className="absolute top-2 right-2 w-6 h-6 bg-white/90 rounded-full flex items-center justify-center">
@@ -394,9 +366,9 @@ export const OptimizedHomePage: React.FC = () => {
             </div>
             <div className="bg-white rounded-lg shadow-sm border border-gray-200">
               <div className="h-24 rounded-t-lg relative overflow-hidden">
-                <img 
-                  src="https://picsum.photos/300/200?random=2" 
-                  alt="Notre Dame" 
+                <img
+                  src="https://picsum.photos/300/200?random=2"
+                  alt="Notre Dame"
                   className="w-full h-full object-cover"
                 />
               </div>
@@ -437,9 +409,9 @@ export const OptimizedHomePage: React.FC = () => {
             <div className="bg-white rounded-lg p-3 border border-gray-200">
               <div className="flex items-center">
                 <div className="w-12 h-12 rounded-lg overflow-hidden mr-3">
-                  <img 
-                    src="https://picsum.photos/100/100?random=3" 
-                    alt="Restaurant" 
+                  <img
+                    src="https://picsum.photos/100/100?random=3"
+                    alt="Restaurant"
                     className="w-full h-full object-cover"
                   />
                 </div>
@@ -577,14 +549,6 @@ export const OptimizedHomePage: React.FC = () => {
     return () => clearInterval(interval)
   }, [appScreens.length])
 
-  const handleSearch = async () => {
-    if (!searchQuery.trim()) return
-    setIsSearching(true)
-    setTimeout(() => {
-      setIsSearching(false)
-      window.location.href = `/places?q=${encodeURIComponent(searchQuery)}`
-    }, 500)
-  }
 
   return (
     <div className="min-h-screen">
@@ -602,18 +566,28 @@ export const OptimizedHomePage: React.FC = () => {
           />
         </div>
         <div className="absolute inset-0 bg-gradient-to-b from-black/60 to-transparent"></div>
-        
+
         <div className="relative z-10 h-screen flex items-center px-4 py-8">
           <div className="w-full max-w-7xl mx-auto">
             {/* Compact Header */}
             <div className="text-center text-white mb-8">
-              <h1 className="text-3xl md:text-5xl lg:text-6xl font-bold mb-4 leading-tight">
-                {user ? `Welcome back, ${user.fullName?.split(' ')[0] || user.username?.split(' ')[0] || user.name || 'Explorer'}!` : 'Your Perfect Trip in'}
+              <motion.h1
+                initial={{ opacity: 0, y: 30 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.8 }}
+                className="text-3xl md:text-5xl lg:text-6xl font-bold mb-4 leading-tight"
+              >
+                {user ? `Welcome back, ${user.fullName?.split(' ')[0] || user.username?.split(' ')[0] || 'Explorer'}!` : 'Your Perfect Trip in'}
                 <span className="block text-yellow-400">
                   {user ? 'Your next adventure is waiting.' : '2 Minutes'}
                 </span>
-              </h1>
-              <h2 className="text-lg md:text-xl mb-6 text-white/90 max-w-2xl mx-auto">
+              </motion.h1>
+              <motion.h2
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.8, delay: 0.2 }}
+                className="text-lg md:text-xl mb-6 text-white/90 max-w-2xl mx-auto"
+              >
                 {user ? (
                   <span className="inline-block transition-all duration-500 ease-in-out transform">
                     {personalizedSublines[currentSublineIndex]}
@@ -621,11 +595,73 @@ export const OptimizedHomePage: React.FC = () => {
                 ) : (
                   'AI plans everything. You just pack and go.'
                 )}
-              </h2>
+              </motion.h2>
             </div>
-            
 
-            
+            {/* ⚡ Interactive Quick Plan Widget */}
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ duration: 0.8, delay: 0.4 }}
+              className="max-w-3xl mx-auto bg-white/10 backdrop-blur-xl p-4 rounded-3xl border border-white/20 shadow-2xl relative group overflow-hidden"
+            >
+              <div className="flex flex-col md:flex-row gap-3 relative z-10">
+                <div className="flex-1 relative">
+                  <MapPin className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-yellow-400" />
+                  <input
+                    type="text"
+                    placeholder="Where to? (e.g. Kyoto, Paris, Ella)"
+                    className="w-full pl-12 pr-4 py-4 bg-white/10 border border-white/10 rounded-2xl text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-yellow-400/50 transition-all font-medium"
+                    value={quickPlanDestination}
+                    onChange={(e) => setQuickPlanDestination(e.target.value)}
+                  />
+                </div>
+                <div className="w-full md:w-32 relative">
+                  <Calendar className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-yellow-400" />
+                  <select
+                    className="w-full pl-12 pr-4 py-4 bg-white/10 border border-white/10 rounded-2xl text-white focus:outline-none focus:ring-2 focus:ring-yellow-400/50 transition-all font-medium appearance-none selection:bg-gray-800"
+                    value={quickPlanDays}
+                    onChange={(e) => setQuickPlanDays(e.target.value)}
+                  >
+                    {[1, 2, 3, 4, 5, 7, 10, 14].map(d => (
+                      <option key={d} value={d} className="bg-gray-900 text-white">{d} Days</option>
+                    ))}
+                  </select>
+                </div>
+                <Button
+                  onClick={() => {
+                    if (!quickPlanDestination) return;
+                    setIsGeneratingPreview(true);
+                    setTimeout(() => {
+                      setIsGeneratingPreview(false);
+                      window.location.href = `/trips?destination=${encodeURIComponent(quickPlanDestination)}&days=${quickPlanDays}&quick=true`;
+                    }, 1500);
+                  }}
+                  className="bg-yellow-400 hover:bg-yellow-500 text-gray-900 px-8 py-4 rounded-2xl font-bold shadow-lg transform hover:scale-105 active:scale-95 transition-all flex items-center justify-center gap-2"
+                >
+                  {isGeneratingPreview ? (
+                    <div className="flex items-center gap-2">
+                      <div className="w-4 h-4 border-2 border-gray-900/30 border-t-gray-900 rounded-full animate-spin"></div>
+                      <span>Analyzing...</span>
+                    </div>
+                  ) : (
+                    <>
+                      <span>Plan My Trip</span>
+                      <Sparkles className="w-5 h-5" />
+                    </>
+                  )}
+                </Button>
+              </div>
+
+              <div className="mt-3 flex items-center justify-center gap-4 text-xs text-white/60 font-medium">
+                <span className="flex items-center gap-1.5"><Star className="w-3 h-3 text-yellow-400" /> 4.9/5 satisfaction</span>
+                <span className="w-1 h-1 bg-white/20 rounded-full"></span>
+                <span className="flex items-center gap-1.5"><Clock className="w-3 h-3 text-blue-400" /> Itinerary in 2m</span>
+              </div>
+            </motion.div>
+
+
+
             {/* Secondary CTAs */}
             <div className="flex flex-col sm:flex-row gap-4 justify-center mt-6">
               {user ? (
@@ -673,19 +709,19 @@ export const OptimizedHomePage: React.FC = () => {
               <div className="absolute -top-8 -left-8 bg-blue-600 text-white px-4 py-2 rounded-full text-sm font-medium shadow-lg animate-pulse">
                 🗺️ Nearby Places
               </div>
-              <div className="absolute top-32 -right-12 bg-green-600 text-white px-4 py-2 rounded-full text-sm font-medium shadow-lg animate-pulse" style={{animationDelay: '1s'}}>
+              <div className="absolute top-32 -right-12 bg-green-600 text-white px-4 py-2 rounded-full text-sm font-medium shadow-lg animate-pulse" style={{ animationDelay: '1s' }}>
                 📴 Offline Mode
               </div>
-              <div className="absolute bottom-32 -left-16 bg-purple-600 text-white px-4 py-2 rounded-full text-sm font-medium shadow-lg animate-pulse" style={{animationDelay: '2s'}}>
+              <div className="absolute bottom-32 -left-16 bg-purple-600 text-white px-4 py-2 rounded-full text-sm font-medium shadow-lg animate-pulse" style={{ animationDelay: '2s' }}>
                 🤖 AI Recommendations
               </div>
-              <div className="absolute bottom-16 -right-8 bg-orange-600 text-white px-4 py-2 rounded-full text-sm font-medium shadow-lg animate-pulse" style={{animationDelay: '3s'}}>
+              <div className="absolute bottom-16 -right-8 bg-orange-600 text-white px-4 py-2 rounded-full text-sm font-medium shadow-lg animate-pulse" style={{ animationDelay: '3s' }}>
                 🧭 Live Navigation
               </div>
-              
+
               {/* Gradient Glow Behind Phone */}
               <div className="absolute inset-0 bg-gradient-to-r from-blue-500/20 to-purple-500/20 rounded-full blur-3xl animate-pulse-slow"></div>
-              
+
               {/* Phone Mockup */}
               <div className="relative phone-tilt-container z-10">
                 <div className="relative w-72 h-[580px] bg-gradient-to-b from-gray-900 to-black rounded-[3rem] p-2 shadow-2xl">
@@ -699,46 +735,42 @@ export const OptimizedHomePage: React.FC = () => {
                         <div className="w-1 h-2 bg-white rounded-sm"></div>
                       </div>
                     </div>
-                    
+
                     {/* Animated Screen Content */}
                     <div className="h-full transition-all duration-1000 ease-in-out">
                       {appScreens[currentScreenIndex].content}
                     </div>
-                    
+
                     {/* Screen Indicator */}
                     <div className="absolute bottom-16 left-1/2 transform -translate-x-1/2 flex gap-2">
                       {appScreens.map((_, index) => (
                         <div
                           key={index}
-                          className={`w-2 h-2 rounded-full transition-all duration-300 ${
-                            index === currentScreenIndex ? 'bg-blue-500 w-6' : 'bg-gray-300'
-                          }`}
+                          className={`w-2 h-2 rounded-full transition-all duration-300 ${index === currentScreenIndex ? 'bg-blue-500 w-6' : 'bg-gray-300'
+                            }`}
                         />
                       ))}
                     </div>
-                    
+
                     {/* Bottom Navigation */}
                     <div className="absolute bottom-0 left-0 right-0 bg-white border-t border-gray-200 p-2">
                       <div className="flex justify-around">
-                        <div className={`text-xs text-center transition-colors duration-300 ${
-                          currentScreenIndex === 0 ? 'text-blue-500' : 'text-gray-400'
-                        }`}>
+                        <div className={`text-xs text-center transition-colors duration-300 ${currentScreenIndex === 0 ? 'text-blue-500' : 'text-gray-400'
+                          }`}>
                           <div className="w-5 h-5 mx-auto mb-1 bg-blue-100 rounded-full flex items-center justify-center">
                             <MapPin className="w-3 h-3" />
                           </div>
                           <span className="font-medium">Places</span>
                         </div>
-                        <div className={`text-xs text-center transition-colors duration-300 ${
-                          currentScreenIndex === 2 ? 'text-blue-500' : 'text-gray-400'
-                        }`}>
+                        <div className={`text-xs text-center transition-colors duration-300 ${currentScreenIndex === 2 ? 'text-blue-500' : 'text-gray-400'
+                          }`}>
                           <div className="w-5 h-5 mx-auto mb-1 bg-gray-100 rounded-full flex items-center justify-center">
                             <Calendar className="w-3 h-3" />
                           </div>
                           <span>Trips</span>
                         </div>
-                        <div className={`text-xs text-center transition-colors duration-300 ${
-                          currentScreenIndex === 3 ? 'text-blue-500' : 'text-gray-400'
-                        }`}>
+                        <div className={`text-xs text-center transition-colors duration-300 ${currentScreenIndex === 3 ? 'text-blue-500' : 'text-gray-400'
+                          }`}>
                           <div className="w-5 h-5 mx-auto mb-1 bg-gray-100 rounded-full flex items-center justify-center">
                             <Search className="w-3 h-3" />
                           </div>
@@ -747,13 +779,13 @@ export const OptimizedHomePage: React.FC = () => {
                       </div>
                     </div>
                   </div>
-                  
+
                   {/* Enhanced Phone Reflection */}
                   <div className="absolute -bottom-4 left-3 right-3 h-12 bg-gradient-to-b from-black/30 to-transparent rounded-[3rem] blur-2xl"></div>
                 </div>
               </div>
             </div>
-            
+
             {/* Right: Content */}
             <div className="space-y-6 order-1 lg:order-2">
               <div>
@@ -771,7 +803,7 @@ export const OptimizedHomePage: React.FC = () => {
                   Unique mobile features that make travel planning effortless
                 </p>
               </div>
-              
+
               {/* Mobile-Specific Features */}
               <div className="space-y-4">
                 <div className="flex items-start gap-4 bg-white rounded-xl p-4 shadow-md hover:shadow-lg transition-all duration-300 group">
@@ -783,7 +815,7 @@ export const OptimizedHomePage: React.FC = () => {
                     <p className="text-gray-600 text-sm">Find restaurants, attractions & hidden gems within walking distance using GPS</p>
                   </div>
                 </div>
-                
+
                 <div className="flex items-start gap-4 bg-white rounded-xl p-4 shadow-md hover:shadow-lg transition-all duration-300 group">
                   <div className="w-12 h-12 bg-gradient-to-r from-green-500 to-green-600 rounded-xl flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-all duration-300">
                     <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -795,7 +827,7 @@ export const OptimizedHomePage: React.FC = () => {
                     <p className="text-gray-600 text-sm">Download maps, itineraries & place details - travel without internet or roaming</p>
                   </div>
                 </div>
-                
+
                 <div className="flex items-start gap-4 bg-white rounded-xl p-4 shadow-md hover:shadow-lg transition-all duration-300 group">
                   <div className="w-12 h-12 bg-gradient-to-r from-purple-500 to-purple-600 rounded-xl flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-all duration-300">
                     <Sparkles className="w-6 h-6 text-white" />
@@ -805,7 +837,7 @@ export const OptimizedHomePage: React.FC = () => {
                     <p className="text-gray-600 text-sm">Get personalized suggestions based on time, weather, crowds & your preferences</p>
                   </div>
                 </div>
-                
+
                 <div className="flex items-start gap-4 bg-white rounded-xl p-4 shadow-md hover:shadow-lg transition-all duration-300 group">
                   <div className="w-12 h-12 bg-gradient-to-r from-orange-500 to-orange-600 rounded-xl flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-all duration-300">
                     <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -818,14 +850,14 @@ export const OptimizedHomePage: React.FC = () => {
                   </div>
                 </div>
               </div>
-              
+
               {/* CTA */}
               <div className="pt-4">
                 <p className="text-gray-600 mb-4 font-semibold">Download the mobile app:</p>
                 <div className="flex flex-col sm:flex-row gap-4">
                   <a href="https://drive.google.com/uc?export=download&id=1GcZIfFRBHKoyflPJIwgRnVKSCJKIUxVk" className="inline-flex items-center justify-center bg-black text-white px-6 py-3 rounded-xl font-semibold shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105">
                     <svg className="w-6 h-6 mr-3" viewBox="0 0 24 24" fill="currentColor">
-                      <path d="M3,20.5V3.5C3,2.91 3.34,2.39 3.84,2.15L13.69,12L3.84,21.85C3.34,21.6 3,21.09 3,20.5M16.81,15.12L6.05,21.34L14.54,12.85L16.81,15.12M20.16,10.81C20.5,11.08 20.75,11.5 20.75,12C20.75,12.5 20.53,12.9 20.18,13.18L17.89,14.5L15.39,12L17.89,9.5L20.16,10.81M6.05,2.66L16.81,8.88L14.54,11.15L6.05,2.66Z"/>
+                      <path d="M3,20.5V3.5C3,2.91 3.34,2.39 3.84,2.15L13.69,12L3.84,21.85C3.34,21.6 3,21.09 3,20.5M16.81,15.12L6.05,21.34L14.54,12.85L16.81,15.12M20.16,10.81C20.5,11.08 20.75,11.5 20.75,12C20.75,12.5 20.53,12.9 20.18,13.18L17.89,14.5L15.39,12L17.89,9.5L20.16,10.81M6.05,2.66L16.81,8.88L14.54,11.15L6.05,2.66Z" />
                     </svg>
                     Download APK
                   </a>
@@ -837,66 +869,196 @@ export const OptimizedHomePage: React.FC = () => {
         </div>
       </section>
 
+      {/* 🚀 2. Community Pulse (Story Bar) */}
+      <section className="py-12 bg-white overflow-hidden border-b border-gray-100">
+        <div className="max-w-7xl mx-auto px-4">
+          <div className="flex items-center justify-between mb-8">
+            <div>
+              <h3 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
+                Community Pulse
+                <div className="flex gap-1">
+                  <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse"></div>
+                  <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse delay-75"></div>
+                </div>
+              </h3>
+              <p className="text-gray-600">Real stories from TravelBuddy explorers</p>
+            </div>
+          </div>
+
+          <div className="relative">
+            <div className="flex gap-6 overflow-x-auto pb-4 no-scrollbar">
+              {communityStories.map((story) => (
+                <motion.button
+                  key={story.id}
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={() => setActiveStory(story)}
+                  className="flex-shrink-0 flex flex-col items-center gap-3 group"
+                >
+                  <div className="relative">
+                    <div className="w-24 h-24 rounded-full p-1 bg-gradient-to-tr from-yellow-400 via-red-500 to-purple-600 group-hover:rotate-12 transition-transform duration-500">
+                      <div className="w-full h-full rounded-full border-2 border-white overflow-hidden">
+                        <img src={story.avatar} alt={story.name} className="w-full h-full object-cover" />
+                      </div>
+                    </div>
+                    <div className="absolute -bottom-1 -right-1 bg-blue-600 text-white p-1 rounded-full border-2 border-white">
+                      <Heart className="w-3 h-3 fill-current" />
+                    </div>
+                  </div>
+                  <span className="text-sm font-bold text-gray-900">{story.name}</span>
+                </motion.button>
+              ))}
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Story Viewer Modal */}
+      <AnimatePresence>
+        {activeStory && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/90 backdrop-blur-sm"
+            onClick={() => setActiveStory(null)}
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.9, opacity: 0, y: 20 }}
+              className="relative aspect-[9/16] h-[80vh] bg-gray-900 rounded-3xl overflow-hidden shadow-2xl"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <img src={activeStory.image} alt={activeStory.location} className="w-full h-full object-cover" />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-black/40"></div>
+
+              <div className="absolute top-6 left-6 right-6 flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-full border-2 border-white overflow-hidden">
+                    <img src={activeStory.avatar} alt={activeStory.name} className="w-full h-full object-cover" />
+                  </div>
+                  <div>
+                    <p className="text-white font-bold text-sm">{activeStory.name}</p>
+                    <p className="text-white/60 text-xs flex items-center gap-1">
+                      <MapPin className="w-3 h-3" /> {activeStory.location}
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setActiveStory(null)}
+                  className="text-white/80 hover:text-white"
+                >
+                  <ArrowRight className="w-6 h-6 rotate-45" />
+                </button>
+              </div>
+
+              <div className="absolute bottom-10 left-8 right-8 text-white">
+                <p className="text-lg font-medium leading-relaxed italic">
+                  "{activeStory.text}"
+                </p>
+                <div className="mt-6 flex gap-4">
+                  <Button className="flex-1 bg-white text-gray-900 hover:bg-white/90 rounded-xl font-bold py-3">
+                    View Plan
+                  </Button>
+                  <Button className="w-12 h-12 bg-white/20 hover:bg-white/30 backdrop-blur-md rounded-xl p-0 flex items-center justify-center">
+                    <Heart className="w-6 h-6 text-white" />
+                  </Button>
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       <section className="py-20 bg-gray-50">
         <div className="max-w-7xl mx-auto px-4">
           <div className="text-center mb-12">
             <h2 className="text-4xl font-bold text-gray-900 mb-4">
-              Trending Destinations
+              Explore by Vibe
             </h2>
-            <p className="text-xl text-gray-600">
-              Most popular places travelers are visiting right now
+            <p className="text-xl text-gray-600 mb-8">
+              Destinations curated for your travel mood
             </p>
+
+            <div className="flex flex-wrap justify-center gap-3 mb-10">
+              {vibes.map((vibe) => (
+                <button
+                  key={vibe}
+                  onClick={() => setSelectedVibe(vibe)}
+                  className={`px-6 py-2 rounded-full font-semibold transition-all duration-300 ${selectedVibe === vibe
+                    ? 'bg-blue-600 text-white shadow-lg scale-105'
+                    : 'bg-white text-gray-600 hover:bg-gray-100'
+                    }`}
+                >
+                  {vibe}
+                </button>
+              ))}
+            </div>
           </div>
-          
+
           <div className="grid md:grid-cols-3 gap-6 mb-8">
-            {featuredDestinations.map((destination) => (
-              <Card key={destination.id} className="group overflow-hidden hover:shadow-xl transition-all duration-300 hover:-translate-y-2">
-                <div className="relative">
-                  <ImageWithFallback
-                    src={destination.image}
-                    fallbackSrc={`https://picsum.photos/400/300?random=${destination.id}`}
-                    alt={destination.name}
-                    className="w-full h-48 object-cover group-hover:scale-105 transition-transform duration-300"
-                    loading="lazy"
-                  />
-                  {destination.popular && (
-                    <div className="absolute top-4 left-4 bg-yellow-500 text-black px-3 py-1 rounded-full text-sm font-medium">
-                      Most Popular
-                    </div>
-                  )}
-                  {destination.trending && (
-                    <div className="absolute top-4 left-4 bg-red-500 text-white px-3 py-1 rounded-full text-sm font-medium">
-                      Trending
-                    </div>
-                  )}
-                  <div className="absolute top-4 right-4 bg-blue-600 text-white px-3 py-1 rounded-full text-xs font-medium">
-                    {destination.reason}
-                  </div>
-                </div>
-                <CardContent className="p-6">
-                  <div className="flex justify-between items-start mb-4">
-                    <div>
-                      <h3 className="text-xl font-bold text-gray-900">{destination.name}</h3>
-                      <p className="text-gray-600">{destination.country}</p>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <Star className="w-4 h-4 text-yellow-500 fill-current" />
-                      <span className="text-sm font-medium">{destination.rating}</span>
-                    </div>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm text-blue-600 font-medium">{destination.reason}</span>
-                    <Link to="/places">
-                      <Button className="bg-blue-600 text-white hover:bg-blue-700 px-4 py-2">
-                        Explore
-                      </Button>
-                    </Link>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
+            <AnimatePresence mode="popLayout">
+              {featuredDestinations
+                .filter(dest => selectedVibe === 'All' || dest.vibe === selectedVibe)
+                .map((destination) => (
+                  <motion.div
+                    layout
+                    initial={{ opacity: 0, scale: 0.9 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.9 }}
+                    transition={{ duration: 0.3 }}
+                    key={destination.id}
+                  >
+                    <Card className="group overflow-hidden hover:shadow-xl transition-all duration-300 hover:-translate-y-2 h-full">
+                      <div className="relative">
+                        <ImageWithFallback
+                          src={destination.image}
+                          fallbackSrc={`https://picsum.photos/400/300?random=${destination.id}`}
+                          alt={destination.name}
+                          className="w-full h-48 object-cover group-hover:scale-105 transition-transform duration-300"
+                          loading="lazy"
+                        />
+                        {destination.popular && (
+                          <div className="absolute top-4 left-4 bg-yellow-500 text-black px-3 py-1 rounded-full text-sm font-medium">
+                            Most Popular
+                          </div>
+                        )}
+                        {destination.trending && (
+                          <div className="absolute top-4 left-4 bg-red-500 text-white px-3 py-1 rounded-full text-sm font-medium">
+                            Trending
+                          </div>
+                        )}
+                        <div className="absolute top-4 right-4 bg-blue-600 text-white px-3 py-1 rounded-full text-xs font-medium">
+                          {destination.vibe}
+                        </div>
+                      </div>
+                      <CardContent className="p-6">
+                        <div className="flex justify-between items-start mb-4">
+                          <div>
+                            <h3 className="text-xl font-bold text-gray-900">{destination.name}</h3>
+                            <p className="text-gray-600">{destination.country}</p>
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <Star className="w-4 h-4 text-yellow-500 fill-current" />
+                            <span className="text-sm font-medium">{destination.rating}</span>
+                          </div>
+                        </div>
+                        <div className="flex justify-between items-center">
+                          <span className="text-sm text-blue-600 font-medium">{destination.reason}</span>
+                          <Link to="/places">
+                            <Button className="bg-blue-600 text-white hover:bg-blue-700 px-4 py-2">
+                              Explore
+                            </Button>
+                          </Link>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </motion.div>
+                ))}
+            </AnimatePresence>
           </div>
-          
+
           {/* Single CTA */}
           <div className="text-center">
             <Link to="/places">
@@ -925,11 +1087,11 @@ export const OptimizedHomePage: React.FC = () => {
               Our AI transforms hours of research into minutes of smart planning
             </p>
           </div>
-          
+
           <div className="grid md:grid-cols-3 gap-8 relative">
             {/* Connecting Lines */}
             <div className="hidden md:block absolute top-24 left-1/4 right-1/4 h-1 bg-gradient-to-r from-blue-400 via-purple-400 to-green-400 rounded-full"></div>
-            
+
             {[
               {
                 step: 1,
@@ -958,37 +1120,37 @@ export const OptimizedHomePage: React.FC = () => {
                 bgColor: 'from-green-50 to-green-100',
                 time: '5 minutes'
               }
-            ].map((step, index) => (
+            ].map((step) => (
               <div key={step.step} className="relative group">
                 <div className="bg-white rounded-2xl p-8 shadow-lg hover:shadow-2xl transition-all duration-500 transform hover:-translate-y-4 border border-gray-100">
                   {/* Step Number Badge */}
                   <div className={`absolute -top-4 left-8 w-12 h-12 bg-gradient-to-r ${step.color} rounded-full flex items-center justify-center shadow-lg`}>
                     <span className="text-white font-bold text-lg">{step.step}</span>
                   </div>
-                  
+
                   {/* Icon */}
                   <div className={`w-20 h-20 bg-gradient-to-r ${step.bgColor} rounded-2xl flex items-center justify-center mx-auto mb-6 mt-4 group-hover:scale-110 transition-transform duration-300 animate-float`}>
                     <div className={`text-transparent bg-gradient-to-r ${step.color} bg-clip-text`}>
                       {step.icon}
                     </div>
                   </div>
-                  
+
                   {/* Time Badge */}
                   <div className="inline-flex items-center bg-gray-100 rounded-full px-3 py-1 mb-4">
                     <Clock className="w-4 h-4 text-gray-500 mr-1" />
                     <span className="text-sm text-gray-600 font-medium">{step.time}</span>
                   </div>
-                  
+
                   <h3 className="text-2xl font-bold text-gray-900 mb-3">{step.title}</h3>
                   <p className="text-gray-600 text-base leading-relaxed">{step.description}</p>
-                  
+
                   {/* Hover Effect */}
                   <div className={`absolute inset-0 bg-gradient-to-r ${step.color} opacity-0 group-hover:opacity-5 rounded-2xl transition-opacity duration-300`}></div>
                 </div>
               </div>
             ))}
           </div>
-          
+
           {/* Enhanced CTA */}
           <div className="text-center mt-16">
             <h3 className="text-3xl font-bold text-gray-900 mb-4">Ready to Start Your Adventure?</h3>
@@ -1023,7 +1185,7 @@ export const OptimizedHomePage: React.FC = () => {
                 </div>
               </div>
             </div>
-            
+
             {/* Card 2 */}
             <div className="group">
               <div className="bg-white rounded-2xl p-6 shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 border border-blue-100">
@@ -1038,7 +1200,7 @@ export const OptimizedHomePage: React.FC = () => {
                 </div>
               </div>
             </div>
-            
+
             {/* Card 3 */}
             <div className="group">
               <div className="bg-white rounded-2xl p-6 shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 border border-green-100">
@@ -1053,7 +1215,7 @@ export const OptimizedHomePage: React.FC = () => {
                 </div>
               </div>
             </div>
-            
+
             {/* Card 4 */}
             <div className="group">
               <div className="bg-white rounded-2xl p-6 shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 border border-teal-100">
@@ -1068,7 +1230,7 @@ export const OptimizedHomePage: React.FC = () => {
                 </div>
               </div>
             </div>
-            
+
             {/* Card 5 */}
             <div className="group">
               <div className="bg-white rounded-2xl p-6 shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 border border-orange-100">
@@ -1083,7 +1245,7 @@ export const OptimizedHomePage: React.FC = () => {
                 </div>
               </div>
             </div>
-            
+
             {/* Card 6 */}
             <div className="group">
               <div className="bg-white rounded-2xl p-6 shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 border border-purple-100">
@@ -1134,7 +1296,7 @@ export const OptimizedHomePage: React.FC = () => {
               <div className="text-sm text-gray-600">Play Store Rating</div>
             </div>
           </div>
-          
+
           {/* Comparison Table */}
           <div className="bg-white rounded-2xl p-8 shadow-xl border border-gray-200 mb-12">
             <h3 className="text-2xl font-bold text-center mb-8">Choose Your Plan</h3>
@@ -1184,7 +1346,7 @@ export const OptimizedHomePage: React.FC = () => {
               </Link>
             </div>
           </div>
-          
+
           {/* User Testimonials */}
           <div className="bg-white rounded-2xl p-8 shadow-lg">
             <h3 className="text-2xl font-bold text-center mb-8">What Our Users Say</h3>
@@ -1203,7 +1365,7 @@ export const OptimizedHomePage: React.FC = () => {
               ))}
             </div>
           </div>
-          
+
           {/* Single CTA */}
           <div className="text-center mt-8">
             <Link to="/trips">
@@ -1227,7 +1389,7 @@ export const OptimizedHomePage: React.FC = () => {
               Complete travel services in one platform
             </p>
           </div>
-          
+
           <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
             {[
               {
@@ -1297,9 +1459,9 @@ export const OptimizedHomePage: React.FC = () => {
               Everything you need to know about TravelBuddy
             </p>
           </div>
-          
+
           <FAQAccordion />
-          
+
           <div className="text-center mt-16">
             <div className="bg-white rounded-2xl p-8 shadow-lg border border-gray-100">
               <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -1317,9 +1479,91 @@ export const OptimizedHomePage: React.FC = () => {
         </div>
       </section>
 
+      {/* 🔮 3. Floating AI Assistant Bubble */}
+      <div className="fixed bottom-8 right-8 z-50">
+        <AnimatePresence>
+          {isAIChatOpen && (
+            <motion.div
+              initial={{ opacity: 0, scale: 0.8, y: 20, transformOrigin: 'bottom right' }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.8, y: 20 }}
+              className="absolute bottom-20 right-0 w-80 md:w-96 bg-white rounded-3xl shadow-2xl border border-gray-100 overflow-hidden flex flex-col"
+            >
+              {/* Header */}
+              <div className="bg-gradient-to-r from-blue-600 to-purple-600 p-4 text-white flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center">
+                    <Sparkles className="w-6 h-6" />
+                  </div>
+                  <div>
+                    <h4 className="font-bold text-sm">TravelBuddy AI</h4>
+                    <p className="text-xs text-white/70">Online & ready to help</p>
+                  </div>
+                </div>
+                <button onClick={() => setIsAIChatOpen(false)} className="hover:rotate-90 transition-transform">
+                  <ArrowRight className="w-5 h-5 rotate-45" />
+                </button>
+              </div>
 
-      
+              {/* Chat Body */}
+              <div className="h-80 overflow-y-auto p-4 space-y-4 bg-gray-50 flex flex-col no-scrollbar">
+                {chatHistory.map((msg, i) => (
+                  <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                    <div className={`max-w-[80%] p-3 rounded-2xl text-sm ${msg.role === 'user'
+                      ? 'bg-blue-600 text-white rounded-br-none'
+                      : 'bg-white text-gray-800 shadow-sm border border-gray-100 rounded-bl-none'
+                      }`}>
+                      {msg.text}
+                    </div>
+                  </div>
+                ))}
+              </div>
 
+              {/* Input */}
+              <div className="p-4 bg-white border-t border-gray-100">
+                <form
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    if (!aiMessage) return;
+                    setChatHistory([...chatHistory, { role: 'user', text: aiMessage }]);
+                    setAiMessage('');
+                    setTimeout(() => {
+                      setChatHistory((prev) => [...prev, { role: 'assistant', text: "Great question! I'm analyzing top traveler data for you. Would you like me to start a trip plan based on that?" }]);
+                    }, 1000);
+                  }}
+                  className="flex gap-2"
+                >
+                  <input
+                    type="text"
+                    placeholder="Ask me anything..."
+                    className="flex-1 bg-gray-100 rounded-xl px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+                    value={aiMessage}
+                    onChange={(e) => setAiMessage(e.target.value)}
+                  />
+                  <button type="submit" className="w-10 h-10 bg-blue-600 text-white rounded-xl flex items-center justify-center hover:scale-105 active:scale-95 transition-all">
+                    <ArrowRight className="w-5 h-5" />
+                  </button>
+                </form>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        <motion.button
+          whileHover={{ scale: 1.1 }}
+          whileTap={{ scale: 0.9 }}
+          onClick={() => setIsAIChatOpen(!isAIChatOpen)}
+          className="w-16 h-16 bg-gradient-to-r from-blue-600 to-purple-600 rounded-full shadow-2xl flex items-center justify-center text-white relative group"
+        >
+          {isAIChatOpen ? <ArrowRight className="w-8 h-8 rotate-45" /> : <Sparkles className="w-8 h-8" />}
+          {!isAIChatOpen && (
+            <div className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 rounded-full border-4 border-white animate-bounce"></div>
+          )}
+          <div className="absolute right-20 bg-gray-900 text-white px-4 py-2 rounded-xl text-sm font-medium whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none transform translate-x-2 group-hover:translate-x-0">
+            Need travel advice?
+          </div>
+        </motion.button>
+      </div>
     </div>
   )
 }
