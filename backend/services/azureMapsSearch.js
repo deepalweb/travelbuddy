@@ -90,20 +90,20 @@ export class AzureMapsSearch {
 
   generatePhotoUrl(placeName, categories) {
     // Generate Unsplash photo URL based on place type
-    const category = categories[0] || 'place';
-    let searchTerm = 'landmark';
+    const category = (categories[0] || 'place').toLowerCase();
+    let searchTerm = 'travel';
     
-    if (category.includes('restaurant') || category.includes('food')) searchTerm = 'restaurant food';
-    else if (category.includes('hotel')) searchTerm = 'hotel';
-    else if (category.includes('museum')) searchTerm = 'museum art';
-    else if (category.includes('park')) searchTerm = 'park nature';
+    if (category.includes('restaurant') || category.includes('food') || category.includes('dining')) searchTerm = 'restaurant';
+    else if (category.includes('café') || category.includes('cafe') || category.includes('coffee')) searchTerm = 'cafe';
+    else if (category.includes('hotel') || category.includes('accommodation')) searchTerm = 'hotel';
+    else if (category.includes('museum')) searchTerm = 'museum';
+    else if (category.includes('park') || category.includes('garden')) searchTerm = 'park';
     else if (category.includes('beach')) searchTerm = 'beach';
-    else if (category.includes('temple') || category.includes('church')) searchTerm = 'temple architecture';
-    else if (category.includes('shopping') || category.includes('mall')) searchTerm = 'shopping mall';
-    else if (category.includes('cafe') || category.includes('coffee')) searchTerm = 'cafe coffee';
-    else if (category.includes('bar') || category.includes('nightlife')) searchTerm = 'bar nightlife';
+    else if (category.includes('temple') || category.includes('church') || category.includes('religious')) searchTerm = 'temple';
+    else if (category.includes('shopping') || category.includes('mall')) searchTerm = 'shopping';
+    else if (category.includes('bar') || category.includes('nightlife') || category.includes('pub')) searchTerm = 'bar';
+    else if (category.includes('spa') || category.includes('wellness') || category.includes('massage')) searchTerm = 'spa';
     
-    // Use Unsplash Source API (free, no API key needed)
     return `https://source.unsplash.com/600x400/?${encodeURIComponent(searchTerm)}`;
   }
 

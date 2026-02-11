@@ -81,15 +81,24 @@ class Place extends HiveObject {
     final double placeRating = (json['rating'] ?? 0.0).toDouble();
     final String placeAddress = json['formatted_address'] ?? json['address'] ?? '';
     
-    // Extract photo URL from photos array or use direct photoUrl
+    // Extract photo URL - prioritize direct photoUrl from backend
     String photoUrl = json['photoUrl'] ?? '';
+    print('DEBUG Place.fromJson: photoUrl from backend = $photoUrl');
     if (photoUrl.isEmpty && json['photos'] != null && (json['photos'] as List).isNotEmpty) {
       final photo = (json['photos'] as List).first;
       if (photo['photo_reference'] != null) {
-        // Use backend photo proxy endpoint
-        photoUrl = 'https://travelbuddy-b2c6hgbbgeh4esdh.eastus2-01.azurewebsites.net/api/places/photo?ref=${photo['photo_reference']}&maxWidth=800';
+        final ref = photo['photo_reference'].toString();
+        print('DEBUG Place.fromJson: photo_reference = $ref');
+        // If photo_reference is already a full URL, use it directly
+        if (ref.startsWith('http')) {
+          photoUrl = ref;
+        } else {
+          // Otherwise use backend photo proxy
+          photoUrl = 'https://travelbuddy-b2c6hgbbgeh4esdh.eastus2-01.azurewebsites.net/api/places/photo?ref=$ref&maxWidth=800';
+        }
       }
     }
+    print('DEBUG Place.fromJson: final photoUrl = $photoUrl');
     
     return Place(
       id: placeId,
