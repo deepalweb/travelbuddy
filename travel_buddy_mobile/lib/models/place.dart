@@ -82,8 +82,9 @@ class Place extends HiveObject {
     final String placeAddress = json['formatted_address'] ?? json['address'] ?? '';
     
     // Extract photo URL - prioritize direct photoUrl from backend
-    String photoUrl = json['photoUrl'] ?? '';
-    print('DEBUG Place.fromJson: photoUrl from backend = $photoUrl');
+    String photoUrl = json['photoUrl']?.toString() ?? '';
+    print('DEBUG Place.fromJson: photoUrl from backend = "$photoUrl"');
+    print('DEBUG Place.fromJson: json keys = ${json.keys.toList()}');
     if (photoUrl.isEmpty && json['photos'] != null && (json['photos'] as List).isNotEmpty) {
       final photo = (json['photos'] as List).first;
       if (photo['photo_reference'] != null) {

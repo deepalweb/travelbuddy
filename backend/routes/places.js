@@ -531,4 +531,14 @@ router.get('/debug/env', async (req, res) => {
   });
 });
 
+// Clear cache endpoint
+router.delete('/debug/cache', async (req, res) => {
+  try {
+    const result = await PlacesCache.deleteMany({});
+    res.json({ status: 'OK', deleted: result.deletedCount });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 export default router;
