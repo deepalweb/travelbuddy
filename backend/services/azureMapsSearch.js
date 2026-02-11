@@ -14,9 +14,16 @@ export class AzureMapsSearch {
       const fuzzyUrl = `${this.baseUrl}/search/fuzzy/json?subscription-key=${this.apiKey}&api-version=1.0&query=${encodeURIComponent(query)}&lat=${lat}&lon=${lng}&radius=${radiusInMeters}&limit=100`;
       
       console.log(`🗺️ Azure Maps Fuzzy Search: "${query}" near ${lat},${lng}`);
+      console.log(`🔗 URL: ${fuzzyUrl.replace(this.apiKey, 'HIDDEN')}`);
       
       const response = await fetch(fuzzyUrl);
       const data = await response.json();
+      
+      console.log(`📊 Azure Maps Response Status: ${response.status}`);
+      console.log(`📊 Azure Maps Results Count: ${data.results?.length || 0}`);
+      if (data.error) {
+        console.error(`❌ Azure Maps Error:`, data.error);
+      }
       
       if (data.results && data.results.length > 0) {
         const places = data.results.map(result => this.transformToGoogleFormat(result));
