@@ -191,7 +191,15 @@ router.get('/mobile/nearby', async (req, res) => {
     results = PlacesOptimizer.filterQualityResults(results, { minRating: 0 });
     results = PlacesOptimizer.enrichPlaceTypes(results);
     results = PlacesOptimizer.rankResults(results, parseFloat(lat), parseFloat(lng), query);
-    console.log(`✅ Layer 3 (Algorithm): Categorized and ranked`);
+    
+    // Extract photo URLs from photos array
+    results = results.map(place => ({
+      ...place,
+      photoUrl: place.photos?.[0]?.photo_reference || ''
+    }));
+    
+    console.log(`✅ Layer 3 (Algorithm): Categorized, ranked, and photos extracted`);
+    console.log(`📸 Sample photo URL: ${results[0]?.photoUrl || 'none'}`);
     
     // LAYER 4: Personalization (User Data) - TODO: Add user preferences
     // if (userId) {

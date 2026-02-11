@@ -52,10 +52,12 @@ export class AzureMapsSearch {
     const poi = azureResult.poi || {};
     const address = azureResult.address || {};
     const position = azureResult.position || {};
+    const placeName = poi.name || address.freeformAddress || 'Unknown Place';
+    const categories = poi.categories || [];
     
     return {
       place_id: azureResult.id || `azure_${Date.now()}_${Math.random()}`,
-      name: poi.name || address.freeformAddress || 'Unknown Place',
+      name: placeName,
       formatted_address: address.freeformAddress || `${position.lat}, ${position.lon}`,
       geometry: {
         location: {
@@ -63,15 +65,39 @@ export class AzureMapsSearch {
           lng: position.lon || 0
         }
       },
-      types: poi.categories || poi.classifications?.map(c => c.code) || ['point_of_interest'],
+      types: categories || poi.classifications?.map(c => c.code) || ['point_of_interest'],
       rating: this.generateRating(poi),
       user_ratings_total: Math.floor(Math.random() * 200) + 50,
       business_status: 'OPERATIONAL',
       vicinity: address.freeformAddress || '',
       phone: poi.phone || '',
       website: poi.url || '',
+      photos: [{
+        photo_reference: this.generatePhotoUrl(placeName, categories),
+        height: 400,
+        width: 600
+      }],
       source: 'azure_maps'
     };
+  }
+
+  generatePhotoUrl(placeName, categories) {
+    // Generate Unsplash photo URL based on place type
+    const category = categories[0] || 'place';
+    let searchTerm = 'landmark';
+    
+    if (category.includes('restaurant') || category.includes('food')) searchTerm = 'restaurant food';
+    else if (category.includes('hotel')) searchTerm = 'hotel';
+    else if (category.includes('museum')) searchTerm = 'museum art';
+    else if (category.includes('park')) searchTerm = 'park nature';
+    else if (category.includes('beach')) searchTerm = 'beach';
+    else if (category.includes('temple') || category.includes('church')) searchTerm = 'temple architecture';
+    else if (category.includes('shopping') || category.includes('mall')) searchTerm = 'shopping mall';
+    else if (category.includes('cafe') || category.includes('coffee')) searchTerm = 'cafe coffee';
+    else if (category.includes('bar') || category.includes('nightlife')) searchTerm = 'bar nightlife';
+    
+    // Use Unsplash Source API (free, no API key needed)
+    return `https://source.unsplash.com/600x400/?${encodeURIComponent(searchTerm)}`;
   }
 
   generateRating(poi) {

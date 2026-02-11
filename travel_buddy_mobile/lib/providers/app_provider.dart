@@ -1404,20 +1404,10 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
       }
       } // End Real Places Mode
 
-      // Filter by search relevance if this is a search query
+      // Skip local filtering - Azure Maps already returns relevant results
+      // The backend handles the search query filtering
       if (searchQuery.isNotEmpty) {
-        final originalQuery = searchQuery.toLowerCase().trim();
-        places = places.where((place) {
-          final name = place.name.toLowerCase();
-          final type = place.type.toLowerCase();
-          final description = place.description.toLowerCase();
-          
-          // Check if place matches the search query
-          return name.contains(originalQuery) || 
-                 type.contains(originalQuery) ||
-                 description.contains(originalQuery);
-        }).toList();
-        print('🎯 Filtered to ${places.length} relevant results for "$searchQuery"');
+        print('🎯 Received ${places.length} results from backend for "$searchQuery"');
       }
       
       // AI Enrichment and distance calculation
