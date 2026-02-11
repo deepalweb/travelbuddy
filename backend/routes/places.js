@@ -17,6 +17,7 @@ function generateMockPlaces(lat, lng, query, count) {
     const offsetLat = (Math.random() - 0.5) * 0.2;
     const offsetLng = (Math.random() - 0.5) * 0.2;
     const category = categories[i % categories.length];
+    const seed = Math.abs((lat + lng + i).toString().split('').reduce((a, b) => { a = ((a << 5) - a) + b.charCodeAt(0); return a & a; }, 0)) % 1000;
     
     places.push({
       place_id: `mock_${Date.now()}_${i}`,
@@ -34,7 +35,7 @@ function generateMockPlaces(lat, lng, query, count) {
       business_status: 'OPERATIONAL',
       vicinity: `Area near ${lat.toFixed(2)}, ${lng.toFixed(2)}`,
       photos: [{
-        photo_reference: `https://source.unsplash.com/600x400/?${encodeURIComponent(category)}`,
+        photo_reference: `https://picsum.photos/seed/${seed}/600/400`,
         height: 400,
         width: 600
       }],

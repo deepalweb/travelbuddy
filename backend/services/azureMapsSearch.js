@@ -89,22 +89,12 @@ export class AzureMapsSearch {
   }
 
   generatePhotoUrl(placeName, categories) {
-    // Generate Unsplash photo URL based on place type
+    // Generate photo URL based on place type using picsum.photos
     const category = (categories[0] || 'place').toLowerCase();
-    let searchTerm = 'travel';
+    const hash = placeName.split('').reduce((a, b) => { a = ((a << 5) - a) + b.charCodeAt(0); return a & a; }, 0);
+    const seed = Math.abs(hash) % 1000;
     
-    if (category.includes('restaurant') || category.includes('food') || category.includes('dining')) searchTerm = 'restaurant';
-    else if (category.includes('café') || category.includes('cafe') || category.includes('coffee')) searchTerm = 'cafe';
-    else if (category.includes('hotel') || category.includes('accommodation')) searchTerm = 'hotel';
-    else if (category.includes('museum')) searchTerm = 'museum';
-    else if (category.includes('park') || category.includes('garden')) searchTerm = 'park';
-    else if (category.includes('beach')) searchTerm = 'beach';
-    else if (category.includes('temple') || category.includes('church') || category.includes('religious')) searchTerm = 'temple';
-    else if (category.includes('shopping') || category.includes('mall')) searchTerm = 'shopping';
-    else if (category.includes('bar') || category.includes('nightlife') || category.includes('pub')) searchTerm = 'bar';
-    else if (category.includes('spa') || category.includes('wellness') || category.includes('massage')) searchTerm = 'spa';
-    
-    return `https://source.unsplash.com/600x400/?${encodeURIComponent(searchTerm)}`;
+    return `https://picsum.photos/seed/${seed}/600/400`;
   }
 
   generateRating(poi) {
