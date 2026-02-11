@@ -15,6 +15,22 @@ const openai = process.env.AZURE_OPENAI_API_KEY ? new OpenAI({
   },
 }) : null;
 
+// Geocode location name to coordinates using Azure Maps
+async function geocodeLocation(query, apiKey) {
+  const url = `https://atlas.microsoft.com/search/address/json?subscription-key=${apiKey}&api-version=1.0&query=${encodeURIComponent(query)}`;
+  const response = await fetch(url);
+  const data = await response.json();
+  
+  if (data.results && data.results.length > 0) {
+    return {
+      lat: data.results[0].position.lat,
+      lng: data.results[0].position.lon,
+      name: data.results[0].address.freeformAddress
+    };
+  }
+  throw new Error('Location not found');
+}
+
 // Step 1: Get real places from Azure Maps
 async function fetchAzurePlaces(lat, lng, query, radius = 5000) {
   const apiKey = process.env.AZURE_MAPS_API_KEY;
@@ -107,14 +123,32 @@ function formatPlaceForFrontend(azurePlace, aiEnhancement) {
 // Main enhanced search endpoint
 router.get('/search', async (req, res) => {
   try {
-    const { lat, lng, q: query, radius = 5000, limit = 10 } = req.query;
+    let { lat, lng, q: query, radius = 5000, limit = 10 } = req.query;
     
     if (!query) {
       return res.status(400).json({ error: 'Query parameter required' });
     }
 
+    const apiKey = process.env.AZURE_MAPS_API_KEY;
+    if (!apiKey) {
+      return res.status(500).json({ error: 'Azure Maps API key not configured' });
+    }
+
+    // If no coordinates provided, geocode the query first
     if (!lat || !lng) {
-      return res.status(400).json({ error: 'lat and lng parameters required' });
+      console.log(`📍 Geocoding: "${query}"`);
+      try {
+        const location = await geocodeLocation(query, apiKey);
+        lat = location.lat;
+        lng = location.lng;
+        console.log(`✅ Geocoded to: ${location.name} (${lat}, ${lng})`);
+      } catch (geocodeError) {
+        console.error('❌ Geocoding failed:', geocodeError.message);
+        return res.status(400).json({ 
+          error: 'Could not find location', 
+          message: `Unable to geocode "${query}"` 
+        });
+      }
     }
 
     console.log(`🔍 Enhanced search: "${query}" near ${lat}, ${lng}`);
