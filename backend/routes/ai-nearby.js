@@ -74,11 +74,11 @@ router.post('/find-nearby', async (req, res) => {
     const messages = [
       {
         role: 'system',
-        content: 'You are a helpful emergency assistant. Format location information clearly and concisely for travelers in distress. Be calm and direct.'
+        content: 'You are a helpful travel assistant. Provide clear location information for travelers.'
       },
       {
         role: 'user',
-        content: `${query}\n\nNearby locations:\n${places.map((p, i) => `${i+1}. ${p.name} - ${p.distance} away\n   Address: ${p.address}\n   Rating: ${p.rating}`).join('\n\n')}\n\nProvide the NEAREST location with distance in a single clear sentence.`
+        content: `Find nearby ${type === 'hospital' ? 'medical facilities' : type === 'police' ? 'police stations' : 'safe locations'}.\n\nNearby locations:\n${places.map((p, i) => `${i+1}. ${p.name} - ${p.distance} away\n   Address: ${p.address}\n   Rating: ${p.rating}`).join('\n\n')}\n\nProvide the NEAREST location with distance in a single clear sentence.`
       }
     ];
     
@@ -91,7 +91,7 @@ router.post('/find-nearby', async (req, res) => {
       }
     );
     
-    const aiResponse = result.choices[0]?.message?.content || places[0].name + ' - ' + places[0].distance;
+    const aiResponse = result.choices[0]?.message?.content || `${places[0].name} - ${places[0].distance}`;
     
     res.json({ 
       result: aiResponse,
