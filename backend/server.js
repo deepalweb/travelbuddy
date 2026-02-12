@@ -1005,7 +1005,7 @@ try {
 
 // Load AI nearby routes
 try {
-  const aiNearbyRouter = require('./routes/ai-nearby.js');
+  const aiNearbyRouter = (await import('./routes/ai-nearby.js')).default;
   app.use('/api/ai', aiNearbyRouter);
   console.log('✅ AI Nearby routes loaded');
 } catch (error) {

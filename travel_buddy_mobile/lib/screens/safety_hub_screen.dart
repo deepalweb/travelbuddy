@@ -387,13 +387,18 @@ class _SafetyHubScreenState extends State<SafetyHubScreen> {
   }
 
   Future<Map<String, dynamic>> _getNearestHospitalData(AppProvider appProvider) async {
+    print('🏥 Starting hospital search...');
+    
     if (appProvider.currentLocation == null) {
+      print('❌ No location available');
       return {'result': 'Enable location to find hospitals', 'places': []};
     }
     
     try {
       final lat = appProvider.currentLocation!.latitude;
       final lng = appProvider.currentLocation!.longitude;
+      print('📍 Location: $lat, $lng');
+      print('🌐 Calling: ${Environment.backendUrl}/api/ai/find-nearby');
       
       final response = await http.post(
         Uri.parse('${Environment.backendUrl}/api/ai/find-nearby'),
@@ -406,15 +411,19 @@ class _SafetyHubScreenState extends State<SafetyHubScreen> {
         }),
       ).timeout(const Duration(seconds: 10));
       
+      print('📡 Response status: ${response.statusCode}');
+      print('📦 Response body: ${response.body}');
+      
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
+        print('✅ Got ${data['places']?.length ?? 0} hospitals');
         return {
           'result': data['result'] ?? 'Tap to see nearby hospitals',
           'places': data['places'] ?? []
         };
       }
     } catch (e) {
-      print('Error finding hospital: $e');
+      print('❌ Error finding hospital: $e');
     }
     
     return {'result': 'Tap to see nearby hospitals', 'places': []};

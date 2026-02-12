@@ -1,7 +1,8 @@
-const express = require('express');
+import express from 'express';
+import { OpenAIClient, AzureKeyCredential } from '@azure/openai';
+import axios from 'axios';
+
 const router = express.Router();
-const { OpenAIClient, AzureKeyCredential } = require('@azure/openai');
-const axios = require('axios');
 
 const client = new OpenAIClient(
   process.env.AZURE_OPENAI_ENDPOINT,
@@ -103,4 +104,4 @@ router.post('/find-nearby', async (req, res) => {
   }
 });
 
-module.exports = router;
+export default router;
