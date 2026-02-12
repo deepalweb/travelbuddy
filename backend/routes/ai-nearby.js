@@ -6,7 +6,7 @@ const router = express.Router();
 
 const client = new OpenAIClient(
   process.env.AZURE_OPENAI_ENDPOINT,
-  new AzureKeyCredential(process.env.AZURE_OPENAI_KEY)
+  new AzureKeyCredential(process.env.AZURE_OPENAI_API_KEY)
 );
 
 // Function to search nearby places using Google Places API
@@ -23,7 +23,7 @@ async function searchNearbyPlaces(latitude, longitude, type) {
         location: `${latitude},${longitude}`,
         radius: 5000,
         type: placeTypes[type] || 'hospital',
-        key: process.env.GOOGLE_PLACES_API_KEY
+        key: process.env.GOOGLE_MAPS_API_KEY || process.env.GOOGLE_PLACES_API_KEY
       }
     });
     
