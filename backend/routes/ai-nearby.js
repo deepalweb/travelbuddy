@@ -9,30 +9,33 @@ const client = new OpenAIClient(
   new AzureKeyCredential(process.env.AZURE_OPENAI_API_KEY)
 );
 
-// Function to search nearby places using Google Places API
+// Function to search nearby places using Azure Maps API
 async function searchNearbyPlaces(latitude, longitude, type) {
   try {
-    const placeTypes = {
-      'hospital': 'hospital',
-      'police': 'police',
-      'safe_place': 'lodging|police'
+    const categoryMap = {
+      'hospital': 'HOSPITAL',
+      'police': 'POLICE_STATION',
+      'safe_place': 'HOTEL'
     };
     
-    const response = await axios.get('https://maps.googleapis.com/maps/api/place/nearbysearch/json', {
+    const response = await axios.get('https://atlas.microsoft.com/search/poi/category/json', {
       params: {
-        location: `${latitude},${longitude}`,
-        radius: 5000,
-        type: placeTypes[type] || 'hospital',
-        key: process.env.GOOGLE_MAPS_API_KEY || process.env.GOOGLE_PLACES_API_KEY
+        'api-version': '1.0',
+        'subscription-key': process.env.AZURE_MAPS_API_KEY,
+        'query': categoryMap[type] || 'HOSPITAL',
+        'lat': latitude,
+        'lon': longitude,
+        'radius': 5000,
+        'limit': 3
       }
     });
     
     if (response.data.results && response.data.results.length > 0) {
-      const places = response.data.results.slice(0, 3).map(place => ({
-        name: place.name,
-        address: place.vicinity,
-        rating: place.rating || 'N/A',
-        distance: calculateDistance(latitude, longitude, place.geometry.location.lat, place.geometry.location.lng)
+      const places = response.data.results.map(place => ({
+        name: place.poi?.name || 'Unknown',
+        address: place.address?.freeformAddress || 'Address not available',
+        rating: 'N/A',
+        distance: calculateDistance(latitude, longitude, place.position.lat, place.position.lon)
       }));
       
       return places;
