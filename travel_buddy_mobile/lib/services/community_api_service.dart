@@ -145,7 +145,7 @@ class CommunityApiService {
   }) async {
     try {
       final response = await http.put(
-        Uri.parse('$_baseUrl/api/community/posts/$postId'),
+        Uri.parse('$_baseUrl/api/posts/$postId'),
         headers: {'Content-Type': 'application/json'},
         body: json.encode({
           'content': {'text': content, 'images': images},
@@ -161,5 +161,22 @@ class CommunityApiService {
       DebugLogger.error('Failed to edit post: $e');
     }
     return null;
+  }
+
+  // Toggle bookmark
+  static Future<bool> toggleBookmark(String postId, {String? userId}) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$_baseUrl/api/posts/$postId/bookmark'),
+        headers: {
+          'Content-Type': 'application/json',
+          if (userId != null) 'x-user-id': userId,
+        },
+      );
+      return response.statusCode == 200;
+    } catch (e) {
+      DebugLogger.error('Failed to toggle bookmark: $e');
+      return false;
+    }
   }
 }

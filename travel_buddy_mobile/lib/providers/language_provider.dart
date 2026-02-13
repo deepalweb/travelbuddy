@@ -2,16 +2,19 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/language_models.dart';
 import '../services/translation_service.dart';
+import '../services/localization_service.dart';
 
 class LanguageProvider extends ChangeNotifier {
   String _currentLanguage = 'en';
   String? _suggestedLanguage;
   bool _showLocationSuggestion = false;
   final TranslationService _translationService = TranslationService();
+  final LocalizationService _localizationService = LocalizationService();
 
   String get currentLanguage => _currentLanguage;
   String? get suggestedLanguage => _suggestedLanguage;
   bool get showLocationSuggestion => _showLocationSuggestion;
+  bool get isRTL => _currentLanguage == 'ar';
 
   SupportedLanguage get currentLanguageInfo {
     return supportedLanguages.firstWhere(
@@ -19,6 +22,8 @@ class LanguageProvider extends ChangeNotifier {
       orElse: () => supportedLanguages.first,
     );
   }
+
+  String tr(String key) => _localizationService.translate(key, _currentLanguage);
 
   Future<void> initialize() async {
     await _loadSavedLanguage();

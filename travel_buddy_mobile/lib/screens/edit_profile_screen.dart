@@ -4,7 +4,9 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:image_picker/image_picker.dart';
 import '../providers/app_provider.dart';
+import '../providers/language_provider.dart';
 import '../models/travel_style.dart';
+import '../models/language_models.dart';
 
 class EditProfileScreen extends StatefulWidget {
   const EditProfileScreen({super.key});
@@ -70,6 +72,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       _selectedInterests = Set<String>.from(user.interests ?? []);
       _selectedBudgets = Set<String>.from(user.budgetPreferences ?? []);
       _selectedTravelStyles = user.travelStyle != null ? {user.travelStyle!.name} : <String>{};
+      _selectedNationality = user.nationality;
       print('📸 [EDIT] Current avatar: $_currentAvatarUrl');
     }
   }
@@ -335,6 +338,18 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
             // Travel Preferences
             _buildSectionHeader('Travel Preferences'),
             _buildOptionTile(
+              icon: Icons.translate,
+              title: 'App Language',
+              subtitle: context.watch<LanguageProvider>().currentLanguageInfo.name,
+              onTap: _selectAppLanguage,
+            ),
+            _buildOptionTile(
+              icon: Icons.flag,
+              title: 'Nationality',
+              subtitle: _selectedNationality ?? 'Select your nationality',
+              onTap: _selectNationality,
+            ),
+            _buildOptionTile(
               icon: Icons.explore,
               title: 'Travel Styles',
               subtitle: _selectedTravelStyles.isEmpty 
@@ -538,7 +553,120 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   }
 
   Set<String> _selectedLanguages = {};
+  String? _selectedNationality;
   
+  void _selectAppLanguage() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      builder: (context) => DraggableScrollableSheet(
+        initialChildSize: 0.7,
+        minChildSize: 0.5,
+        maxChildSize: 0.9,
+        expand: false,
+        builder: (context, scrollController) => Container(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+          child: Column(
+            children: [
+              Container(
+                width: 40,
+                height: 4,
+                margin: const EdgeInsets.only(bottom: 16),
+                decoration: BoxDecoration(
+                  color: Colors.grey[300],
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              const Text('Select App Language', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 16),
+              Expanded(
+                child: ListView(
+                  controller: scrollController,
+                  children: supportedLanguages.map((lang) => RadioListTile<String>(
+                    title: Row(
+                      children: [
+                        Text(lang.flag, style: const TextStyle(fontSize: 24)),
+                        const SizedBox(width: 12),
+                        Text(lang.name),
+                      ],
+                    ),
+                    value: lang.code,
+                    groupValue: context.watch<LanguageProvider>().currentLanguage,
+                    onChanged: (value) {
+                      if (value != null) {
+                        context.read<LanguageProvider>().changeLanguage(value);
+                        Navigator.pop(context);
+                      }
+                    },
+                  )).toList(),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+  
+  void _selectNationality() {
+    final countries = {
+      'US': 'United States', 'UK': 'United Kingdom', 'CA': 'Canada', 'AU': 'Australia',
+      'NZ': 'New Zealand', 'IN': 'India', 'CN': 'China', 'JP': 'Japan', 'KR': 'South Korea',
+      'DE': 'Germany', 'FR': 'France', 'IT': 'Italy', 'ES': 'Spain', 'NL': 'Netherlands',
+      'CH': 'Switzerland', 'BE': 'Belgium', 'AT': 'Austria', 'SE': 'Sweden', 'NO': 'Norway',
+      'DK': 'Denmark', 'PL': 'Poland', 'IE': 'Ireland', 'RU': 'Russia', 'BR': 'Brazil',
+      'ZA': 'South Africa', 'MX': 'Mexico', 'AR': 'Argentina', 'PK': 'Pakistan',
+      'BD': 'Bangladesh', 'MY': 'Malaysia', 'SG': 'Singapore', 'TH': 'Thailand',
+      'ID': 'Indonesia', 'PH': 'Philippines', 'VN': 'Vietnam', 'AE': 'UAE',
+      'SA': 'Saudi Arabia', 'IR': 'Iran', 'TR': 'Turkey',
+    };
+    
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      builder: (context) => DraggableScrollableSheet(
+        initialChildSize: 0.7,
+        minChildSize: 0.5,
+        maxChildSize: 0.9,
+        expand: false,
+        builder: (context, scrollController) => Container(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+          child: Column(
+            children: [
+              Container(
+                width: 40,
+                height: 4,
+                margin: const EdgeInsets.only(bottom: 16),
+                decoration: BoxDecoration(
+                  color: Colors.grey[300],
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              const Text('Select Nationality', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 16),
+              Expanded(
+                child: ListView(
+                  controller: scrollController,
+                  children: countries.entries.map((entry) => RadioListTile<String>(
+                    title: Text(entry.value),
+                    value: entry.key,
+                    groupValue: _selectedNationality,
+                    onChanged: (value) {
+                      setState(() => _selectedNationality = value);
+                      Navigator.pop(context);
+                    },
+                  )).toList(),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   void _selectLanguages() {
     showModalBottomSheet(
       context: context,
@@ -862,6 +990,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         showBirthdayToOthers: _showBirthdayToOthers,
         showLocationToOthers: _showLocationToOthers,
         status: _statusController.text.trim(),
+        nationality: _selectedNationality,
       );
 
       if (success && mounted) {

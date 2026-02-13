@@ -67,13 +67,16 @@ const List<SupportedLanguage> supportedLanguages = [
   SupportedLanguage(code: 'es', name: 'Español', flag: '🇪🇸'),
   SupportedLanguage(code: 'fr', name: 'Français', flag: '🇫🇷'),
   SupportedLanguage(code: 'de', name: 'Deutsch', flag: '🇩🇪'),
-  SupportedLanguage(code: 'it', name: 'Italiano', flag: '🇮🇹'),
-  SupportedLanguage(code: 'pt', name: 'Português', flag: '🇵🇹'),
+  SupportedLanguage(code: 'zh', name: '简体中文', flag: '🇨🇳'),
   SupportedLanguage(code: 'ja', name: '日本語', flag: '🇯🇵'),
-  SupportedLanguage(code: 'ko', name: '한국어', flag: '🇰🇷'),
-  SupportedLanguage(code: 'zh', name: '中文', flag: '🇨🇳'),
-  SupportedLanguage(code: 'ar', name: 'العربية', flag: '🇸🇦'),
+  SupportedLanguage(code: 'hi', name: 'हिन्दी', flag: '🇮🇳'),
   SupportedLanguage(code: 'ru', name: 'Русский', flag: '🇷🇺'),
+  SupportedLanguage(code: 'ko', name: '한국어', flag: '🇰🇷'),
+  SupportedLanguage(code: 'ar', name: 'العربية', flag: '🇸🇦'),
+  SupportedLanguage(code: 'pt', name: 'Português', flag: '🇵🇹'),
+  SupportedLanguage(code: 'it', name: 'Italiano', flag: '🇮🇹'),
+  SupportedLanguage(code: 'nl', name: 'Nederlands', flag: '🇳🇱'),
+  SupportedLanguage(code: 'tr', name: 'Türkçe', flag: '🇹🇷'),
 ];
 
 const List<String> phraseCategories = [

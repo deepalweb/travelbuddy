@@ -1,6 +1,9 @@
 import 'package:hive/hive.dart';
+import 'package:html_unescape/html_unescape.dart';
 
 part 'place.g.dart';
+
+final _htmlUnescape = HtmlUnescape();
 
 @HiveType(typeId: 0)
 class Place extends HiveObject {
@@ -74,12 +77,12 @@ class Place extends HiveObject {
   factory Place.fromJson(Map<String, dynamic> json) {
     // Handle both backend API format and local storage format
     final String placeId = json['place_id'] ?? json['id'] ?? '';
-    final String placeName = json['name'] ?? '';
+    final String placeName = _htmlUnescape.convert(json['name'] ?? '');
     final String placeType = json['types'] != null && (json['types'] as List).isNotEmpty 
-        ? (json['types'] as List).first.toString().replaceAll('_', ' ').toUpperCase()
-        : json['type'] ?? 'PLACE';
+        ? _htmlUnescape.convert((json['types'] as List).first.toString().replaceAll('_', ' ').toUpperCase())
+        : _htmlUnescape.convert(json['type'] ?? 'PLACE');
     final double placeRating = (json['rating'] ?? 0.0).toDouble();
-    final String placeAddress = json['formatted_address'] ?? json['address'] ?? '';
+    final String placeAddress = _htmlUnescape.convert(json['formatted_address'] ?? json['address'] ?? '');
     
     // Extract photo URL - prioritize direct photoUrl from backend
     String photoUrl = json['photoUrl']?.toString() ?? '';
@@ -108,9 +111,9 @@ class Place extends HiveObject {
       rating: placeRating,
       address: placeAddress,
       photoUrl: photoUrl,
-      description: json['description'] ?? 'A great place to visit in the area.',
-      localTip: json['localTip'] ?? 'Check opening hours before visiting.',
-      handyPhrase: json['handyPhrase'] ?? 'Hello, thank you!',
+      description: _htmlUnescape.convert(json['description'] ?? 'A great place to visit in the area.'),
+      localTip: _htmlUnescape.convert(json['localTip'] ?? 'Check opening hours before visiting.'),
+      handyPhrase: _htmlUnescape.convert(json['handyPhrase'] ?? 'Hello, thank you!'),
       latitude: json['geometry']?['location']?['lat']?.toDouble(),
       longitude: json['geometry']?['location']?['lng']?.toDouble(),
       isOpenNow: json['business_status'] == 'OPERATIONAL',

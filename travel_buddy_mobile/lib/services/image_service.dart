@@ -1,6 +1,9 @@
 import 'package:image_picker/image_picker.dart';
+import 'package:http/http.dart' as http;
 import 'dart:io';
+import 'dart:convert';
 import 'image_optimization_service.dart';
+import '../config/environment.dart';
 
 class ImageService {
   final ImageOptimizationService _optimizer = ImageOptimizationService();
@@ -83,22 +86,45 @@ class ImageService {
   Future<List<String>> uploadImages(List<XFile> images) async {
     final imageUrls = <String>[];
     
-    for (final image in images) {
-      try {
-        // Compress image before upload
+    try {
+      final uri = Uri.parse('${Environment.backendUrl}/api/images/upload-multiple');
+      print('📤 Uploading to: $uri');
+      
+      var request = http.MultipartRequest('POST', uri);
+      
+      for (final image in images) {
         final imageFile = File(image.path);
         final compressed = await _optimizer.compressImage(imageFile);
         
         if (compressed != null) {
-          // For demo purposes, return a placeholder URL
-          // In production, upload compressed file to your image storage service
-          final hash = compressed.path.hashCode.abs();
-          final url = 'https://picsum.photos/seed/$hash/800/600';
-          imageUrls.add(url);
+          request.files.add(
+            await http.MultipartFile.fromPath(
+              'images',
+              compressed.path,
+              filename: 'post_${DateTime.now().millisecondsSinceEpoch}_${imageUrls.length}.jpg',
+            ),
+          );
         }
-      } catch (e) {
-        print('Error uploading image: $e');
       }
+      
+      print('📦 Sending ${request.files.length} files');
+      final response = await request.send();
+      print('📡 Response status: ${response.statusCode}');
+      
+      if (response.statusCode == 200) {
+        final responseData = await response.stream.bytesToString();
+        print('📥 Response data: $responseData');
+        final jsonData = json.decode(responseData);
+        imageUrls.addAll(List<String>.from(jsonData['urls']));
+        print('✅ Images uploaded: $imageUrls');
+      } else {
+        final errorData = await response.stream.bytesToString();
+        print('❌ Upload failed: ${response.statusCode}');
+        print('❌ Error response: $errorData');
+      }
+    } catch (e) {
+      print('❌ Upload error: $e');
+      print('❌ Stack trace: ${StackTrace.current}');
     }
     
     return imageUrls;

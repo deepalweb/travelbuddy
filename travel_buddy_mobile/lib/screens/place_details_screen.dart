@@ -443,6 +443,108 @@ class _PlaceDetailsScreenState extends State<PlaceDetailsScreen> with TickerProv
                       
                       const SizedBox(height: 20),
                       
+                      // Google Maps Widget
+                      if (widget.place.latitude != null && widget.place.longitude != null)
+                        Container(
+                          height: 200,
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: Colors.grey[300]!),
+                            color: Colors.grey[100],
+                          ),
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(12),
+                            child: Stack(
+                              children: [
+                                // Background gradient
+                                Container(
+                                  decoration: BoxDecoration(
+                                    gradient: LinearGradient(
+                                      begin: Alignment.topLeft,
+                                      end: Alignment.bottomRight,
+                                      colors: [Colors.blue[50]!, Colors.blue[100]!],
+                                    ),
+                                  ),
+                                ),
+                                // Map icon and text
+                                Center(
+                                  child: Column(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      Icon(
+                                        Icons.location_on,
+                                        size: 64,
+                                        color: Colors.red[600],
+                                      ),
+                                      const SizedBox(height: 12),
+                                      Text(
+                                        widget.place.name,
+                                        style: TextStyle(
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.bold,
+                                          color: Colors.grey[800],
+                                        ),
+                                        textAlign: TextAlign.center,
+                                        maxLines: 2,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Padding(
+                                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                                        child: Text(
+                                          widget.place.address,
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            color: Colors.grey[600],
+                                          ),
+                                          textAlign: TextAlign.center,
+                                          maxLines: 2,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 12),
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                                        decoration: BoxDecoration(
+                                          color: Color(AppConstants.colors['primary']!),
+                                          borderRadius: BorderRadius.circular(20),
+                                        ),
+                                        child: Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            Icon(Icons.map, size: 16, color: Colors.white),
+                                            const SizedBox(width: 6),
+                                            Text(
+                                              'Open in Google Maps',
+                                              style: TextStyle(
+                                                color: Colors.white,
+                                                fontSize: 13,
+                                                fontWeight: FontWeight.w500,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                // Clickable overlay
+                                Material(
+                                  color: Colors.transparent,
+                                  child: InkWell(
+                                    onTap: () => _launchUrl(
+                                      'https://www.google.com/maps?q=${widget.place.latitude},${widget.place.longitude}',
+                                    ),
+                                    child: Container(),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      
+                      const SizedBox(height: 20),
+                      
                       // About Section (Always show)
                       ..._buildSection(
                         'About',
@@ -1665,37 +1767,8 @@ class _PlaceDetailsScreenState extends State<PlaceDetailsScreen> with TickerProv
   }
   
   Future<void> _loadLocalTip() async {
-    if (widget.place.localTip.isNotEmpty) return;
-    
-    setState(() => _isLoadingLocalTip = true);
-    
-    try {
-      final response = await http.post(
-        Uri.parse('${AppConstants.baseUrl}/api/ai/ask'),
-        headers: {'Content-Type': 'application/json'},
-        body: json.encode({
-          'question': 'Provide a practical local tip for visiting this place. Include insider knowledge like best times to visit, how to avoid crowds, local customs, money-saving tips, or hidden features. Keep it concise (50-80 words) and actionable.',
-          'place': {
-            'name': widget.place.name,
-            'type': widget.place.type,
-            'address': widget.place.address,
-            'description': widget.place.description,
-          },
-        }),
-      ).timeout(const Duration(seconds: 10));
-      
-      if (response.statusCode == 200) {
-        final data = json.decode(response.body);
-        final aiTip = data['answer'];
-        if (aiTip != null && aiTip.isNotEmpty) {
-          setState(() => _aiLocalTip = aiTip);
-        }
-      }
-    } catch (e) {
-      print('Failed to load local tip: $e');
-    } finally {
-      setState(() => _isLoadingLocalTip = false);
-    }
+    // Skip - now loaded together with enhanced description
+    return;
   }
   
   void _generateLocalTip() async {
@@ -1739,14 +1812,25 @@ class _PlaceDetailsScreenState extends State<PlaceDetailsScreen> with TickerProv
       return;
     }
     
-    setState(() => _isLoadingEnhancedDescription = true);
+    setState(() {
+      _isLoadingEnhancedDescription = true;
+      _isLoadingLocalTip = true;
+    });
     
     try {
       final response = await http.post(
         Uri.parse('${AppConstants.baseUrl}/api/ai/ask'),
         headers: {'Content-Type': 'application/json'},
         body: json.encode({
-          'question': 'Create a rich, informative description (150-200 words) about this place. Include its significance, what makes it special, visitor experience, historical context if relevant, and what people can expect. Make it engaging and informative.',
+          'question': '''Generate a comprehensive response with two sections:
+
+1. DESCRIPTION (150-200 words): Create a rich, informative description about this place. Include its significance, what makes it special, visitor experience, historical context if relevant, and what people can expect. Make it engaging and informative.
+
+2. LOCAL TIP (50-80 words): Provide a practical local tip for visiting this place. Include insider knowledge like best times to visit, how to avoid crowds, local customs, money-saving tips, or hidden features. Keep it concise and actionable.
+
+Format your response as:
+DESCRIPTION: [your description here]
+LOCAL TIP: [your tip here]''',
           'place': {
             'name': widget.place.name,
             'type': widget.place.type,
@@ -1758,17 +1842,37 @@ class _PlaceDetailsScreenState extends State<PlaceDetailsScreen> with TickerProv
       
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
-        final aiDescription = data['answer'];
-        if (aiDescription != null && aiDescription.length > widget.place.description.length) {
-          setState(() {
-            _enhancedDescription = aiDescription;
-          });
+        final aiResponse = data['answer'] as String?;
+        
+        if (aiResponse != null && aiResponse.isNotEmpty) {
+          // Parse the response to extract description and tip
+          final descriptionMatch = RegExp(r'DESCRIPTION:\s*(.+?)(?=LOCAL TIP:|$)', dotAll: true).firstMatch(aiResponse);
+          final tipMatch = RegExp(r'LOCAL TIP:\s*(.+)', dotAll: true).firstMatch(aiResponse);
+          
+          if (descriptionMatch != null) {
+            final description = descriptionMatch.group(1)?.trim();
+            if (description != null && description.length > widget.place.description.length) {
+              _enhancedDescription = description;
+            }
+          }
+          
+          if (tipMatch != null) {
+            final tip = tipMatch.group(1)?.trim();
+            if (tip != null && tip.isNotEmpty) {
+              _aiLocalTip = tip;
+            }
+          }
+          
+          setState(() {});
         }
       }
     } catch (e) {
-      print('Failed to load enhanced description: $e');
+      print('Failed to load enhanced content: $e');
     } finally {
-      setState(() => _isLoadingEnhancedDescription = false);
+      setState(() {
+        _isLoadingEnhancedDescription = false;
+        _isLoadingLocalTip = false;
+      });
     }
   }
   

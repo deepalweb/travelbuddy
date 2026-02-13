@@ -852,6 +852,7 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
     bool? showLocationToOthers,
     String? profilePicture,
     String? status,
+    String? nationality,
   }) async {
     try {
       if (_currentUser == null) {
@@ -890,6 +891,7 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
         showLocationToOthers: showLocationToOthers ?? _currentUser?.showLocationToOthers,
         profilePicture: profilePicture ?? _currentUser?.profilePicture,
         status: status ?? _currentUser?.status,
+        nationality: nationality ?? _currentUser?.nationality,
       );
       
       // Save to local storage
@@ -938,6 +940,7 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
         'showLocationToOthers': showLocationToOthers,
         'profilePicture': profilePicture,
         'status': status,
+        'nationality': nationality,
       });
       
       notifyListeners();

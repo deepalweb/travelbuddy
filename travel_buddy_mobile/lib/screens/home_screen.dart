@@ -20,6 +20,7 @@ import '../screens/transport_hub_screen.dart';
 import '../screens/travel_agent_screen.dart';
 import '../screens/events_screen.dart';
 import '../screens/place_details_screen.dart';
+import '../screens/safety_hub_screen.dart';
 import '../widgets/category_section.dart';
 import '../services/places_service.dart';
 import '../models/place.dart';
@@ -619,6 +620,8 @@ class _HomeScreenState extends State<HomeScreen> {
                     _buildCategoryPlaces(appProvider),
                     const SizedBox(height: 16),
                     _buildNearbyPlaces(appProvider),
+                    const SizedBox(height: 16),
+                    _buildEmergencyQuickAccess(appProvider),
                   ],
                 ),
               ),
@@ -626,6 +629,167 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         );
       },
+    );
+  }
+  
+  Widget _buildEmergencyQuickAccess(AppProvider appProvider) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.red.shade50,
+        border: Border.all(color: Colors.red.shade200),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              Icon(Icons.warning_amber_rounded, color: Colors.red.shade700, size: 20),
+              const SizedBox(width: 8),
+              const Expanded(
+                child: Text(
+                  'Emergency Services',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.black87,
+                  ),
+                ),
+              ),
+              FutureBuilder<String>(
+                future: appProvider.currentLocation != null
+                    ? _getLocationName(
+                        appProvider.currentLocation!.latitude,
+                        appProvider.currentLocation!.longitude,
+                      )
+                    : Future.value('Unknown'),
+                builder: (context, snapshot) {
+                  final locationParts = (snapshot.data ?? 'Unknown').split(',');
+                  final country = locationParts.length > 1 ? locationParts.last.trim() : snapshot.data ?? 'Unknown';
+                  return Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: Colors.red.shade200,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      country,
+                      style: TextStyle(
+                        fontSize: 10,
+                        color: Colors.red.shade900,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          FutureBuilder<Map<String, dynamic>>(
+            future: _getLocationBasedEmergencyNumbers(appProvider),
+            builder: (context, snapshot) {
+              final emergencyData = snapshot.data ?? _getDefaultEmergencyNumbers();
+              
+              return Column(
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _buildQuickEmergencyButton(
+                          'Police',
+                          emergencyData['police'],
+                          Icons.local_police,
+                          Colors.blue.shade700,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: _buildQuickEmergencyButton(
+                          'Ambulance',
+                          emergencyData['ambulance'],
+                          Icons.local_hospital,
+                          Colors.red.shade700,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: _buildQuickEmergencyButton(
+                          'Fire',
+                          emergencyData['fire'],
+                          Icons.local_fire_department,
+                          Colors.orange.shade700,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton.icon(
+                      onPressed: () => _shareEmergencyLocation(),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.red.shade600,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      icon: const Icon(Icons.share_location, size: 18),
+                      label: const Text(
+                        'Share Emergency Location',
+                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                      ),
+                    ),
+                  ),
+                ],
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+  
+  Widget _buildQuickEmergencyButton(
+    String label,
+    String number,
+    IconData icon,
+    Color color,
+  ) {
+    return InkWell(
+      onTap: () => _makeEmergencyCall(number),
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          border: Border.all(color: Colors.red.shade200),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Column(
+          children: [
+            Icon(icon, color: color, size: 24),
+            const SizedBox(height: 4),
+            Text(
+              label,
+              style: const TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.bold,
+                color: Colors.black87,
+              ),
+            ),
+            Text(
+              number,
+              style: TextStyle(
+                fontSize: 9,
+                color: Colors.grey.shade600,
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
   
@@ -940,9 +1104,7 @@ class _HomeScreenState extends State<HomeScreen> {
                               ),
                             ),
                             Text(
-                              appProvider.currentUser?.fullName?.isNotEmpty == true
-                                  ? appProvider.currentUser!.fullName!
-                                  : appProvider.currentUser?.username ?? 'Traveler',
+                              _getUserDisplayName(appProvider),
                               style: const TextStyle(
                                 color: Colors.white,
                                 fontSize: 24,
@@ -1138,38 +1300,44 @@ class _HomeScreenState extends State<HomeScreen> {
       {
         'icon': Icons.directions_bus,
         'label': 'Transport',
+        'subtitle': 'Taxis & buses',
         'color': const Color(0xFF8E44AD),
         'action': 'transport',
       },
       {
-        'icon': Icons.support_agent,
-        'label': 'Travel Agent',
-        'color': const Color(0xFFFFB300),
-        'action': 'travel_agent',
-      },
-      {
-        'icon': Icons.celebration,
-        'label': 'Events',
-        'color': const Color(0xFFBF5AF2),
-        'action': 'events',
-      },
-      {
         'icon': Icons.translate,
         'label': 'Language',
+        'subtitle': 'Translator',
         'color': const Color(0xFF3B82F6),
         'action': 'translator',
       },
       {
         'icon': Icons.emergency_share,
         'label': 'Safety Hub',
+        'subtitle': 'Emergency',
         'color': const Color(0xFFEF4444),
         'action': 'safety',
       },
       {
         'icon': Icons.wb_sunny,
         'label': 'Weather',
-        'color': const Color(0xFF3B82F6),
+        'subtitle': 'Forecast',
+        'color': const Color(0xFFFFA726),
         'action': 'weather',
+      },
+      {
+        'icon': Icons.card_giftcard,
+        'label': 'Travel Agent',
+        'subtitle': 'Book tours',
+        'color': const Color(0xFFFFB300),
+        'action': 'travel_agent',
+      },
+      {
+        'icon': Icons.celebration,
+        'label': 'Events',
+        'subtitle': 'Festivals',
+        'color': const Color(0xFFBF5AF2),
+        'action': 'events',
       },
     ];
 
@@ -1194,7 +1362,10 @@ class _HomeScreenState extends State<HomeScreen> {
           itemBuilder: (context, index) {
             final service = services[index];
             return GestureDetector(
-              onTap: () => _handleServiceAction(service['action'] as String, appProvider),
+              onTap: () {
+                // Haptic feedback simulation
+                _handleServiceAction(service['action'] as String, appProvider);
+              },
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
@@ -1230,10 +1401,20 @@ class _HomeScreenState extends State<HomeScreen> {
                     service['label'] as String,
                     style: const TextStyle(
                       fontSize: 11,
-                      fontWeight: FontWeight.w500,
+                      fontWeight: FontWeight.w600,
                     ),
                     textAlign: TextAlign.center,
-                    maxLines: 2,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  Text(
+                    service['subtitle'] as String,
+                    style: TextStyle(
+                      fontSize: 9,
+                      color: Colors.grey[600],
+                    ),
+                    textAlign: TextAlign.center,
+                    maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
                 ],
@@ -1254,7 +1435,12 @@ class _HomeScreenState extends State<HomeScreen> {
         appProvider.setCurrentTabIndex(2);
         break;
       case 'safety':
-        _showEmergencyDialog();
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => const SafetyHubScreen(),
+          ),
+        );
         break;
       case 'translator':
         Navigator.push(
@@ -2461,7 +2647,12 @@ class _HomeScreenState extends State<HomeScreen> {
         break;
       case 'Safety Hub':
       case 'safety':
-        _showEmergencyDialog();
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => const SafetyHubScreen(),
+          ),
+        );
         break;
       case 'Language':
       case 'translator':
@@ -2481,117 +2672,324 @@ class _HomeScreenState extends State<HomeScreen> {
   void _showEmergencyDialog() async {
     final appProvider = context.read<AppProvider>();
     
+    // Force fresh location
+    await appProvider.getCurrentLocation();
+    
     showDialog(
       context: context,
+      barrierDismissible: false,
       builder: (context) => AlertDialog(
-        title: const Row(
-          children: [
-            Icon(Icons.emergency, color: Colors.red, size: 24),
-            SizedBox(width: 8),
-            Text('Emergency Services'),
-          ],
-        ),
+        contentPadding: EdgeInsets.zero,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         content: FutureBuilder<Map<String, dynamic>>(
           future: _getLocationBasedEmergencyNumbers(appProvider),
           builder: (context, snapshot) {
             if (snapshot.connectionState == ConnectionState.waiting) {
-              return const Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  CircularProgressIndicator(),
-                  SizedBox(height: 16),
-                  Text('Getting emergency numbers for your location...'),
-                ],
+              return Container(
+                padding: const EdgeInsets.all(24),
+                child: const Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    CircularProgressIndicator(color: Colors.red),
+                    SizedBox(height: 16),
+                    Text(
+                      '📍 Getting your exact location...',
+                      style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+                    ),
+                  ],
+                ),
               );
             }
             
             final emergencyData = snapshot.data ?? _getDefaultEmergencyNumbers();
+            final locationAccuracy = appProvider.currentLocation?.accuracy.toInt() ?? 50;
             
-            return Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: Colors.red.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Text(
-                    'Emergency Services - ${emergencyData['country']}',
-                    style: const TextStyle(
-                      fontWeight: FontWeight.bold,
-                      color: Colors.red,
+            return Container(
+              constraints: const BoxConstraints(maxWidth: 400),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Header
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(20),
+                    decoration: BoxDecoration(
+                      color: Colors.red.shade700,
+                      borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+                    ),
+                    child: Column(
+                      children: [
+                        const Text(
+                          '🚨 EMERGENCY SERVICES',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: 0.5,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        FutureBuilder<String>(
+                          future: appProvider.currentLocation != null
+                              ? _getLocationName(
+                                  appProvider.currentLocation!.latitude,
+                                  appProvider.currentLocation!.longitude,
+                                )
+                              : Future.value('Location unavailable'),
+                          builder: (context, locSnapshot) {
+                            return Text(
+                              '📍 ${locSnapshot.data ?? "Getting location..."}',
+                              style: TextStyle(
+                                color: Colors.white.withOpacity(0.9),
+                                fontSize: 13,
+                              ),
+                              textAlign: TextAlign.center,
+                            );
+                          },
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'Accurate within ${locationAccuracy}m',
+                          style: TextStyle(
+                            color: Colors.white.withOpacity(0.7),
+                            fontSize: 11,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                ),
-                const SizedBox(height: 16),
-                _buildEmergencyButton(
-                  'Call Police (${emergencyData['police']})',
-                  Icons.local_police,
-                  Colors.blue,
-                  () => _makeEmergencyCall(emergencyData['police']),
-                ),
-                const SizedBox(height: 8),
-                _buildEmergencyButton(
-                  'Call Ambulance (${emergencyData['ambulance']})',
-                  Icons.local_hospital,
-                  Colors.red,
-                  () => _makeEmergencyCall(emergencyData['ambulance']),
-                ),
-                const SizedBox(height: 8),
-                _buildEmergencyButton(
-                  'Call Fire Dept (${emergencyData['fire']})',
-                  Icons.local_fire_department,
-                  Colors.orange,
-                  () => _makeEmergencyCall(emergencyData['fire']),
-                ),
-                const SizedBox(height: 16),
-                _buildEmergencyButton(
-                  'Share Location',
-                  Icons.share_location,
-                  Colors.green,
-                  () => _shareEmergencyLocation(),
-                ),
-              ],
+                  // Content
+                  Padding(
+                    padding: const EdgeInsets.all(20),
+                    child: Column(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: Colors.blue.shade50,
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: Colors.blue.shade200),
+                          ),
+                          child: Row(
+                            children: [
+                              const Icon(Icons.info_outline, color: Colors.blue, size: 20),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  '🇺🇳 In ${emergencyData['country']}, emergency numbers differ from your home country',
+                                  style: const TextStyle(fontSize: 11),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        // Emergency buttons with large touch targets
+                        _buildLargeEmergencyButton(
+                          '👮 POLICE',
+                          emergencyData['police'],
+                          'Law enforcement',
+                          Colors.blue.shade700,
+                          () => _makeEmergencyCall(emergencyData['police']),
+                        ),
+                        const SizedBox(height: 12),
+                        _buildLargeEmergencyButton(
+                          '🚑 AMBULANCE',
+                          emergencyData['ambulance'],
+                          'Medical emergency',
+                          Colors.red.shade700,
+                          () => _makeEmergencyCall(emergencyData['ambulance']),
+                        ),
+                        const SizedBox(height: 12),
+                        _buildLargeEmergencyButton(
+                          '🔥 FIRE',
+                          emergencyData['fire'],
+                          'Fire department',
+                          Colors.orange.shade700,
+                          () => _makeEmergencyCall(emergencyData['fire']),
+                        ),
+                        const SizedBox(height: 16),
+                        const Divider(),
+                        const SizedBox(height: 8),
+                        _buildLargeEmergencyButton(
+                          '📍 TEXT MY LOCATION',
+                          'to family/friends',
+                          'Share via SMS',
+                          Colors.green.shade700,
+                          () => _shareEmergencyLocation(),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
             );
           },
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Close'),
+            style: TextButton.styleFrom(
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+            ),
+            child: const Text(
+              "I'm Safe →",
+              style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+            ),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildEmergencyButton(
+  Widget _buildLargeEmergencyButton(
     String label,
-    IconData icon,
+    String number,
+    String subtitle,
     Color color,
     VoidCallback onPressed,
   ) {
     return SizedBox(
       width: double.infinity,
-      child: ElevatedButton.icon(
+      height: 70,
+      child: ElevatedButton(
         onPressed: onPressed,
-        icon: Icon(icon, color: Colors.white),
-        label: Text(label, style: const TextStyle(color: Colors.white)),
         style: ElevatedButton.styleFrom(
           backgroundColor: color,
-          padding: const EdgeInsets.symmetric(vertical: 12),
+          foregroundColor: Colors.white,
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          elevation: 2,
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    label,
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 0.5,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    subtitle,
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: Colors.white.withOpacity(0.9),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.2),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Text(
+                number,
+                style: const TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );
   }
 
   void _makeEmergencyCall(String number) async {
+    // Show pre-call warning
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Row(
+          children: [
+            Icon(Icons.phone, color: Colors.red, size: 24),
+            SizedBox(width: 8),
+            Text('Calling Emergency Services'),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'You are about to call: $number',
+              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 12),
+            const Text(
+              '⚠️ When the dialer opens, confirm the call.',
+              style: TextStyle(fontSize: 13),
+            ),
+            const SizedBox(height: 8),
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.blue.shade50,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const Text(
+                '💡 What to say:\n"Emergency at [your location]. I need help."',
+                style: TextStyle(fontSize: 12),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Call Now'),
+          ),
+        ],
+      ),
+    );
+    
+    if (confirmed != true) return;
+    
     Navigator.pop(context);
+    
     try {
       final Uri phoneUri = Uri(scheme: 'tel', path: number);
       if (await canLaunchUrl(phoneUri)) {
         await launchUrl(phoneUri);
+        
+        // Post-call support (delayed to allow call to complete)
+        Future.delayed(const Duration(seconds: 2), () {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: const Text('✅ Call placed. Stay calm and speak clearly.'),
+                backgroundColor: Colors.green,
+                duration: const Duration(seconds: 4),
+                action: SnackBarAction(
+                  label: 'Breathing Guide',
+                  textColor: Colors.white,
+                  onPressed: () => _showBreathingGuide(),
+                ),
+              ),
+            );
+          }
+        });
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -2608,6 +3006,38 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
       );
     }
+  }
+  
+  void _showBreathingGuide() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('🧘 Breathing Guide'),
+        content: const Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              'Take slow, deep breaths:',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
+            SizedBox(height: 16),
+            Text('1. Breathe in slowly for 4 seconds'),
+            SizedBox(height: 8),
+            Text('2. Hold for 4 seconds'),
+            SizedBox(height: 8),
+            Text('3. Breathe out slowly for 4 seconds'),
+            SizedBox(height: 8),
+            Text('4. Repeat until calm'),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Close'),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<Map<String, dynamic>> _getLocationBasedEmergencyNumbers(AppProvider appProvider) async {
@@ -2653,7 +3083,7 @@ class _HomeScreenState extends State<HomeScreen> {
       
       // Sri Lanka
       if (lat >= 5.9 && lat <= 9.9 && lng >= 79.5 && lng <= 82.0) {
-        return {'country': 'Sri Lanka', 'police': '119', 'ambulance': '110', 'fire': '111'};
+        return {'country': 'Sri Lanka', 'police': '119', 'ambulance': '1990', 'fire': '110'};
       }
       // India
       if (lat >= 8.0 && lat <= 35.0 && lng >= 68.0 && lng <= 97.0) {
@@ -3372,4 +3802,27 @@ class _HomeScreenState extends State<HomeScreen> {
       // Mock: assume deals created in last 24h are "new"
       return deal.validUntil.isAfter(DateTime.now().add(const Duration(days: 6)));
     }).length;
+  }
+
+  String _getUserDisplayName(AppProvider appProvider) {
+    final user = appProvider.currentUser;
+    if (user == null) return 'Traveler';
+    
+    // Check fullName first
+    if (user.fullName?.isNotEmpty == true && !user.fullName!.contains('@')) {
+      return user.fullName!;
+    }
+    
+    // Fallback to username
+    if (user.username?.isNotEmpty == true && !user.username!.contains('@')) {
+      return user.username!;
+    }
+    
+    // If email is in fullName/username, extract name before @
+    if (user.email?.isNotEmpty == true) {
+      final emailName = user.email!.split('@').first;
+      return emailName.replaceAll('.', ' ').split(' ').map((e) => e.capitalize()).join(' ');
+    }
+    
+    return 'Traveler';
   }

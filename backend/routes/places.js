@@ -9,7 +9,7 @@ import costTracker from '../services/costTracker.js';
 function generateMockPlaces(lat, lng, query, count) {
   const places = [];
   const categories = query.toLowerCase().includes('temple') ? ['temple', 'shrine', 'religious site'] :
-                     query.toLowerCase().includes('restaurant') ? ['restaurant', 'cafe', 'dining'] :
+                     query.toLowerCase().includes('restaurant') || query.toLowerCase().includes('food') ? ['restaurant', 'cafe', 'bar', 'bistro', 'diner', 'eatery'] :
                      query.toLowerCase().includes('hotel') ? ['hotel', 'accommodation'] :
                      ['attraction', 'landmark', 'tourist spot'];
   

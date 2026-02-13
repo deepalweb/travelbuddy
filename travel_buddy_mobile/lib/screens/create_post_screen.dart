@@ -844,15 +844,31 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
 
     List<String> imageUrls = [];
     if (_selectedImages.isNotEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Uploading images...'),
+          duration: Duration(seconds: 30),
+        ),
+      );
+      
       imageUrls = await _imageService.uploadImages(_selectedImages);
+      
+      if (imageUrls.isEmpty && _selectedImages.isNotEmpty) {
+        setState(() => _isPosting = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Failed to upload images. Please try again.'),
+            backgroundColor: Colors.red,
+          ),
+        );
+        return;
+      }
     } else if (widget.editingPost != null) {
-      // Keep existing images if no new images selected
       imageUrls = widget.editingPost!.images;
     }
 
     bool success;
     if (widget.editingPost != null) {
-      // Edit existing post
       success = await context.read<CommunityProvider>().editPost(
         postId: widget.editingPost!.id,
         content: _contentController.text.trim(),
@@ -861,7 +877,6 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
         hashtags: _hashtags,
       );
     } else {
-      // Create new post
       success = await context.read<CommunityProvider>().createPost(
         content: _contentController.text.trim(),
         location: _locationController.text.trim(),

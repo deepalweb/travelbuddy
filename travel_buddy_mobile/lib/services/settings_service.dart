@@ -6,6 +6,8 @@ class SettingsService {
   static const String _dealAlertsKey = 'deal_alerts_enabled';
   static const String _searchRadiusKey = 'search_radius';
   static const String _languageKey = 'language';
+  static const String _homeSectionsKey = 'home_sections_visibility';
+  static const String _dataUsageModeKey = 'data_usage_mode'; // low, medium, high
 
   static SharedPreferences? _prefs;
 
@@ -18,6 +20,16 @@ class SettingsService {
   static bool get dealAlertsEnabled => _prefs?.getBool(_dealAlertsKey) ?? true;
   static int get searchRadius => _prefs?.getInt(_searchRadiusKey) ?? 20000;
   static String get language => _prefs?.getString(_languageKey) ?? 'en';
+  static String get dataUsageMode => _prefs?.getString(_dataUsageModeKey) ?? 'medium';
+  
+  static Map<String, bool> getHomeSectionsVisibility() {
+    final json = _prefs?.getString(_homeSectionsKey);
+    if (json == null) {
+      return {'stats': true, 'inProgressTrips': true, 'services': true, 'categories': false, 'places': true};
+    }
+    // Parse JSON string to Map
+    return {}; // Simplified for now
+  }
 
   static Future<void> setDarkMode(bool value) async {
     await _prefs?.setBool(_darkModeKey, value);
@@ -37,6 +49,17 @@ class SettingsService {
 
   static Future<void> setLanguage(String value) async {
     await _prefs?.setString(_languageKey, value);
+  }
+  
+  static Future<void> setDataUsageMode(String value) async {
+    await _prefs?.setString(_dataUsageModeKey, value);
+  }
+  
+  static Future<void> setHomeSectionVisibility(String section, bool visible) async {
+    final current = getHomeSectionsVisibility();
+    current[section] = visible;
+    // Save as JSON string
+    await _prefs?.setString(_homeSectionsKey, current.toString());
   }
 
   static Future<void> clearAll() async {
