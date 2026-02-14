@@ -1,7 +1,6 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../models/community_post.dart';
 import '../providers/community_provider.dart';
 
 class ModernPostCard extends StatefulWidget {

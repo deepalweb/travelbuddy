@@ -87,8 +87,12 @@ class ImageService {
     final imageUrls = <String>[];
     
     try {
-      final uri = Uri.parse('${Environment.backendUrl}/api/images/upload-multiple');
-      print('📤 Uploading to: $uri');
+      final url = '${Environment.backendUrl}/api/images/upload-multiple';
+      print('📤 Backend URL: ${Environment.backendUrl}');
+      print('📤 Full upload URL: $url');
+      
+      final uri = Uri.parse(url);
+      print('📤 Parsed URI: $uri');
       
       var request = http.MultipartRequest('POST', uri);
       

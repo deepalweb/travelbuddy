@@ -67,9 +67,14 @@ router.post('/upload-multiple', upload.array('images', 2), async (req, res) => {
         const url = await uploadToAzure(file);
         imageUrls.push(url);
       } catch (azureError) {
-        console.warn('⚠️ Azure upload failed for file, using local storage:', azureError.message);
-        const localUrl = await saveToLocal(file);
-        imageUrls.push(localUrl);
+        console.warn('⚠️ Azure upload failed, using local storage:', azureError.message);
+        try {
+          const localUrl = await saveToLocal(file);
+          imageUrls.push(localUrl);
+        } catch (localError) {
+          console.error('❌ Local storage also failed:', localError.message);
+          throw new Error('Both Azure and local storage failed');
+        }
       }
     }
     
@@ -77,6 +82,7 @@ router.post('/upload-multiple', upload.array('images', 2), async (req, res) => {
     res.json({ urls: imageUrls });
   } catch (error) {
     console.error('❌ Multiple image upload error:', error.message);
+    console.error('Stack:', error.stack);
     res.status(500).json({ error: 'Failed to upload images', details: error.message });
   }
 });
