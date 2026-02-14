@@ -843,25 +843,38 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
     });
 
     List<String> imageUrls = [];
+    
+    // Try to upload images, but continue even if it fails
     if (_selectedImages.isNotEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Uploading images...'),
-          duration: Duration(seconds: 30),
+          duration: Duration(seconds: 2),
         ),
       );
       
-      imageUrls = await _imageService.uploadImages(_selectedImages);
-      
-      if (imageUrls.isEmpty && _selectedImages.isNotEmpty) {
-        setState(() => _isPosting = false);
+      try {
+        imageUrls = await _imageService.uploadImages(_selectedImages);
+        
+        if (imageUrls.isEmpty && _selectedImages.isNotEmpty) {
+          // Image upload failed, but continue without images
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('⚠️ Image upload failed. Posting without images...'),
+              backgroundColor: Colors.orange,
+              duration: Duration(seconds: 2),
+            ),
+          );
+        }
+      } catch (e) {
+        print('❌ Image upload error: $e');
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Failed to upload images. Please try again.'),
-            backgroundColor: Colors.red,
+            content: Text('⚠️ Image upload failed. Posting without images...'),
+            backgroundColor: Colors.orange,
+            duration: Duration(seconds: 2),
           ),
         );
-        return;
       }
     } else if (widget.editingPost != null) {
       imageUrls = widget.editingPost!.images;
