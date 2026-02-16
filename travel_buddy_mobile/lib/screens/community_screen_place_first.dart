@@ -270,17 +270,55 @@ class _CommunityScreenPlaceFirstState extends State<CommunityScreenPlaceFirst> {
   }
 
   String _calculateDistance(dynamic post) {
-    // TODO: Calculate actual distance using Geolocator
-    final distances = ['200m', '500m', '1.2km', '800m', '1.5km'];
-    return distances[post.id.hashCode % distances.length];
+    final appProvider = context.read<AppProvider>();
+    final userLocation = appProvider.currentLocation;
+    
+    if (userLocation == null || post.postLocation?.coordinates == null) {
+      return '~1km'; // Fallback
+    }
+    
+    try {
+      final postLat = post.postLocation.coordinates[1];
+      final postLng = post.postLocation.coordinates[0];
+      
+      final distanceInMeters = Geolocator.distanceBetween(
+        userLocation.latitude,
+        userLocation.longitude,
+        postLat,
+        postLng,
+      );
+      
+      if (distanceInMeters < 1000) {
+        return '${distanceInMeters.round()}m';
+      } else {
+        return '${(distanceInMeters / 1000).toStringAsFixed(1)}km';
+      }
+    } catch (e) {
+      return '~1km';
+    }
   }
 
   double _calculatePlaceValueScore(dynamic post) {
-    // Place Value Score = 70% rating + 20% tips + 10% relevance
-    final rating = 4.8; // TODO: Get from post
-    final tipsQuality = 0.8; // TODO: Calculate from tips
-    final relevance = 0.9; // TODO: Calculate from user preferences
-    return (rating * 0.7) + (tipsQuality * 5 * 0.2) + (relevance * 5 * 0.1);
+    // Real calculation based on post metadata
+    final hasPhotos = post.images?.isNotEmpty ?? false;
+    final hasVerifiedVisit = post.metadata?['verifiedVisit'] == true;
+    final tipLength = (post.content?.length ?? 0);
+    final hasActionVerb = _hasActionVerb(post.content ?? '');
+    
+    double score = 3.0; // Base score
+    
+    if (hasPhotos) score += 0.5;
+    if (hasVerifiedVisit) score += 0.8;
+    if (tipLength >= 50) score += 0.3;
+    if (hasActionVerb) score += 0.4;
+    
+    return score.clamp(1.0, 5.0);
+  }
+  
+  bool _hasActionVerb(String text) {
+    final actionVerbs = ['go', 'ask', 'bring', 'avoid', 'try', 'skip', 'order', 'visit', 'take', 'wear'];
+    final lower = text.toLowerCase();
+    return actionVerbs.any((verb) => lower.startsWith(verb));
   }
 
   Widget _buildPlaceCard(dynamic post, String distance) {
@@ -464,7 +502,7 @@ class _CommunityScreenPlaceFirstState extends State<CommunityScreenPlaceFirst> {
                           if (value == 'delete') _deletePost(post.id);
                         },
                       )
-                    else
+                    else if (post.metadata?['verifiedVisit'] == true)
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                         decoration: BoxDecoration(
@@ -476,7 +514,7 @@ class _CommunityScreenPlaceFirstState extends State<CommunityScreenPlaceFirst> {
                           children: [
                             Icon(Icons.verified, size: 12, color: Color(0xFF2EC4B6)),
                             SizedBox(width: 4),
-                            Text('Verified', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFF2EC4B6))),
+                            Text('Verified Visit', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFF2EC4B6))),
                           ],
                         ),
                       ),
