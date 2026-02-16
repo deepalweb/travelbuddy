@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'package:firebase_auth/firebase_auth.dart';
 import '../config/environment.dart';
 import '../models/community_post.dart' as community;
 import '../utils/debug_logger.dart';
@@ -45,25 +46,37 @@ class CommunityApiService {
     String? username,
   }) async {
     try {
+      final token = await _getAuthToken();
       final response = await http.post(
         Uri.parse('$_baseUrl/api/community/posts'),
-        headers: {'Content-Type': 'application/json'},
+        headers: {
+          'Content-Type': 'application/json',
+          if (token != null) 'Authorization': 'Bearer $token',
+        },
         body: json.encode({
           'content': {'text': content, 'images': images},
           'author': {'name': username ?? 'Anonymous', 'location': location},
           'tags': hashtags,
           'category': postType,
-          'userId': userId,
         }),
       );
 
-      if (response.statusCode == 201) {
+      if (response.statusCode == 201 || response.statusCode == 200) {
         return community.CommunityPost.fromJson(json.decode(response.body));
       }
+      print('❌ Post creation failed: ${response.statusCode} - ${response.body}');
     } catch (e) {
       DebugLogger.error('Failed to create post: $e');
     }
     return null;
+  }
+
+  static Future<String?> _getAuthToken() async {
+    try {
+      return await FirebaseAuth.instance.currentUser?.getIdToken();
+    } catch (e) {
+      return null;
+    }
   }
 
   // Toggle like

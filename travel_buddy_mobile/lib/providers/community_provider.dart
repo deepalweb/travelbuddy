@@ -94,8 +94,9 @@ class CommunityProvider with ChangeNotifier {
         }
         
         if (refresh || _currentPage == 1) {
-          // On refresh or first load, replace all posts with fresh backend data
-          _posts = filteredPosts;
+          // On refresh, merge backend posts with local temp posts
+          final tempPosts = _posts.where((p) => p.id.startsWith('temp_')).toList();
+          _posts = [...tempPosts, ...filteredPosts];
         } else {
           // On load more, add new posts
           final localIds = _posts.map((p) => p.id).toSet();

@@ -1,5 +1,6 @@
 import 'package:image_picker/image_picker.dart';
 import 'package:http/http.dart' as http;
+import 'package:http_parser/http_parser.dart' as http_parser;
 import 'dart:io';
 import 'dart:convert';
 import 'image_optimization_service.dart';
@@ -106,6 +107,7 @@ class ImageService {
               'images',
               compressed.path,
               filename: 'post_${DateTime.now().millisecondsSinceEpoch}_${imageUrls.length}.jpg',
+              contentType: http_parser.MediaType('image', 'jpeg'),
             ),
           );
         }
