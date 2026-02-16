@@ -2,6 +2,8 @@ import express from 'express';
 import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
+import PartnerApplication from '../models/PartnerApplication.js';
+
 const router = express.Router();
 
 // Configure multer for file uploads
@@ -19,7 +21,7 @@ const storage = multer.diskStorage({
   }
 });
 
-const upload = multer({ 
+const upload = multer({
   storage: storage,
   limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit
   fileFilter: (req, file, cb) => {
@@ -34,10 +36,7 @@ const upload = multer({
 // Partner registration endpoint
 router.post('/register', upload.array('images', 5), async (req, res) => {
   try {
-    const applicationId = 'APP-' + Date.now();
-    
-    const partnerApplication = {
-      applicationId,
+    const partnerApplication = new PartnerApplication({
       businessName: req.body.businessName,
       contactName: req.body.contactName,
       email: req.body.email,
@@ -52,34 +51,14 @@ router.post('/register', upload.array('images', 5), async (req, res) => {
       specialties: JSON.parse(req.body.specialties || '[]'),
       priceRange: req.body.priceRange,
       responseTime: req.body.responseTime,
-      images: req.files ? req.files.map(file => file.filename) : [],
-      status: 'pending', // pending, approved, rejected
-      submittedAt: new Date(),
-      adminNotes: ''
-    };
+      images: req.files ? req.files.map(file => file.filename) : []
+    });
 
-    // Save to database (using file for demo)
-    const applicationsFile = 'data/partner-applications.json';
-    let applications = [];
-    
-    if (fs.existsSync(applicationsFile)) {
-      applications = JSON.parse(fs.readFileSync(applicationsFile, 'utf8'));
-    }
-    
-    applications.push(partnerApplication);
-    
-    if (!fs.existsSync('data')) {
-      fs.mkdirSync('data');
-    }
-    
-    fs.writeFileSync(applicationsFile, JSON.stringify(applications, null, 2));
-
-    // TODO: Send email confirmation to partner
-    // TODO: Send notification to admin
+    await partnerApplication.save();
 
     res.json({
       success: true,
-      applicationId,
+      applicationId: partnerApplication.applicationId,
       message: 'Application submitted successfully'
     });
 
@@ -87,118 +66,77 @@ router.post('/register', upload.array('images', 5), async (req, res) => {
     console.error('Partner registration error:', error);
     res.status(500).json({
       success: false,
-      message: 'Failed to submit application'
+      message: 'Failed to submit application',
+      error: error.message
     });
   }
 });
 
 // Get application status
-router.get('/status/:applicationId', (req, res) => {
+router.get('/status/:applicationId', async (req, res) => {
   try {
-    const applicationsFile = 'data/partner-applications.json';
-    
-    if (!fs.existsSync(applicationsFile)) {
-      return res.status(404).json({ message: 'Application not found' });
-    }
-    
-    const applications = JSON.parse(fs.readFileSync(applicationsFile, 'utf8'));
-    const application = applications.find(app => app.applicationId === req.params.applicationId);
-    
+    const application = await PartnerApplication.findOne({
+      applicationId: req.params.applicationId
+    }).select('applicationId status submittedAt adminNotes reviewedAt');
+
     if (!application) {
       return res.status(404).json({ message: 'Application not found' });
     }
-    
-    res.json({
-      applicationId: application.applicationId,
-      status: application.status,
-      submittedAt: application.submittedAt,
-      adminNotes: application.adminNotes
-    });
-    
+
+    res.json(application);
+
   } catch (error) {
+    console.error('Error fetching application status:', error);
     res.status(500).json({ message: 'Server error' });
   }
 });
+
+
 
 // Admin endpoints
-router.get('/admin/applications', (req, res) => {
+router.get('/admin/applications', async (req, res) => {
   try {
-    const applicationsFile = 'data/partner-applications.json';
-    
-    if (!fs.existsSync(applicationsFile)) {
-      return res.json([]);
-    }
-    
-    const applications = JSON.parse(fs.readFileSync(applicationsFile, 'utf8'));
+    const applications = await PartnerApplication.find()
+      .sort({ submittedAt: -1 })
+      .lean();
+
     res.json(applications);
-    
+
   } catch (error) {
+    console.error('Error fetching applications:', error);
     res.status(500).json({ message: 'Server error' });
   }
 });
 
-router.put('/admin/applications/:applicationId', (req, res) => {
+router.put('/admin/applications/:applicationId', async (req, res) => {
   try {
     const { status, adminNotes } = req.body;
-    const applicationsFile = 'data/partner-applications.json';
-    
-    if (!fs.existsSync(applicationsFile)) {
+
+    const application = await PartnerApplication.findOne({
+      applicationId: req.params.applicationId
+    });
+
+    if (!application) {
       return res.status(404).json({ message: 'Application not found' });
     }
-    
-    let applications = JSON.parse(fs.readFileSync(applicationsFile, 'utf8'));
-    const appIndex = applications.findIndex(app => app.applicationId === req.params.applicationId);
-    
-    if (appIndex === -1) {
-      return res.status(404).json({ message: 'Application not found' });
-    }
-    
-    applications[appIndex].status = status;
-    applications[appIndex].adminNotes = adminNotes;
-    applications[appIndex].reviewedAt = new Date();
-    
-    // If approved, add to active providers
+
+    application.status = status;
+    application.adminNotes = adminNotes;
+    application.reviewedAt = new Date();
+
+    await application.save();
+
+    // If approved, optionally create a TransportProvider record
+    // This is a placeholder - you may want to implement this based on your business logic
     if (status === 'approved') {
-      const providersFile = 'data/transport-providers.json';
-      let providers = [];
-      
-      if (fs.existsSync(providersFile)) {
-        providers = JSON.parse(fs.readFileSync(providersFile, 'utf8'));
-      }
-      
-      const newProvider = {
-        id: applications[appIndex].applicationId,
-        name: applications[appIndex].businessName,
-        image: applications[appIndex].images[0] ? `/uploads/partners/${applications[appIndex].images[0]}` : '',
-        location: applications[appIndex].location,
-        serviceTypes: applications[appIndex].serviceTypes,
-        languages: applications[appIndex].languages,
-        rating: 0,
-        reviewCount: 0,
-        priceRange: applications[appIndex].priceRange,
-        verified: true,
-        availability: 'Available',
-        description: applications[appIndex].description,
-        yearsInService: parseInt(applications[appIndex].yearsInBusiness),
-        fleetSize: parseInt(applications[appIndex].fleetSize),
-        operatingHours: applications[appIndex].operatingHours,
-        specialties: applications[appIndex].specialties,
-        contactPhone: applications[appIndex].phone,
-        contactEmail: applications[appIndex].email,
-        responseTime: applications[appIndex].responseTime
-      };
-      
-      providers.push(newProvider);
-      fs.writeFileSync(providersFile, JSON.stringify(providers, null, 2));
+      // TODO: Create TransportProvider record or send notification
+      console.log('Partner application approved:', application.applicationId);
     }
-    
-    fs.writeFileSync(applicationsFile, JSON.stringify(applications, null, 2));
-    
-    // TODO: Send email notification to partner
-    
+
     res.json({ success: true, message: 'Application updated successfully' });
-    
+
   } catch (error) {
+    console.error('Error updating application:', error);
     res.status(500).json({ message: 'Server error' });
   }
 });

@@ -6566,6 +6566,23 @@ try {
   console.error('❌ Failed to load AI routes:', error);
 }
 
+// Partner and Contact routes
+try {
+  const partnersRouter = (await import('./routes/partners.js')).default;
+  app.use('/api/partners', partnersRouter);
+  console.log('✅ Partners routes loaded');
+} catch (error) {
+  console.error('❌ Failed to load partners routes:', error);
+}
+
+try {
+  const contactRouter = (await import('./routes/contact.js')).default;
+  app.use('/api/contact', contactRouter);
+  console.log('✅ Contact routes loaded');
+} catch (error) {
+  console.error('❌ Failed to load contact routes:', error);
+}
+
 
 
 

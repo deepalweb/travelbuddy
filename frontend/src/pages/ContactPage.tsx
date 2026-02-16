@@ -12,15 +12,40 @@ export const ContactPage: React.FC = () => {
   })
   const [submitted, setSubmitted] = useState(false)
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    // TODO: Implement actual form submission
-    console.log('Contact form submitted:', formData)
-    setSubmitted(true)
-    setTimeout(() => {
-      setSubmitted(false)
-      setFormData({ name: '', email: '', subject: '', message: '' })
-    }, 3000)
+    setIsSubmitting(true)
+    setError(null)
+
+    try {
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || ''}/api/contact/submit`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(formData),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || 'Failed to send message');
+      }
+
+      setSubmitted(true)
+      setTimeout(() => {
+        setSubmitted(false)
+        setFormData({ name: '', email: '', subject: '', message: '' })
+      }, 5000)
+    } catch (err: any) {
+      console.error('Contact submit error:', err);
+      setError(err.message || 'Something went wrong. Please try again later.');
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   return (
@@ -90,7 +115,13 @@ export const ContactPage: React.FC = () => {
             <Card className="bg-white shadow-xl border-0">
               <CardContent className="p-8">
                 <h2 className="text-2xl font-bold text-gray-900 mb-6">Send us a Message</h2>
-                
+
+                {error && (
+                  <div className="bg-red-50 border-2 border-red-200 rounded-xl p-4 mb-6 text-red-700">
+                    {error}
+                  </div>
+                )}
+
                 {submitted ? (
                   <div className="bg-green-50 border-2 border-green-200 rounded-xl p-8 text-center">
                     <div className="w-16 h-16 bg-green-500 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -111,6 +142,7 @@ export const ContactPage: React.FC = () => {
                           onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                           className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                           placeholder="Your name"
+                          disabled={isSubmitting}
                         />
                       </div>
                       <div>
@@ -122,6 +154,7 @@ export const ContactPage: React.FC = () => {
                           onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                           className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                           placeholder="your@email.com"
+                          disabled={isSubmitting}
                         />
                       </div>
                     </div>
@@ -135,6 +168,7 @@ export const ContactPage: React.FC = () => {
                         onChange={(e) => setFormData({ ...formData, subject: e.target.value })}
                         className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                         placeholder="How can we help?"
+                        disabled={isSubmitting}
                       />
                     </div>
 
@@ -147,15 +181,23 @@ export const ContactPage: React.FC = () => {
                         rows={6}
                         className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none"
                         placeholder="Tell us more about your inquiry..."
+                        disabled={isSubmitting}
                       />
                     </div>
 
                     <Button
                       type="submit"
-                      className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white py-4 text-lg font-semibold"
+                      disabled={isSubmitting}
+                      className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white py-4 text-lg font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                      <Send className="w-5 h-5 mr-2" />
-                      Send Message
+                      {isSubmitting ? (
+                        <>Processing...</>
+                      ) : (
+                        <>
+                          <Send className="w-5 h-5 mr-2" />
+                          Send Message
+                        </>
+                      )}
                     </Button>
                   </form>
                 )}
