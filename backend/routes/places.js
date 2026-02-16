@@ -227,10 +227,15 @@ router.get('/mobile/nearby', async (req, res) => {
     results = PlacesOptimizer.rankResults(results, parseFloat(lat), parseFloat(lng), query);
     
     // Extract photo URLs from photos array
-    results = results.map(place => ({
-      ...place,
-      photoUrl: place.photos?.[0]?.photo_reference || ''
-    }));
+    results = results.map(place => {
+      const photoRef = place.photos?.[0]?.photo_reference;
+      return {
+        ...place,
+        photoUrl: photoRef && !photoRef.startsWith('http') 
+          ? `https://travelbuddy-b2c6hgbbgeh4esdh.eastus2-01.azurewebsites.net/api/places/photo?ref=${photoRef}&w=800`
+          : (photoRef || '')
+      };
+    });
     
     console.log(`✅ Layer 3 (Algorithm): Categorized, ranked, and photos extracted`);
     console.log(`📸 Sample photo URL: ${results[0]?.photoUrl || 'none'}`);

@@ -299,12 +299,12 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  void _loadData() {
+  Future<void> _loadData() async {
     try {
       final appProvider = context.read<AppProvider>();
-      appProvider.getCurrentLocation();
-      appProvider.loadHomeData();
-      appProvider.loadNearbyPlaces();
+      await appProvider.getCurrentLocation();
+      await appProvider.loadHomeData();
+      await appProvider.loadNearbyPlaces();
     } catch (e) {
       print('Error loading home data: $e');
       if (mounted) {
@@ -328,6 +328,15 @@ class _HomeScreenState extends State<HomeScreen> {
     if (hour < 12) return 'Good Morning';
     if (hour < 17) return 'Good Afternoon';
     return 'Good Evening';
+  }
+
+  List<Color> _getTimeBasedGradient() {
+    final hour = DateTime.now().hour;
+    if (hour < 6) return [const Color(0xFF1e3a8a), const Color(0xFF312e81)];
+    if (hour < 12) return [const Color(0xFFf59e0b), const Color(0xFFef4444)];
+    if (hour < 17) return [const Color(0xFF4361EE), const Color(0xFF2EC4B6)];
+    if (hour < 20) return [const Color(0xFFFF6B35), const Color(0xFFf59e0b)];
+    return [const Color(0xFF312e81), const Color(0xFF1e3a8a)];
   }
 
 
@@ -544,12 +553,40 @@ class _HomeScreenState extends State<HomeScreen> {
               child: const Icon(
                 Icons.travel_explore,
                 size: 24,
-                color: Color(0xFF6366F1),
+                color: Color(0xFF4361EE),
               ),
             ),
             actions: [
               IconButton(
-                icon: const Icon(Icons.notifications_outlined),
+                icon: Stack(
+                  children: [
+                    const Icon(Icons.notifications_outlined),
+                    Positioned(
+                      right: 0,
+                      top: 0,
+                      child: Container(
+                        padding: const EdgeInsets.all(4),
+                        decoration: const BoxDecoration(
+                          color: Color(0xFFFF6B35),
+                          shape: BoxShape.circle,
+                        ),
+                        constraints: const BoxConstraints(
+                          minWidth: 16,
+                          minHeight: 16,
+                        ),
+                        child: const Text(
+                          '3',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
                 onPressed: () => _showNotifications(appProvider),
               ),
               Consumer<LanguageProvider>(
@@ -615,13 +652,11 @@ class _HomeScreenState extends State<HomeScreen> {
                     const SizedBox(height: 16),
                     _buildInProgressTrips(appProvider),
                     const SizedBox(height: 16),
+                    _buildEmergencyQuickAccess(appProvider),
+                    const SizedBox(height: 16),
                     _buildConsolidatedServices(appProvider),
                     const SizedBox(height: 16),
-                    _buildCategoryPlaces(appProvider),
-                    const SizedBox(height: 16),
                     _buildNearbyPlaces(appProvider),
-                    const SizedBox(height: 16),
-                    _buildEmergencyQuickAccess(appProvider),
                   ],
                 ),
               ),
@@ -629,6 +664,77 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         );
       },
+    );
+  }
+
+  Widget _buildLocationWeatherBar(AppProvider appProvider) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: const Color(0xFF4361EE).withOpacity(0.05),
+        border: Border(
+          bottom: BorderSide(
+            color: Colors.grey.shade200,
+            width: 1,
+          ),
+        ),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.location_on, size: 16, color: Color(0xFF4361EE)),
+          const SizedBox(width: 4),
+          Expanded(
+            child: FutureBuilder<String>(
+              future: appProvider.currentLocation != null
+                  ? _getLocationName(
+                      appProvider.currentLocation!.latitude,
+                      appProvider.currentLocation!.longitude,
+                    )
+                  : Future.value('Getting location...'),
+              builder: (context, snapshot) {
+                return Text(
+                  snapshot.data ?? 'Getting location...',
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                    color: Color(0xFF1F2937),
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                );
+              },
+            ),
+          ),
+          const SizedBox(width: 8),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.grey.shade300),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  _getWeatherIcon(appProvider.weatherInfo?.condition ?? 'sunny'),
+                  size: 16,
+                  color: const Color(0xFFFFA726),
+                ),
+                const SizedBox(width: 4),
+                Text(
+                  '${appProvider.weatherInfo?.temperature.round() ?? 28}°C',
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF1F2937),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
   
@@ -640,114 +746,60 @@ class _HomeScreenState extends State<HomeScreen> {
         border: Border.all(color: Colors.red.shade200),
         borderRadius: BorderRadius.circular(16),
       ),
-      child: Column(
-        children: [
-          Row(
+      child: InkWell(
+        onTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => const SafetyHubScreen(),
+            ),
+          );
+        },
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Row(
             children: [
-              Icon(Icons.warning_amber_rounded, color: Colors.red.shade700, size: 20),
-              const SizedBox(width: 8),
-              const Expanded(
-                child: Text(
-                  'Emergency Services',
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.black87,
-                  ),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.red.shade600,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(
+                  Icons.emergency_share,
+                  color: Colors.white,
+                  size: 28,
                 ),
               ),
-              FutureBuilder<String>(
-                future: appProvider.currentLocation != null
-                    ? _getLocationName(
-                        appProvider.currentLocation!.latitude,
-                        appProvider.currentLocation!.longitude,
-                      )
-                    : Future.value('Unknown'),
-                builder: (context, snapshot) {
-                  final locationParts = (snapshot.data ?? 'Unknown').split(',');
-                  final country = locationParts.length > 1 ? locationParts.last.trim() : snapshot.data ?? 'Unknown';
-                  return Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                    decoration: BoxDecoration(
-                      color: Colors.red.shade200,
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Text(
-                      country,
+              const SizedBox(width: 16),
+              const Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Safety Hub',
                       style: TextStyle(
-                        fontSize: 10,
-                        color: Colors.red.shade900,
-                        fontWeight: FontWeight.w600,
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.black87,
                       ),
                     ),
-                  );
-                },
+                    SizedBox(height: 4),
+                    Text(
+                      'Emergency contacts & safety info',
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: Colors.black54,
+                      ),
+                    ),
+                  ],
+                ),
               ),
+              Icon(Icons.arrow_forward_ios, size: 18, color: Colors.red.shade600),
             ],
           ),
-          const SizedBox(height: 12),
-          FutureBuilder<Map<String, dynamic>>(
-            future: _getLocationBasedEmergencyNumbers(appProvider),
-            builder: (context, snapshot) {
-              final emergencyData = snapshot.data ?? _getDefaultEmergencyNumbers();
-              
-              return Column(
-                children: [
-                  Row(
-                    children: [
-                      Expanded(
-                        child: _buildQuickEmergencyButton(
-                          'Police',
-                          emergencyData['police'],
-                          Icons.local_police,
-                          Colors.blue.shade700,
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: _buildQuickEmergencyButton(
-                          'Ambulance',
-                          emergencyData['ambulance'],
-                          Icons.local_hospital,
-                          Colors.red.shade700,
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: _buildQuickEmergencyButton(
-                          'Fire',
-                          emergencyData['fire'],
-                          Icons.local_fire_department,
-                          Colors.orange.shade700,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton.icon(
-                      onPressed: () => _shareEmergencyLocation(),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.red.shade600,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
-                      icon: const Icon(Icons.share_location, size: 18),
-                      label: const Text(
-                        'Share Emergency Location',
-                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
-                      ),
-                    ),
-                  ),
-                ],
-              );
-            },
-          ),
-        ],
+        ),
       ),
     );
   }
@@ -935,14 +987,14 @@ class _HomeScreenState extends State<HomeScreen> {
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         gradient: const LinearGradient(
-          colors: [Color(0xFF6366F1), Color(0xFF8B5CF6)],
+          colors: [Color(0xFF4361EE), Color(0xFF2EC4B6)],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF6366F1).withOpacity(0.3),
+            color: const Color(0xFF4361EE).withOpacity(0.3),
             blurRadius: 12,
             offset: const Offset(0, 6),
           ),
@@ -978,7 +1030,7 @@ class _HomeScreenState extends State<HomeScreen> {
             onPressed: () => context.read<AppProvider>().setCurrentTabIndex(3),
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.white,
-              foregroundColor: const Color(0xFF6366F1),
+              foregroundColor: const Color(0xFF4361EE),
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12),
@@ -1015,42 +1067,24 @@ class _HomeScreenState extends State<HomeScreen> {
           borderRadius: BorderRadius.circular(20),
           child: Stack(
             children: [
-              // Background image - nearby place or fallback
               Positioned.fill(
-                child: appProvider.places.isNotEmpty && appProvider.places.first.photoUrl.isNotEmpty
-                    ? Image.network(
-                        appProvider.places.first.photoUrl,
-                        fit: BoxFit.cover,
-                        errorBuilder: (context, error, stackTrace) {
-                          return Container(
-                            decoration: BoxDecoration(
-                              gradient: LinearGradient(
-                                colors: [Color(0xFF667eea), Color(0xFF764ba2)],
-                                begin: Alignment.topLeft,
-                                end: Alignment.bottomRight,
-                              ),
-                            ),
-                          );
-                        },
-                      )
-                    : Container(
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            colors: [Color(0xFF667eea), Color(0xFF764ba2)],
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                          ),
-                        ),
-                      ),
+                child: Container(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: _getTimeBasedGradient(),
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                  ),
+                ),
               ),
-              // Dark overlay for text readability
               Positioned.fill(
                 child: Container(
                   decoration: BoxDecoration(
                     gradient: LinearGradient(
                       colors: [
+                        Colors.black.withOpacity(0.3),
                         Colors.black.withOpacity(0.5),
-                        Colors.black.withOpacity(0.7),
                       ],
                       begin: Alignment.topCenter,
                       end: Alignment.bottomCenter,
@@ -1058,13 +1092,11 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                 ),
               ),
-              // Content
               Padding(
                 padding: const EdgeInsets.all(24),
                 child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Header with avatar and greeting
                   Row(
                     children: [
                       Container(
@@ -1114,7 +1146,6 @@ class _HomeScreenState extends State<HomeScreen> {
                           ],
                         ),
                       ),
-                      // Weather widget
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                         decoration: BoxDecoration(
@@ -1127,7 +1158,6 @@ class _HomeScreenState extends State<HomeScreen> {
                     ],
                   ),
                   const SizedBox(height: 20),
-                  // Location with better styling
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                     decoration: BoxDecoration(
@@ -1164,7 +1194,6 @@ class _HomeScreenState extends State<HomeScreen> {
                     ),
                   ),
                   const SizedBox(height: 16),
-                  // Motivational Quote
                   const SizedBox(height: 12),
                   Text(
                     _getMotivationalQuote(),
@@ -1306,17 +1335,10 @@ class _HomeScreenState extends State<HomeScreen> {
       },
       {
         'icon': Icons.translate,
-        'label': 'Language',
-        'subtitle': 'Translator',
-        'color': const Color(0xFF3B82F6),
+        'label': 'Translate',
+        'subtitle': 'Languages',
+        'color': const Color(0xFF2EC4B6),
         'action': 'translator',
-      },
-      {
-        'icon': Icons.emergency_share,
-        'label': 'Safety Hub',
-        'subtitle': 'Emergency',
-        'color': const Color(0xFFEF4444),
-        'action': 'safety',
       },
       {
         'icon': Icons.wb_sunny,
@@ -1349,78 +1371,75 @@ class _HomeScreenState extends State<HomeScreen> {
           style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
         ),
         const SizedBox(height: 16),
-        GridView.builder(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: 3,
-            mainAxisSpacing: 16,
-            crossAxisSpacing: 16,
-            childAspectRatio: 0.85,
-          ),
-          itemCount: services.length,
-          itemBuilder: (context, index) {
-            final service = services[index];
-            return GestureDetector(
-              onTap: () {
-                // Haptic feedback simulation
-                _handleServiceAction(service['action'] as String, appProvider);
-              },
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Container(
-                    width: 64,
-                    height: 64,
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: [
-                          (service['color'] as Color),
-                          (service['color'] as Color).withOpacity(0.7),
-                        ],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                      ),
-                      borderRadius: BorderRadius.circular(18),
-                      boxShadow: [
-                        BoxShadow(
-                          color: (service['color'] as Color).withOpacity(0.3),
-                          blurRadius: 8,
-                          offset: const Offset(0, 4),
+        SizedBox(
+          height: 110,
+          child: ListView.builder(
+            scrollDirection: Axis.horizontal,
+            itemCount: services.length,
+            itemBuilder: (context, index) {
+              final service = services[index];
+              return GestureDetector(
+                onTap: () => _handleServiceAction(service['action'] as String, appProvider),
+                child: Container(
+                  width: 90,
+                  margin: EdgeInsets.only(right: 12, left: index == 0 ? 4 : 0),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Container(
+                        width: 64,
+                        height: 64,
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: [
+                              (service['color'] as Color),
+                              (service['color'] as Color).withOpacity(0.7),
+                            ],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          ),
+                          borderRadius: BorderRadius.circular(18),
+                          boxShadow: [
+                            BoxShadow(
+                              color: (service['color'] as Color).withOpacity(0.3),
+                              blurRadius: 8,
+                              offset: const Offset(0, 4),
+                            ),
+                          ],
                         ),
-                      ],
-                    ),
-                    child: Icon(
-                      service['icon'] as IconData,
-                      color: Colors.white,
-                      size: 32,
-                    ),
+                        child: Icon(
+                          service['icon'] as IconData,
+                          color: Colors.white,
+                          size: 32,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        service['label'] as String,
+                        style: const TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                        ),
+                        textAlign: TextAlign.center,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      Text(
+                        service['subtitle'] as String,
+                        style: TextStyle(
+                          fontSize: 9,
+                          color: Colors.grey[600],
+                        ),
+                        textAlign: TextAlign.center,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
                   ),
-                  const SizedBox(height: 8),
-                  Text(
-                    service['label'] as String,
-                    style: const TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w600,
-                    ),
-                    textAlign: TextAlign.center,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  Text(
-                    service['subtitle'] as String,
-                    style: TextStyle(
-                      fontSize: 9,
-                      color: Colors.grey[600],
-                    ),
-                    textAlign: TextAlign.center,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ],
-              ),
-            );
-          },
+                ),
+              );
+            },
+          ),
         ),
       ],
     );
@@ -1881,22 +1900,36 @@ class _HomeScreenState extends State<HomeScreen> {
                     children: [
                       Expanded(
                         flex: 3,
-                        child: Container(
-                          width: double.infinity,
-                          decoration: BoxDecoration(
-                            color: Colors.grey[300],
-                            image: place.photoUrl.isNotEmpty
-                                ? DecorationImage(
-                                    image: NetworkImage(place.photoUrl),
-                                    fit: BoxFit.cover,
-                                    onError: (_, __) {},
-                                  )
-                                : null,
-                          ),
-                          child: place.photoUrl.isEmpty
-                              ? Icon(Icons.place, size: 32, color: Colors.grey[600])
-                              : null,
-                        ),
+                        child: place.photoUrl.isNotEmpty
+                            ? Image.network(
+                                place.photoUrl,
+                                width: double.infinity,
+                                fit: BoxFit.cover,
+                                loadingBuilder: (context, child, loadingProgress) {
+                                  if (loadingProgress == null) return child;
+                                  return Container(
+                                    color: Colors.grey[300],
+                                    child: Center(
+                                      child: CircularProgressIndicator(
+                                        value: loadingProgress.expectedTotalBytes != null
+                                            ? loadingProgress.cumulativeBytesLoaded / loadingProgress.expectedTotalBytes!
+                                            : null,
+                                      ),
+                                    ),
+                                  );
+                                },
+                                errorBuilder: (context, error, stackTrace) {
+                                  print('Image load error for ${place.name}: $error');
+                                  return Container(
+                                    color: Colors.grey[300],
+                                    child: Icon(Icons.place, size: 32, color: Colors.grey[600]),
+                                  );
+                                },
+                              )
+                            : Container(
+                                color: Colors.grey[300],
+                                child: Icon(Icons.place, size: 32, color: Colors.grey[600]),
+                              ),
                       ),
                       Expanded(
                         flex: 2,
