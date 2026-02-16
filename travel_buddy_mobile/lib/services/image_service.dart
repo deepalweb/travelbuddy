@@ -97,7 +97,7 @@ class ImageService {
       
       var request = http.MultipartRequest('POST', uri);
       
-      for (final image in images) {
+      for (final image in images.take(2)) {
         final imageFile = File(image.path);
         final compressed = await _optimizer.compressImage(imageFile);
         

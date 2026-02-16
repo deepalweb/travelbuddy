@@ -360,7 +360,7 @@ class _CreatePlacePostScreenState extends State<CreatePlacePostScreen> {
           const SizedBox(height: 8),
           const Text('Optional but helps others trust your tip', style: TextStyle(fontSize: 14, color: Colors.grey)),
           const SizedBox(height: 24),
-          const Text('Photos (Up to 4)', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+          const Text('Photos (Up to 2)', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
           const SizedBox(height: 8),
           const Text('Show the place, not selfies', style: TextStyle(fontSize: 12, color: Colors.grey)),
           const SizedBox(height: 12),
@@ -368,7 +368,7 @@ class _CreatePlacePostScreenState extends State<CreatePlacePostScreen> {
             height: 100,
             child: ListView.builder(
               scrollDirection: Axis.horizontal,
-              itemCount: _selectedImages.length + (_selectedImages.length < 4 ? 1 : 0),
+              itemCount: _selectedImages.length + (_selectedImages.length < 2 ? 1 : 0),
               itemBuilder: (context, index) {
                 if (index == _selectedImages.length) {
                   return Container(

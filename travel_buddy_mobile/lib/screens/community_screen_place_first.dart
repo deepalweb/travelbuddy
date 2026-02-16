@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:url_launcher/url_launcher.dart';
+import 'package:share_plus/share_plus.dart';
 import '../providers/community_provider.dart';
 import '../providers/app_provider.dart';
 import 'create_place_post_screen.dart';
@@ -18,6 +20,7 @@ class _CommunityScreenPlaceFirstState extends State<CommunityScreenPlaceFirst> {
   bool _isSearching = false;
   String _currentLocation = 'Colombo, Sri Lanka';
   String _currentWeather = '28°C';
+  final Map<String, int> _currentImageIndex = {};
 
   @override
   void initState() {
@@ -282,9 +285,19 @@ class _CommunityScreenPlaceFirstState extends State<CommunityScreenPlaceFirst> {
 
   Widget _buildPlaceCard(dynamic post, String distance) {
     final placeValueScore = _calculatePlaceValueScore(post);
+    print('🖼️ Post ID: ${post.id}');
+    print('🖼️ Post images type: ${post.images.runtimeType}');
+    print('🖼️ Post images length: ${post.images?.length ?? 0}');
     print('🖼️ Post images: ${post.images}');
     print('📍 Post location: ${post.location}');
     print('📝 Post content: ${post.content}');
+    
+    final appProvider = context.read<AppProvider>();
+    final isMyPost = post.userId == appProvider.currentUser?.mongoId || 
+                     post.userId == appProvider.currentUser?.uid;
+    
+    final hasImages = post.images != null && post.images.isNotEmpty;
+    
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       decoration: BoxDecoration(
@@ -299,44 +312,82 @@ class _CommunityScreenPlaceFirstState extends State<CommunityScreenPlaceFirst> {
             borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
             child: Stack(
               children: [
-                post.images.isNotEmpty
-                    ? Image.network(
-                        post.images.first,
-                        height: 200,
-                        width: double.infinity,
-                        fit: BoxFit.cover,
-                        errorBuilder: (context, error, stackTrace) => Container(
-                          height: 200,
-                          color: Colors.grey[300],
-                          child: const Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(Icons.place, size: 64, color: Colors.grey),
-                              SizedBox(height: 8),
-                              Text('Image not available', style: TextStyle(color: Colors.grey)),
-                            ],
-                          ),
-                        ),
-                        loadingBuilder: (context, child, loadingProgress) {
-                          if (loadingProgress == null) return child;
-                          return Container(
+                if (hasImages)
+                  GestureDetector(
+                    onTap: () => _showImageGallery(context, post.images, _currentImageIndex[post.id] ?? 0),
+                    child: SizedBox(
+                      height: 200,
+                      child: PageView.builder(
+                        itemCount: post.images.length,
+                        onPageChanged: (index) {
+                          setState(() => _currentImageIndex[post.id] = index);
+                        },
+                        itemBuilder: (context, index) {
+                          return Image.network(
+                            post.images[index],
                             height: 200,
-                            color: Colors.grey[200],
-                            child: Center(
-                              child: CircularProgressIndicator(
-                                value: loadingProgress.expectedTotalBytes != null
-                                    ? loadingProgress.cumulativeBytesLoaded / loadingProgress.expectedTotalBytes!
-                                    : null,
+                            width: double.infinity,
+                            fit: BoxFit.cover,
+                            errorBuilder: (context, error, stackTrace) => Container(
+                              height: 200,
+                              color: Colors.grey[300],
+                              child: const Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(Icons.place, size: 64, color: Colors.grey),
+                                  SizedBox(height: 8),
+                                  Text('Image not available', style: TextStyle(color: Colors.grey)),
+                                ],
                               ),
                             ),
+                            loadingBuilder: (context, child, loadingProgress) {
+                              if (loadingProgress == null) return child;
+                              return Container(
+                                height: 200,
+                                color: Colors.grey[200],
+                                child: Center(
+                                  child: CircularProgressIndicator(
+                                    value: loadingProgress.expectedTotalBytes != null
+                                        ? loadingProgress.cumulativeBytesLoaded / loadingProgress.expectedTotalBytes!
+                                        : null,
+                                  ),
+                                ),
+                              );
+                            },
                           );
                         },
-                      )
-                    : Container(
-                        height: 200,
-                        color: Colors.grey[300],
-                        child: const Icon(Icons.place, size: 64, color: Colors.grey),
                       ),
+                    ),
+                  )
+                else
+                  Container(
+                    height: 200,
+                    color: Colors.grey[300],
+                    child: const Icon(Icons.place, size: 64, color: Colors.grey),
+                  ),
+                if (hasImages && post.images.length > 1)
+                  Positioned(
+                    bottom: 8,
+                    left: 0,
+                    right: 0,
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: List.generate(
+                        post.images.length,
+                        (index) => Container(
+                          margin: const EdgeInsets.symmetric(horizontal: 3),
+                          width: 6,
+                          height: 6,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: (_currentImageIndex[post.id] ?? 0) == index
+                                ? Colors.white
+                                : Colors.white.withOpacity(0.4),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
                 Positioned(
                   top: 12,
                   right: 12,
@@ -403,21 +454,32 @@ class _CommunityScreenPlaceFirstState extends State<CommunityScreenPlaceFirst> {
                         ],
                       ),
                     ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF2EC4B6).withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: const Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(Icons.verified, size: 12, color: Color(0xFF2EC4B6)),
-                          SizedBox(width: 4),
-                          Text('Verified', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFF2EC4B6))),
+                    if (isMyPost)
+                      PopupMenuButton(
+                        icon: const Icon(Icons.more_vert, size: 20),
+                        itemBuilder: (context) => [
+                          const PopupMenuItem(value: 'delete', child: Text('🗑️ Delete')),
                         ],
+                        onSelected: (value) {
+                          if (value == 'delete') _deletePost(post.id);
+                        },
+                      )
+                    else
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF2EC4B6).withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: const Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.verified, size: 12, color: Color(0xFF2EC4B6)),
+                            SizedBox(width: 4),
+                            Text('Verified', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFF2EC4B6))),
+                          ],
+                        ),
                       ),
-                    ),
                   ],
                 ),
                 const SizedBox(height: 12),
@@ -457,11 +519,11 @@ class _CommunityScreenPlaceFirstState extends State<CommunityScreenPlaceFirst> {
                 const SizedBox(height: 16),
                 Row(
                   children: [
-                    _buildActionButton(Icons.bookmark_border, 'Save', () {}),
+                    _buildActionButton(Icons.bookmark_border, 'Save', () => _savePost(post.id)),
                     const SizedBox(width: 16),
-                    _buildActionButton(Icons.directions, 'Directions', () {}),
+                    _buildActionButton(Icons.directions, 'Directions', () => _openDirections(post.location)),
                     const Spacer(),
-                    _buildActionButton(Icons.share, 'Share', () {}),
+                    _buildActionButton(Icons.share, 'Share', () => _sharePost(post)),
                   ],
                 ),
               ],
@@ -535,5 +597,93 @@ class _CommunityScreenPlaceFirstState extends State<CommunityScreenPlaceFirst> {
     if (hour < 12) return '🌅 GOOD MORNING!';
     if (hour < 17) return '☀️ GOOD AFTERNOON!';
     return '🌙 GOOD EVENING!';
+  }
+
+  void _deletePost(String postId) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete Post'),
+        content: const Text('Are you sure you want to delete this post?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+    
+    if (confirm == true) {
+      final success = await context.read<CommunityProvider>().deletePost(postId);
+      if (success && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('✅ Post deleted'), backgroundColor: Color(0xFF2EC4B6)),
+        );
+      }
+    }
+  }
+
+  void _savePost(String postId) async {
+    final success = await context.read<CommunityProvider>().toggleBookmark(postId);
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(success ? '✅ Saved to bookmarks' : '❌ Failed to save'),
+          backgroundColor: success ? const Color(0xFF2EC4B6) : Colors.red,
+        ),
+      );
+    }
+  }
+
+  void _openDirections(String location) async {
+    final url = 'https://www.google.com/maps/search/?api=1&query=${Uri.encodeComponent(location)}';
+    if (await canLaunchUrl(Uri.parse(url))) {
+      await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
+    }
+  }
+
+  void _sharePost(dynamic post) async {
+    await Share.share(
+      '🌍 Check out this place: ${post.location}\n\n${post.content}\n\nShared via Travel Buddy',
+      subject: 'Travel Tip: ${post.location}',
+    );
+  }
+
+  void _showImageGallery(BuildContext context, List<dynamic> images, int initialIndex) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => Scaffold(
+          backgroundColor: Colors.black,
+          appBar: AppBar(
+            backgroundColor: Colors.black,
+            iconTheme: const IconThemeData(color: Colors.white),
+            title: Text('${initialIndex + 1} / ${images.length}', style: const TextStyle(color: Colors.white)),
+          ),
+          body: PageView.builder(
+            itemCount: images.length,
+            controller: PageController(initialPage: initialIndex),
+            itemBuilder: (context, index) {
+              return InteractiveViewer(
+                minScale: 0.5,
+                maxScale: 4.0,
+                child: Center(
+                  child: Image.network(
+                    images[index],
+                    fit: BoxFit.contain,
+                    errorBuilder: (context, error, stackTrace) => const Center(
+                      child: Icon(Icons.broken_image, size: 64, color: Colors.white54),
+                    ),
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+      ),
+    );
   }
 }
