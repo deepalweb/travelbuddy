@@ -213,6 +213,12 @@ router.get('/mobile/nearby', async (req, res) => {
     
     console.log(`✅ Layer 1 (Azure Maps): ${results.length} places with real IDs`);
     
+    // Log first 3 place names to verify they're real
+    if (results.length > 0) {
+      const sampleNames = results.slice(0, 3).map(p => p.name).join(', ');
+      console.log(`📍 Sample places: ${sampleNames}`);
+    }
+    
     // If no results, return empty instead of mock data
     if (results.length === 0) {
       console.log('⚠️ Azure Maps returned 0 results - returning empty');

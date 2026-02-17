@@ -84,9 +84,22 @@ export class AzureMapsSearch {
     const poi = azureResult.poi || {};
     const address = azureResult.address || {};
     const position = azureResult.position || {};
-    const placeName = poi.name || address.freeformAddress || 'Unknown Place';
+    
+    // Better name extraction - prioritize POI name
+    let placeName = poi.name || address.freeformAddress || 'Unknown Place';
+    
+    // If name is just an address, try to extract business name
+    if (placeName === address.freeformAddress && address.freeformAddress) {
+      const parts = address.freeformAddress.split(',');
+      if (parts.length > 0 && parts[0].trim().length > 3) {
+        placeName = parts[0].trim();
+      }
+    }
+    
     const categories = poi.categories || [];
     const distance = this.calculateDistance(lat, lng, position.lat, position.lon);
+    
+    console.log(`🏛️ Transformed: ${placeName} (${categories[0] || 'unknown'})`);
     
     return {
       place_id: azureResult.id || `azure_${Date.now()}_${Math.random()}`,
