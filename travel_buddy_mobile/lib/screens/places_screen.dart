@@ -14,6 +14,8 @@ import 'place_details_screen.dart';
 import 'subscription_plans_screen.dart';
 import 'route_plan_screen.dart';
 import 'category_places_screen.dart';
+import 'explore_redesign_demo.dart';
+import 'explore_screen_redesigned.dart';
 
 class PlacesScreen extends StatefulWidget {
   const PlacesScreen({super.key});
@@ -84,15 +86,15 @@ class _PlacesScreenState extends State<PlacesScreen> {
   }
   
   String _getCategoryQuery(String category) {
-    final queries = {
-      'food': 'restaurants cafes',
-      'landmarks': 'tourist attractions landmarks',
-      'culture': 'museums galleries',
-      'nature': 'parks gardens beaches',
-      'shopping': 'shopping malls markets',
-      'spa': 'spa wellness',
+    final smartQueries = {
+      'food': 'top rated restaurants cafes local cuisine dining',
+      'landmarks': 'famous landmarks monuments must see attractions tourist spots',
+      'culture': 'museums art galleries cultural centers exhibitions',
+      'nature': 'parks gardens scenic viewpoints nature trails beaches',
+      'shopping': 'shopping centers local markets boutiques malls',
+      'spa': 'spa wellness massage centers beauty salons',
     };
-    return queries[category] ?? 'points of interest';
+    return smartQueries[category] ?? 'points of interest';
   }
   
   Future<void> _loadSectionedPlaces(AppProvider appProvider) async {
@@ -131,6 +133,32 @@ class _PlacesScreenState extends State<PlacesScreen> {
                   )
                 : null,
             actions: [
+              // Demo button for new Explore
+              IconButton(
+                icon: const Icon(Icons.auto_awesome),
+                tooltip: 'Try New Explore',
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const ExploreRedesignDemo(),
+                    ),
+                  );
+                },
+              ),
+              // Full redesigned screen
+              IconButton(
+                icon: const Icon(Icons.rocket_launch),
+                tooltip: 'New Explore (Full)',
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const ExploreScreenRedesigned(),
+                    ),
+                  );
+                },
+              ),
               // Offline Map Toggle
               FutureBuilder<ConnectivityResult>(
                 future: Connectivity().checkConnectivity(),

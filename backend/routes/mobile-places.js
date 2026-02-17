@@ -104,19 +104,22 @@ async function fetchPlacePhoto(placeName, location) {
 async function generateAIPlaces(locationInfo, userPreferences) {
   const { userType = 'Explorer', vibe = 'Cultural', interests = [] } = userPreferences;
   
-  const prompt = `You are a local travel expert AI. Generate 60 diverse, realistic places near ${locationInfo.city}, ${locationInfo.country} (coordinates: ${locationInfo.coordinates.lat}, ${locationInfo.coordinates.lng}).
+  const prompt = `You are a local travel expert for ${locationInfo.city}, ${locationInfo.country}. Generate 60 REAL, SPECIFIC places with ACTUAL NAMES (not generic like "Landmark" or "Tourist Spot").
 
-User Profile:
-- Type: ${userType}
-- Vibe: ${vibe}
-- Interests: ${interests.join(', ') || 'General exploration'}
+Location: ${locationInfo.coordinates.lat}, ${locationInfo.coordinates.lng}
+User: ${userType} | Vibe: ${vibe}
 
-Generate a JSON array of exactly 60 places with this structure:
+IMPORTANT: Use REAL place names like:
+✅ "Gangaramaya Temple" NOT ❌ "Buddhist Temple"
+✅ "Ministry of Crab" NOT ❌ "Seafood Restaurant"
+✅ "Galle Face Green" NOT ❌ "Beachfront Park"
+
+Generate JSON array with this structure:
 [
   {
-    "place_id": "ai_generated_unique_id",
-    "name": "Place Name",
-    "formatted_address": "Complete realistic address in ${locationInfo.city}",
+    "place_id": "unique_id_123",
+    "name": "REAL PLACE NAME (e.g., Gangaramaya Temple, not Temple)",
+    "formatted_address": "Actual street address in ${locationInfo.city}",
     "geometry": {
       "location": {
         "lat": ${locationInfo.coordinates.lat + (Math.random() - 0.5) * 0.02},
@@ -126,35 +129,33 @@ Generate a JSON array of exactly 60 places with this structure:
     "rating": 4.2,
     "user_ratings_total": 150,
     "price_level": 2,
-    "types": ["restaurant", "establishment"],
+    "types": ["restaurant"],
     "category": "restaurants",
     "business_status": "OPERATIONAL",
-    "description": "Engaging 2-3 sentence description",
-    "localTip": "Practical local tip",
-    "handyPhrase": "Useful phrase",
-    "opening_hours": {
-      "open_now": true
-    }
+    "description": "Specific description about THIS place",
+    "localTip": "Practical tip specific to THIS place",
+    "handyPhrase": "Useful local phrase",
+    "opening_hours": { "open_now": true }
   }
 ]
 
-Categories to include (10 places each):
-- restaurants (cafes, fine dining, local cuisine)
-- attractions (landmarks, museums, viewpoints)
-- shopping (markets, malls, local shops)
-- entertainment (bars, clubs, theaters)
-- nature (parks, gardens, outdoor spaces)
-- culture (galleries, historic sites, cultural centers)
+Categories (10 each):
+- restaurants: Famous local restaurants with REAL names
+- attractions: Well-known landmarks with ACTUAL names
+- shopping: Specific markets/malls with REAL names
+- entertainment: Named bars/clubs/theaters
+- nature: Named parks/gardens/beaches
+- culture: Specific museums/galleries with REAL names
 
-Requirements:
-- Vary coordinates within 2km radius
-- Realistic ratings (3.5-4.8)
-- Mix of price levels (1-4)
-- Authentic local names and addresses
-- Each place must have a "category" field
-- Diverse types within each category
+Rules:
+1. NEVER use generic names like "Landmark", "Tourist Spot", "Attraction"
+2. Use REAL place names that exist or sound authentic
+3. Include local language names where appropriate
+4. Vary coordinates within 2km
+5. Realistic ratings (3.5-4.8)
+6. Each place MUST have unique, specific name
 
-Return ONLY the JSON array, no other text.`;
+Return ONLY valid JSON array.`;
 
   const completion = await openai.chat.completions.create({
     model: process.env.AZURE_OPENAI_DEPLOYMENT_NAME,

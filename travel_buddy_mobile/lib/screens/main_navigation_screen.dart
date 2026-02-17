@@ -3,7 +3,7 @@ import 'package:provider/provider.dart';
 import '../providers/app_provider.dart';
 import '../providers/language_provider.dart';
 import 'home_screen.dart';
-import 'places_screen.dart';
+import 'explore_screen_redesigned.dart';
 import 'deals_screen.dart';
 import 'planner_screen.dart';
 import 'community_screen_place_first.dart';
@@ -19,7 +19,7 @@ class MainNavigationScreen extends StatefulWidget {
 class _MainNavigationScreenState extends State<MainNavigationScreen> {
   final List<Widget> _screens = [
     const HomeScreen(),
-    const PlacesScreen(),
+    const ExploreScreenRedesigned(),
     const DealsScreen(),
     const PlannerScreen(),
     const CommunityScreenPlaceFirst(),
