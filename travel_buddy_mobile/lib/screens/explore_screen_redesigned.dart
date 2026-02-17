@@ -8,7 +8,7 @@ import '../widgets/compact_place_card.dart';
 import '../widgets/travel_style_filter.dart';
 import '../widgets/search_bar_widget.dart';
 import '../services/places_service.dart';
-import '../utils/api_debouncer.dart';
+import '../services/places_service.dart';
 import 'place_details_screen.dart';
 import 'category_places_screen.dart';
 
@@ -267,6 +267,22 @@ class _ExploreScreenRedesignedState extends State<ExploreScreenRedesigned> {
           appBar: AppBar(
             title: const Text('Explore'),
             actions: [
+              IconButton(
+                icon: const Icon(Icons.delete_sweep),
+                tooltip: 'Clear Cache',
+                onPressed: () async {
+                  await PlacesService().clearOfflineStorage();
+                  PlacesService().clearCache();
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('✅ Cache cleared! Pull to refresh.'),
+                        backgroundColor: Colors.green,
+                      ),
+                    );
+                  }
+                },
+              ),
               IconButton(
                 icon: const Icon(Icons.tune),
                 onPressed: () => _showFilterSheet(context),
