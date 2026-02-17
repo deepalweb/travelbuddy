@@ -197,8 +197,8 @@ class _AppSettingsScreenState extends State<AppSettingsScreen> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Clear Cache'),
-        content: const Text('This will clear all cached data. Continue?'),
+        title: const Text('Clear All Caches'),
+        content: const Text('This will clear ALL cached data (app + backend). Continue?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
@@ -207,12 +207,22 @@ class _AppSettingsScreenState extends State<AppSettingsScreen> {
           TextButton(
             onPressed: () async {
               Navigator.pop(context);
-              await appProvider.clearCache();
+              
+              // Show loading
+              showDialog(
+                context: context,
+                barrierDismissible: false,
+                builder: (context) => const Center(child: CircularProgressIndicator()),
+              );
+              
+              await appProvider.clearAllCaches();
+              
+              Navigator.pop(context); // Close loading
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Cache cleared successfully')),
+                const SnackBar(content: Text('All caches cleared successfully')),
               );
             },
-            child: const Text('Clear'),
+            child: const Text('Clear All'),
           ),
         ],
       ),

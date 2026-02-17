@@ -28,6 +28,7 @@ import '../services/places_service.dart';
 import '../services/ai_service.dart';
 import '../services/image_service.dart';
 import '../services/settings_service.dart';
+import 'app_provider_cache_clear.dart';
 import '../services/error_handler_service.dart';
 import '../services/usage_tracking_service.dart';
 import '../services/recommendation_engine.dart';

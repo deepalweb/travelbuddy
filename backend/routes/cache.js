@@ -65,6 +65,39 @@ router.get('/places/:cacheKey', async (req, res) => {
   }
 });
 
+// Clear ALL caches (MongoDB + Azure Blob)
+router.delete('/places/all', async (req, res) => {
+  try {
+    let cleared = { mongodb: 0, azureBlob: 0 };
+    
+    // 1. Clear MongoDB cache
+    try {
+      const PlacesCache = (await import('../models/PlacesCache.js')).default;
+      const result = await PlacesCache.deleteMany({});
+      cleared.mongodb = result.deletedCount;
+      console.log(`🗑️ Cleared ${cleared.mongodb} MongoDB cache entries`);
+    } catch (e) {
+      console.log('⚠️ MongoDB cache clear skipped:', e.message);
+    }
+    
+    // 2. Clear Azure Blob cache
+    if (containerClient) {
+      let blobCount = 0;
+      for await (const blob of containerClient.listBlobsFlat()) {
+        await containerClient.deleteBlob(blob.name);
+        blobCount++;
+      }
+      cleared.azureBlob = blobCount;
+      console.log(`🗑️ Cleared ${cleared.azureBlob} Azure Blob cache entries`);
+    }
+    
+    res.json({ success: true, cleared });
+  } catch (error) {
+    console.error('❌ Cache clear error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Helper to convert stream to string
 async function streamToString(readableStream) {
   return new Promise((resolve, reject) => {
