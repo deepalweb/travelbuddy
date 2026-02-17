@@ -73,14 +73,14 @@ class _ExploreScreenRedesignedState extends State<ExploreScreenRedesigned> {
     final hotPlaces = await _fetchPlacesByContext(
       appProvider,
       'restaurants cafes attractions open now',
-      radius: 500,
+      radius: 5000,
       forceRefresh: forceRefresh,
     );
     if (hotPlaces.isNotEmpty) {
       sections.add(ContextSection(
         id: 'hot_now',
         title: '🔥 Hot Places Right Now',
-        subtitle: '${hotPlaces.length} places open within 500m',
+        subtitle: '${hotPlaces.length} places open within 5km',
         icon: '🔥',
         places: hotPlaces.take(5).toList(),
         type: SectionType.hotNow,

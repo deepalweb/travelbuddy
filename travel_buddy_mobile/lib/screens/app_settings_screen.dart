@@ -215,7 +215,7 @@ class _AppSettingsScreenState extends State<AppSettingsScreen> {
                 builder: (context) => const Center(child: CircularProgressIndicator()),
               );
               
-              await appProvider.clearAllCaches();
+              await clearAllCaches();
               
               Navigator.pop(context); // Close loading
               ScaffoldMessenger.of(context).showSnackBar(
