@@ -208,6 +208,8 @@ export class AzureMapsSearch {
     if (poi.categories && poi.categories.length > 0) rating += 0.2;
     return Math.min(Math.round(rating * 10) / 10, 5.0);
   }
+
+  getCategoryId(query) {
     const q = query.toLowerCase();
     const categoryMap = {
       'restaurant': '7315', 'food': '7315', 'hotel': '7314', 'attraction': '7376',
