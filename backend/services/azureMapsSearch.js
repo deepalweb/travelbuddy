@@ -8,7 +8,7 @@ export class AzureMapsSearch {
 
   async searchPlacesComprehensive(lat, lng, query, radius = 5000) {
     try {
-      const smartRadius = Math.min(radius, 10000); // Increase to 10km
+      const smartRadius = Math.min(radius, 50000); // Max 50km (Azure limit)
       const categoryId = this.getCategoryId(query);
       
       // Simplify complex queries for better Azure Maps matching
@@ -25,8 +25,8 @@ export class AzureMapsSearch {
       const data = await response.json();
       
       if (!data.results || data.results.length === 0) {
-        console.log('⚠️ Azure Maps: 0 results');
-        return [];
+        console.log('⚠️ Azure Maps: 0 results - trying Azure OpenAI fallback');
+        return this.generateAIPlaces(lat, lng, simplifiedQuery);
       }
       
       // Deduplicate by Azure Maps ID
@@ -46,6 +46,27 @@ export class AzureMapsSearch {
       return this.rankResults(results, lat, lng, query);
     } catch (error) {
       console.error('❌ Azure Maps error:', error.message);
+      return this.generateAIPlaces(lat, lng, query);
+    }
+  }
+
+  async generateAIPlaces(lat, lng, query) {
+    try {
+      console.log('🤖 Using Azure OpenAI fallback');
+      const response = await fetch('https://travelbuddy-b2c6hgbbgeh4esdh.eastus2-01.azurewebsites.net/api/mobile-places/discover', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ latitude: lat, longitude: lng, userPreferences: {} })
+      });
+      
+      const data = await response.json();
+      if (data.status === 'success' && data.allPlaces) {
+        console.log(`✅ Azure OpenAI: ${data.allPlaces.length} places`);
+        return data.allPlaces.slice(0, 20);
+      }
+      return [];
+    } catch (error) {
+      console.error('❌ Azure OpenAI fallback failed:', error.message);
       return [];
     }
   }
