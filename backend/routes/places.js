@@ -6,6 +6,45 @@ import { PlacesOptimizer } from '../places-optimization.js';
 import PlacesCache from '../models/PlacesCache.js';
 import costTracker from '../services/costTracker.js';
 
+function generateMockPlaces(lat, lng, query, count) {
+  const places = [];
+  const categories = query.toLowerCase().includes('temple') ? ['temple', 'shrine', 'religious site'] :
+                     query.toLowerCase().includes('restaurant') || query.toLowerCase().includes('food') ? ['restaurant', 'cafe', 'bar', 'bistro', 'diner', 'eatery'] :
+                     query.toLowerCase().includes('hotel') ? ['hotel', 'accommodation'] :
+                     ['attraction', 'landmark', 'tourist spot'];
+  
+  for (let i = 0; i < count; i++) {
+    const offsetLat = (Math.random() - 0.5) * 0.2;
+    const offsetLng = (Math.random() - 0.5) * 0.2;
+    const category = categories[i % categories.length];
+    const seed = Math.abs((lat + lng + i).toString().split('').reduce((a, b) => { a = ((a << 5) - a) + b.charCodeAt(0); return a & a; }, 0)) % 1000;
+    
+    places.push({
+      place_id: `mock_${Date.now()}_${i}`,
+      name: `${category.charAt(0).toUpperCase() + category.slice(1)} ${i + 1}`,
+      formatted_address: `Near ${lat.toFixed(4)}, ${lng.toFixed(4)}`,
+      geometry: {
+        location: {
+          lat: lat + offsetLat,
+          lng: lng + offsetLng
+        }
+      },
+      types: [category, 'point_of_interest'],
+      rating: 3.5 + Math.random() * 1.5,
+      user_ratings_total: Math.floor(Math.random() * 500) + 50,
+      business_status: 'OPERATIONAL',
+      vicinity: `Area near ${lat.toFixed(2)}, ${lng.toFixed(2)}`,
+      photos: [{
+        photo_reference: `https://picsum.photos/seed/${seed}/600/400`,
+        height: 400,
+        width: 600
+      }],
+      source: 'mock'
+    });
+  }
+  return places;
+}
+
 // Initialize Azure OpenAI
 const openai = process.env.AZURE_OPENAI_API_KEY ? new OpenAI({
   apiKey: process.env.AZURE_OPENAI_API_KEY,
@@ -174,13 +213,21 @@ router.get('/mobile/nearby', async (req, res) => {
     
     console.log(`✅ Layer 1 (Azure Maps): ${results.length} places with real IDs`);
     
+    // Log first 3 place names to verify they're real
+    if (results.length > 0) {
+      const sampleNames = results.slice(0, 3).map(p => p.name).join(', ');
+      console.log(`📍 Sample places: ${sampleNames}`);
+    }
+    
+    // If no results, return empty instead of mock data
     if (results.length === 0) {
+      console.log('⚠️ Azure Maps returned 0 results - returning empty');
       return res.json({
         status: 'OK',
         results: [],
         query: query,
         location: { lat: parseFloat(lat), lng: parseFloat(lng) },
-        radius: searchRadius
+        message: 'No places found. Try different search terms or location.'
       });
     }
     
@@ -191,7 +238,20 @@ router.get('/mobile/nearby', async (req, res) => {
     results = PlacesOptimizer.filterQualityResults(results, { minRating: 0 });
     results = PlacesOptimizer.enrichPlaceTypes(results);
     results = PlacesOptimizer.rankResults(results, parseFloat(lat), parseFloat(lng), query);
-    console.log(`✅ Layer 3 (Algorithm): Categorized and ranked`);
+    
+    // Extract photo URLs from photos array
+    results = results.map(place => {
+      const photoRef = place.photos?.[0]?.photo_reference;
+      return {
+        ...place,
+        photoUrl: photoRef && !photoRef.startsWith('http') 
+          ? `https://travelbuddy-b2c6hgbbgeh4esdh.eastus2-01.azurewebsites.net/api/places/photo?ref=${photoRef}&w=800`
+          : (photoRef || '')
+      };
+    });
+    
+    console.log(`✅ Layer 3 (Algorithm): Categorized, ranked, and photos extracted`);
+    console.log(`📸 Sample photo URL: ${results[0]?.photoUrl || 'none'}`);
     
     // LAYER 4: Personalization (User Data) - TODO: Add user preferences
     // if (userId) {
@@ -479,6 +539,24 @@ router.get('/cost-stats', async (req, res) => {
   } catch (error) {
     console.error('❌ Cost stats error:', error);
     res.status(500).json({ error: 'Failed to get cost stats' });
+  }
+});
+
+// Debug endpoint
+router.get('/debug/env', async (req, res) => {
+  res.json({
+    azureMapsKeyExists: !!process.env.AZURE_MAPS_API_KEY,
+    azureMapsKeyLength: process.env.AZURE_MAPS_API_KEY?.length || 0
+  });
+});
+
+// Clear cache endpoint
+router.delete('/debug/cache', async (req, res) => {
+  try {
+    const result = await PlacesCache.deleteMany({});
+    res.json({ status: 'OK', deleted: result.deletedCount });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
   }
 });
 

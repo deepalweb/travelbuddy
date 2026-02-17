@@ -94,8 +94,9 @@ class CommunityProvider with ChangeNotifier {
         }
         
         if (refresh || _currentPage == 1) {
-          // On refresh or first load, replace all posts with fresh backend data
-          _posts = filteredPosts;
+          // On refresh, merge backend posts with local temp posts
+          final tempPosts = _posts.where((p) => p.id.startsWith('temp_')).toList();
+          _posts = [...tempPosts, ...filteredPosts];
         } else {
           // On load more, add new posts
           final localIds = _posts.map((p) => p.id).toSet();
@@ -340,11 +341,12 @@ class CommunityProvider with ChangeNotifier {
     );
     notifyListeners();
 
-    // Sync with backend
+    // Sync with backend using CommunityApiService
     try {
-      final success = await _apiService.toggleBookmark(postId);
+      final success = await CommunityApiService.toggleBookmark(postId);
       if (success) {
         print('✅ Bookmark synced to backend');
+        return true;
       } else {
         // Revert on failure
         _posts[postIndex] = post;
@@ -359,7 +361,6 @@ class CommunityProvider with ChangeNotifier {
       print('❌ Bookmark error - reverted: $e');
       return false;
     }
-    return true;
   }
 
   Future<bool> createPost({

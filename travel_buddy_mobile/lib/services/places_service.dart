@@ -296,8 +296,9 @@ class PlacesService {
   }
   
   Future<List<Place>> _fetchRealPlaces(double lat, double lng, String query, int radius, [int offset = 0, int limit = 150]) async {
+    // Use the correct endpoint that returns REAL place names from Azure Maps
     final mobileUrl = '${Environment.backendUrl}/api/places/mobile/nearby?lat=$lat&lng=$lng&q=$query&radius=$radius&limit=$limit';
-    DebugLogger.log('🔍 API: $query within ${radius}m (limit: $limit)');
+    DebugLogger.log('🔍 Fetching REAL places: $query within ${radius}m');
     DebugLogger.log('📍 Location: $lat, $lng');
     DebugLogger.log('🌐 URL: $mobileUrl');
     
@@ -308,7 +309,6 @@ class PlacesService {
       ));
       
       DebugLogger.log('📡 Response status: ${response.statusCode}');
-      DebugLogger.log('📦 Response body: ${response.body.substring(0, math.min(500, response.body.length))}');
       
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
@@ -316,12 +316,18 @@ class PlacesService {
         
         if (data['status'] == 'OK' && data['results'] != null) {
           final List<dynamic> places = data['results'];
-          DebugLogger.log('✅ API returned ${places.length} places');
+          DebugLogger.log('✅ API returned ${places.length} REAL places with actual names');
+          
+          // Log first few place names to verify they're real
+          if (places.isNotEmpty) {
+            final sampleNames = places.take(3).map((p) => p['name']).join(', ');
+            DebugLogger.log('📍 Sample places: $sampleNames');
+          }
           
           return places.map((json) => Place.fromJson({
             ...json,
             'description': json['description'] ?? json['editorial_summary']?['overview'] ?? '',
-            'localTip': 'Check opening hours before visiting',
+            'localTip': json['localTip'] ?? 'Check opening hours before visiting',
             'handyPhrase': 'Hello, thank you!',
           })).toList();
         } else {

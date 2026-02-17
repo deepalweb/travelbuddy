@@ -1003,6 +1003,15 @@ try {
   console.error('❌ Failed to load AI coordinates routes:', error);
 }
 
+// Load AI nearby routes
+try {
+  const aiNearbyRouter = (await import('./routes/ai-nearby.js')).default;
+  app.use('/api/ai', aiNearbyRouter);
+  console.log('✅ AI Nearby routes loaded');
+} catch (error) {
+  console.error('❌ Failed to load AI nearby routes:', error);
+}
+
 // Load AI places routes
 try {
   const placesAIRouter = (await import('./routes/places-ai.js')).default;

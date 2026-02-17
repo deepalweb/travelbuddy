@@ -140,13 +140,16 @@ class TranslationService {
       'es': 'es-ES',
       'fr': 'fr-FR',
       'de': 'de-DE',
-      'it': 'it-IT',
-      'pt': 'pt-PT',
-      'ja': 'ja-JP',
-      'ko': 'ko-KR',
       'zh': 'zh-CN',
-      'ar': 'ar-SA',
+      'ja': 'ja-JP',
+      'hi': 'hi-IN',
       'ru': 'ru-RU',
+      'ko': 'ko-KR',
+      'ar': 'ar-SA',
+      'pt': 'pt-PT',
+      'it': 'it-IT',
+      'nl': 'nl-NL',
+      'tr': 'tr-TR',
     };
     return languageCodes[code] ?? 'en-US';
   }

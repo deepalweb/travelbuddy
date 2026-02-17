@@ -843,16 +843,45 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
     });
 
     List<String> imageUrls = [];
+    
+    // Try to upload images, but continue even if it fails
     if (_selectedImages.isNotEmpty) {
-      imageUrls = await _imageService.uploadImages(_selectedImages);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Uploading images...'),
+          duration: Duration(seconds: 2),
+        ),
+      );
+      
+      try {
+        imageUrls = await _imageService.uploadImages(_selectedImages);
+        
+        if (imageUrls.isEmpty && _selectedImages.isNotEmpty) {
+          // Image upload failed, but continue without images
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('⚠️ Image upload failed. Posting without images...'),
+              backgroundColor: Colors.orange,
+              duration: Duration(seconds: 2),
+            ),
+          );
+        }
+      } catch (e) {
+        print('❌ Image upload error: $e');
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('⚠️ Image upload failed. Posting without images...'),
+            backgroundColor: Colors.orange,
+            duration: Duration(seconds: 2),
+          ),
+        );
+      }
     } else if (widget.editingPost != null) {
-      // Keep existing images if no new images selected
       imageUrls = widget.editingPost!.images;
     }
 
     bool success;
     if (widget.editingPost != null) {
-      // Edit existing post
       success = await context.read<CommunityProvider>().editPost(
         postId: widget.editingPost!.id,
         content: _contentController.text.trim(),
@@ -861,7 +890,6 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
         hashtags: _hashtags,
       );
     } else {
-      // Create new post
       success = await context.read<CommunityProvider>().createPost(
         content: _contentController.text.trim(),
         location: _locationController.text.trim(),

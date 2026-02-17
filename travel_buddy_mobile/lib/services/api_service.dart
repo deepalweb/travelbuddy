@@ -945,7 +945,38 @@ class ApiService {
     int radius = 5000,
   }) async {
     try {
-      // Try backend API first
+      // Try Azure OpenAI + Google Places API first
+      print('🤖 Fetching hospitals via Azure OpenAI');
+      final response = await _dio.post('/api/ai/find-nearby', data: {
+        'latitude': latitude,
+        'longitude': longitude,
+        'type': 'hospital',
+        'query': 'Find nearest hospitals',
+      });
+      
+      if (response.statusCode == 200 && response.data['places'] != null) {
+        print('✅ Got ${response.data['places'].length} hospitals from Azure OpenAI');
+        final List<dynamic> places = response.data['places'];
+        return places.map((place) => EmergencyService(
+          type: 'hospital',
+          name: place['name'],
+          address: place['address'],
+          phone: '',
+          latitude: latitude,
+          longitude: longitude,
+          distance: _parseDistance(place['distance']),
+          rating: place['rating'] is String ? 0.0 : (place['rating'] ?? 0.0).toDouble(),
+          is24Hours: true,
+          hasEnglishStaff: true,
+          isVerifiedSafe: true,
+        )).toList();
+      }
+    } catch (e) {
+      print('Azure OpenAI API failed, trying fallback: $e');
+    }
+    
+    try {
+      // Fallback to backend API
       final response = await _dio.get('/api/emergency/services', queryParameters: {
         'lat': latitude,
         'lng': longitude,
@@ -1036,6 +1067,19 @@ class ApiService {
         math.sin(dLon / 2) * math.sin(dLon / 2);
     final double c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a));
     return earthRadius * c;
+  }
+  
+  double _parseDistance(String distanceStr) {
+    try {
+      if (distanceStr.contains('km')) {
+        return double.parse(distanceStr.replaceAll('km', '').trim());
+      } else if (distanceStr.contains('m')) {
+        return double.parse(distanceStr.replaceAll('m', '').trim()) / 1000;
+      }
+      return 0.0;
+    } catch (e) {
+      return 0.0;
+    }
   }
 
   Future<Map<String, dynamic>?> generateSafetyContent({

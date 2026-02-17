@@ -20,6 +20,7 @@ import '../screens/transport_hub_screen.dart';
 import '../screens/travel_agent_screen.dart';
 import '../screens/events_screen.dart';
 import '../screens/place_details_screen.dart';
+import '../screens/safety_hub_screen.dart';
 import '../widgets/category_section.dart';
 import '../services/places_service.dart';
 import '../models/place.dart';
@@ -298,12 +299,12 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  void _loadData() {
+  Future<void> _loadData() async {
     try {
       final appProvider = context.read<AppProvider>();
-      appProvider.getCurrentLocation();
-      appProvider.loadHomeData();
-      appProvider.loadNearbyPlaces();
+      await appProvider.getCurrentLocation();
+      await appProvider.loadHomeData();
+      await appProvider.loadNearbyPlaces();
     } catch (e) {
       print('Error loading home data: $e');
       if (mounted) {
@@ -327,6 +328,15 @@ class _HomeScreenState extends State<HomeScreen> {
     if (hour < 12) return 'Good Morning';
     if (hour < 17) return 'Good Afternoon';
     return 'Good Evening';
+  }
+
+  List<Color> _getTimeBasedGradient() {
+    final hour = DateTime.now().hour;
+    if (hour < 6) return [const Color(0xFF1e3a8a), const Color(0xFF312e81)];
+    if (hour < 12) return [const Color(0xFFf59e0b), const Color(0xFFef4444)];
+    if (hour < 17) return [const Color(0xFF4361EE), const Color(0xFF2EC4B6)];
+    if (hour < 20) return [const Color(0xFFFF6B35), const Color(0xFFf59e0b)];
+    return [const Color(0xFF312e81), const Color(0xFF1e3a8a)];
   }
 
 
@@ -543,12 +553,40 @@ class _HomeScreenState extends State<HomeScreen> {
               child: const Icon(
                 Icons.travel_explore,
                 size: 24,
-                color: Color(0xFF6366F1),
+                color: Color(0xFF4361EE),
               ),
             ),
             actions: [
               IconButton(
-                icon: const Icon(Icons.notifications_outlined),
+                icon: Stack(
+                  children: [
+                    const Icon(Icons.notifications_outlined),
+                    Positioned(
+                      right: 0,
+                      top: 0,
+                      child: Container(
+                        padding: const EdgeInsets.all(4),
+                        decoration: const BoxDecoration(
+                          color: Color(0xFFFF6B35),
+                          shape: BoxShape.circle,
+                        ),
+                        constraints: const BoxConstraints(
+                          minWidth: 16,
+                          minHeight: 16,
+                        ),
+                        child: const Text(
+                          '3',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
                 onPressed: () => _showNotifications(appProvider),
               ),
               Consumer<LanguageProvider>(
@@ -614,9 +652,9 @@ class _HomeScreenState extends State<HomeScreen> {
                     const SizedBox(height: 16),
                     _buildInProgressTrips(appProvider),
                     const SizedBox(height: 16),
-                    _buildConsolidatedServices(appProvider),
+                    _buildEmergencyQuickAccess(appProvider),
                     const SizedBox(height: 16),
-                    _buildCategoryPlaces(appProvider),
+                    _buildConsolidatedServices(appProvider),
                     const SizedBox(height: 16),
                     _buildNearbyPlaces(appProvider),
                   ],
@@ -626,6 +664,213 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         );
       },
+    );
+  }
+
+  Widget _buildLocationWeatherBar(AppProvider appProvider) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: const Color(0xFF4361EE).withOpacity(0.05),
+        border: Border(
+          bottom: BorderSide(
+            color: Colors.grey.shade200,
+            width: 1,
+          ),
+        ),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.location_on, size: 16, color: Color(0xFF4361EE)),
+          const SizedBox(width: 4),
+          Expanded(
+            child: FutureBuilder<String>(
+              future: appProvider.currentLocation != null
+                  ? _getLocationName(
+                      appProvider.currentLocation!.latitude,
+                      appProvider.currentLocation!.longitude,
+                    )
+                  : Future.value('Getting location...'),
+              builder: (context, snapshot) {
+                return Text(
+                  snapshot.data ?? 'Getting location...',
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                    color: Color(0xFF1F2937),
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                );
+              },
+            ),
+          ),
+          const SizedBox(width: 8),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.grey.shade300),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  _getWeatherIcon(appProvider.weatherInfo?.condition ?? 'sunny'),
+                  size: 16,
+                  color: const Color(0xFFFFA726),
+                ),
+                const SizedBox(width: 4),
+                Text(
+                  '${appProvider.weatherInfo?.temperature.round() ?? 28}°C',
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF1F2937),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+  
+  Widget _buildEmergencyQuickAccess(AppProvider appProvider) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(16),
+      child: Stack(
+        children: [
+          Positioned.fill(
+            child: Image.network(
+              'https://images.unsplash.com/photo-1587745416684-47953f16f02f?w=800',
+              fit: BoxFit.cover,
+              errorBuilder: (context, error, stackTrace) {
+                return Container(color: Colors.red.shade50);
+              },
+            ),
+          ),
+          Positioned.fill(
+            child: Container(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [
+                    Colors.white.withOpacity(0.9),
+                    Colors.white.withOpacity(0.85),
+                  ],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+              ),
+            ),
+          ),
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              border: Border.all(color: Colors.red.shade200),
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: InkWell(
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const SafetyHubScreen(),
+                  ),
+                );
+              },
+              borderRadius: BorderRadius.circular(12),
+              child: Padding(
+                padding: const EdgeInsets.all(12),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.red.shade600,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Icon(
+                        Icons.emergency_share,
+                        color: Colors.white,
+                        size: 28,
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    const Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Safety Hub',
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.black87,
+                            ),
+                          ),
+                          SizedBox(height: 4),
+                          Text(
+                            'Emergency contacts & safety info',
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: Colors.black54,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Icon(Icons.arrow_forward_ios, size: 18, color: Colors.red.shade600),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+  
+  Widget _buildQuickEmergencyButton(
+    String label,
+    String number,
+    IconData icon,
+    Color color,
+  ) {
+    return InkWell(
+      onTap: () => _makeEmergencyCall(number),
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          border: Border.all(color: Colors.red.shade200),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Column(
+          children: [
+            Icon(icon, color: color, size: 24),
+            const SizedBox(height: 4),
+            Text(
+              label,
+              style: const TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.bold,
+                color: Colors.black87,
+              ),
+            ),
+            Text(
+              number,
+              style: TextStyle(
+                fontSize: 9,
+                color: Colors.grey.shade600,
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
   
@@ -766,65 +1011,88 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildPlanTripCTA() {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [Color(0xFF6366F1), Color(0xFF8B5CF6)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFF6366F1).withOpacity(0.3),
-            blurRadius: 12,
-            offset: const Offset(0, 6),
-          ),
-        ],
-      ),
-      child: Row(
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(16),
+      child: Stack(
         children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'Plan Your Next Trip',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
+          Positioned.fill(
+            child: Image.network(
+              'https://images.unsplash.com/photo-1488646953014-85cb44e25828?w=800',
+              fit: BoxFit.cover,
+              errorBuilder: (context, error, stackTrace) {
+                return Container(
+                  decoration: const BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [Color(0xFF4361EE), Color(0xFF2EC4B6)],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
                   ),
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  'AI-powered itinerary in seconds',
-                  style: TextStyle(
-                    color: Colors.white.withOpacity(0.9),
-                    fontSize: 14,
-                  ),
-                ),
-              ],
+                );
+              },
             ),
           ),
-          const SizedBox(width: 12),
-          ElevatedButton(
-            onPressed: () => context.read<AppProvider>().setCurrentTabIndex(3),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.white,
-              foregroundColor: const Color(0xFF6366F1),
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
+          Positioned.fill(
+            child: Container(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [
+                    Colors.black.withOpacity(0.5),
+                    Colors.black.withOpacity(0.7),
+                  ],
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                ),
               ),
             ),
-            child: const Row(
+          ),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(20),
+            child: Row(
               children: [
-                Text('Start', style: TextStyle(fontWeight: FontWeight.bold)),
-                SizedBox(width: 4),
-                Icon(Icons.arrow_forward, size: 18),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Plan Your Next Trip',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        'AI-powered itinerary in seconds',
+                        style: TextStyle(
+                          color: Colors.white.withOpacity(0.9),
+                          fontSize: 14,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 12),
+                ElevatedButton(
+                  onPressed: () => context.read<AppProvider>().setCurrentTabIndex(3),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.white,
+                    foregroundColor: const Color(0xFF4361EE),
+                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  child: const Row(
+                    children: [
+                      Text('Start', style: TextStyle(fontWeight: FontWeight.bold)),
+                      SizedBox(width: 4),
+                      Icon(Icons.arrow_forward, size: 18),
+                    ],
+                  ),
+                ),
               ],
             ),
           ),
@@ -851,42 +1119,30 @@ class _HomeScreenState extends State<HomeScreen> {
           borderRadius: BorderRadius.circular(20),
           child: Stack(
             children: [
-              // Background image - nearby place or fallback
               Positioned.fill(
-                child: appProvider.places.isNotEmpty && appProvider.places.first.photoUrl.isNotEmpty
-                    ? Image.network(
-                        appProvider.places.first.photoUrl,
-                        fit: BoxFit.cover,
-                        errorBuilder: (context, error, stackTrace) {
-                          return Container(
-                            decoration: BoxDecoration(
-                              gradient: LinearGradient(
-                                colors: [Color(0xFF667eea), Color(0xFF764ba2)],
-                                begin: Alignment.topLeft,
-                                end: Alignment.bottomRight,
-                              ),
-                            ),
-                          );
-                        },
-                      )
-                    : Container(
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            colors: [Color(0xFF667eea), Color(0xFF764ba2)],
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                          ),
+                child: Image.network(
+                  'https://images.unsplash.com/photo-1469854523086-cc02fe5d8800?w=800',
+                  fit: BoxFit.cover,
+                  errorBuilder: (context, error, stackTrace) {
+                    return Container(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: _getTimeBasedGradient(),
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
                         ),
                       ),
+                    );
+                  },
+                ),
               ),
-              // Dark overlay for text readability
               Positioned.fill(
                 child: Container(
                   decoration: BoxDecoration(
                     gradient: LinearGradient(
                       colors: [
-                        Colors.black.withOpacity(0.5),
-                        Colors.black.withOpacity(0.7),
+                        Colors.black.withOpacity(0.4),
+                        Colors.black.withOpacity(0.6),
                       ],
                       begin: Alignment.topCenter,
                       end: Alignment.bottomCenter,
@@ -894,13 +1150,11 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                 ),
               ),
-              // Content
               Padding(
                 padding: const EdgeInsets.all(24),
                 child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Header with avatar and greeting
                   Row(
                     children: [
                       Container(
@@ -940,9 +1194,7 @@ class _HomeScreenState extends State<HomeScreen> {
                               ),
                             ),
                             Text(
-                              appProvider.currentUser?.fullName?.isNotEmpty == true
-                                  ? appProvider.currentUser!.fullName!
-                                  : appProvider.currentUser?.username ?? 'Traveler',
+                              _getUserDisplayName(appProvider),
                               style: const TextStyle(
                                 color: Colors.white,
                                 fontSize: 24,
@@ -952,7 +1204,6 @@ class _HomeScreenState extends State<HomeScreen> {
                           ],
                         ),
                       ),
-                      // Weather widget
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                         decoration: BoxDecoration(
@@ -965,7 +1216,6 @@ class _HomeScreenState extends State<HomeScreen> {
                     ],
                   ),
                   const SizedBox(height: 20),
-                  // Location with better styling
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                     decoration: BoxDecoration(
@@ -1002,7 +1252,6 @@ class _HomeScreenState extends State<HomeScreen> {
                     ),
                   ),
                   const SizedBox(height: 16),
-                  // Motivational Quote
                   const SizedBox(height: 12),
                   Text(
                     _getMotivationalQuote(),
@@ -1080,29 +1329,62 @@ class _HomeScreenState extends State<HomeScreen> {
         .where((activity) => activity.isVisited)
         .length;
 
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [Colors.blue[50]!, Colors.purple[50]!],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.blue[100]!),
-      ),
-      child: Row(
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(16),
+      child: Stack(
         children: [
-          Expanded(
-            child: _buildStatItem(Icons.map, tripsCount.toString(), 'Trips', Colors.blue),
+          Positioned.fill(
+            child: Image.network(
+              'https://images.unsplash.com/photo-1476514525535-07fb3b4ae5f1?w=800',
+              fit: BoxFit.cover,
+              errorBuilder: (context, error, stackTrace) {
+                return Container(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [Colors.blue[50]!, Colors.purple[50]!],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                  ),
+                );
+              },
+            ),
           ),
-          Container(width: 1, height: 40, color: Colors.grey[300]),
-          Expanded(
-            child: _buildStatItem(Icons.favorite, favoritesCount.toString(), 'Favorites', Colors.red),
+          Positioned.fill(
+            child: Container(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [
+                    Colors.white.withOpacity(0.85),
+                    Colors.white.withOpacity(0.75),
+                  ],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+              ),
+            ),
           ),
-          Container(width: 1, height: 40, color: Colors.grey[300]),
-          Expanded(
-            child: _buildStatItem(Icons.check_circle, placesVisited.toString(), 'Visited', Colors.green),
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: Colors.blue[100]!),
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: _buildStatItem(Icons.map, tripsCount.toString(), 'Trips', Colors.blue),
+                ),
+                Container(width: 1, height: 40, color: Colors.grey[300]),
+                Expanded(
+                  child: _buildStatItem(Icons.favorite, favoritesCount.toString(), 'Favorites', Colors.red),
+                ),
+                Container(width: 1, height: 40, color: Colors.grey[300]),
+                Expanded(
+                  child: _buildStatItem(Icons.check_circle, placesVisited.toString(), 'Visited', Colors.green),
+                ),
+              ],
+            ),
           ),
         ],
       ),
@@ -1138,38 +1420,42 @@ class _HomeScreenState extends State<HomeScreen> {
       {
         'icon': Icons.directions_bus,
         'label': 'Transport',
-        'color': const Color(0xFF8E44AD),
+        'subtitle': 'Taxis & buses',
+        'gradient': [const Color(0xFF8E44AD), const Color(0xFF6C3483)],
+        'image': 'https://images.unsplash.com/photo-1544620347-c4fd4a3d5957?w=400',
         'action': 'transport',
       },
       {
-        'icon': Icons.support_agent,
+        'icon': Icons.translate,
+        'label': 'Translate',
+        'subtitle': 'Languages',
+        'gradient': [const Color(0xFF2EC4B6), const Color(0xFF1BA098)],
+        'image': 'https://images.unsplash.com/photo-1516979187457-637abb4f9353?w=400',
+        'action': 'translator',
+      },
+      {
+        'icon': Icons.wb_sunny,
+        'label': 'Weather',
+        'subtitle': 'Forecast',
+        'gradient': [const Color(0xFFFFA726), const Color(0xFFFF8A00)],
+        'image': 'https://images.unsplash.com/photo-1504608524841-42fe6f032b4b?w=400',
+        'action': 'weather',
+      },
+      {
+        'icon': Icons.card_giftcard,
         'label': 'Travel Agent',
-        'color': const Color(0xFFFFB300),
+        'subtitle': 'Book tours',
+        'gradient': [const Color(0xFFFFB300), const Color(0xFFFF8F00)],
+        'image': 'https://images.unsplash.com/photo-1488646953014-85cb44e25828?w=400',
         'action': 'travel_agent',
       },
       {
         'icon': Icons.celebration,
         'label': 'Events',
-        'color': const Color(0xFFBF5AF2),
+        'subtitle': 'Festivals',
+        'gradient': [const Color(0xFFBF5AF2), const Color(0xFF9D4EDD)],
+        'image': 'https://images.unsplash.com/photo-1492684223066-81342ee5ff30?w=400',
         'action': 'events',
-      },
-      {
-        'icon': Icons.translate,
-        'label': 'Language',
-        'color': const Color(0xFF3B82F6),
-        'action': 'translator',
-      },
-      {
-        'icon': Icons.emergency_share,
-        'label': 'Safety Hub',
-        'color': const Color(0xFFEF4444),
-        'action': 'safety',
-      },
-      {
-        'icon': Icons.wb_sunny,
-        'label': 'Weather',
-        'color': const Color(0xFF3B82F6),
-        'action': 'weather',
       },
     ];
 
@@ -1181,65 +1467,112 @@ class _HomeScreenState extends State<HomeScreen> {
           style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
         ),
         const SizedBox(height: 16),
-        GridView.builder(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: 3,
-            mainAxisSpacing: 16,
-            crossAxisSpacing: 16,
-            childAspectRatio: 0.85,
-          ),
-          itemCount: services.length,
-          itemBuilder: (context, index) {
-            final service = services[index];
-            return GestureDetector(
-              onTap: () => _handleServiceAction(service['action'] as String, appProvider),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Container(
-                    width: 64,
-                    height: 64,
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: [
-                          (service['color'] as Color),
-                          (service['color'] as Color).withOpacity(0.7),
-                        ],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
+        SizedBox(
+          height: 140,
+          child: ListView.builder(
+            scrollDirection: Axis.horizontal,
+            itemCount: services.length,
+            itemBuilder: (context, index) {
+              final service = services[index];
+              return GestureDetector(
+                onTap: () => _handleServiceAction(service['action'] as String, appProvider),
+                child: Container(
+                  width: 160,
+                  margin: EdgeInsets.only(right: 12, left: index == 0 ? 4 : 0),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(20),
+                    boxShadow: [
+                      BoxShadow(
+                        color: (service['gradient'] as List<Color>)[0].withOpacity(0.3),
+                        blurRadius: 12,
+                        offset: const Offset(0, 6),
                       ),
-                      borderRadius: BorderRadius.circular(18),
-                      boxShadow: [
-                        BoxShadow(
-                          color: (service['color'] as Color).withOpacity(0.3),
-                          blurRadius: 8,
-                          offset: const Offset(0, 4),
+                    ],
+                  ),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(20),
+                    child: Stack(
+                      children: [
+                        Positioned.fill(
+                          child: Image.network(
+                            service['image'] as String,
+                            fit: BoxFit.cover,
+                            errorBuilder: (context, error, stackTrace) {
+                              return Container(
+                                decoration: BoxDecoration(
+                                  gradient: LinearGradient(
+                                    colors: service['gradient'] as List<Color>,
+                                    begin: Alignment.topLeft,
+                                    end: Alignment.bottomRight,
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+                        ),
+                        Positioned.fill(
+                          child: Container(
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                colors: [
+                                  Colors.black.withOpacity(0.3),
+                                  Colors.black.withOpacity(0.6),
+                                ],
+                                begin: Alignment.topCenter,
+                                end: Alignment.bottomCenter,
+                              ),
+                            ),
+                          ),
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.all(16),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(10),
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withOpacity(0.2),
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: Icon(
+                                  service['icon'] as IconData,
+                                  color: Colors.white,
+                                  size: 32,
+                                ),
+                              ),
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    service['label'] as String,
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    service['subtitle'] as String,
+                                    style: TextStyle(
+                                      color: Colors.white.withOpacity(0.9),
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
                         ),
                       ],
                     ),
-                    child: Icon(
-                      service['icon'] as IconData,
-                      color: Colors.white,
-                      size: 32,
-                    ),
                   ),
-                  const SizedBox(height: 8),
-                  Text(
-                    service['label'] as String,
-                    style: const TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w500,
-                    ),
-                    textAlign: TextAlign.center,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ],
-              ),
-            );
-          },
+                ),
+              );
+            },
+          ),
         ),
       ],
     );
@@ -1254,7 +1587,12 @@ class _HomeScreenState extends State<HomeScreen> {
         appProvider.setCurrentTabIndex(2);
         break;
       case 'safety':
-        _showEmergencyDialog();
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => const SafetyHubScreen(),
+          ),
+        );
         break;
       case 'translator':
         Navigator.push(
@@ -1610,171 +1948,166 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildNearbyPlaces(AppProvider appProvider) {
-    try {
-      // Get personalized places based on travel style
-      final places = _getPersonalizedPlaces(appProvider).take(6).toList();
-      
-      if (places.isEmpty) {
-        if (appProvider.isPlacesLoading) {
-          return Card(
-            child: Padding(
-              padding: const EdgeInsets.all(20),
-              child: Column(
-                children: [
-                  const CircularProgressIndicator(),
-                  const SizedBox(height: 12),
-                  Text('Finding nearby places...', style: TextStyle(color: Colors.grey[600])),
-                ],
-              ),
-            ),
-          );
-        }
-        
-        return Card(
-          child: Padding(
-            padding: const EdgeInsets.all(20),
-            child: Column(
-              children: [
-                Icon(Icons.location_searching, size: 48, color: Colors.grey[400]),
-                const SizedBox(height: 12),
-                Text('No nearby places found', style: TextStyle(color: Colors.grey[600])),
-                const SizedBox(height: 16),
-                ElevatedButton(
-                  onPressed: () => appProvider.loadNearbyPlaces(),
-                  child: const Text('Search Places'),
-                ),
-              ],
-            ),
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 4),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.15),
+            blurRadius: 20,
+            offset: const Offset(0, 8),
           ),
-        );
-      }
-
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              const Text(
-                'Places for You',
-                style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
-              ),
-              const Spacer(),
-              if (appProvider.userTravelStyle != null)
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: Colors.blue[100],
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Text(
-                    '${appProvider.userTravelStyle!.emoji} ${appProvider.userTravelStyle!.displayName}',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Colors.blue[700],
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          GridView.count(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            crossAxisCount: 2,
-            mainAxisSpacing: 12,
-            crossAxisSpacing: 12,
-            childAspectRatio: 0.8,
-            children: places.map((place) {
-              return Card(
-                clipBehavior: Clip.antiAlias,
-                child: InkWell(
-                  onTap: () => appProvider.setCurrentTabIndex(1),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Expanded(
-                        flex: 3,
-                        child: Container(
-                          width: double.infinity,
-                          decoration: BoxDecoration(
-                            color: Colors.grey[300],
-                            image: place.photoUrl.isNotEmpty
-                                ? DecorationImage(
-                                    image: NetworkImage(place.photoUrl),
-                                    fit: BoxFit.cover,
-                                    onError: (_, __) {},
-                                  )
-                                : null,
-                          ),
-                          child: place.photoUrl.isEmpty
-                              ? Icon(Icons.place, size: 32, color: Colors.grey[600])
-                              : null,
-                        ),
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(20),
+        child: Stack(
+          children: [
+            Positioned.fill(
+              child: Image.network(
+                'https://images.unsplash.com/photo-1488085061387-422e29b40080?w=800',
+                fit: BoxFit.cover,
+                errorBuilder: (context, error, stackTrace) {
+                  return Container(
+                    decoration: const BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [Color(0xFF4361EE), Color(0xFF2EC4B6)],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
                       ),
-                      Expanded(
-                        flex: 2,
-                        child: Padding(
-                          padding: const EdgeInsets.all(8),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                place.name,
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 15,
-                                ),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
+                    ),
+                  );
+                },
+              ),
+            ),
+            Positioned.fill(
+              child: Container(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      Colors.black.withOpacity(0.5),
+                      Colors.black.withOpacity(0.7),
+                    ],
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                  ),
+                ),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.2),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: const Icon(Icons.explore, color: Colors.white, size: 32),
+                      ),
+                      const SizedBox(width: 16),
+                      const Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Discover Places',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 24,
+                                fontWeight: FontWeight.bold,
                               ),
-                              const SizedBox(height: 4),
-                              Row(
-                                children: [
-                                  Icon(Icons.star, size: 12, color: Colors.amber),
-                                  const SizedBox(width: 2),
-                                  Text(
-                                    place.rating.toStringAsFixed(1),
-                                    style: const TextStyle(fontSize: 10),
-                                  ),
-                                ],
+                            ),
+                            SizedBox(height: 4),
+                            Text(
+                              'AI-powered recommendations',
+                              style: TextStyle(
+                                color: Colors.white70,
+                                fontSize: 14,
                               ),
-                              const SizedBox(height: 2),
-                              Text(
-                                place.type,
-                                style: TextStyle(
-                                  fontSize: 10,
-                                  color: Colors.grey[600],
-                                ),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ],
-                          ),
+                            ),
+                          ],
                         ),
                       ),
                     ],
                   ),
-                ),
-              );
-            }).toList(),
-          ),
-          const SizedBox(height: 16),
-          Center(
-            child: ElevatedButton.icon(
-              onPressed: () => appProvider.setCurrentTabIndex(1),
-              icon: const Icon(Icons.explore),
-              label: const Text('Explore More Places'),
-              style: ElevatedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                  const SizedBox(height: 20),
+                  Row(
+                    children: [
+                      _buildFeatureItem(Icons.restaurant, 'Restaurants'),
+                      const SizedBox(width: 16),
+                      _buildFeatureItem(Icons.attractions, 'Attractions'),
+                      const SizedBox(width: 16),
+                      _buildFeatureItem(Icons.hotel, 'Hotels'),
+                    ],
+                  ),
+                  const SizedBox(height: 20),
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      onPressed: () => appProvider.setCurrentTabIndex(1),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.white,
+                        foregroundColor: const Color(0xFF4361EE),
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      child: const Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text(
+                            'Explore Now',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          SizedBox(width: 8),
+                          Icon(Icons.arrow_forward, size: 20),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
-          ),
-        ],
-      );
-    } catch (e) {
-      return const SizedBox.shrink();
-    }
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFeatureItem(IconData icon, String label) {
+    return Expanded(
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        decoration: BoxDecoration(
+          color: Colors.white.withOpacity(0.15),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Column(
+          children: [
+            Icon(icon, color: Colors.white, size: 24),
+            const SizedBox(height: 4),
+            Text(
+              label,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 11,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   Widget _buildInProgressTrips(AppProvider appProvider) {
@@ -2461,7 +2794,12 @@ class _HomeScreenState extends State<HomeScreen> {
         break;
       case 'Safety Hub':
       case 'safety':
-        _showEmergencyDialog();
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => const SafetyHubScreen(),
+          ),
+        );
         break;
       case 'Language':
       case 'translator':
@@ -2481,117 +2819,324 @@ class _HomeScreenState extends State<HomeScreen> {
   void _showEmergencyDialog() async {
     final appProvider = context.read<AppProvider>();
     
+    // Force fresh location
+    await appProvider.getCurrentLocation();
+    
     showDialog(
       context: context,
+      barrierDismissible: false,
       builder: (context) => AlertDialog(
-        title: const Row(
-          children: [
-            Icon(Icons.emergency, color: Colors.red, size: 24),
-            SizedBox(width: 8),
-            Text('Emergency Services'),
-          ],
-        ),
+        contentPadding: EdgeInsets.zero,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         content: FutureBuilder<Map<String, dynamic>>(
           future: _getLocationBasedEmergencyNumbers(appProvider),
           builder: (context, snapshot) {
             if (snapshot.connectionState == ConnectionState.waiting) {
-              return const Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  CircularProgressIndicator(),
-                  SizedBox(height: 16),
-                  Text('Getting emergency numbers for your location...'),
-                ],
+              return Container(
+                padding: const EdgeInsets.all(24),
+                child: const Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    CircularProgressIndicator(color: Colors.red),
+                    SizedBox(height: 16),
+                    Text(
+                      '📍 Getting your exact location...',
+                      style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+                    ),
+                  ],
+                ),
               );
             }
             
             final emergencyData = snapshot.data ?? _getDefaultEmergencyNumbers();
+            final locationAccuracy = appProvider.currentLocation?.accuracy.toInt() ?? 50;
             
-            return Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: Colors.red.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Text(
-                    'Emergency Services - ${emergencyData['country']}',
-                    style: const TextStyle(
-                      fontWeight: FontWeight.bold,
-                      color: Colors.red,
+            return Container(
+              constraints: const BoxConstraints(maxWidth: 400),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Header
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(20),
+                    decoration: BoxDecoration(
+                      color: Colors.red.shade700,
+                      borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+                    ),
+                    child: Column(
+                      children: [
+                        const Text(
+                          '🚨 EMERGENCY SERVICES',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: 0.5,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        FutureBuilder<String>(
+                          future: appProvider.currentLocation != null
+                              ? _getLocationName(
+                                  appProvider.currentLocation!.latitude,
+                                  appProvider.currentLocation!.longitude,
+                                )
+                              : Future.value('Location unavailable'),
+                          builder: (context, locSnapshot) {
+                            return Text(
+                              '📍 ${locSnapshot.data ?? "Getting location..."}',
+                              style: TextStyle(
+                                color: Colors.white.withOpacity(0.9),
+                                fontSize: 13,
+                              ),
+                              textAlign: TextAlign.center,
+                            );
+                          },
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'Accurate within ${locationAccuracy}m',
+                          style: TextStyle(
+                            color: Colors.white.withOpacity(0.7),
+                            fontSize: 11,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                ),
-                const SizedBox(height: 16),
-                _buildEmergencyButton(
-                  'Call Police (${emergencyData['police']})',
-                  Icons.local_police,
-                  Colors.blue,
-                  () => _makeEmergencyCall(emergencyData['police']),
-                ),
-                const SizedBox(height: 8),
-                _buildEmergencyButton(
-                  'Call Ambulance (${emergencyData['ambulance']})',
-                  Icons.local_hospital,
-                  Colors.red,
-                  () => _makeEmergencyCall(emergencyData['ambulance']),
-                ),
-                const SizedBox(height: 8),
-                _buildEmergencyButton(
-                  'Call Fire Dept (${emergencyData['fire']})',
-                  Icons.local_fire_department,
-                  Colors.orange,
-                  () => _makeEmergencyCall(emergencyData['fire']),
-                ),
-                const SizedBox(height: 16),
-                _buildEmergencyButton(
-                  'Share Location',
-                  Icons.share_location,
-                  Colors.green,
-                  () => _shareEmergencyLocation(),
-                ),
-              ],
+                  // Content
+                  Padding(
+                    padding: const EdgeInsets.all(20),
+                    child: Column(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: Colors.blue.shade50,
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: Colors.blue.shade200),
+                          ),
+                          child: Row(
+                            children: [
+                              const Icon(Icons.info_outline, color: Colors.blue, size: 20),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  '🇺🇳 In ${emergencyData['country']}, emergency numbers differ from your home country',
+                                  style: const TextStyle(fontSize: 11),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        // Emergency buttons with large touch targets
+                        _buildLargeEmergencyButton(
+                          '👮 POLICE',
+                          emergencyData['police'],
+                          'Law enforcement',
+                          Colors.blue.shade700,
+                          () => _makeEmergencyCall(emergencyData['police']),
+                        ),
+                        const SizedBox(height: 12),
+                        _buildLargeEmergencyButton(
+                          '🚑 AMBULANCE',
+                          emergencyData['ambulance'],
+                          'Medical emergency',
+                          Colors.red.shade700,
+                          () => _makeEmergencyCall(emergencyData['ambulance']),
+                        ),
+                        const SizedBox(height: 12),
+                        _buildLargeEmergencyButton(
+                          '🔥 FIRE',
+                          emergencyData['fire'],
+                          'Fire department',
+                          Colors.orange.shade700,
+                          () => _makeEmergencyCall(emergencyData['fire']),
+                        ),
+                        const SizedBox(height: 16),
+                        const Divider(),
+                        const SizedBox(height: 8),
+                        _buildLargeEmergencyButton(
+                          '📍 TEXT MY LOCATION',
+                          'to family/friends',
+                          'Share via SMS',
+                          Colors.green.shade700,
+                          () => _shareEmergencyLocation(),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
             );
           },
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Close'),
+            style: TextButton.styleFrom(
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+            ),
+            child: const Text(
+              "I'm Safe →",
+              style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+            ),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildEmergencyButton(
+  Widget _buildLargeEmergencyButton(
     String label,
-    IconData icon,
+    String number,
+    String subtitle,
     Color color,
     VoidCallback onPressed,
   ) {
     return SizedBox(
       width: double.infinity,
-      child: ElevatedButton.icon(
+      height: 70,
+      child: ElevatedButton(
         onPressed: onPressed,
-        icon: Icon(icon, color: Colors.white),
-        label: Text(label, style: const TextStyle(color: Colors.white)),
         style: ElevatedButton.styleFrom(
           backgroundColor: color,
-          padding: const EdgeInsets.symmetric(vertical: 12),
+          foregroundColor: Colors.white,
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          elevation: 2,
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    label,
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 0.5,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    subtitle,
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: Colors.white.withOpacity(0.9),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.2),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Text(
+                number,
+                style: const TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );
   }
 
   void _makeEmergencyCall(String number) async {
+    // Show pre-call warning
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Row(
+          children: [
+            Icon(Icons.phone, color: Colors.red, size: 24),
+            SizedBox(width: 8),
+            Text('Calling Emergency Services'),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'You are about to call: $number',
+              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 12),
+            const Text(
+              '⚠️ When the dialer opens, confirm the call.',
+              style: TextStyle(fontSize: 13),
+            ),
+            const SizedBox(height: 8),
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.blue.shade50,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const Text(
+                '💡 What to say:\n"Emergency at [your location]. I need help."',
+                style: TextStyle(fontSize: 12),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Call Now'),
+          ),
+        ],
+      ),
+    );
+    
+    if (confirmed != true) return;
+    
     Navigator.pop(context);
+    
     try {
       final Uri phoneUri = Uri(scheme: 'tel', path: number);
       if (await canLaunchUrl(phoneUri)) {
         await launchUrl(phoneUri);
+        
+        // Post-call support (delayed to allow call to complete)
+        Future.delayed(const Duration(seconds: 2), () {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: const Text('✅ Call placed. Stay calm and speak clearly.'),
+                backgroundColor: Colors.green,
+                duration: const Duration(seconds: 4),
+                action: SnackBarAction(
+                  label: 'Breathing Guide',
+                  textColor: Colors.white,
+                  onPressed: () => _showBreathingGuide(),
+                ),
+              ),
+            );
+          }
+        });
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -2608,6 +3153,38 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
       );
     }
+  }
+  
+  void _showBreathingGuide() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('🧘 Breathing Guide'),
+        content: const Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              'Take slow, deep breaths:',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
+            SizedBox(height: 16),
+            Text('1. Breathe in slowly for 4 seconds'),
+            SizedBox(height: 8),
+            Text('2. Hold for 4 seconds'),
+            SizedBox(height: 8),
+            Text('3. Breathe out slowly for 4 seconds'),
+            SizedBox(height: 8),
+            Text('4. Repeat until calm'),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Close'),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<Map<String, dynamic>> _getLocationBasedEmergencyNumbers(AppProvider appProvider) async {
@@ -2653,7 +3230,7 @@ class _HomeScreenState extends State<HomeScreen> {
       
       // Sri Lanka
       if (lat >= 5.9 && lat <= 9.9 && lng >= 79.5 && lng <= 82.0) {
-        return {'country': 'Sri Lanka', 'police': '119', 'ambulance': '110', 'fire': '111'};
+        return {'country': 'Sri Lanka', 'police': '119', 'ambulance': '1990', 'fire': '110'};
       }
       // India
       if (lat >= 8.0 && lat <= 35.0 && lng >= 68.0 && lng <= 97.0) {
@@ -3372,4 +3949,27 @@ class _HomeScreenState extends State<HomeScreen> {
       // Mock: assume deals created in last 24h are "new"
       return deal.validUntil.isAfter(DateTime.now().add(const Duration(days: 6)));
     }).length;
+  }
+
+  String _getUserDisplayName(AppProvider appProvider) {
+    final user = appProvider.currentUser;
+    if (user == null) return 'Traveler';
+    
+    // Check fullName first
+    if (user.fullName?.isNotEmpty == true && !user.fullName!.contains('@')) {
+      return user.fullName!;
+    }
+    
+    // Fallback to username
+    if (user.username?.isNotEmpty == true && !user.username!.contains('@')) {
+      return user.username!;
+    }
+    
+    // If email is in fullName/username, extract name before @
+    if (user.email?.isNotEmpty == true) {
+      final emailName = user.email!.split('@').first;
+      return emailName.replaceAll('.', ' ').split(' ').map((e) => e.capitalize()).join(' ');
+    }
+    
+    return 'Traveler';
   }

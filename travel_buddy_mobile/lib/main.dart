@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:provider/provider.dart';
 import 'providers/app_provider.dart';
 import 'providers/community_provider.dart';
@@ -112,14 +113,44 @@ class TravelBuddyApp extends StatelessWidget {
         ChangeNotifierProvider(create: (context) => TravelAgentProvider()),
         ChangeNotifierProvider(create: (context) => EventProvider()),
       ],
-      child: Consumer<AppProvider>(
-        // Note: CommunityProvider is available throughout the app
-        builder: (context, appProvider, child) {
+      child: Consumer2<AppProvider, LanguageProvider>(
+        builder: (context, appProvider, languageProvider, child) {
           return MaterialApp(
             title: 'Travel Buddy',
             debugShowCheckedModeBanner: false,
             theme: AppTheme.lightTheme,
             themeMode: appProvider.isDarkMode ? ThemeMode.dark : ThemeMode.light,
+            locale: Locale(languageProvider.currentLanguage),
+            supportedLocales: const [
+              Locale('en'),
+              Locale('es'),
+              Locale('fr'),
+              Locale('de'),
+              Locale('zh'),
+              Locale('ja'),
+              Locale('hi'),
+              Locale('ru'),
+              Locale('ko'),
+              Locale('ar'),
+              Locale('pt'),
+              Locale('it'),
+              Locale('nl'),
+              Locale('tr'),
+            ],
+            localizationsDelegates: const [
+              GlobalMaterialLocalizations.delegate,
+              GlobalWidgetsLocalizations.delegate,
+              GlobalCupertinoLocalizations.delegate,
+            ],
+            localeResolutionCallback: (locale, supportedLocales) {
+              return Locale(languageProvider.currentLanguage);
+            },
+            builder: (context, child) {
+              return Directionality(
+                textDirection: languageProvider.isRTL ? TextDirection.rtl : TextDirection.ltr,
+                child: child!,
+              );
+            },
             home: const SplashScreen(),
             routes: {
               '/safety': (context) => const SafetyScreen(),

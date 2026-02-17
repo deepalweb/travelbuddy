@@ -147,6 +147,9 @@ class CurrentUser extends HiveObject {
   @HiveField(31)
   final Map<String, dynamic>? travelPreferences;
 
+  @HiveField(32)
+  final String? nationality;
+
   CurrentUser({
     this.username,
     this.uid,
@@ -180,6 +183,7 @@ class CurrentUser extends HiveObject {
     this.homeCity,
     this.socialLinks,
     this.travelPreferences,
+    this.nationality,
   });
 
   factory CurrentUser.fromJson(Map<String, dynamic> json) {
@@ -233,6 +237,7 @@ class CurrentUser extends HiveObject {
       homeCity: json['homeCity'],
       socialLinks: (json['socialLinks'] as List?)?.map((e) => Map<String, String>.from(e)).toList(),
       travelPreferences: json['travelPreferences'] as Map<String, dynamic>?,
+      nationality: json['nationality'],
     );
   }
 
@@ -270,6 +275,7 @@ class CurrentUser extends HiveObject {
       'homeCity': homeCity,
       'socialLinks': socialLinks,
       'travelPreferences': travelPreferences,
+      'nationality': nationality,
     };
   }
 
@@ -306,6 +312,7 @@ class CurrentUser extends HiveObject {
     String? homeCity,
     List<Map<String, String>>? socialLinks,
     Map<String, dynamic>? travelPreferences,
+    String? nationality,
   }) {
     return CurrentUser(
       username: username ?? this.username,
@@ -340,6 +347,7 @@ class CurrentUser extends HiveObject {
       homeCity: homeCity ?? this.homeCity,
       socialLinks: socialLinks ?? this.socialLinks,
       travelPreferences: travelPreferences ?? this.travelPreferences,
+      nationality: nationality ?? this.nationality,
     );
   }
 }

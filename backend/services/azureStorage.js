@@ -51,7 +51,8 @@ export async function uploadToAzure(file) {
   
   if (!containerClient) {
     console.error('❌ Azure Blob Storage not configured. Check AZURE_STORAGE_CONNECTION_STRING');
-    throw new Error('Azure Blob Storage not configured');
+    console.log('💡 Tip: Set AZURE_STORAGE_CONNECTION_STRING in your .env file');
+    throw new Error('Azure Blob Storage not configured - will use local storage fallback');
   }
 
   const blobName = `${uuidv4()}-${file.originalname}`;

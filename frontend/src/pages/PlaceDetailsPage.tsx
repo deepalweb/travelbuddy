@@ -493,8 +493,32 @@ const PlaceDetailsPage: React.FC = () => {
             <Card>
               <CardContent className="p-6">
                 <h3 className="font-bold text-lg mb-4">Location</h3>
-                <div className="aspect-video bg-gray-200 rounded-lg mb-4 flex items-center justify-center">
-                  <span className="text-gray-600">Interactive Map</span>
+                <div className="aspect-video bg-gray-100 rounded-lg mb-4 overflow-hidden relative border border-gray-200">
+                  <iframe
+                    width="100%"
+                    height="100%"
+                    style={{ border: 0, display: 'block' }}
+                    loading="lazy"
+                    allowFullScreen
+                    referrerPolicy="no-referrer-when-downgrade"
+                    src={`https://maps.google.com/maps?q=${place.location.coordinates.lat},${place.location.coordinates.lng}&t=&z=15&ie=UTF8&iwloc=&output=embed`}
+                    title="Google Maps Location"
+                    onLoad={(e) => {
+                      console.log('Map iframe loaded successfully')
+                      const loader = (e.target as HTMLIFrameElement).parentElement?.querySelector('.map-loader')
+                      if (loader) loader.classList.add('hidden')
+                    }}
+                  />
+                  <div className="map-loader absolute inset-0 flex items-center justify-center pointer-events-none bg-gray-50">
+                    <div className="text-center text-gray-400">
+                      <MapPin className="h-8 w-8 mx-auto mb-2" />
+                      <p className="text-sm">Loading map...</p>
+                    </div>
+                  </div>
+                </div>
+                <div className="text-sm text-gray-600 mb-3">
+                  <MapPin className="h-4 w-4 inline mr-1" />
+                  {place.location.address}
                 </div>
                 <Button 
                   className="w-full"
@@ -504,7 +528,7 @@ const PlaceDetailsPage: React.FC = () => {
                   }}
                 >
                   <Navigation className="h-4 w-4 mr-2" />
-                  Get Directions
+                  Open in Google Maps
                 </Button>
               </CardContent>
             </Card>
