@@ -8,13 +8,18 @@ export class AzureMapsSearch {
 
   async searchPlacesComprehensive(lat, lng, query, radius = 5000) {
     try {
-      const smartRadius = Math.min(radius, 5000); // Max 5km for relevance
+      const smartRadius = Math.min(radius, 10000); // Increase to 10km
       const categoryId = this.getCategoryId(query);
+      
+      // Simplify complex queries for better Azure Maps matching
+      const simplifiedQuery = this.simplifyQuery(query);
       
       // OPTIMIZED: Single intelligent API call
       const url = categoryId
-        ? `${this.baseUrl}/search/poi/json?subscription-key=${this.apiKey}&api-version=1.0&lat=${lat}&lon=${lng}&radius=${smartRadius}&categorySet=${categoryId}&limit=15`
-        : `${this.baseUrl}/search/fuzzy/json?subscription-key=${this.apiKey}&api-version=1.0&query=${encodeURIComponent(query)}&lat=${lat}&lon=${lng}&radius=${smartRadius}&limit=15`;
+        ? `${this.baseUrl}/search/poi/json?subscription-key=${this.apiKey}&api-version=1.0&lat=${lat}&lon=${lng}&radius=${smartRadius}&categorySet=${categoryId}&limit=20`
+        : `${this.baseUrl}/search/fuzzy/json?subscription-key=${this.apiKey}&api-version=1.0&query=${encodeURIComponent(simplifiedQuery)}&lat=${lat}&lon=${lng}&radius=${smartRadius}&limit=20`;
+      
+      console.log(`🔍 Azure Maps: ${simplifiedQuery} (${smartRadius}m)`);
       
       const response = await fetch(url);
       const data = await response.json();
@@ -24,7 +29,7 @@ export class AzureMapsSearch {
         return [];
       }
       
-      // Deduplicate by Azure Maps ID (most reliable)
+      // Deduplicate by Azure Maps ID
       const uniquePlaces = new Map();
       for (const result of data.results) {
         const placeId = result.id;
@@ -37,12 +42,26 @@ export class AzureMapsSearch {
       }
       
       const results = Array.from(uniquePlaces.values());
-      console.log(`✅ Azure Maps: ${results.length} places (${smartRadius}m, 1 call)`);
+      console.log(`✅ Azure Maps: ${results.length} places`);
       return this.rankResults(results, lat, lng, query);
     } catch (error) {
       console.error('❌ Azure Maps error:', error.message);
       return [];
     }
+  }
+
+  simplifyQuery(query) {
+    // Extract key search terms from complex queries
+    const q = query.toLowerCase();
+    if (q.includes('restaurant') || q.includes('dining') || q.includes('cuisine')) return 'restaurant';
+    if (q.includes('cafe') || q.includes('coffee')) return 'cafe';
+    if (q.includes('park') || q.includes('garden')) return 'park';
+    if (q.includes('museum') || q.includes('gallery')) return 'museum';
+    if (q.includes('landmark') || q.includes('monument') || q.includes('attraction')) return 'tourist attraction';
+    if (q.includes('hotel') || q.includes('accommodation')) return 'hotel';
+    if (q.includes('shopping') || q.includes('mall')) return 'shopping';
+    if (q.includes('viewpoint') || q.includes('observation')) return 'viewpoint';
+    return query.split(' ')[0]; // Use first word if no match
   }
 
   rankResults(results, lat, lng, query) {
