@@ -80,7 +80,7 @@ class PlacesService {
         
         if (realPlaces.isNotEmpty) {
           final filtered = realPlaces
-              .where((p) => p.rating >= 2.5 && _isWithinRadius(p, latitude, longitude, radius))
+              .where((p) => p.rating >= 2.5 && (_isFallbackPlace(p) || _isWithinRadius(p, latitude, longitude, radius)))
               .toList();
           
           // Enrich with AI descriptions (async, non-blocking)
@@ -180,6 +180,11 @@ class PlacesService {
       final searchText = '${place.name} ${place.type} ${place.description}'.toLowerCase();
       return keywords.any((keyword) => searchText.contains(keyword));
     }).toList();
+  }
+  
+  // Check if place is fallback place (skip radius check)
+  bool _isFallbackPlace(Place place) {
+    return place.id?.startsWith('fallback_') == true;
   }
   
   // Check if place is within radius (strict filtering)
