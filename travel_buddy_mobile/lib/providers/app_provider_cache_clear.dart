@@ -17,7 +17,7 @@ extension CacheClearExtension on dynamic {
       DebugLogger.log('✅ 2/4: Flutter Hive storage cleared');
       
       // 3. Clear backend MongoDB + Azure Blob caches
-      final url = '${Environment.backendUrl}/api/cache/places/all';
+      final url = '${Environment.backendUrl}/api/places/mobile/clear-cache';
       final response = await http.delete(Uri.parse(url)).timeout(
         const Duration(seconds: 10),
         onTimeout: () => throw Exception('Backend cache clear timeout'),

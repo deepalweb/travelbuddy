@@ -1,10 +1,18 @@
 import express from 'express';
 import { AzureMapsSearch } from '../services/azureMapsSearch.js';
+import { BlobServiceClient } from '@azure/storage-blob';
 
 const router = express.Router();
 
 // Initialize Azure Maps
 const azureMaps = new AzureMapsSearch(process.env.AZURE_MAPS_KEY);
+
+// Initialize Azure Blob for cache clearing
+let containerClient;
+if (process.env.AZURE_STORAGE_CONNECTION_STRING) {
+  const blobServiceClient = BlobServiceClient.fromConnectionString(process.env.AZURE_STORAGE_CONNECTION_STRING);
+  containerClient = blobServiceClient.getContainerClient('places-cache');
+}
 
 // Mobile places discovery endpoint
 router.post('/discover', async (req, res) => {
@@ -44,6 +52,39 @@ router.post('/discover', async (req, res) => {
       error: 'Failed to discover places', 
       details: error.message 
     });
+  }
+});
+
+// Clear ALL caches endpoint
+router.delete('/clear-cache', async (req, res) => {
+  try {
+    let cleared = { mongodb: 0, azureBlob: 0 };
+    
+    // 1. Clear MongoDB cache
+    try {
+      const PlacesCache = (await import('../models/PlacesCache.js')).default;
+      const result = await PlacesCache.deleteMany({});
+      cleared.mongodb = result.deletedCount;
+      console.log(`🗑️ Cleared ${cleared.mongodb} MongoDB entries`);
+    } catch (e) {
+      console.log('⚠️ MongoDB clear skipped:', e.message);
+    }
+    
+    // 2. Clear Azure Blob cache
+    if (containerClient) {
+      let blobCount = 0;
+      for await (const blob of containerClient.listBlobsFlat()) {
+        await containerClient.deleteBlob(blob.name);
+        blobCount++;
+      }
+      cleared.azureBlob = blobCount;
+      console.log(`🗑️ Cleared ${cleared.azureBlob} Azure Blob entries`);
+    }
+    
+    res.json({ success: true, cleared });
+  } catch (error) {
+    console.error('❌ Cache clear error:', error);
+    res.status(500).json({ error: error.message });
   }
 });
 
