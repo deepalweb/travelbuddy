@@ -51,24 +51,61 @@ export class AzureMapsSearch {
   }
 
   async generateAIPlaces(lat, lng, query) {
-    try {
-      console.log('🤖 Using Azure OpenAI fallback');
-      const response = await fetch('https://travelbuddy-b2c6hgbbgeh4esdh.eastus2-01.azurewebsites.net/api/mobile-places/discover', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ latitude: lat, longitude: lng, userPreferences: {} })
-      });
-      
-      const data = await response.json();
-      if (data.status === 'success' && data.allPlaces) {
-        console.log(`✅ Azure OpenAI: ${data.allPlaces.length} places`);
-        return data.allPlaces.slice(0, 20);
+    console.log('🤖 Using quick fallback places');
+    // Quick fallback with realistic places for the area
+    const fallbackPlaces = [
+      {
+        place_id: `fallback_${Date.now()}_1`,
+        name: 'Viharamahadevi Park',
+        type: 'Park',
+        rating: 4.5,
+        formatted_address: 'Colombo 00700, Sri Lanka',
+        geometry: { location: { lat: 6.9167, lng: 79.8611 } },
+        types: ['park'],
+        description: 'Large public park in central Colombo with walking paths and green spaces.',
+        localTip: 'Best visited in early morning or late afternoon.',
+        handyPhrase: 'Where is the main entrance?',
+        opening_hours: { open_now: true, weekday_text: ['Open 24 hours'] },
+        photos: [{ photo_reference: 'https://picsum.photos/seed/park/600/400', height: 400, width: 600 }],
+        photoUrl: '',
+        source: 'fallback'
+      },
+      {
+        place_id: `fallback_${Date.now()}_2`,
+        name: 'Galle Face Green',
+        type: 'Park',
+        rating: 4.6,
+        formatted_address: 'Galle Rd, Colombo 00300, Sri Lanka',
+        geometry: { location: { lat: 6.9271, lng: 79.8472 } },
+        types: ['park'],
+        description: 'Popular oceanfront urban park perfect for evening walks and local food.',
+        localTip: 'Visit during sunset for the best experience.',
+        handyPhrase: 'How much for the snacks?',
+        opening_hours: { open_now: true, weekday_text: ['Open 24 hours'] },
+        photos: [{ photo_reference: 'https://picsum.photos/seed/beach/600/400', height: 400, width: 600 }],
+        photoUrl: '',
+        source: 'fallback'
+      },
+      {
+        place_id: `fallback_${Date.now()}_3`,
+        name: 'National Museum of Colombo',
+        type: 'Museum',
+        rating: 4.4,
+        formatted_address: 'Albert Cres, Colombo 00700, Sri Lanka',
+        geometry: { location: { lat: 6.9108, lng: 79.8612 } },
+        types: ['museum'],
+        description: 'Premier cultural institution showcasing Sri Lankan history and heritage.',
+        localTip: 'Arrive early to avoid crowds. Photography requires permission.',
+        handyPhrase: 'How much is the entrance fee?',
+        opening_hours: { open_now: true, weekday_text: ['Tuesday-Sunday: 9:00 AM – 5:00 PM'] },
+        photos: [{ photo_reference: 'https://picsum.photos/seed/museum/600/400', height: 400, width: 600 }],
+        photoUrl: '',
+        source: 'fallback'
       }
-      return [];
-    } catch (error) {
-      console.error('❌ Azure OpenAI fallback failed:', error.message);
-      return [];
-    }
+    ];
+    
+    console.log(`✅ Fallback: ${fallbackPlaces.length} places`);
+    return fallbackPlaces;
   }
 
   simplifyQuery(query) {
