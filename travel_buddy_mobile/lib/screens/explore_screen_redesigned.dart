@@ -8,7 +8,7 @@ import '../widgets/compact_place_card.dart';
 import '../widgets/travel_style_filter.dart';
 import '../widgets/search_bar_widget.dart';
 import '../services/places_service.dart';
-import '../services/places_service.dart';
+import '../utils/api_debouncer.dart';
 import 'place_details_screen.dart';
 import 'category_places_screen.dart';
 
