@@ -157,7 +157,7 @@ const customStyles = `
   }
 `
 import { Link } from 'react-router-dom'
-import { Search, ArrowRight, MapPin, Star, Calendar, Plane, Hotel, Sparkles, Clock, Car, Heart, ChevronDown } from 'lucide-react'
+import { Search, ArrowRight, MapPin, Star, Calendar, Plane, Hotel, Sparkles, Clock, Car, Heart, ChevronDown, Plus, X } from 'lucide-react'
 import { Button } from './Button'
 import { Card, CardContent } from './Card'
 import { ImageWithFallback } from './ImageWithFallback'
@@ -302,11 +302,11 @@ export const OptimizedHomePage: React.FC = () => {
   ])
 
   const communityStories = [
-    { id: 1, name: 'Alex', avatar: 'https://i.pravatar.cc/150?u=alex', image: 'https://images.unsplash.com/photo-1544735716-392fe2489ffa?w=800', location: 'Ella, Sri Lanka', text: 'Watching the sunrise at Nine Arch Bridge was peak magic! ✨' },
-    { id: 2, name: 'Elena', avatar: 'https://i.pravatar.cc/150?u=elena', image: 'https://images.unsplash.com/photo-1512453979798-5ea266f8880c?w=800', location: 'Dubai, UAE', text: 'AI recommended this hidden desert camp. Best dinner ever! 🏜️' },
-    { id: 3, name: 'Kaito', avatar: 'https://i.pravatar.cc/150?u=kaito', image: 'https://images.unsplash.com/photo-1493976040374-85c8e12f0c0e?w=800', location: 'Kyoto, Japan', text: 'Finally saw the Fushimi Inari gates. The 7AM tip was a lifesaver! ⛩️' },
-    { id: 4, name: 'Sarah', avatar: 'https://i.pravatar.cc/150?u=sarah', image: 'https://images.unsplash.com/photo-1506973035872-a4ec16b8e8d9?w=800', location: 'Sydney, Australia', text: 'Morning surf session at Bondi. Bondi to Coogee walk is a MUST. 🏄‍♀️' },
-    { id: 5, name: 'Mark', avatar: 'https://i.pravatar.cc/150?u=mark', image: 'https://images.unsplash.com/photo-1551632811-561732d1e306?w=800', location: 'Patagonia', text: 'Glacier trekking at its finest. Cold but incredibly worth it! ❄️' },
+    { id: 1, name: 'Alex', avatar: 'https://i.pravatar.cc/150?u=alex', image: 'https://images.unsplash.com/photo-1544735716-392fe2489ffa?w=800', location: 'Ella, Sri Lanka', text: 'Watching the sunrise at Nine Arch Bridge was peak magic! ✨', type: 'Adventure', time: 'Just now' },
+    { id: 2, name: 'Elena', avatar: 'https://i.pravatar.cc/150?u=elena', image: 'https://images.unsplash.com/photo-1512453979798-5ea266f8880c?w=800', location: 'Dubai, UAE', text: 'AI recommended this hidden desert camp. Best dinner ever! 🏜️', type: 'Luxury', time: '5m ago' },
+    { id: 3, name: 'Kaito', avatar: 'https://i.pravatar.cc/150?u=kaito', image: 'https://images.unsplash.com/photo-1493976040374-85c8e12f0c0e?w=800', location: 'Kyoto, Japan', text: 'Finally saw the Fushimi Inari gates. The 7AM tip was a lifesaver! ⛩️', type: 'Zen', time: '12m ago' },
+    { id: 4, name: 'Sarah', avatar: 'https://i.pravatar.cc/150?u=sarah', image: 'https://images.unsplash.com/photo-1506973035872-a4ec16b8e8d9?w=800', location: 'Sydney, Australia', text: 'Morning surf session at Bondi. Bondi to Coogee walk is a MUST. 🏄‍♀️', type: 'Adventure', time: '22m ago' },
+    { id: 5, name: 'Mark', avatar: 'https://i.pravatar.cc/150?u=mark', image: 'https://images.unsplash.com/photo-1551632811-561732d1e306?w=800', location: 'Patagonia', text: 'Glacier trekking at its finest. Cold but incredibly worth it! ❄️', type: 'Action', time: '45m ago' },
   ]
 
   // Personalized rotating sublines for authenticated users
@@ -869,43 +869,86 @@ export const OptimizedHomePage: React.FC = () => {
         </div>
       </section>
 
-      {/* 🚀 2. Community Pulse (Story Bar) */}
-      <section className="py-12 bg-white overflow-hidden border-b border-gray-100">
+      {/* 🚀 2. Community Pulse (Immersive Story Bar) */}
+      <section className="py-16 bg-gradient-to-b from-gray-50 to-white overflow-hidden border-b border-gray-100">
         <div className="max-w-7xl mx-auto px-4">
-          <div className="flex items-center justify-between mb-8">
+          <div className="flex flex-col md:flex-row md:items-end justify-between mb-10 gap-4">
             <div>
-              <h3 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
+              <div className="inline-flex items-center bg-blue-50 text-blue-700 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-widest mb-3 border border-blue-100">
+                <div className="w-2 h-2 rounded-full bg-blue-600 animate-pulse mr-2"></div>
+                Live Now
+              </div>
+              <h3 className="text-3xl md:text-4xl font-black text-gray-900 flex items-center gap-3 italic">
                 Community Pulse
-                <div className="flex gap-1">
-                  <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse"></div>
-                  <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse delay-75"></div>
-                </div>
               </h3>
-              <p className="text-gray-600">Real stories from TravelBuddy explorers</p>
+              <p className="text-gray-500 font-medium mt-1">
+                Real-time stories from <span className="text-blue-600 font-bold">12 explorers</span> currently on the road.
+              </p>
             </div>
+            <Link to="/community">
+              <Button variant="ghost" className="text-blue-600 font-bold hover:bg-blue-50 group">
+                View All Stories <ArrowRight className="w-4 h-4 ml-2 group-hover:translate-x-1 transition-transform" />
+              </Button>
+            </Link>
           </div>
 
-          <div className="relative">
-            <div className="flex gap-6 overflow-x-auto pb-4 no-scrollbar">
+          <div className="relative group">
+            {/* Fade Edges for Scroll */}
+            <div className="absolute left-0 top-0 bottom-0 w-12 bg-gradient-to-r from-gray-50 to-transparent z-10 pointer-events-none"></div>
+            <div className="absolute right-0 top-0 bottom-0 w-12 bg-gradient-to-l from-white to-transparent z-10 pointer-events-none"></div>
+
+            <div className="flex gap-8 overflow-x-auto py-4 px-6 no-scrollbar snap-x">
+              {/* Join Pulse Button */}
+              <motion.button
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                className="flex-shrink-0 flex flex-col items-center gap-3 snap-center"
+              >
+                <div className="relative">
+                  <div className="w-24 h-24 rounded-full border-2 border-dashed border-blue-400 flex items-center justify-center bg-blue-50 group transition-all group-hover:bg-blue-100">
+                    <Sparkles className="w-8 h-8 text-blue-600" />
+                  </div>
+                  <div className="absolute -bottom-1 -right-1 bg-blue-600 text-white p-1 rounded-full border-2 border-white">
+                    <Plus className="w-3 h-3" />
+                  </div>
+                </div>
+                <span className="text-xs font-black text-blue-600 uppercase tracking-tighter">Share Yours</span>
+              </motion.button>
+
               {communityStories.map((story) => (
                 <motion.button
                   key={story.id}
-                  whileHover={{ scale: 1.05 }}
+                  whileHover={{ scale: 1.1, y: -5 }}
                   whileTap={{ scale: 0.95 }}
                   onClick={() => setActiveStory(story)}
-                  className="flex-shrink-0 flex flex-col items-center gap-3 group"
+                  className="flex-shrink-0 flex flex-col items-center gap-3 snap-center group"
                 >
                   <div className="relative">
-                    <div className="w-24 h-24 rounded-full p-1 bg-gradient-to-tr from-yellow-400 via-red-500 to-purple-600 group-hover:rotate-12 transition-transform duration-500">
-                      <div className="w-full h-full rounded-full border-2 border-white overflow-hidden">
-                        <img src={story.avatar} alt={story.name} className="w-full h-full object-cover" />
+                    {/* Immersive Border with Pulse */}
+                    <div className={`w-24 h-24 rounded-full p-1.5 bg-gradient-to-tr transition-all duration-700 shadow-xl ${story.type === 'Adventure' ? 'from-orange-400 via-red-500 to-pink-500 shadow-red-200' :
+                      story.type === 'Luxury' ? 'from-yellow-400 via-amber-500 to-orange-600 shadow-amber-200' :
+                        story.type === 'Zen' ? 'from-teal-400 via-blue-500 to-purple-600 shadow-blue-200' :
+                          'from-purple-400 via-indigo-500 to-blue-600 shadow-purple-200'
+                      } group-hover:rotate-12`}>
+                      <div className="w-full h-full rounded-full border-4 border-white overflow-hidden bg-gray-100 shadow-inner">
+                        <img src={story.avatar} alt={story.name} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
                       </div>
                     </div>
-                    <div className="absolute -bottom-1 -right-1 bg-blue-600 text-white p-1 rounded-full border-2 border-white">
+
+                    {/* Info Badges */}
+                    <div className="absolute -bottom-1 -right-1 bg-white text-blue-600 p-1 rounded-full border-2 border-blue-50 shadow-md">
                       <Heart className="w-3 h-3 fill-current" />
                     </div>
+                    {story.time === 'Just now' && (
+                      <div className="absolute -top-1 -left-1 bg-blue-600 text-white px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-tighter animate-pulse shadow-lg">
+                        Live
+                      </div>
+                    )}
                   </div>
-                  <span className="text-sm font-bold text-gray-900">{story.name}</span>
+                  <div className="text-center">
+                    <p className="text-sm font-black text-gray-900 tracking-tight italic">{story.name}</p>
+                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">{story.time}</p>
+                  </div>
                 </motion.button>
               ))}
             </div>
@@ -913,59 +956,99 @@ export const OptimizedHomePage: React.FC = () => {
         </div>
       </section>
 
-      {/* Story Viewer Modal */}
+      {/* Story Viewer Modal - Cinematic Edition */}
       <AnimatePresence>
         {activeStory && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/90 backdrop-blur-sm"
+            className="fixed inset-0 z-[100] flex items-center justify-center p-0 md:p-6 bg-black/95 backdrop-blur-xl"
             onClick={() => setActiveStory(null)}
           >
             <motion.div
-              initial={{ scale: 0.9, opacity: 0, y: 20 }}
+              initial={{ scale: 0.9, opacity: 0, y: 50 }}
               animate={{ scale: 1, opacity: 1, y: 0 }}
-              exit={{ scale: 0.9, opacity: 0, y: 20 }}
-              className="relative aspect-[9/16] h-[80vh] bg-gray-900 rounded-3xl overflow-hidden shadow-2xl"
+              exit={{ scale: 0.9, opacity: 0, y: 50 }}
+              transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+              className="relative w-full md:max-w-md aspect-[9/16] md:h-[85vh] bg-gray-900 md:rounded-[2.5rem] overflow-hidden shadow-[0_0_100px_rgba(0,0,0,0.5)] border border-white/10"
               onClick={(e) => e.stopPropagation()}
             >
-              <img src={activeStory.image} alt={activeStory.location} className="w-full h-full object-cover" />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-black/40"></div>
+              {/* Progress Bars */}
+              <div className="absolute top-4 left-6 right-6 z-20 flex gap-1.5">
+                {Array.from({ length: 3 }).map((_, i) => (
+                  <div key={i} className="h-0.5 flex-1 bg-white/20 rounded-full overflow-hidden">
+                    <motion.div
+                      initial={{ width: 0 }}
+                      animate={{ width: i === 0 ? '100%' : '0%' }}
+                      transition={{ duration: 5, ease: 'linear' }}
+                      className="h-full bg-white"
+                    />
+                  </div>
+                ))}
+              </div>
 
-              <div className="absolute top-6 left-6 right-6 flex items-center justify-between">
+              <img src={activeStory.image} alt={activeStory.location} className="w-full h-full object-cover" />
+              <div className="absolute inset-0 bg-gradient-to-t from-black via-black/20 to-black/60"></div>
+
+              {/* Header Info */}
+              <div className="absolute top-10 left-6 right-6 flex items-center justify-between z-20">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full border-2 border-white overflow-hidden">
-                    <img src={activeStory.avatar} alt={activeStory.name} className="w-full h-full object-cover" />
+                  <div className="w-12 h-12 rounded-full border-2 border-white/50 overflow-hidden shadow-lg p-0.5 bg-gradient-to-tr from-white/20 to-white/0">
+                    <img src={activeStory.avatar} alt={activeStory.name} className="w-full h-full rounded-full object-cover" />
                   </div>
                   <div>
-                    <p className="text-white font-bold text-sm">{activeStory.name}</p>
-                    <p className="text-white/60 text-xs flex items-center gap-1">
+                    <div className="flex items-center gap-2">
+                      <p className="text-white font-black text-sm tracking-tight">{activeStory.name}</p>
+                      <span className="w-1 h-1 bg-white/40 rounded-full"></span>
+                      <p className="text-white/60 text-xs font-bold uppercase tracking-widest">{activeStory.time}</p>
+                    </div>
+                    <p className="text-blue-400 text-xs font-black flex items-center gap-1 mt-0.5">
                       <MapPin className="w-3 h-3" /> {activeStory.location}
                     </p>
                   </div>
                 </div>
                 <button
                   onClick={() => setActiveStory(null)}
-                  className="text-white/80 hover:text-white"
+                  className="w-10 h-10 bg-white/10 hover:bg-white/20 backdrop-blur-md rounded-full flex items-center justify-center text-white transition-all border border-white/10"
                 >
-                  <ArrowRight className="w-6 h-6 rotate-45" />
+                  <X className="w-5 h-5" />
                 </button>
               </div>
 
-              <div className="absolute bottom-10 left-8 right-8 text-white">
-                <p className="text-lg font-medium leading-relaxed italic">
-                  "{activeStory.text}"
-                </p>
-                <div className="mt-6 flex gap-4">
-                  <Button className="flex-1 bg-white text-gray-900 hover:bg-white/90 rounded-xl font-bold py-3">
-                    View Plan
-                  </Button>
-                  <Button className="w-12 h-12 bg-white/20 hover:bg-white/30 backdrop-blur-md rounded-xl p-0 flex items-center justify-center">
-                    <Heart className="w-6 h-6 text-white" />
-                  </Button>
-                </div>
+              {/* Interaction Overlay */}
+              <div className="absolute inset-y-0 left-0 w-1/4 z-10" onClick={() => {/* Prev logic */ }}></div>
+              <div className="absolute inset-y-0 right-0 w-1/4 z-10" onClick={() => {/* Next logic */ }}></div>
+
+              {/* Content Bottom */}
+              <div className="absolute bottom-12 left-8 right-8 z-20">
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.3 }}
+                >
+                  <div className="inline-flex items-center gap-2 bg-white/10 backdrop-blur-md px-3 py-1 rounded-full border border-white/10 mb-4">
+                    <Sparkles className="w-3 h-3 text-yellow-400" />
+                    <span className="text-[10px] font-black text-white/80 uppercase tracking-widest">Featured Story</span>
+                  </div>
+                  <h4 className="text-2xl font-black text-white leading-tight mb-4 italic tracking-tight">
+                    "{activeStory.text}"
+                  </h4>
+
+                  <div className="flex gap-3 mt-8">
+                    <Button className="flex-[2] bg-white text-gray-900 hover:bg-blue-50 hover:text-blue-600 rounded-2xl font-black py-4 transition-all shadow-[0_10px_30px_rgba(255,255,255,0.2)]">
+                      View Trip Itinerary
+                    </Button>
+                    <Button className="flex-1 bg-white/10 hover:bg-white/20 backdrop-blur-md border border-white/10 rounded-2xl p-0 flex items-center justify-center group transition-all">
+                      <Heart className="w-6 h-6 text-white group-hover:fill-current group-hover:text-red-500 transition-colors" />
+                    </Button>
+                  </div>
+                </motion.div>
               </div>
+
+              {/* Decorative Pulse Background */}
+              <div className="absolute -bottom-20 -left-20 w-64 h-64 bg-blue-600/20 rounded-full blur-[100px] pointer-events-none"></div>
+              <div className="absolute -top-20 -right-20 w-64 h-64 bg-purple-600/20 rounded-full blur-[100px] pointer-events-none"></div>
             </motion.div>
           </motion.div>
         )}
