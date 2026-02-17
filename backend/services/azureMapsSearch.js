@@ -8,47 +8,38 @@ export class AzureMapsSearch {
 
   async searchPlacesComprehensive(lat, lng, query, radius = 20000) {
     try {
-      const allResults = [];
       const radiusInMeters = Math.min(radius, 50000);
+      const categoryId = this.getCategoryId(query);
       
-      // Try multiple search strategies for better results
-      const searches = [
-        // 1. Fuzzy search with query
-        `${this.baseUrl}/search/fuzzy/json?subscription-key=${this.apiKey}&api-version=1.0&query=${encodeURIComponent(query)}&lat=${lat}&lon=${lng}&radius=${radiusInMeters}&limit=100`,
+      // OPTIMIZED: Single intelligent API call based on query type
+      const url = categoryId
+        ? `${this.baseUrl}/search/poi/json?subscription-key=${this.apiKey}&api-version=1.0&lat=${lat}&lon=${lng}&radius=${radiusInMeters}&categorySet=${categoryId}&limit=50`
+        : `${this.baseUrl}/search/fuzzy/json?subscription-key=${this.apiKey}&api-version=1.0&query=${encodeURIComponent(query)}&lat=${lat}&lon=${lng}&radius=${radiusInMeters}&limit=50`;
+      
+      const response = await fetch(url);
+      const data = await response.json();
+      
+      if (!data.results || data.results.length === 0) {
+        console.log('⚠️ Azure Maps returned 0 results');
+        return [];
+      }
+      
+      // Deduplicate by composite key (name + coordinates)
+      const uniquePlaces = new Map();
+      for (const result of data.results) {
+        const place = this.transformToGoogleFormat(result, lat, lng, query);
+        const key = `${place.name.toLowerCase()}_${Math.round(place.geometry.location.lat * 1000)}_${Math.round(place.geometry.location.lng * 1000)}`;
         
-        // 2. POI search with category
-        this.getCategoryId(query) ? `${this.baseUrl}/search/poi/json?subscription-key=${this.apiKey}&api-version=1.0&lat=${lat}&lon=${lng}&radius=${radiusInMeters}&categorySet=${this.getCategoryId(query)}&limit=100` : null,
-        
-        // 3. Nearby search
-        `${this.baseUrl}/search/nearby/json?subscription-key=${this.apiKey}&api-version=1.0&lat=${lat}&lon=${lng}&radius=${radiusInMeters}&limit=100`
-      ].filter(Boolean);
-      
-      // Execute all searches in parallel
-      const responses = await Promise.all(
-        searches.map(url => fetch(url).then(r => r.json()).catch(() => ({ results: [] })))
-      );
-      
-      // Combine and deduplicate results
-      const seenNames = new Set();
-      for (const data of responses) {
-        if (data.results && data.results.length > 0) {
-          for (const result of data.results) {
-            const place = this.transformToGoogleFormat(result, lat, lng, query);
-            const nameKey = place.name.toLowerCase().trim();
-            
-            // Only add if not duplicate and has valid name
-            if (!seenNames.has(nameKey) && place.name && place.name !== 'Unknown Place') {
-              seenNames.add(nameKey);
-              allResults.push(place);
-            }
-          }
+        if (!uniquePlaces.has(key) && place.name !== 'Unknown Place') {
+          uniquePlaces.set(key, place);
         }
       }
       
-      console.log(`✅ Azure Maps found ${allResults.length} unique real places`);
-      return this.rankResults(allResults, lat, lng, query);
+      const results = Array.from(uniquePlaces.values());
+      console.log(`✅ Azure Maps: ${results.length} unique places (1 API call)`);
+      return this.rankResults(results, lat, lng, query);
     } catch (error) {
-      console.error('❌ Azure Maps search error:', error.message);
+      console.error('❌ Azure Maps error:', error.message);
       return [];
     }
   }
