@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import '../models/place.dart';
-import '../constants/app_constants.dart';
 import 'add_to_trip_dialog.dart';
 
 class EnhancedPlaceCard extends StatelessWidget {

@@ -104,22 +104,26 @@ async function fetchPlacePhoto(placeName, location) {
 async function generateAIPlaces(locationInfo, userPreferences) {
   const { userType = 'Explorer', vibe = 'Cultural', interests = [] } = userPreferences;
   
-  const prompt = `You are a local travel expert for ${locationInfo.city}, ${locationInfo.country}. Generate 60 REAL, SPECIFIC places with ACTUAL NAMES (not generic like "Landmark" or "Tourist Spot").
+  const prompt = `You are a LOCAL EXPERT for ${locationInfo.city}, ${locationInfo.country}.
 
 Location: ${locationInfo.coordinates.lat}, ${locationInfo.coordinates.lng}
-User: ${userType} | Vibe: ${vibe}
 
-IMPORTANT: Use REAL place names like:
-✅ "Gangaramaya Temple" NOT ❌ "Buddhist Temple"
-✅ "Ministry of Crab" NOT ❌ "Seafood Restaurant"
-✅ "Galle Face Green" NOT ❌ "Beachfront Park"
+Generate 60 REAL places that ACTUALLY EXIST in ${locationInfo.city}. Use your knowledge of real businesses, landmarks, and locations.
 
-Generate JSON array with this structure:
+CRITICAL RULES:
+1. ONLY use places that exist or are highly likely to exist
+2. Use SPECIFIC names: "Gangaramaya Temple" NOT "Temple 1"
+3. Use REAL addresses in ${locationInfo.city}
+4. Include famous landmarks everyone knows
+5. Include popular local businesses
+6. Vary coordinates realistically within city bounds
+
+JSON structure:
 [
   {
-    "place_id": "unique_id_123",
-    "name": "REAL PLACE NAME (e.g., Gangaramaya Temple, not Temple)",
-    "formatted_address": "Actual street address in ${locationInfo.city}",
+    "place_id": "unique_id",
+    "name": "REAL PLACE NAME (must exist in ${locationInfo.city})",
+    "formatted_address": "Real street address",
     "geometry": {
       "location": {
         "lat": ${locationInfo.coordinates.lat + (Math.random() - 0.5) * 0.02},
@@ -127,35 +131,36 @@ Generate JSON array with this structure:
       }
     },
     "rating": 4.2,
-    "user_ratings_total": 150,
-    "price_level": 2,
     "types": ["restaurant"],
     "category": "restaurants",
-    "business_status": "OPERATIONAL",
-    "description": "Specific description about THIS place",
-    "localTip": "Practical tip specific to THIS place",
-    "handyPhrase": "Useful local phrase",
+    "description": "Specific description",
+    "localTip": "Practical tip",
     "opening_hours": { "open_now": true }
   }
 ]
 
 Categories (10 each):
-- restaurants: Famous local restaurants with REAL names
-- attractions: Well-known landmarks with ACTUAL names
-- shopping: Specific markets/malls with REAL names
-- entertainment: Named bars/clubs/theaters
-- nature: Named parks/gardens/beaches
-- culture: Specific museums/galleries with REAL names
+- restaurants: Famous restaurants in ${locationInfo.city}
+- attractions: Well-known landmarks in ${locationInfo.city}
+- shopping: Popular markets/malls in ${locationInfo.city}
+- entertainment: Known bars/clubs in ${locationInfo.city}
+- nature: Named parks/beaches in ${locationInfo.city}
+- culture: Museums/galleries in ${locationInfo.city}
 
-Rules:
-1. NEVER use generic names like "Landmark", "Tourist Spot", "Attraction"
-2. Use REAL place names that exist or sound authentic
-3. Include local language names where appropriate
-4. Vary coordinates within 2km
-5. Realistic ratings (3.5-4.8)
-6. Each place MUST have unique, specific name
+EXAMPLES for ${locationInfo.city}:
+${locationInfo.city === 'Colombo' ? `
+- Gangaramaya Temple (landmark)
+- Ministry of Crab (restaurant)
+- Galle Face Green (park)
+- Dutch Hospital (shopping)
+- Independence Square (attraction)
+` : `
+- Use famous places from ${locationInfo.city}
+- Research real locations
+- Include tourist hotspots
+`}
 
-Return ONLY valid JSON array.`;
+Return ONLY valid JSON array. NO explanations.`;
 
   const completion = await openai.chat.completions.create({
     model: process.env.AZURE_OPENAI_DEPLOYMENT_NAME,

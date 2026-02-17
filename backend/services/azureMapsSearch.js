@@ -11,32 +11,41 @@ export class AzureMapsSearch {
       const allResults = [];
       const radiusInMeters = Math.min(radius, 50000);
       
-      const fuzzyUrl = `${this.baseUrl}/search/fuzzy/json?subscription-key=${this.apiKey}&api-version=1.0&query=${encodeURIComponent(query)}&lat=${lat}&lon=${lng}&radius=${radiusInMeters}&limit=100&typeahead=true`;
+      // Try multiple search strategies for better results
+      const searches = [
+        // 1. Fuzzy search with query
+        `${this.baseUrl}/search/fuzzy/json?subscription-key=${this.apiKey}&api-version=1.0&query=${encodeURIComponent(query)}&lat=${lat}&lon=${lng}&radius=${radiusInMeters}&limit=100`,
+        
+        // 2. POI search with category
+        this.getCategoryId(query) ? `${this.baseUrl}/search/poi/json?subscription-key=${this.apiKey}&api-version=1.0&lat=${lat}&lon=${lng}&radius=${radiusInMeters}&categorySet=${this.getCategoryId(query)}&limit=100` : null,
+        
+        // 3. Nearby search
+        `${this.baseUrl}/search/nearby/json?subscription-key=${this.apiKey}&api-version=1.0&lat=${lat}&lon=${lng}&radius=${radiusInMeters}&limit=100`
+      ].filter(Boolean);
       
-      const response = await fetch(fuzzyUrl);
-      const data = await response.json();
+      // Execute all searches in parallel
+      const responses = await Promise.all(
+        searches.map(url => fetch(url).then(r => r.json()).catch(() => ({ results: [] })))
+      );
       
-      if (data.results && data.results.length > 0) {
-        const places = data.results.map(result => this.transformToGoogleFormat(result, lat, lng, query));
-        allResults.push(...places);
-      }
-      
-      if (allResults.length < 20) {
-        const category = this.getCategoryId(query);
-        if (category) {
-          const poiUrl = `${this.baseUrl}/search/poi/json?subscription-key=${this.apiKey}&api-version=1.0&lat=${lat}&lon=${lng}&radius=${radiusInMeters}&categorySet=${category}&limit=100`;
-          const poiResponse = await fetch(poiUrl);
-          const poiData = await poiResponse.json();
-          
-          if (poiData.results && poiData.results.length > 0) {
-            const poiPlaces = poiData.results.map(result => this.transformToGoogleFormat(result, lat, lng, query));
-            const existingNames = new Set(allResults.map(p => p.name.toLowerCase()));
-            const newPlaces = poiPlaces.filter(p => !existingNames.has(p.name.toLowerCase()));
-            allResults.push(...newPlaces);
+      // Combine and deduplicate results
+      const seenNames = new Set();
+      for (const data of responses) {
+        if (data.results && data.results.length > 0) {
+          for (const result of data.results) {
+            const place = this.transformToGoogleFormat(result, lat, lng, query);
+            const nameKey = place.name.toLowerCase().trim();
+            
+            // Only add if not duplicate and has valid name
+            if (!seenNames.has(nameKey) && place.name && place.name !== 'Unknown Place') {
+              seenNames.add(nameKey);
+              allResults.push(place);
+            }
           }
         }
       }
       
+      console.log(`✅ Azure Maps found ${allResults.length} unique real places`);
       return this.rankResults(allResults, lat, lng, query);
     } catch (error) {
       console.error('❌ Azure Maps search error:', error.message);

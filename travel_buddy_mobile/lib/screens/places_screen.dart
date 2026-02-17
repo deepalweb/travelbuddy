@@ -159,6 +159,23 @@ class _PlacesScreenState extends State<PlacesScreen> {
                   );
                 },
               ),
+              // Clear cache button
+              IconButton(
+                icon: const Icon(Icons.delete_sweep),
+                tooltip: 'Clear Cache',
+                onPressed: () async {
+                  await PlacesService().clearOfflineStorage();
+                  PlacesService().clearCache();
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('✅ Cache cleared! Pull to refresh.'),
+                        backgroundColor: Colors.green,
+                      ),
+                    );
+                  }
+                },
+              ),
               // Offline Map Toggle
               FutureBuilder<ConnectivityResult>(
                 future: Connectivity().checkConnectivity(),

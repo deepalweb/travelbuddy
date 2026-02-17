@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:geolocator/geolocator.dart';
 import '../providers/app_provider.dart';
 import '../models/place.dart';
 import '../models/context_section.dart';
@@ -52,7 +51,8 @@ class _ExploreScreenRedesignedState extends State<ExploreScreenRedesigned> {
       await appProvider.getCurrentLocation();
     }
 
-    final sections = await _generateContextSections(appProvider);
+    // Force refresh to get new data
+    final sections = await _generateContextSections(appProvider, forceRefresh: true);
     
     setState(() {
       _contextSections = sections;
@@ -60,7 +60,7 @@ class _ExploreScreenRedesignedState extends State<ExploreScreenRedesigned> {
     });
   }
 
-  Future<List<ContextSection>> _generateContextSections(AppProvider appProvider) async {
+  Future<List<ContextSection>> _generateContextSections(AppProvider appProvider, {bool forceRefresh = false}) async {
     final sections = <ContextSection>[];
     final now = DateTime.now();
     final hour = now.hour;
@@ -74,6 +74,7 @@ class _ExploreScreenRedesignedState extends State<ExploreScreenRedesigned> {
       appProvider,
       'restaurants cafes attractions open now',
       radius: 500,
+      forceRefresh: forceRefresh,
     );
     if (hotPlaces.isNotEmpty) {
       sections.add(ContextSection(
@@ -169,6 +170,7 @@ class _ExploreScreenRedesignedState extends State<ExploreScreenRedesigned> {
     AppProvider appProvider,
     String query, {
     int radius = 5000,
+    bool forceRefresh = false,
   }) async {
     if (appProvider.currentLocation == null) return [];
 
@@ -179,6 +181,7 @@ class _ExploreScreenRedesignedState extends State<ExploreScreenRedesigned> {
         query: query,
         radius: radius,
         topN: 5,
+        forceRefresh: forceRefresh, // Pass force refresh
       );
       return places;
     } catch (e) {

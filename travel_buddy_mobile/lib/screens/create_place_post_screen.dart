@@ -443,7 +443,7 @@ class _CreatePlacePostScreenState extends State<CreatePlacePostScreen> {
               const SizedBox(width: 12),
               Expanded(
                 child: DropdownButtonFormField<String>(
-                  value: _visitTime,
+                  initialValue: _visitTime,
                   decoration: const InputDecoration(
                     border: OutlineInputBorder(),
                     contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 16),
