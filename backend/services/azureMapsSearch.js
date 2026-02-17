@@ -51,60 +51,60 @@ export class AzureMapsSearch {
   }
 
   async generateAIPlaces(lat, lng, query) {
-    console.log('🤖 Using quick fallback places');
-    // Quick fallback with realistic places for the area
+    console.log('🤖 Using quick fallback places near user location');
+    // Generate fallback places NEAR user's actual location (within 2km)
     const fallbackPlaces = [
       {
         place_id: `fallback_${Date.now()}_1`,
-        name: 'Viharamahadevi Park',
+        name: 'Local Park',
         type: 'Park',
         rating: 4.5,
-        formatted_address: 'Colombo 00700, Sri Lanka',
-        geometry: { location: { lat: 6.9167, lng: 79.8611 } },
+        formatted_address: `Near ${lat.toFixed(4)}, ${lng.toFixed(4)}`,
+        geometry: { location: { lat: lat + 0.005, lng: lng + 0.005 } }, // ~500m away
         types: ['park'],
-        description: 'Large public park in central Colombo with walking paths and green spaces.',
-        localTip: 'Best visited in early morning or late afternoon.',
+        description: 'Green space ideal for relaxation and outdoor activities. A peaceful retreat from the city.',
+        localTip: 'Best visited in early morning or late afternoon. Bring water and sun protection.',
         handyPhrase: 'Where is the main entrance?',
         opening_hours: { open_now: true, weekday_text: ['Open 24 hours'] },
         photos: [{ photo_reference: 'https://picsum.photos/seed/park/600/400', height: 400, width: 600 }],
-        photoUrl: '',
+        photoUrl: 'https://picsum.photos/seed/park/600/400',
         source: 'fallback'
       },
       {
         place_id: `fallback_${Date.now()}_2`,
-        name: 'Galle Face Green',
-        type: 'Park',
-        rating: 4.6,
-        formatted_address: 'Galle Rd, Colombo 00300, Sri Lanka',
-        geometry: { location: { lat: 6.9271, lng: 79.8472 } },
-        types: ['park'],
-        description: 'Popular oceanfront urban park perfect for evening walks and local food.',
-        localTip: 'Visit during sunset for the best experience.',
-        handyPhrase: 'How much for the snacks?',
-        opening_hours: { open_now: true, weekday_text: ['Open 24 hours'] },
-        photos: [{ photo_reference: 'https://picsum.photos/seed/beach/600/400', height: 400, width: 600 }],
-        photoUrl: '',
+        name: 'Community Center',
+        type: 'Community Center',
+        rating: 4.3,
+        formatted_address: `Near ${lat.toFixed(4)}, ${lng.toFixed(4)}`,
+        geometry: { location: { lat: lat - 0.008, lng: lng + 0.003 } }, // ~800m away
+        types: ['community_center'],
+        description: 'Local community hub with facilities and services for residents and visitors.',
+        localTip: 'Check opening hours before visiting. Local currency preferred for payments.',
+        handyPhrase: 'Hello, thank you!',
+        opening_hours: { open_now: true, weekday_text: ['Monday-Saturday: 8:00 AM – 6:00 PM'] },
+        photos: [{ photo_reference: 'https://picsum.photos/seed/community/600/400', height: 400, width: 600 }],
+        photoUrl: 'https://picsum.photos/seed/community/600/400',
         source: 'fallback'
       },
       {
         place_id: `fallback_${Date.now()}_3`,
-        name: 'National Museum of Colombo',
-        type: 'Museum',
+        name: 'Local Market',
+        type: 'Shopping',
         rating: 4.4,
-        formatted_address: 'Albert Cres, Colombo 00700, Sri Lanka',
-        geometry: { location: { lat: 6.9108, lng: 79.8612 } },
-        types: ['museum'],
-        description: 'Premier cultural institution showcasing Sri Lankan history and heritage.',
-        localTip: 'Arrive early to avoid crowds. Photography requires permission.',
-        handyPhrase: 'How much is the entrance fee?',
-        opening_hours: { open_now: true, weekday_text: ['Tuesday-Sunday: 9:00 AM – 5:00 PM'] },
-        photos: [{ photo_reference: 'https://picsum.photos/seed/museum/600/400', height: 400, width: 600 }],
-        photoUrl: '',
+        formatted_address: `Near ${lat.toFixed(4)}, ${lng.toFixed(4)}`,
+        geometry: { location: { lat: lat + 0.003, lng: lng - 0.006 } }, // ~600m away
+        types: ['shopping'],
+        description: 'Popular shopping destination with diverse retail options. Features local crafts and everyday goods.',
+        localTip: 'Bargaining is common in local markets. Carry small bills for easier transactions.',
+        handyPhrase: 'How much does this cost?',
+        opening_hours: { open_now: true, weekday_text: ['Daily: 7:00 AM – 8:00 PM'] },
+        photos: [{ photo_reference: 'https://picsum.photos/seed/market/600/400', height: 400, width: 600 }],
+        photoUrl: 'https://picsum.photos/seed/market/600/400',
         source: 'fallback'
       }
     ];
     
-    console.log(`✅ Fallback: ${fallbackPlaces.length} places`);
+    console.log(`✅ Fallback: ${fallbackPlaces.length} places within 1km of user`);
     return fallbackPlaces;
   }
 
