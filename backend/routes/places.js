@@ -213,9 +213,16 @@ router.get('/mobile/nearby', async (req, res) => {
     
     console.log(`✅ Layer 1 (Azure Maps): ${results.length} places with real IDs`);
     
+    // If no results, return empty instead of mock data
     if (results.length === 0) {
-      console.log('⚠️ Azure Maps returned 0 results, generating mock data with photos');
-      results = generateMockPlaces(parseFloat(lat), parseFloat(lng), query, 50);
+      console.log('⚠️ Azure Maps returned 0 results - returning empty');
+      return res.json({
+        status: 'OK',
+        results: [],
+        query: query,
+        location: { lat: parseFloat(lat), lng: parseFloat(lng) },
+        message: 'No places found. Try different search terms or location.'
+      });
     }
     
     // LAYER 2: AI Enrichment (Azure OpenAI) - Non-blocking
