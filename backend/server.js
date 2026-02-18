@@ -6751,18 +6751,12 @@ app.get('/api/admin/moderation/stats', requireAdminAuth, async (req, res) => {
       totalPosts,
       flaggedPosts,
       pendingReports,
-      rejectedPosts,
-      moderationRate: totalPosts > 0 ? ((flaggedPosts + rejectedPosts) / totalPosts * 100).toFixed(2) : 0
+       moderationRate: totalPosts > 0 ? ((flaggedPosts + rejectedPosts) / totalPosts * 100).toFixed(2) : 0
     });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 });
-
-
-c o n s t   l e g a l R o u t e r   =   r e q u i r e ( ' . / r o u t e s / l e g a l ' ) ;      
- a p p . u s e ( ' / ' ,   l e g a l R o u t e r ) ;    
- 
 
 // Load legal routes (privacy policy and terms of service)
 try {
@@ -6772,3 +6766,13 @@ try {
 } catch (error) {
   console.error('❌ Failed to load legal routes:', error);
 }
+
+// Error handlers
+app.use(notFoundHandler);
+app.use(errorHandler);
+
+// Start server
+httpServer.listen(PORT, () => {
+  console.log(\`🚀 Server running on port \${PORT}\`);
+  console.log(\`📍 Environment: \${process.env.NODE_ENV || 'development'}\`);
+});
