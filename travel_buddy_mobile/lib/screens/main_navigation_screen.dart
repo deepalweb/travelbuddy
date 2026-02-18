@@ -7,7 +7,7 @@ import 'explore_screen_redesigned.dart';
 import 'deals_screen.dart';
 import 'planner_screen.dart';
 import 'community_screen_place_first.dart';
-import 'profile_screen.dart';
+import 'profile_screen_redesigned.dart';
 
 class MainNavigationScreen extends StatefulWidget {
   const MainNavigationScreen({super.key});
@@ -23,7 +23,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
     const DealsScreen(),
     const PlannerScreen(),
     const CommunityScreenPlaceFirst(),
-    const ProfileScreen(),
+    const ProfileScreenRedesigned(),
   ];
 
   @override
