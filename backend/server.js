@@ -6751,28 +6751,12 @@ app.get('/api/admin/moderation/stats', requireAdminAuth, async (req, res) => {
       totalPosts,
       flaggedPosts,
       pendingReports,
-       moderationRate: totalPosts > 0 ? ((flaggedPosts + rejectedPosts) / totalPosts * 100).toFixed(2) : 0
+      rejectedPosts,
+      moderationRate: totalPosts > 0 ? ((flaggedPosts + rejectedPosts) / totalPosts * 100).toFixed(2) : 0
     });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 });
 
-// Load legal routes (privacy policy and terms of service)
-try {
-  const legalRouter = (await import('./routes/legal.js')).default;
-  app.use('/', legalRouter);
-  console.log('✅ Legal routes loaded (privacy and terms)');
-} catch (error) {
-  console.error('❌ Failed to load legal routes:', error);
-}
 
-// Error handlers
-app.use(notFoundHandler);
-app.use(errorHandler);
-
-// Start server
-httpServer.listen(PORT, () => {
-  console.log(\`🚀 Server running on port \${PORT}\`);
-  console.log(\`📍 Environment: \${process.env.NODE_ENV || 'development'}\`);
-});
