@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:http/http.dart' as http;
 import '../providers/app_provider.dart';
+import '../services/places_service.dart';
+import '../config/environment.dart';
 
 class AppSettingsScreen extends StatefulWidget {
   const AppSettingsScreen({super.key});
@@ -215,7 +218,16 @@ class _AppSettingsScreenState extends State<AppSettingsScreen> {
                 builder: (context) => const Center(child: CircularProgressIndicator()),
               );
               
-              await clearAllCaches();
+              await appProvider.clearCache();
+              await PlacesService().clearOfflineStorage();
+              
+              // Clear backend caches
+              try {
+                final url = '${Environment.backendUrl}/api/mobile-places/clear-cache';
+                await http.delete(Uri.parse(url)).timeout(const Duration(seconds: 10));
+              } catch (e) {
+                // Backend clear failed, continue anyway
+              }
               
               Navigator.pop(context); // Close loading
               ScaffoldMessenger.of(context).showSnackBar(

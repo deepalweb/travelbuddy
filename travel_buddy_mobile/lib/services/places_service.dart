@@ -58,21 +58,12 @@ class PlacesService {
     bool forceRefresh = false,
     String? categoryFilter,
   }) async {
-    // Use actual query instead of hardcoded 'tourist attractions'
-    final cacheKey = '${latitude.toStringAsFixed(2)}_${longitude.toStringAsFixed(2)}_$query';
-    
-    // Check cache first
-    if (!forceRefresh && _isValidCache(cacheKey)) {
-      DebugLogger.log('⚡ Cache hit (${_cache[cacheKey]!.length} places)');
-      final cached = _cache[cacheKey]!;
-      return cached.skip(offset).take(topN).toList();
-    }
+    // CACHING DISABLED - Always fetch fresh data
     
     try {
-      // Fetch places with actual query
       if (await _canMakeApiCall()) {
-        DebugLogger.log('🔍 Fetching: $query');
-        _lastApiCalls[cacheKey] = DateTime.now();
+        DebugLogger.log('🔍 Fetching fresh: $query');
+        _lastApiCalls['temp'] = DateTime.now();
         await _incrementApiCall();
         
         final realPlaces = await _fetchRealPlaces(latitude, longitude, query, radius, 0, 150)
@@ -83,32 +74,8 @@ class PlacesService {
               .where((p) => p.rating >= 2.5 && (_isFallbackPlace(p) || _isWithinRadius(p, latitude, longitude, radius)))
               .toList();
           
-          // Enrich with AI descriptions (async, non-blocking)
-          _enrichPlacesWithAI(filtered);
-          
-          // Save to cache, offline storage, and Azure Blob
-          _updateCache(cacheKey, filtered);
-          _saveToOfflineStorage(cacheKey, filtered);
-          _azureBlobService.savePlacesToBlob(cacheKey, filtered); // Azure Blob backup
-          
-          DebugLogger.log('✅ Cached ${filtered.length} places');
-          
+          DebugLogger.log('✅ Got ${filtered.length} fresh places');
           return filtered.skip(offset).take(topN).toList();
-        }
-      } else {
-        DebugLogger.log('📦 API limit reached - loading from cache/offline storage');
-        
-        // Try cache first
-        if (_cache.containsKey(cacheKey)) {
-          DebugLogger.log('📦 Using memory cache (${_cache[cacheKey]!.length} places)');
-          return _cache[cacheKey]!.skip(offset).take(topN).toList();
-        }
-        
-        // Try offline storage
-        final offline = await _loadFromOfflineStorage(cacheKey);
-        if (offline.isNotEmpty) {
-          DebugLogger.log('💾 Using offline storage (${offline.length} places)');
-          return offline.skip(offset).take(topN).toList();
         }
       }
       
@@ -116,29 +83,8 @@ class PlacesService {
       
     } catch (e) {
       DebugLogger.error('Places fetch failed: $e');
+      return [];
     }
-    
-    // Try cache first
-    if (_cache.containsKey(cacheKey)) {
-      DebugLogger.log('📦 Using memory cache (${_cache[cacheKey]!.length} places)');
-      return _cache[cacheKey]!.skip(offset).take(topN).toList();
-    }
-    
-    // Try offline storage
-    final offline = await _loadFromOfflineStorage(cacheKey);
-    if (offline.isNotEmpty) {
-      DebugLogger.log('💾 Using offline storage (${offline.length} places)');
-      return offline.skip(offset).take(topN).toList();
-    }
-    
-    // Try Azure Blob as final fallback
-    final azurePlaces = await _azureBlobService.loadPlacesFromBlob(cacheKey);
-    if (azurePlaces.isNotEmpty) {
-      DebugLogger.log('☁️ Using Azure Blob storage (${azurePlaces.length} places)');
-      return azurePlaces.skip(offset).take(topN).toList();
-    }
-    
-    return [];
   }
   
   // Background refresh disabled
@@ -302,15 +248,18 @@ class PlacesService {
   
   Future<List<Place>> _fetchRealPlaces(double lat, double lng, String query, int radius, [int offset = 0, int limit = 150]) async {
     // Use the correct endpoint that returns REAL place names from Azure Maps
-    final mobileUrl = '${Environment.backendUrl}/api/places/mobile/nearby?lat=$lat&lng=$lng&q=$query&radius=$radius&limit=$limit';
-    DebugLogger.log('🔍 Fetching REAL places: $query within ${radius}m');
+    final exploreUrl = '${Environment.backendUrl}/api/explore/places?lat=$lat&lng=$lng&q=$query&radius=$radius';
+    DebugLogger.log('🔍 Fetching from Explore API (rate-limited): $query');
     DebugLogger.log('📍 Location: $lat, $lng');
-    DebugLogger.log('🌐 URL: $mobileUrl');
+    DebugLogger.log('🌐 URL: $exploreUrl');
     
     try {
       final response = await _makeRequestWithRetry(() => http.get(
-        Uri.parse(mobileUrl),
-        headers: {'Content-Type': 'application/json'},
+        Uri.parse(exploreUrl),
+        headers: {
+          'Content-Type': 'application/json',
+          'x-user-id': 'user_${DateTime.now().millisecondsSinceEpoch}',
+        },
       ));
       
       DebugLogger.log('📡 Response status: ${response.statusCode}');
@@ -572,14 +521,14 @@ class PlacesService {
     bool forceRefresh = false,
   }) async {
     try {
-      // Single API call for all tourist attractions
+      // CACHING DISABLED - Always fetch fresh
       final allPlaces = await fetchPlacesPipeline(
         latitude: latitude,
         longitude: longitude,
         query: 'tourist attraction',
         radius: radius,
         topN: 60,
-        forceRefresh: forceRefresh,
+        forceRefresh: true,
       );
       
       if (allPlaces.isEmpty) {
@@ -587,12 +536,11 @@ class PlacesService {
         return {for (var key in categories.keys) key: <Place>[]};
       }
       
-      // Filter locally by category
       final Map<String, List<Place>> results = {};
       for (final entry in categories.entries) {
         final filtered = _filterByCategory(allPlaces, entry.key, entry.value);
         results[entry.key] = filtered.take(15).toList();
-        DebugLogger.log('✅ ${entry.key}: ${filtered.length} places (filtered locally)');
+        DebugLogger.log('✅ ${entry.key}: ${filtered.length} places');
       }
       
       return results;

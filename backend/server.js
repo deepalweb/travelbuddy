@@ -1114,6 +1114,15 @@ try {
   console.error('❌ Failed to load cache routes:', error);
 }
 
+// Load explore routes with rate limiting
+try {
+  const exploreRouter = (await import('./routes/explore.js')).default;
+  app.use('/api/explore', exploreRouter);
+  console.log('✅ Explore routes loaded (5 requests/user/day)');
+} catch (error) {
+  console.error('❌ Failed to load explore routes:', error);
+}
+
 // Load notifications routes
 try {
   const notificationsRouter = (await import('./routes/notifications.js')).default;
