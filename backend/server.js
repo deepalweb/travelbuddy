@@ -6760,3 +6760,15 @@ app.get('/api/admin/moderation/stats', requireAdminAuth, async (req, res) => {
 });
 
 
+c o n s t   l e g a l R o u t e r   =   r e q u i r e ( ' . / r o u t e s / l e g a l ' ) ;      
+ a p p . u s e ( ' / ' ,   l e g a l R o u t e r ) ;    
+ 
+
+// Load legal routes (privacy policy and terms of service)
+try {
+  const legalRouter = (await import('./routes/legal.js')).default;
+  app.use('/', legalRouter);
+  console.log('✅ Legal routes loaded (privacy and terms)');
+} catch (error) {
+  console.error('❌ Failed to load legal routes:', error);
+}
