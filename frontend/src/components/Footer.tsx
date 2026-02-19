@@ -110,11 +110,11 @@ export const Footer: React.FC = () => {
             <div className="space-y-3">
               <div className="flex items-center text-gray-400">
                 <Mail className="w-4 h-4 mr-2" />
-                <span className="text-sm">support@travelbuddy.com</span>
+                <span className="text-sm">drtechservicelk@gmail.com</span>
               </div>
               <div className="flex items-center text-gray-400">
                 <Phone className="w-4 h-4 mr-2" />
-                <span className="text-sm">+1 (555) 123-4567</span>
+                <span className="text-sm">+94760846996</span>
               </div>
             </div>
           </div>
