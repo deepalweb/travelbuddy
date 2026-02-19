@@ -1,8 +1,8 @@
 // Security patches for production deployment
-import { validateEnv, isProduction } from './config/env-validator.js';
-import { getCorsOptions } from './config/cors.js';
-import { sanitizeInput, getRateLimitConfig } from './middleware/security-enhanced.js';
-import { errorHandler, notFoundHandler } from './middleware/error-handler-secure.js';
+import { validateEnv, isProduction } from './env-validator.js';
+import { getCorsOptions } from './cors.js';
+import { sanitizeInput, getRateLimitConfig } from '../middleware/security-enhanced.js';
+import { errorHandler, notFoundHandler } from '../middleware/error-handler-secure.js';
 import rateLimit from 'express-rate-limit';
 
 export const applySecurityPatches = (app) => {
