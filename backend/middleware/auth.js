@@ -24,26 +24,10 @@ export const requireAuth = async (req, res, next) => {
 
     const token = authHeader.substring(7);
 
-    // Handle demo tokens
-    if (token.startsWith('demo-token-')) {
-      req.user = {
-        uid: 'demo-user-123',
-        email: 'demo@travelbuddy.com',
-        emailVerified: true
-      };
-      return next();
-    }
-
-    // Verify Firebase token
-    // DEVELOPMENT OVERRIDE: If no admin credentials, accept any token
-    if (process.env.NODE_ENV === 'development' && !process.env.FIREBASE_ADMIN_CREDENTIALS_JSON) {
-      console.warn('⚠️ Dev Auth Bypass: Accepting token without verification (Admin SDK not configured)');
-      req.user = {
-        uid: 'dev-user-firebase-bypass',
-        email: 'dev@example.com',
-        emailVerified: true
-      };
-      return next();
+    // Verify Firebase token - NO BYPASSES IN PRODUCTION
+    if (!admin.auth) {
+      console.error('Firebase Admin not initialized');
+      return res.status(500).json({ error: 'Authentication service unavailable' });
     }
 
     const decodedToken = await admin.auth().verifyIdToken(token);
@@ -134,20 +118,4 @@ export const requireAdmin = async (req, res, next) => {
 // DEVELOPMENT ONLY
 // ============================================================================
 
-/**
- * Development bypass - ONLY for local testing
- * NEVER use in production routes
- */
-export const devBypass = (req, res, next) => {
-  if (process.env.NODE_ENV === 'production') {
-    return res.status(403).json({ error: 'Development endpoint disabled' });
-  }
 
-  req.user = {
-    uid: 'dev-user-123',
-    email: 'dev@localhost',
-    emailVerified: true
-  };
-
-  next();
-};

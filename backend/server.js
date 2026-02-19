@@ -8,10 +8,11 @@ import { existsSync } from 'fs';
 import dotenv from 'dotenv';
 import { securityHeaders, apiRateLimit, sanitizeInput, requireAuth as securityRequireAuth, requireRole as securityRequireRole, requireAdmin as securityRequireAdmin } from './middleware/security.js';
 import { validateUser, validatePost, validateTrip, validateReview, validateCoordinates } from './middleware/validation.js';
-import { requireAuth, optionalAuth, requireOwnership, requireAdmin, devBypass } from './middleware/auth.js';
+import { requireAuth, optionalAuth, requireOwnership, requireAdmin } from './middleware/auth.js';
 import { errorHandler, asyncHandler, notFoundHandler } from './middleware/errorHandler.js';
 import { requireRole, requireFeature } from './middleware/roleAccess.js';
 import validator from 'validator';
+import { applySecurityPatches } from './config/security-patches.js';
 // Load env from root .env first (won't override already-set vars)
 dotenv.config();
 import fetch from 'node-fetch';
@@ -105,6 +106,10 @@ try {
 } catch { }
 
 const app = express();
+
+// Apply security patches BEFORE any other middleware
+const { errorHandler: secureErrorHandler, notFoundHandler: secureNotFoundHandler, corsOptions: secureCorsOptions } = applySecurityPatches(app);
+
 // Enable trust proxy for Azure App Service
 if (process.env.NODE_ENV === 'production') {
   app.set('trust proxy', 1);
@@ -760,63 +765,8 @@ if (process.env.NODE_ENV !== 'production') {
   });
 }
 
-// CORS configuration - permissive for development
-const corsOptions = {
-  origin: function (origin, callback) {
-    // Allow requests with no origin (like mobile apps or curl requests)
-    if (!origin) return callback(null, true);
-
-    // ALWAYS allow Azure App Service domains
-    if (origin.includes('.azurewebsites.net') || origin.includes('.azurestaticapps.net')) {
-      return callback(null, true);
-    }
-
-    // Allow production domains
-    if (origin === 'https://travelbuddylk.com') {
-      return callback(null, true);
-    }
-
-    // Allow configured domains
-    const allowedOrigins = [
-      process.env.CLIENT_URL,
-      process.env.WEBSITE_HOSTNAME,
-      `https://${process.env.WEBSITE_HOSTNAME}`
-    ].filter(Boolean);
-
-    if (allowedOrigins.includes(origin)) {
-      return callback(null, true);
-    }
-
-    // Development - be very permissive
-    const devOrigins = [
-      'http://localhost:3000',
-      'http://localhost:5173',
-      'http://localhost:3001',
-      'http://127.0.0.1:3000',
-      'http://localhost:4173'
-    ];
-    if (devOrigins.includes(origin) ||
-      origin?.includes('localhost') ||
-      origin?.includes('127.0.0.1') ||
-      origin?.startsWith('http://localhost:') ||
-      origin?.startsWith('http://127.0.0.1:')) {
-      return callback(null, true);
-    }
-
-    console.log('CORS blocked origin:', origin);
-    // In development, allow all origins as fallback
-    if (process.env.NODE_ENV !== 'production') {
-      console.log('Development mode: allowing origin', origin);
-      return callback(null, true);
-    }
-    callback(new Error('Not allowed by CORS'));
-  },
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'x-user-id', 'x-firebase-uid', 'x-user-tier', 'x-admin-secret', 'x-csrf-token', 'X-CSRF-Token', 'Accept', 'Origin', 'X-Requested-With', 'cache-control', 'Cache-Control', 'pragma', 'Pragma', 'expires', 'Expires']
-};
-
-app.use(cors(corsOptions));
+// Use secure CORS configuration from security patches
+app.use(cors(secureCorsOptions));
 
 // Additional CORS headers for development
 if (process.env.NODE_ENV !== 'production') {
@@ -6760,3 +6710,16 @@ app.get('/api/admin/moderation/stats', requireAdminAuth, async (req, res) => {
 });
 
 
+
+// 404 handler - use secure version from security patches
+app.use(secureNotFoundHandler);
+
+// Error handler - use secure version from security patches (must be last)
+app.use(secureErrorHandler);
+
+// Start server
+httpServer.listen(PORT, () => {
+  console.log(`✅ Server running on port ${PORT}`);
+  console.log(`🔒 Security patches applied`);
+  console.log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
+});
