@@ -97,21 +97,6 @@ export const Footer: React.FC = () => {
                   Help Center
                 </Link>
               </li>
-              <li>
-                <Link to="/privacy-policy" className="text-gray-400 hover:text-white transition-colors">
-                  Privacy Policy
-                </Link>
-              </li>
-              <li>
-                <Link to="/terms-of-service" className="text-gray-400 hover:text-white transition-colors">
-                  Terms of Service
-                </Link>
-              </li>
-              <li>
-                <Link to="/cookie-policy" className="text-gray-400 hover:text-white transition-colors">
-                  Cookie Policy
-                </Link>
-              </li>
             </ul>
           </div>
 
