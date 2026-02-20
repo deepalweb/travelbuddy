@@ -58,6 +58,12 @@ export const Footer: React.FC = () => {
                 </Link>
               </li>
               <li>
+                <Link to="/events" className="text-gray-400 hover:text-white transition-colors flex items-center">
+                  <Plane className="w-4 h-4 mr-2" />
+                  Events
+                </Link>
+              </li>
+              <li>
                 <Link to="/transport" className="text-gray-400 hover:text-white transition-colors flex items-center">
                   <Car className="w-4 h-4 mr-2" />
                   Transportation
@@ -92,13 +98,18 @@ export const Footer: React.FC = () => {
                 </Link>
               </li>
               <li>
-                <Link to="/blog" className="text-gray-400 hover:text-white transition-colors">
-                  Travel Blog
+                <Link to="/privacy-policy" className="text-gray-400 hover:text-white transition-colors">
+                  Privacy Policy
                 </Link>
               </li>
               <li>
-                <Link to="/privacy-policy" className="text-gray-400 hover:text-white transition-colors text-sm">
-                  Privacy Policy
+                <Link to="/terms-of-service" className="text-gray-400 hover:text-white transition-colors">
+                  Terms of Service
+                </Link>
+              </li>
+              <li>
+                <Link to="/cookie-policy" className="text-gray-400 hover:text-white transition-colors">
+                  Cookie Policy
                 </Link>
               </li>
             </ul>

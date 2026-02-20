@@ -1,8 +1,13 @@
-# TravelBuddy Robots.txt
 User-agent: *
 Allow: /
-Disallow: /admin/
-Disallow: /api/
 
-# Sitemaps
-Sitemap: https://travelbuddy.com/sitemap.xml
+# Disallow private/authenticated pages
+Disallow: /profile
+Disallow: /settings
+Disallow: /notifications
+Disallow: /preferences
+Disallow: /admin
+Disallow: /login
+
+# Sitemap location
+Sitemap: https://travelbuddylk.com/sitemap.xml

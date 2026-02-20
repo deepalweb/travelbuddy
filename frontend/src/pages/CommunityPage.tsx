@@ -658,7 +658,7 @@ export const CommunityPage: React.FC = () => {
             </div>
 
             {/* Community Module Status */}
-            <div className="bg-gradient-to-br from-blue-50 to-cyan-50 rounded-xl shadow-lg border border-blue-100 p-6 mt-6">
+            <div className="bg-gradient-to-br from-blue-50 to-cyan-50 rounded-xl shadow-lg border border-blue-100 p-6 mt-6 hidden">
               <div className="flex items-center space-x-2 mb-6">
                 <div className="p-2 bg-blue-100 rounded-lg">
                   <Users className="w-5 h-5 text-blue-600" />

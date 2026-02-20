@@ -14,23 +14,16 @@ const navigationItems = [
   { id: 'discover', label: 'Destinations', icon: Globe, path: '/places' },
   { id: 'planner', label: 'Trip Planner', icon: MapPin, path: '/trips' },
   { id: 'deals', label: 'Deals', icon: Tag, path: '/deals' },
-  { id: 'news', label: 'News', icon: BookOpen, path: '/news' },
   { id: 'community', label: 'Community', icon: Users, path: '/community' },
   { 
-    id: 'more', 
-    label: 'More', 
+    id: 'services', 
+    label: 'Services', 
     icon: ChevronDown, 
     path: '#',
     dropdown: [
       { label: 'Events', path: '/events', icon: Calendar },
       { label: 'Transport Hub', path: '/transport', icon: Car },
-      { label: 'Find an Agent', path: '/services', icon: Users },
-      { label: 'About Us', path: '/about', icon: BookOpen },
-      { label: 'Contact Us', path: '/contact', icon: Mail },
-      { label: 'Help Center', path: '/help', icon: BookOpen },
-      { label: 'Privacy Policy', path: '/privacy-policy', icon: Mail },
-      { label: 'Terms of Service', path: '/terms-of-service', icon: BookOpen },
-      { label: 'Cookie Policy', path: '/cookie-policy', icon: BookOpen }
+      { label: 'Travel Agents', path: '/services', icon: Users }
     ]
   }
 ]

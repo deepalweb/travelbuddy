@@ -989,17 +989,7 @@ try {
   console.error('❌ Failed to load AI routes:', error);
 }
 
-// Load travel news routes
-try {
-  const travelNewsRouter = (await import('./routes/travel-news.js')).default;
-  app.use('/api/travel-news', travelNewsRouter);
 
-  const placesEnrichmentRouter = (await import('./routes/places-enrichment.js')).default;
-  app.use('/api/places-enrichment', placesEnrichmentRouter);
-  console.log('✅ Travel news routes loaded');
-} catch (error) {
-  console.error('❌ Failed to load travel news routes:', error);
-}
 
 // Load emergency routes
 try {
@@ -6716,10 +6706,3 @@ app.use(secureNotFoundHandler);
 
 // Error handler - use secure version from security patches (must be last)
 app.use(secureErrorHandler);
-
-// Start server
-httpServer.listen(PORT, () => {
-  console.log(`✅ Server running on port ${PORT}`);
-  console.log(`🔒 Security patches applied`);
-  console.log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
-});
