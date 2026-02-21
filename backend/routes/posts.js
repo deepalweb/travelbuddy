@@ -79,8 +79,23 @@ router.get('/community', async (req, res) => {
     
     console.log(`✅ Found ${posts.length} posts matching query`);
     
+    // Populate username from User collection
+    const User = mongoose.model('User');
+    const postsWithUsernames = await Promise.all(posts.map(async (post) => {
+      if (post.userId) {
+        const user = await User.findOne({ 
+          $or: [{ firebaseUid: post.userId }, { _id: post.userId }] 
+        }).select('username fullName email').lean();
+        
+        if (user) {
+          post.username = user.username || user.fullName || user.email?.split('@')[0] || 'User';
+        }
+      }
+      return post;
+    }));
+    
     // Return posts directly for mobile compatibility
-    res.json(posts);
+    res.json(postsWithUsernames);
   } catch (error) {
     console.error('❌ Posts fetch error:', error);
     res.status(500).json({ error: error.message });
