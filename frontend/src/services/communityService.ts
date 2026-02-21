@@ -55,7 +55,7 @@ const transformPost = (post: any): Story => {
     content: post.content?.text || post.content || '',
     images: images.filter((img: string) => img && img.trim()),
     author: {
-      username: post.username || post.author?.username || 'Anonymous',
+      username: post.author?.username || post.username || post.user?.username || 'Anonymous',
       profilePicture: post.profilePicture || post.author?.profilePicture
     },
     location: post.location || post.content?.location || 'Unknown Location',
