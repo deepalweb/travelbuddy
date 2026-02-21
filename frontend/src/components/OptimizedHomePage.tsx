@@ -1322,29 +1322,46 @@ export const OptimizedHomePage: React.FC = () => {
                   <tr className="border-b border-gray-200">
                     <th className="text-left py-4 px-6 font-semibold text-gray-900">Feature</th>
                     <th className="text-center py-4 px-6 font-semibold text-gray-900">Free</th>
-                    <th className="text-center py-4 px-6 font-semibold text-blue-600 bg-blue-50 rounded-t-lg">Premium</th>
+                    <th className="text-center py-4 px-6 font-semibold text-blue-600 bg-blue-50">Globetrotter<br/><span className="text-sm font-normal">$9.99/mo</span></th>
+                    <th className="text-center py-4 px-6 font-semibold text-purple-600 bg-purple-50 rounded-t-lg">WanderPro+<br/><span className="text-sm font-normal">$19.99/mo</span></th>
                   </tr>
                 </thead>
                 <tbody>
                   <tr className="border-b border-gray-100">
-                    <td className="py-4 px-6 text-gray-700">AI Trip Planning</td>
-                    <td className="text-center py-4 px-6"><span className="text-green-500 text-xl">✓</span></td>
-                    <td className="text-center py-4 px-6 bg-blue-50"><span className="text-green-500 text-xl">✓</span></td>
+                    <td className="py-4 px-6 text-gray-700">Trips per month</td>
+                    <td className="text-center py-4 px-6"><span className="text-sm">1</span></td>
+                    <td className="text-center py-4 px-6 bg-blue-50"><span className="text-green-500 text-xl">∞</span></td>
+                    <td className="text-center py-4 px-6 bg-purple-50"><span className="text-green-500 text-xl">∞</span></td>
                   </tr>
                   <tr className="border-b border-gray-100">
-                    <td className="py-4 px-6 text-gray-700">Unlimited Favorites</td>
+                    <td className="py-4 px-6 text-gray-700">AI trips per month</td>
                     <td className="text-center py-4 px-6"><span className="text-gray-400 text-xl">–</span></td>
-                    <td className="text-center py-4 px-6 bg-blue-50"><span className="text-green-500 text-xl">✓</span></td>
+                    <td className="text-center py-4 px-6 bg-blue-50"><span className="text-sm">20</span></td>
+                    <td className="text-center py-4 px-6 bg-purple-50"><span className="text-green-500 text-xl">∞</span></td>
                   </tr>
                   <tr className="border-b border-gray-100">
-                    <td className="py-4 px-6 text-gray-700">Offline Access</td>
+                    <td className="py-4 px-6 text-gray-700">Community posting</td>
                     <td className="text-center py-4 px-6"><span className="text-gray-400 text-xl">–</span></td>
                     <td className="text-center py-4 px-6 bg-blue-50"><span className="text-green-500 text-xl">✓</span></td>
+                    <td className="text-center py-4 px-6 bg-purple-50"><span className="text-green-500 text-xl">✓</span></td>
+                  </tr>
+                  <tr className="border-b border-gray-100">
+                    <td className="py-4 px-6 text-gray-700">Offline access</td>
+                    <td className="text-center py-4 px-6"><span className="text-gray-400 text-xl">–</span></td>
+                    <td className="text-center py-4 px-6 bg-blue-50"><span className="text-sm">Basic</span></td>
+                    <td className="text-center py-4 px-6 bg-purple-50"><span className="text-green-500 text-xl">✓</span></td>
+                  </tr>
+                  <tr className="border-b border-gray-100">
+                    <td className="py-4 px-6 text-gray-700">Live AI assistant</td>
+                    <td className="text-center py-4 px-6"><span className="text-gray-400 text-xl">–</span></td>
+                    <td className="text-center py-4 px-6 bg-blue-50"><span className="text-gray-400 text-xl">–</span></td>
+                    <td className="text-center py-4 px-6 bg-purple-50"><span className="text-green-500 text-xl">✓</span></td>
                   </tr>
                   <tr>
-                    <td className="py-4 px-6 text-gray-700">Advanced Weather AI</td>
+                    <td className="py-4 px-6 text-gray-700">PDF export & Smart packing</td>
                     <td className="text-center py-4 px-6"><span className="text-gray-400 text-xl">–</span></td>
-                    <td className="text-center py-4 px-6 bg-blue-50 rounded-b-lg"><span className="text-green-500 text-xl">✓</span></td>
+                    <td className="text-center py-4 px-6 bg-blue-50"><span className="text-gray-400 text-xl">–</span></td>
+                    <td className="text-center py-4 px-6 bg-purple-50 rounded-b-lg"><span className="text-green-500 text-xl">✓</span></td>
                   </tr>
                 </tbody>
               </table>
@@ -1357,7 +1374,12 @@ export const OptimizedHomePage: React.FC = () => {
               </Link>
               <Link to="/subscription">
                 <Button className="bg-blue-600 text-white hover:bg-blue-700 px-8 py-3 rounded-xl">
-                  Upgrade to Premium - $9.99/month
+                  Globetrotter - $9.99/mo
+                </Button>
+              </Link>
+              <Link to="/subscription">
+                <Button className="bg-purple-600 text-white hover:bg-purple-700 px-8 py-3 rounded-xl">
+                  WanderPro+ - $19.99/mo
                 </Button>
               </Link>
             </div>
