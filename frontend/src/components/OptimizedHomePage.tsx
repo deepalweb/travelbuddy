@@ -1250,99 +1250,32 @@ export const OptimizedHomePage: React.FC = () => {
         </div>
       </section>
 
-      {/* 5. Trust Boosters & Social Proof */}
+      {/* 5. Trust Signals & Platform Features */}
       <section className="py-16 bg-gradient-to-b from-white to-gray-50">
         <div className="max-w-7xl mx-auto px-4">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            {/* Card 1 */}
-            <div className="group">
-              <div className="bg-white rounded-2xl p-6 shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 border border-yellow-100">
-                <div className="flex items-center">
-                  <div className="w-16 h-16 bg-gradient-to-br from-yellow-400 via-yellow-500 to-orange-500 rounded-2xl flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform duration-300">
-                    <span className="text-2xl">🏆</span>
-                  </div>
-                  <div className="ml-4">
-                    <div className="text-gray-900 font-bold text-lg leading-tight">2024 Award Winner</div>
-                    <div className="text-gray-600 text-sm font-medium">Best Travel Companion</div>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Card 2 */}
-            <div className="group">
-              <div className="bg-white rounded-2xl p-6 shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 border border-blue-100">
-                <div className="flex items-center">
-                  <div className="w-16 h-16 bg-gradient-to-br from-blue-500 via-blue-600 to-indigo-600 rounded-2xl flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform duration-300">
-                    <span className="text-2xl">📱</span>
-                  </div>
-                  <div className="ml-4">
-                    <div className="text-gray-900 font-bold text-lg leading-tight">#1 Trending App</div>
-                    <div className="text-blue-600 text-sm font-medium">Featured on App Store</div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {[
+              { emoji: "🚀", title: "Launched 2024", subtitle: "Growing Fast" },
+              { emoji: "🤖", title: "AI-Powered", subtitle: "Smart Trip Planning" },
+              { emoji: "🔒", title: "Secure Platform", subtitle: "Your data protected" },
+              { emoji: "📱", title: "Mobile Ready", subtitle: "iOS & Android" },
+              { emoji: "🌍", title: "Global Coverage", subtitle: "120+ countries" },
+              { emoji: "💬", title: "Active Support", subtitle: "We're here to help" },
+            ].map((item, i) => (
+              <div key={i} className="group">
+                <div className="bg-white rounded-2xl p-6 shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 border border-gray-100">
+                  <div className="flex items-center gap-3">
+                    <div className="w-12 h-12 bg-gradient-to-br from-blue-400 to-purple-500 rounded-xl flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform duration-300">
+                      <span className="text-lg">{item.emoji}</span>
+                    </div>
+                    <div>
+                      <div className="text-gray-900 font-bold text-sm leading-tight">{item.title}</div>
+                      <div className="text-gray-600 text-xs font-medium">{item.subtitle}</div>
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
-
-            {/* Card 3 */}
-            <div className="group">
-              <div className="bg-white rounded-2xl p-6 shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 border border-green-100">
-                <div className="flex items-center">
-                  <div className="w-16 h-16 bg-gradient-to-br from-green-500 via-green-600 to-emerald-600 rounded-2xl flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform duration-300">
-                    <span className="text-2xl">⭐</span>
-                  </div>
-                  <div className="ml-4">
-                    <div className="text-gray-900 font-bold text-lg leading-tight">4.8/5 Rating</div>
-                    <div className="text-gray-600 text-sm font-medium">Based on 50k+ Reviews</div>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Card 4 */}
-            <div className="group">
-              <div className="bg-white rounded-2xl p-6 shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 border border-teal-100">
-                <div className="flex items-center">
-                  <div className="w-16 h-16 bg-gradient-to-br from-teal-500 via-green-500 to-emerald-600 rounded-2xl flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform duration-300">
-                    <span className="text-2xl">🛡️</span>
-                  </div>
-                  <div className="ml-4">
-                    <div className="text-gray-900 font-bold text-lg leading-tight">Secure & Private</div>
-                    <div className="text-gray-600 text-sm font-medium">Bank-grade encryption</div>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Card 5 */}
-            <div className="group">
-              <div className="bg-white rounded-2xl p-6 shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 border border-orange-100">
-                <div className="flex items-center">
-                  <div className="w-16 h-16 bg-gradient-to-br from-orange-500 via-orange-600 to-red-500 rounded-2xl flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform duration-300">
-                    <span className="text-2xl">⏳</span>
-                  </div>
-                  <div className="ml-4">
-                    <div className="text-gray-900 font-bold text-lg leading-tight">Fresh Deals</div>
-                    <div className="text-gray-600 text-sm font-medium">Updated every hour</div>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Card 6 */}
-            <div className="group">
-              <div className="bg-white rounded-2xl p-6 shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 border border-purple-100">
-                <div className="flex items-center">
-                  <div className="w-16 h-16 bg-gradient-to-br from-purple-500 via-purple-600 to-pink-500 rounded-2xl flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform duration-300">
-                    <span className="text-2xl">👥</span>
-                  </div>
-                  <div className="ml-4">
-                    <div className="text-gray-900 font-bold text-lg leading-tight">Active Community</div>
-                    <div className="text-gray-600 text-sm font-medium">67 travelers online now</div>
-                  </div>
-                </div>
-              </div>
-            </div>
+            ))}
           </div>
         </div>
       </section>
