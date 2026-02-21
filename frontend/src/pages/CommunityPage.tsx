@@ -205,43 +205,42 @@ export const CommunityPage: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Hero Section */}
-      <div className="relative bg-gradient-to-br from-purple-600 via-pink-600 to-red-600 text-white py-16 overflow-hidden">
-        {/* Background Pattern */}
-        <div className="absolute inset-0 opacity-10">
-          <div className="absolute top-10 left-10 w-20 h-20 border-2 border-white rounded-full animate-pulse"></div>
-          <div className="absolute top-32 right-20 w-16 h-16 border-2 border-white rounded-full animate-pulse delay-1000"></div>
-          <div className="absolute bottom-20 left-1/4 w-12 h-12 border-2 border-white rounded-full animate-pulse delay-500"></div>
-        </div>
-        
-        <div className="max-w-7xl mx-auto px-4 relative">
-          <div className="text-center">
-            <div className="inline-flex items-center space-x-2 bg-white/20 backdrop-blur-sm rounded-full px-4 py-2 mb-6">
-              <MapPin className="w-5 h-5" />
-              <span className="text-sm font-medium">Place Reviews & Experiences</span>
+      {/* Modern Hero Section */}
+      <div className="bg-white border-b">
+        <div className="max-w-7xl mx-auto px-4 py-8">
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-3xl font-bold text-gray-900 mb-2">Community</h1>
+              <p className="text-gray-600">Discover amazing places from travelers worldwide</p>
             </div>
-            <h1 className="text-5xl md:text-6xl font-bold mb-6 bg-gradient-to-r from-white to-purple-100 bg-clip-text text-transparent">
-              Discover Places
-            </h1>
-            <p className="text-xl md:text-2xl text-purple-100 mb-8 max-w-2xl mx-auto">
-              Share your favorite places, read authentic reviews, and discover hidden gems from travelers worldwide
-            </p>
-            <div className="flex flex-wrap justify-center items-center gap-6 md:gap-8">
-              <div className="flex items-center space-x-2 bg-white/10 backdrop-blur-sm rounded-lg px-4 py-2">
-                <Camera className="w-5 h-5 text-yellow-300" />
-                <span className="font-semibold">{viewMode === 'map' ? filteredStories.filter(s => s.place).length : filteredStories.length}</span>
-                <span className="text-purple-100">{viewMode === 'map' ? 'Places' : 'Stories'}</span>
-              </div>
-              <div className="flex items-center space-x-2 bg-white/10 backdrop-blur-sm rounded-lg px-4 py-2">
-                <Users className="w-5 h-5 text-green-300" />
-                <span className="font-semibold">{topTravelers.length}</span>
-                <span className="text-purple-100">Travelers</span>
-              </div>
-              <div className="flex items-center space-x-2 bg-white/10 backdrop-blur-sm rounded-lg px-4 py-2">
-                <Heart className="w-5 h-5 text-red-300" />
-                <span className="font-semibold">{stories.reduce((sum, story) => sum + story.likes, 0)}</span>
-                <span className="text-purple-100">Likes</span>
-              </div>
+            <button
+              onClick={() => {
+                setEditingStory(undefined)
+                setShowCreateModal(true)
+              }}
+              className="flex items-center space-x-2 bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-all font-medium shadow-sm"
+            >
+              <Plus className="w-5 h-5" />
+              <span>Share Story</span>
+            </button>
+          </div>
+          
+          {/* Stats */}
+          <div className="flex items-center gap-6 mt-6">
+            <div className="flex items-center space-x-2 text-sm">
+              <Camera className="w-4 h-4 text-gray-400" />
+              <span className="font-semibold text-gray-900">{stories.length}</span>
+              <span className="text-gray-600">Stories</span>
+            </div>
+            <div className="flex items-center space-x-2 text-sm">
+              <Users className="w-4 h-4 text-gray-400" />
+              <span className="font-semibold text-gray-900">{topTravelers.length}</span>
+              <span className="text-gray-600">Travelers</span>
+            </div>
+            <div className="flex items-center space-x-2 text-sm">
+              <Heart className="w-4 h-4 text-gray-400" />
+              <span className="font-semibold text-gray-900">{stories.reduce((sum, story) => sum + story.likes, 0)}</span>
+              <span className="text-gray-600">Likes</span>
             </div>
           </div>
         </div>
@@ -251,136 +250,83 @@ export const CommunityPage: React.FC = () => {
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
           {/* Main Content */}
           <div className="lg:col-span-3">
-            {/* Filter & Create Bar */}
-            <div className="bg-white rounded-xl shadow-lg border border-gray-100 p-6 mb-8 backdrop-blur-sm">
-              <div className="flex flex-col gap-4">
-                {/* Top Row: Sort, View Mode & Create */}
-                <div className="flex flex-col md:flex-row justify-between items-center gap-4">
-                  <div className="flex items-center space-x-4">
-                    {/* Sort Filters */}
-                    <div className="flex space-x-2 bg-gray-100 rounded-lg p-1">
-                      <button
-                        onClick={() => setFilter('recent')}
-                        className={`px-4 py-2 rounded-md font-medium transition-all duration-200 ${
-                          filter === 'recent' 
-                            ? 'bg-white text-purple-700 shadow-sm transform scale-105' 
-                            : 'text-gray-600 hover:text-purple-600'
-                        }`}
-                      >
-                        <TrendingUp className="w-4 h-4 inline mr-2" />
-                        Recent
-                      </button>
-                      <button
-                        onClick={() => setFilter('popular')}
-                        className={`px-4 py-2 rounded-md font-medium transition-all duration-200 ${
-                          filter === 'popular' 
-                            ? 'bg-white text-purple-700 shadow-sm transform scale-105' 
-                            : 'text-gray-600 hover:text-purple-600'
-                        }`}
-                      >
-                        <Heart className="w-4 h-4 inline mr-2" />
-                        Popular
-                      </button>
-                      <button
-                        onClick={() => setFilter('trending')}
-                        className={`px-4 py-2 rounded-md font-medium transition-all duration-200 ${
-                          filter === 'trending' 
-                            ? 'bg-white text-purple-700 shadow-sm transform scale-105' 
-                            : 'text-gray-600 hover:text-purple-600'
-                        }`}
-                      >
-                        <Award className="w-4 h-4 inline mr-2" />
-                        Trending
-                      </button>
-                    </div>
-                    
-                    {/* View Mode Toggle */}
-                    <div className="flex space-x-1 bg-gray-100 rounded-lg p-1">
-                      <button
-                        onClick={() => setViewMode('feed')}
-                        className={`px-3 py-2 rounded-md font-medium transition-all duration-200 ${
-                          viewMode === 'feed' 
-                            ? 'bg-white text-gray-900 shadow-sm' 
-                            : 'text-gray-600 hover:text-gray-900'
-                        }`}
-                      >
-                        <List className="w-4 h-4" />
-                      </button>
-                      <button
-                        onClick={() => setViewMode('map')}
-                        className={`px-3 py-2 rounded-md font-medium transition-all duration-200 ${
-                          viewMode === 'map' 
-                            ? 'bg-white text-gray-900 shadow-sm' 
-                            : 'text-gray-600 hover:text-gray-900'
-                        }`}
-                      >
-                        <Map className="w-4 h-4" />
-                      </button>
-                    </div>
-                  </div>
-                  
-                  <button
-                    onClick={() => {
-                      setEditingStory(undefined)
-                      setShowCreateModal(true)
-                    }}
-                    className="group flex items-center space-x-2 bg-gradient-to-r from-purple-600 via-pink-600 to-red-600 text-white px-8 py-3 rounded-xl hover:from-purple-700 hover:via-pink-700 hover:to-red-700 transition-all duration-300 font-semibold shadow-lg hover:shadow-xl transform hover:scale-105"
-                  >
-                    <MapPin className="w-5 h-5 group-hover:scale-110 transition-transform duration-300" />
-                    <span>Review a Place</span>
-                  </button>
-                </div>
-                
-                {/* Enhanced Search Bar */}
-                <div className="relative">
+            {/* Clean Filter Bar */}
+            <div className="bg-white rounded-lg border p-4 mb-6">
+              <div className="flex flex-col md:flex-row md:items-center gap-4">
+                {/* Search */}
+                <div className="flex-1">
                   <input
                     type="text"
-                    placeholder="Search places... (e.g., 'Tokyo restaurants', 'Paris museums')"
+                    placeholder="Search stories..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    className="w-full px-4 py-2 pl-10 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                    className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
-                  <div className="absolute left-3 top-1/2 transform -translate-y-1/2">
-                    <MapPin className="w-4 h-4 text-gray-400" />
-                  </div>
-                  {searchQuery && (
-                    <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
-                      <span className="text-xs bg-purple-100 text-purple-700 px-2 py-1 rounded-full">
-                        📍 Place Search
-                      </span>
-                    </div>
-                  )}
                 </div>
                 
-                {/* Tag Filters */}
-                {allTags.length > 0 && (
-                  <div className="flex flex-wrap gap-2">
+                {/* Filters */}
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setFilter('recent')}
+                    className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                      filter === 'recent' 
+                        ? 'bg-blue-600 text-white' 
+                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    }`}
+                  >
+                    Recent
+                  </button>
+                  <button
+                    onClick={() => setFilter('popular')}
+                    className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                      filter === 'popular' 
+                        ? 'bg-blue-600 text-white' 
+                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    }`}
+                  >
+                    Popular
+                  </button>
+                  <button
+                    onClick={() => setFilter('trending')}
+                    className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                      filter === 'trending' 
+                        ? 'bg-blue-600 text-white' 
+                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    }`}
+                  >
+                    Trending
+                  </button>
+                  
+                  {/* View Toggle */}
+                  <div className="border-l pl-2 ml-2">
                     <button
-                      onClick={() => setSelectedTag(null)}
-                      className={`px-3 py-1 rounded-full text-sm font-medium transition-colors ${
-                        !selectedTag 
-                          ? 'bg-purple-600 text-white' 
+                      onClick={() => setViewMode(viewMode === 'feed' ? 'map' : 'feed')}
+                      className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                    >
+                      {viewMode === 'feed' ? <Map className="w-5 h-5 text-gray-600" /> : <List className="w-5 h-5 text-gray-600" />}
+                    </button>
+                  </div>
+                </div>
+              </div>
+              
+              {/* Tags */}
+              {allTags.length > 0 && (
+                <div className="flex flex-wrap gap-2 mt-4">
+                  {allTags.slice(0, 8).map((tag) => (
+                    <button
+                      key={tag}
+                      onClick={() => setSelectedTag(selectedTag === tag ? null : tag)}
+                      className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
+                        selectedTag === tag 
+                          ? 'bg-blue-100 text-blue-700' 
                           : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                       }`}
                     >
-                      All
+                      #{tag}
                     </button>
-                    {allTags.slice(0, 8).map((tag) => (
-                      <button
-                        key={tag}
-                        onClick={() => setSelectedTag(selectedTag === tag ? null : tag)}
-                        className={`px-3 py-1 rounded-full text-sm font-medium transition-colors ${
-                          selectedTag === tag 
-                            ? 'bg-purple-600 text-white' 
-                            : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                        }`}
-                      >
-                        #{tag}
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
+                  ))}
+                </div>
+              )}
             </div>
 
             {/* Stories Content */}
@@ -559,15 +505,8 @@ export const CommunityPage: React.FC = () => {
           {/* Sidebar */}
           <div className="space-y-6">
             {/* Top Travelers */}
-            <div className="bg-gradient-to-br from-white to-yellow-50 rounded-xl shadow-lg border border-yellow-100 p-6">
-              <div className="flex items-center space-x-2 mb-6">
-                <div className="p-2 bg-yellow-100 rounded-lg">
-                  <Award className="w-5 h-5 text-yellow-600" />
-                </div>
-                <h3 className="font-bold text-lg text-gray-900">Top Travelers</h3>
-                <div className="flex-1"></div>
-                <span className="text-xs bg-yellow-200 text-yellow-800 px-2 py-1 rounded-full font-medium">This Month</span>
-              </div>
+            <div className="bg-white rounded-lg border p-6">
+              <h3 className="font-semibold text-gray-900 mb-4">Top Travelers</h3>
               <div className="space-y-4">
                 {topTravelers.map((traveler, index) => (
                   <div key={traveler.username} className="flex items-center space-x-3">
@@ -599,13 +538,8 @@ export const CommunityPage: React.FC = () => {
             </div>
 
             {/* Trending Places */}
-            <div className="bg-gradient-to-br from-white to-green-50 rounded-xl shadow-lg border border-green-100 p-6 mb-6">
-              <div className="flex items-center space-x-2 mb-6">
-                <div className="p-2 bg-green-100 rounded-lg">
-                  <MapPin className="w-5 h-5 text-green-600" />
-                </div>
-                <h3 className="font-bold text-lg text-gray-900">Trending Places</h3>
-              </div>
+            <div className="bg-white rounded-lg border p-6 mb-6">
+              <h3 className="font-semibold text-gray-900 mb-4">Trending Places</h3>
               <div className="space-y-3">
                 {Array.from(new Set(stories.filter(s => s.place).map(s => s.place!.name))).slice(0, 5).map((placeName, index) => {
                   const placeStories = stories.filter(s => s.place?.name === placeName)
@@ -630,13 +564,8 @@ export const CommunityPage: React.FC = () => {
             </div>
 
             {/* Community Stats */}
-            <div className="bg-gradient-to-br from-white to-purple-50 rounded-xl shadow-lg border border-purple-100 p-6">
-              <div className="flex items-center space-x-2 mb-6">
-                <div className="p-2 bg-purple-100 rounded-lg">
-                  <TrendingUp className="w-5 h-5 text-purple-600" />
-                </div>
-                <h3 className="font-bold text-lg text-gray-900">Community Stats</h3>
-              </div>
+            <div className="bg-white rounded-lg border p-6">
+              <h3 className="font-semibold text-gray-900 mb-4">Stats</h3>
               <div className="space-y-3">
                 <div className="flex justify-between items-center">
                   <span className="text-gray-600">Total Stories</span>
