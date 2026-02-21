@@ -12,6 +12,7 @@ import { TravelAgentsPage } from '../pages/TravelAgentsPage'
 import { TransportationPage } from '../pages/TransportationPage'
 import { TravelPreferencesPage } from '../pages/TravelPreferencesPage'
 import { NotificationsPage } from '../pages/NotificationsPage'
+import { FavoritesPage } from '../pages/FavoritesPage'
 import { SettingsPage } from '../pages/SettingsPage'
 import { DealsPage } from '../pages/DealsPage'
 import CreateDealPage from '../pages/CreateDealPage'
@@ -109,6 +110,8 @@ export const Layout: React.FC = () => {
         return <TravelPreferencesPage />
       case '/notifications':
         return <NotificationsPage />
+      case '/favorites':
+        return <FavoritesPage />
       case '/settings':
         return <SettingsPage />
       default:

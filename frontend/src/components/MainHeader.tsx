@@ -198,29 +198,33 @@ export const MainHeader: React.FC = () => {
             {/* Notifications & Favorites */}
             {user && (
               <div className="flex items-center space-x-2">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className={`relative p-2 ${
-                    isScrolled ? 'text-gray-700 hover:bg-gray-100' : 'text-white hover:bg-white/10'
-                  }`}
-                  title="Notifications"
-                >
-                  <Bell className="w-5 h-5" />
-                  <span className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full text-xs flex items-center justify-center">
-                    <span className="w-1.5 h-1.5 bg-white rounded-full"></span>
-                  </span>
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className={`p-2 ${
-                    isScrolled ? 'text-gray-700 hover:bg-gray-100' : 'text-white hover:bg-white/10'
-                  }`}
-                  title="Saved Trips & Favorites"
-                >
-                  <Heart className="w-5 h-5" />
-                </Button>
+                <Link to="/notifications">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className={`relative p-2 ${
+                      isScrolled ? 'text-gray-700 hover:bg-gray-100' : 'text-white hover:bg-white/10'
+                    }`}
+                    title="Notifications"
+                  >
+                    <Bell className="w-5 h-5" />
+                    <span className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full text-xs flex items-center justify-center">
+                      <span className="w-1.5 h-1.5 bg-white rounded-full"></span>
+                    </span>
+                  </Button>
+                </Link>
+                <Link to="/favorites">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className={`p-2 ${
+                      isScrolled ? 'text-gray-700 hover:bg-gray-100' : 'text-white hover:bg-white/10'
+                    }`}
+                    title="Saved Trips & Favorites"
+                  >
+                    <Heart className="w-5 h-5" />
+                  </Button>
+                </Link>
               </div>
             )}
 
