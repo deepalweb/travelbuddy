@@ -4,7 +4,10 @@ import 'package:google_sign_in/google_sign_in.dart';
 
 class AuthService {
   static final FirebaseAuth _auth = FirebaseAuth.instance;
-  static final GoogleSignIn _googleSignIn = GoogleSignIn();
+  static final GoogleSignIn _googleSignIn = GoogleSignIn(
+    // Web Client ID from Firebase Console (google-services.json)
+    serverClientId: '45425409967-5hgpa0i9fo4ues8686c6ckpgg4klg582.apps.googleusercontent.com',
+  );
 
 
   // Email/Password Authentication with auto-linking
