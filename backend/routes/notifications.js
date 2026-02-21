@@ -27,9 +27,15 @@ router.get('/', async (req, res) => {
     const userId = req.headers['x-user-id'] || req.headers['x-firebase-uid'];
     if (!userId) return res.status(401).json({ error: 'User ID required' });
 
-    const User = mongoose.model('User');
+    let User;
+    try {
+      User = mongoose.model('User');
+    } catch {
+      User = mongoose.model('User', new mongoose.Schema({}, { strict: false }));
+    }
+
     let user = await User.findOne({ firebaseUid: userId });
-    if (!user) user = await User.findById(userId);
+    if (!user) user = await User.findById(userId).catch(() => null);
     if (!user) return res.status(404).json({ error: 'User not found' });
 
     const limit = Math.min(50, parseInt(req.query.limit || '20'));
@@ -40,6 +46,7 @@ router.get('/', async (req, res) => {
 
     res.json(notifications);
   } catch (error) {
+    console.error('Notification fetch error:', error);
     res.status(500).json({ error: error.message });
   }
 });
@@ -50,14 +57,21 @@ router.get('/count', async (req, res) => {
     const userId = req.headers['x-user-id'] || req.headers['x-firebase-uid'];
     if (!userId) return res.status(401).json({ error: 'User ID required' });
 
-    const User = mongoose.model('User');
+    let User;
+    try {
+      User = mongoose.model('User');
+    } catch {
+      User = mongoose.model('User', new mongoose.Schema({}, { strict: false }));
+    }
+
     let user = await User.findOne({ firebaseUid: userId });
-    if (!user) user = await User.findById(userId);
+    if (!user) user = await User.findById(userId).catch(() => null);
     if (!user) return res.status(404).json({ error: 'User not found' });
 
     const count = await Notification.countDocuments({ userId: user._id, isRead: false });
     res.json({ count });
   } catch (error) {
+    console.error('Notification count error:', error);
     res.status(500).json({ error: error.message });
   }
 });
@@ -78,14 +92,21 @@ router.put('/read-all', async (req, res) => {
     const userId = req.headers['x-user-id'] || req.headers['x-firebase-uid'];
     if (!userId) return res.status(401).json({ error: 'User ID required' });
 
-    const User = mongoose.model('User');
+    let User;
+    try {
+      User = mongoose.model('User');
+    } catch {
+      User = mongoose.model('User', new mongoose.Schema({}, { strict: false }));
+    }
+
     let user = await User.findOne({ firebaseUid: userId });
-    if (!user) user = await User.findById(userId);
+    if (!user) user = await User.findById(userId).catch(() => null);
     if (!user) return res.status(404).json({ error: 'User not found' });
 
     await Notification.updateMany({ userId: user._id, isRead: false }, { isRead: true });
     res.json({ success: true });
   } catch (error) {
+    console.error('Mark all read error:', error);
     res.status(500).json({ error: error.message });
   }
 });

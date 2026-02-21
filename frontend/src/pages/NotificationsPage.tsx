@@ -13,7 +13,7 @@ interface Notification {
   relatedType?: string
 }
 
-const API_BASE = import.meta.env.VITE_API_URL || 'https://travelbuddylk.com/api'
+const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8080/api'
 
 export const NotificationsPage: React.FC = () => {
   const { user } = useAuth()
@@ -31,12 +31,19 @@ export const NotificationsPage: React.FC = () => {
     if (!user) return
     setLoading(true)
     try {
+      const userId = user.firebaseUid || user.id
+      console.log('Fetching notifications for user:', userId)
       const response = await fetch(`${API_BASE}/notifications?limit=50`, {
-        headers: { 'x-user-id': user.uid }
+        headers: { 'x-user-id': userId }
       })
+      console.log('Response status:', response.status)
       if (response.ok) {
         const data = await response.json()
+        console.log('Notifications:', data)
         setNotifications(data)
+      } else {
+        const error = await response.json()
+        console.error('Error response:', error)
       }
     } catch (error) {
       console.error('Failed to fetch notifications:', error)
@@ -47,9 +54,10 @@ export const NotificationsPage: React.FC = () => {
 
   const markAsRead = async (notificationId: string) => {
     try {
+      const userId = user?.firebaseUid || user?.id
       await fetch(`${API_BASE}/notifications/${notificationId}/read`, {
         method: 'PUT',
-        headers: { 'x-user-id': user?.uid || '' }
+        headers: { 'x-user-id': userId || '' }
       })
       setNotifications(notifications.map(n => 
         n._id === notificationId ? { ...n, isRead: true } : n
@@ -61,9 +69,10 @@ export const NotificationsPage: React.FC = () => {
 
   const markAllAsRead = async () => {
     try {
+      const userId = user?.firebaseUid || user?.id
       await fetch(`${API_BASE}/notifications/read-all`, {
         method: 'PUT',
-        headers: { 'x-user-id': user?.uid || '' }
+        headers: { 'x-user-id': userId || '' }
       })
       setNotifications(notifications.map(n => ({ ...n, isRead: true })))
     } catch (error) {

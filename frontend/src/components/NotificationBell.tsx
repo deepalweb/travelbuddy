@@ -11,7 +11,7 @@ interface Notification {
   createdAt: string
 }
 
-const API_BASE = import.meta.env.VITE_API_URL || 'https://travelbuddylk.com/api'
+const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8080/api'
 
 export const NotificationBell: React.FC = () => {
   const { user } = useAuth()
@@ -42,8 +42,9 @@ export const NotificationBell: React.FC = () => {
   const fetchUnreadCount = async () => {
     if (!user) return
     try {
+      const userId = user.firebaseUid || user.id
       const response = await fetch(`${API_BASE}/notifications/count`, {
-        headers: { 'x-user-id': user.uid }
+        headers: { 'x-user-id': userId }
       })
       if (response.ok) {
         const data = await response.json()
