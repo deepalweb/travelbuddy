@@ -39,21 +39,13 @@
     </script>
     
     <!-- Google Maps API -->
-    <!-- The API key is injected by Vite from environment variables during build -->
     <script>
-      // Get API key from global variable injected by Vite
-      const API_KEY = window.__GOOGLE_MAPS_API_KEY__;
-      
-      if (API_KEY) {
-        // Create and configure the script tag
-        const script = document.createElement('script');
-        script.src = `https://maps.googleapis.com/maps/api/js?key=${API_KEY}&libraries=places`;
-        script.async = true;
-        script.defer = true;
-        document.head.appendChild(script);
-      } else {
-        console.error('Google Maps API key not configured');
-      }
+      // Load Google Maps API with a demo key for development
+      const script = document.createElement('script');
+      script.src = 'https://maps.googleapis.com/maps/api/js?key=AIzaSyBFw0Qbyq9zTFTd-tUY6dZWTgaQzuU17R8&libraries=places';
+      script.async = true;
+      script.defer = true;
+      document.head.appendChild(script);
     </script>
   </head>
   <body>
