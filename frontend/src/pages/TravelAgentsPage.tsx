@@ -201,9 +201,13 @@ export const TravelAgentsPage: React.FC = () => {
 
   const filterAgents = () => {
     let filtered = agents.filter(agent => {
-      const matchesSearch = agent.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                           agent.agency.toLowerCase().includes(searchTerm.toLowerCase())
-      const matchesLocation = !selectedLocation || agent.location.includes(selectedLocation)
+      const matchesSearch = !searchTerm || 
+                           agent.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                           agent.agency.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                           agent.location.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                           agent.specializations.some(s => s.toLowerCase().includes(searchTerm.toLowerCase()))
+      const matchesLocation = !selectedLocation || agent.location.toLowerCase().includes(selectedLocation.toLowerCase())
+      const matchesRegion = !selectedRegion || agent.location.toLowerCase().includes(selectedRegion.toLowerCase())
       const matchesSpecialization = selectedSpecializations.length === 0 ||
                                    selectedSpecializations.some(spec => agent.specializations.includes(spec))
       const matchesRating = agent.rating >= minRating
@@ -211,7 +215,7 @@ export const TravelAgentsPage: React.FC = () => {
                              selectedLanguages.some(lang => agent.languages.includes(lang))
       const matchesVerified = !verifiedOnly || agent.verified
 
-      return matchesSearch && matchesLocation && matchesSpecialization && 
+      return matchesSearch && matchesLocation && matchesRegion && matchesSpecialization && 
              matchesRating && matchesLanguage && matchesVerified
     })
     setFilteredAgents(filtered)
