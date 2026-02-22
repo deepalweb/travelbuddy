@@ -145,37 +145,29 @@ class ApiService {
       throw new Error('Search query is required')
     }
     
-    const params = new URLSearchParams({ q: query.trim() })
-    if (filters?.category) params.append('category', filters.category)
-    if (filters?.limit && filters.limit > 0) params.append('limit', filters.limit.toString())
-    if (filters?.lat) params.append('lat', filters.lat.toString())
-    if (filters?.lng) params.append('lng', filters.lng.toString())
-    if (filters?.radius) params.append('radius', filters.radius.toString())
-    
     try {
-      // Try enhanced search first (Google Places + AI Enhancement)
-      const response = await this.request<any>(`/enhanced-places/search?${params}`)
+      // Try NLP search first (natural language understanding)
+      const response = await this.request<any>(`/nlp/search?q=${encodeURIComponent(query.trim())}&limit=${filters?.limit || 8}`)
       
-      // Handle enhanced response format
-      if (response?.success && response.results) {
-        return Array.isArray(response.results) ? response.results : []
+      if (response?.results && Array.isArray(response.results)) {
+        return response.results
       }
       
-      // Fallback to hybrid search
-      const hybridResponse = await this.request<any>(`/hybrid/search?${params}`)
+      // Fallback to enhanced search
+      const params = new URLSearchParams({ q: query.trim() })
+      if (filters?.category) params.append('category', filters.category)
+      if (filters?.limit && filters.limit > 0) params.append('limit', filters.limit.toString())
+      if (filters?.lat) params.append('lat', filters.lat.toString())
+      if (filters?.lng) params.append('lng', filters.lng.toString())
+      if (filters?.radius) params.append('radius', filters.radius.toString())
       
-      if (hybridResponse?.success && hybridResponse.results) {
-        return Array.isArray(hybridResponse.results) ? hybridResponse.results : []
+      const enhancedResponse = await this.request<any>(`/enhanced-places/search?${params}`)
+      
+      if (enhancedResponse?.success && enhancedResponse.results) {
+        return Array.isArray(enhancedResponse.results) ? enhancedResponse.results : []
       }
       
-      // Final fallback to regular search
-      const fallbackResponse = await this.request<any>(`/search/places?${params}`)
-      
-      if (fallbackResponse?.success && fallbackResponse.data) {
-        return Array.isArray(fallbackResponse.data.places) ? fallbackResponse.data.places : []
-      }
-      
-      return Array.isArray(fallbackResponse) ? fallbackResponse : []
+      return []
     } catch (error) {
       console.error('Search places failed:', error)
       return []

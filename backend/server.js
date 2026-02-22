@@ -1027,6 +1027,15 @@ try {
   console.error('❌ Failed to load enhanced places routes:', error);
 }
 
+// Load NLP search routes (Natural Language Place Search)
+try {
+  const nlpSearchRouter = (await import('./routes/nlp-search.js')).default;
+  app.use('/api/nlp', nlpSearchRouter);
+  console.log('✅ NLP search routes loaded');
+} catch (error) {
+  console.error('❌ Failed to load NLP search routes:', error);
+}
+
 // Load AI trip generator routes (Google Places + AI Enhancement)
 try {
   const aiTripGeneratorRouter = (await import('./routes/ai-trip-generator.js')).default;
