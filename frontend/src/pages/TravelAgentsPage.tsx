@@ -128,9 +128,13 @@ export const TravelAgentsPage: React.FC = () => {
   const [selectedSpecializations, setSelectedSpecializations] = useState<string[]>([])
   const [minRating, setMinRating] = useState(0)
   const [selectedLanguages, setSelectedLanguages] = useState<string[]>([])
+  const [selectedExperience, setSelectedExperience] = useState('')
   const [selectedVerifications, setSelectedVerifications] = useState<string[]>([])
   const [verifiedOnly, setVerifiedOnly] = useState(false)
   const [viewMode, setViewMode] = useState<'grid' | 'list' | 'map'>('grid')
+  const [showFilters, setShowFilters] = useState(false)
+  const [selectedAgent, setSelectedAgent] = useState<TravelAgent | null>(null)
+  const [loading, setLoading] = useState(true)
 
   // Smart filter suggestions
   const smartFilters: Record<string, any> = {
