@@ -128,16 +128,45 @@ export const TravelAgentsPage: React.FC = () => {
   const [selectedSpecializations, setSelectedSpecializations] = useState<string[]>([])
   const [minRating, setMinRating] = useState(0)
   const [selectedLanguages, setSelectedLanguages] = useState<string[]>([])
-  const [selectedExperience, setSelectedExperience] = useState('')
   const [selectedVerifications, setSelectedVerifications] = useState<string[]>([])
   const [verifiedOnly, setVerifiedOnly] = useState(false)
   const [viewMode, setViewMode] = useState<'grid' | 'list' | 'map'>('grid')
-  const [showFilters, setShowFilters] = useState(false)
-  const [selectedAgent, setSelectedAgent] = useState<TravelAgent | null>(null)
-  const [loading, setLoading] = useState(true)
+
+  // Smart filter suggestions
+  const smartFilters: Record<string, any> = {
+    'honeymoon': { specializations: ['Honeymoon & Romance'], minRating: 4.5 },
+    'family': { specializations: ['Family Travel'], minRating: 4.5 },
+    'adventure': { specializations: ['Adventure & Hiking'], minRating: 4.5 },
+    'luxury': { specializations: ['Luxury & VIP'], minRating: 4.8 },
+    'budget': { specializations: ['Budget Backpacking'] },
+    'safari': { specializations: ['Wildlife & Safari'] },
+    'beach': { specializations: ['Beach & Coastal'] },
+  }
+
+  const applySmartFilter = (query: string) => {
+    const lower = query.toLowerCase()
+    Object.entries(smartFilters).forEach(([key, filters]) => {
+      if (lower.includes(key)) {
+        if (filters.specializations) setSelectedSpecializations(filters.specializations)
+        if (filters.minRating) setMinRating(filters.minRating)
+      }
+    })
+  }
+
+  const saveSearch = (query: string) => {
+    if (!query.trim()) return
+    const updated = [query, ...recentSearches.filter(s => s !== query)].slice(0, 5)
+    setRecentSearches(updated)
+    localStorage.setItem('travelbuddy_recent_searches', JSON.stringify(updated))
+  }
+  const [showAllSpecializations, setShowAllSpecializations] = useState(false)
+  const [recentSearches, setRecentSearches] = useState<string[]>([])
 
   useEffect(() => {
     configService.getConfig().then(config => setApiBaseUrl(config.apiBaseUrl))
+    // Load recent searches
+    const saved = localStorage.getItem('travelbuddy_recent_searches')
+    if (saved) setRecentSearches(JSON.parse(saved))
   }, [])
 
   useEffect(() => {
@@ -247,7 +276,13 @@ export const TravelAgentsPage: React.FC = () => {
                     type="text"
                     placeholder="Try 'Tokyo guide', 'Paris food tour', 'Dubai luxury', or agent names..."
                     value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
+                    onChange={(e) => {
+                    setSearchTerm(e.target.value)
+                    applySmartFilter(e.target.value)
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') saveSearch(searchTerm)
+                  }}
                     className="w-full pl-12 pr-4 py-4 bg-white/20 border border-white/30 rounded-xl text-white placeholder-white/70 focus:outline-none focus:ring-2 focus:ring-white/50 text-lg"
                   />
                   {/* Search Suggestions */}
@@ -273,15 +308,30 @@ export const TravelAgentsPage: React.FC = () => {
                 </Button>
               </div>
               
-              {/* Popular Searches */}
+              {/* Recent & Popular Searches */}
               <div className="mt-4 flex flex-wrap gap-2">
-                <span className="text-white/70 text-sm mr-2">🔥 Trending:</span>
-                {['Tokyo guides', 'Paris food tours', 'Dubai luxury', 'Bali adventures', 'Safari experts'].map(tag => (
-                  <button key={tag} onClick={() => setSearchTerm(tag)}
-                          className="px-3 py-1 bg-white/20 hover:bg-white/30 rounded-full text-sm text-white/90 transition-colors">
-                    {tag}
-                  </button>
-                ))}
+                {recentSearches.length > 0 && (
+                  <>
+                    <span className="text-white/70 text-sm mr-2">🕐 Recent:</span>
+                    {recentSearches.map(search => (
+                      <button key={search} onClick={() => setSearchTerm(search)}
+                              className="px-3 py-1 bg-white/20 hover:bg-white/30 rounded-full text-sm text-white/90 transition-colors">
+                        {search}
+                      </button>
+                    ))}
+                  </>
+                )}
+                {recentSearches.length === 0 && (
+                  <>
+                    <span className="text-white/70 text-sm mr-2">🔥 Trending:</span>
+                    {['Honeymoon planners', 'Family trips', 'Safari experts', 'Luxury travel', 'Budget backpacking'].map(tag => (
+                      <button key={tag} onClick={() => { setSearchTerm(tag); applySmartFilter(tag); }}
+                              className="px-3 py-1 bg-white/20 hover:bg-white/30 rounded-full text-sm text-white/90 transition-colors">
+                        {tag}
+                      </button>
+                    ))}
+                  </>
+                )}
               </div>
             </div>
           </div>
@@ -391,7 +441,7 @@ export const TravelAgentsPage: React.FC = () => {
               <div className="mt-6">
                 <label className="block text-sm font-medium text-gray-700 mb-3">Specializations</label>
                 <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-2">
-                  {specializations.map(spec => (
+                  {specializations.slice(0, showAllSpecializations ? specializations.length : 8).map(spec => (
                     <button
                       key={spec}
                       onClick={() => toggleSpecialization(spec)}
@@ -405,6 +455,14 @@ export const TravelAgentsPage: React.FC = () => {
                     </button>
                   ))}
                 </div>
+                {specializations.length > 8 && (
+                  <button
+                    onClick={() => setShowAllSpecializations(!showAllSpecializations)}
+                    className="mt-3 text-indigo-600 hover:text-indigo-700 text-sm font-medium"
+                  >
+                    {showAllSpecializations ? '↑ Show less' : `↓ Show all ${specializations.length} specializations`}
+                  </button>
+                )}
               </div>
 
               {/* Verification Types */}
@@ -506,23 +564,28 @@ export const TravelAgentsPage: React.FC = () => {
                       </div>
                       <p className="text-sm text-gray-600 mb-2">{agent.agency}</p>
                       
-                      <div className="grid grid-cols-2 gap-2 text-xs text-gray-500 mb-3">
-                        <div className="flex items-center">
+                      <div className="grid grid-cols-2 gap-2 text-xs mb-3">
+                        <div className="flex items-center text-gray-500">
                           <MapPin className="w-3 h-3 mr-1" />
                           {agent.location.split(',')[0]}
                         </div>
-                        <div className="flex items-center">
+                        <div className="flex items-center text-gray-500">
                           <Star className="w-3 h-3 mr-1 text-yellow-500 fill-current" />
                           {agent.rating} ({agent.reviewCount})
                         </div>
-                        <div className="flex items-center">
+                        <div className="flex items-center text-green-600">
                           <Clock className="w-3 h-3 mr-1" />
                           {agent.responseTime}
                         </div>
-                        <div className="flex items-center">
+                        <div className="flex items-center text-gray-500">
                           <Users className="w-3 h-3 mr-1" />
                           {agent.totalTrips}+ trips
                         </div>
+                      </div>
+                      
+                      {/* Micro Social Proof */}
+                      <div className="text-xs text-gray-600 bg-blue-50 rounded px-2 py-1 mb-2">
+                        👋 Just helped plan a {agent.specializations[0]} trip • 2 days ago
                       </div>
                     </div>
                   </div>
@@ -562,9 +625,8 @@ export const TravelAgentsPage: React.FC = () => {
                     <div className="flex space-x-1">
                       {(() => {
                         const currentUserId = localStorage.getItem('travelbuddy_userId')
-                        console.log('Agent userId:', agent.userId, 'Current userId:', currentUserId, 'Match:', agent.userId === currentUserId)
                         return agent.userId === currentUserId
-                      })() && (
+                      })() ? (
                         <>
                           <Button 
                             size="sm" 
@@ -596,6 +658,25 @@ export const TravelAgentsPage: React.FC = () => {
                             }}
                           >
                             Delete
+                          </Button>
+                        </>
+                      ) : (
+                        <>
+                          <Button 
+                            size="sm" 
+                            variant="outline"
+                            className="text-xs px-2 py-1"
+                            onClick={() => window.location.href = `mailto:${agent.email}?subject=Trip Planning Inquiry&body=Hi ${agent.name}, I found your profile on TravelBuddy and would like to discuss planning a trip.`}
+                          >
+                            📧 Email
+                          </Button>
+                          <Button 
+                            size="sm" 
+                            variant="outline"
+                            className="text-xs px-2 py-1"
+                            onClick={() => window.location.href = `tel:${agent.phone}`}
+                          >
+                            📞 Call
                           </Button>
                         </>
                       )}
@@ -787,17 +868,28 @@ export const TravelAgentsPage: React.FC = () => {
 
                     {/* Action Buttons */}
                     <div className="space-y-3">
-                      <Button className="w-full bg-teal-600 hover:bg-teal-700 text-white py-3 rounded-xl">
+                      <Button 
+                        onClick={() => window.location.href = `mailto:${selectedAgent.email}?subject=Trip Planning Inquiry&body=Hi ${selectedAgent.name}, I found your profile on TravelBuddy and would like to discuss planning a trip.`}
+                        className="w-full bg-teal-600 hover:bg-teal-700 text-white py-3 rounded-xl"
+                      >
                         <MessageCircle className="w-5 h-5 mr-2" />
-                        Send Message
+                        Send Email
                       </Button>
-                      <Button variant="outline" className="w-full py-3 rounded-xl">
+                      <Button 
+                        onClick={() => window.location.href = `tel:${selectedAgent.phone}`}
+                        variant="outline" 
+                        className="w-full py-3 rounded-xl"
+                      >
                         <Phone className="w-5 h-5 mr-2" />
                         Call Now
                       </Button>
-                      <Button variant="outline" className="w-full py-3 rounded-xl">
-                        <Calendar className="w-5 h-5 mr-2" />
-                        Book Consultation
+                      <Button 
+                        onClick={() => window.open(`https://wa.me/${selectedAgent.phone.replace(/[^0-9]/g, '')}?text=Hi ${selectedAgent.name}, I found your profile on TravelBuddy and would like to discuss planning a trip.`, '_blank')}
+                        variant="outline" 
+                        className="w-full py-3 rounded-xl"
+                      >
+                        <MessageCircle className="w-5 h-5 mr-2" />
+                        WhatsApp
                       </Button>
                       <Button variant="outline" className="w-full py-3 rounded-xl">
                         <Heart className="w-5 h-5 mr-2" />
