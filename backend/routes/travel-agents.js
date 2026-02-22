@@ -162,7 +162,9 @@ router.get('/', async (req, res) => {
     const agents = await TravelAgent.find({ 
       verificationStatus: 'approved', 
       isActive: true 
-    }).select('-adminNotes -documents');
+    })
+    .select('-adminNotes -documents')
+    .sort({ createdAt: -1 }); // Sort by newest first
 
     const formattedAgents = agents.map(agent => ({
       id: agent._id.toString(),
