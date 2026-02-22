@@ -108,6 +108,7 @@ const specializations = [
   'Historical Tours', 'Religious Tours', 'LGBTQ+ Friendly', 'Accessible Travel'
 ]
 const locations = ['Colombo', 'Kandy', 'Galle', 'Negombo', 'Ella', 'Sigiriya', 'Anuradhapura', 'Mirissa', 'Bentota', 'Nuwara Eliya']
+const countries = ['Sri Lanka', 'India', 'Thailand', 'Japan', 'UAE', 'Singapore', 'Malaysia', 'Indonesia', 'Vietnam', 'South Korea']
 const regions = ['Western Province', 'Central Province', 'Southern Province', 'Hill Country', 'Cultural Triangle']
 const languages = ['English', 'Sinhala', 'Tamil', 'Hindi', 'German', 'French', 'Japanese', 'Chinese']
 const experienceLevels = ['1-3 years', '3-7 years', '7-10 years', '10+ years']
@@ -124,6 +125,7 @@ export const TravelAgentsPage: React.FC = () => {
   const [filteredAgents, setFilteredAgents] = useState<TravelAgent[]>([])
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedLocation, setSelectedLocation] = useState('')
+  const [selectedCountry, setSelectedCountry] = useState('')
   const [selectedRegion, setSelectedRegion] = useState('')
   const [selectedSpecializations, setSelectedSpecializations] = useState<string[]>([])
   const [minRating, setMinRating] = useState(0)
@@ -179,7 +181,7 @@ export const TravelAgentsPage: React.FC = () => {
 
   useEffect(() => {
     filterAgents()
-  }, [agents, searchTerm, selectedLocation, selectedRegion, selectedSpecializations, minRating, selectedLanguages, selectedExperience, selectedVerifications, verifiedOnly])
+  }, [agents, searchTerm, selectedLocation, selectedCountry, selectedRegion, selectedSpecializations, minRating, selectedLanguages, selectedExperience, selectedVerifications, verifiedOnly])
 
   const fetchAgents = async () => {
     try {
@@ -189,11 +191,11 @@ export const TravelAgentsPage: React.FC = () => {
         const data = await response.json()
         setAgents(data)
       } else {
-        setAgents(mockAgents)
+        setAgents([])
       }
     } catch (error) {
       console.error('Failed to fetch agents:', error)
-      setAgents(mockAgents)
+      setAgents([])
     } finally {
       setLoading(false)
     }
@@ -207,6 +209,7 @@ export const TravelAgentsPage: React.FC = () => {
                            agent.location.toLowerCase().includes(searchTerm.toLowerCase()) ||
                            agent.specializations.some(s => s.toLowerCase().includes(searchTerm.toLowerCase()))
       const matchesLocation = !selectedLocation || agent.location.toLowerCase().includes(selectedLocation.toLowerCase())
+      const matchesCountry = !selectedCountry || agent.location.toLowerCase().includes(selectedCountry.toLowerCase())
       const matchesRegion = !selectedRegion || agent.location.toLowerCase().includes(selectedRegion.toLowerCase())
       const matchesSpecialization = selectedSpecializations.length === 0 ||
                                    selectedSpecializations.some(spec => agent.specializations.includes(spec))
@@ -215,7 +218,7 @@ export const TravelAgentsPage: React.FC = () => {
                              selectedLanguages.some(lang => agent.languages.includes(lang))
       const matchesVerified = !verifiedOnly || agent.verified
 
-      return matchesSearch && matchesLocation && matchesRegion && matchesSpecialization && 
+      return matchesSearch && matchesLocation && matchesCountry && matchesRegion && matchesSpecialization && 
              matchesRating && matchesLanguage && matchesVerified
     })
     setFilteredAgents(filtered)
@@ -352,6 +355,21 @@ export const TravelAgentsPage: React.FC = () => {
           <Card className="mb-8 border-0 shadow-lg">
             <CardContent className="p-6">
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+                {/* Country Filter */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Country</label>
+                  <select
+                    value={selectedCountry}
+                    onChange={(e) => setSelectedCountry(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                  >
+                    <option value="">All Countries</option>
+                    {countries.map(country => (
+                      <option key={country} value={country}>{country}</option>
+                    ))}
+                  </select>
+                </div>
+
                 {/* Location Filter */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">City</label>

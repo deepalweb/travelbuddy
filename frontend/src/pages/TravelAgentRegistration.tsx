@@ -277,6 +277,21 @@ export const TravelAgentRegistration: React.FC = () => {
               </div>
             </div>
 
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Country *</label>
+              <select
+                value={formData.country}
+                onChange={(e) => setFormData({ ...formData, country: e.target.value })}
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                required
+              >
+                <option value="">Select your country...</option>
+                {countries.map(country => (
+                  <option key={country} value={country}>{country}</option>
+                ))}
+              </select>
+            </div>
+
             {/* GPS Location */}
             <div className="bg-blue-50 p-4 rounded-lg mb-4">
               <h4 className="font-semibold text-gray-900 mb-1">📍 Your Business Location</h4>
