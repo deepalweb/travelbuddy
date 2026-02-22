@@ -25,6 +25,10 @@ interface FormData {
   instantBooking: boolean
   requestBooking: boolean
   availability247: boolean
+  basePrice: string
+  pricePerKm: string
+  pricePerHour: string
+  currency: string
   agreed: boolean
 }
 
@@ -52,6 +56,10 @@ export const TransportRegistration: React.FC = () => {
     instantBooking: false,
     requestBooking: true,
     availability247: false,
+    basePrice: '',
+    pricePerKm: '',
+    pricePerHour: '',
+    currency: 'USD',
     agreed: false
   })
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -63,7 +71,8 @@ export const TransportRegistration: React.FC = () => {
   }, [])
 
   const businessTypes = ['Individual Driver', 'Transport Company', 'Car Rental Agency', 'Shuttle/Bus Operator', 'Ferry/Boat Operator', 'Train Operator', 'Airline/Air Charter']
-  const countries = ['Sri Lanka', 'Thailand', 'India', 'Japan', 'USA', 'UK', 'France', 'Spain', 'Italy', 'Greece', 'UAE', 'Singapore', 'Malaysia']
+  const countries = ['Sri Lanka', 'Thailand', 'India', 'Japan', 'USA', 'UK', 'France', 'Spain', 'Italy', 'Greece', 'UAE', 'Singapore', 'Malaysia', 'Indonesia', 'Vietnam', 'Philippines', 'South Korea', 'China', 'Australia', 'New Zealand']
+  const currencies = ['USD', 'EUR', 'GBP', 'JPY', 'AUD', 'CAD', 'SGD', 'THB', 'INR', 'LKR', 'AED', 'MYR', 'PHP', 'KRW', 'CNY']
   const vehicleTypes = ['Car', 'Van', 'Minibus', 'Bus', 'SUV', 'Motorbike', 'Tuk-tuk', 'Rickshaw', 'Electric Vehicle', 'Ferry/Boat', 'Yacht', 'Train/Railcar', 'Helicopter', 'Small Aircraft']
   const fleetSizes = ['1 vehicle', '2-5 vehicles', '6-20 vehicles', '21-50 vehicles', '50+ vehicles']
 
@@ -507,6 +516,68 @@ export const TransportRegistration: React.FC = () => {
                   <p className="text-sm text-gray-600">Available for bookings anytime, day or night</p>
                 </div>
               </label>
+            </div>
+
+            <div className="bg-indigo-50 p-4 rounded-lg mb-6">
+              <h3 className="font-semibold text-gray-900 mb-1">💰 Section 7: Pricing</h3>
+              <p className="text-sm text-gray-600">Set your service rates</p>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Currency *</label>
+              <select
+                value={formData.currency}
+                onChange={(e) => setFormData({ ...formData, currency: e.target.value })}
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                required
+              >
+                {currencies.map(curr => (
+                  <option key={curr} value={curr}>{curr}</option>
+                ))}
+              </select>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Base Price *</label>
+                <input
+                  type="number"
+                  value={formData.basePrice}
+                  onChange={(e) => setFormData({ ...formData, basePrice: e.target.value })}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  placeholder="Starting fare"
+                  min="0"
+                  step="0.01"
+                  required
+                />
+                <p className="text-xs text-gray-500 mt-1">Minimum charge</p>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Price per KM</label>
+                <input
+                  type="number"
+                  value={formData.pricePerKm}
+                  onChange={(e) => setFormData({ ...formData, pricePerKm: e.target.value })}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  placeholder="Per kilometer"
+                  min="0"
+                  step="0.01"
+                />
+                <p className="text-xs text-gray-500 mt-1">Distance-based</p>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Price per Hour</label>
+                <input
+                  type="number"
+                  value={formData.pricePerHour}
+                  onChange={(e) => setFormData({ ...formData, pricePerHour: e.target.value })}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  placeholder="Hourly rate"
+                  min="0"
+                  step="0.01"
+                />
+                <p className="text-xs text-gray-500 mt-1">Time-based</p>
+              </div>
             </div>
 
             <div className="bg-gray-50 p-4 rounded-lg">

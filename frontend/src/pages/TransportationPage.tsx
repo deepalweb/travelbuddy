@@ -193,18 +193,13 @@ export const TransportationPage: React.FC = () => {
       if (response.ok) {
         const data = await response.json()
         console.log('API Response:', data)
-        console.log('First service:', data[0])
-        console.log('First service keys:', Object.keys(data[0] || {}))
-        console.log('First service image:', data[0]?.image)
         setServices(data)
       } else {
-        console.log('API failed, using mock data')
-        setServices(mockServices)
+        setServices([])
       }
     } catch (error) {
       console.error('Failed to fetch services:', error)
-      console.log('Using mock data due to error')
-      setServices(mockServices)
+      setServices([])
     } finally {
       setLoading(false)
     }
