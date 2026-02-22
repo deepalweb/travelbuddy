@@ -44,8 +44,18 @@ router.post('/profile-picture', requireAuth, upload.single('profilePicture'), as
       return res.status(500).json({ error: 'User model not available' });
     }
 
-    // Upload to Azure Blob Storage
-    const profilePictureUrl = await uploadToAzure(req.file.buffer, req.file.originalname, 'profiles');
+    let profilePictureUrl;
+    
+    // Try Azure upload first, fallback to base64
+    try {
+      profilePictureUrl = await uploadToAzure(req.file.buffer, req.file.originalname, 'profiles');
+      console.log('✅ Uploaded to Azure:', profilePictureUrl);
+    } catch (azureError) {
+      console.log('⚠️ Azure not available, using base64 fallback');
+      // Fallback: Store as base64 data URL
+      const base64 = req.file.buffer.toString('base64');
+      profilePictureUrl = `data:${req.file.mimetype};base64,${base64}`;
+    }
     
     // Use authenticated user's Firebase UID
     const searchCriteria = { firebaseUid: req.user.uid };
@@ -78,7 +88,7 @@ router.post('/profile-picture', requireAuth, upload.single('profilePicture'), as
       }
     }
 
-    console.log('✅ Profile picture updated successfully:', profilePictureUrl);
+    console.log('✅ Profile picture updated successfully');
 
     res.json({
       success: true,
