@@ -92,35 +92,28 @@ export const StoryCard: React.FC<StoryCardProps> = ({ story, onLike, onDelete, o
           
           {showMenu && (
             <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-10">
-              {currentUserId && (story.author._id === currentUserId || story.author.username === 'You') && (
-                <>
-                  <button
-                    onClick={() => {
-                      onEdit?.(story._id)
-                      setShowMenu(false)
-                    }}
-                    className="w-full px-4 py-2 text-left text-blue-600 hover:bg-blue-50 flex items-center space-x-2"
-                  >
-                    <Edit className="w-4 h-4" />
-                    <span>Edit Post</span>
-                  </button>
-                  <button
-                    onClick={() => {
-                      if (confirm('Delete this post?')) {
-                        onDelete?.(story._id)
-                      }
-                      setShowMenu(false)
-                    }}
-                    className="w-full px-4 py-2 text-left text-red-600 hover:bg-red-50 flex items-center space-x-2"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                    <span>Delete Post</span>
-                  </button>
-                </>
-              )}
-              {(!currentUserId || (story.author._id !== currentUserId && story.author.username !== 'You')) && (
-                <div className="px-4 py-2 text-gray-400 text-sm">No actions available</div>
-              )}
+              <button
+                onClick={() => {
+                  onEdit?.(story._id)
+                  setShowMenu(false)
+                }}
+                className="w-full px-4 py-2 text-left text-blue-600 hover:bg-blue-50 flex items-center space-x-2"
+              >
+                <Edit className="w-4 h-4" />
+                <span>Edit Post</span>
+              </button>
+              <button
+                onClick={() => {
+                  if (confirm('Delete this post?')) {
+                    onDelete?.(story._id)
+                  }
+                  setShowMenu(false)
+                }}
+                className="w-full px-4 py-2 text-left text-red-600 hover:bg-red-50 flex items-center space-x-2"
+              >
+                <Trash2 className="w-4 h-4" />
+                <span>Delete Post</span>
+              </button>
             </div>
           )}
         </div>

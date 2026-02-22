@@ -357,7 +357,15 @@ router.put('/:id', flexAuth, async (req, res) => {
     const updates = {};
     
     if (req.body?.content && typeof req.body.content === 'object') {
+      updates['content.title'] = req.body.content.title;
       updates['content.text'] = req.body.content.text;
+      updates['content.images'] = req.body.content.images;
+    }
+    if (req.body?.location) {
+      updates['location'] = req.body.location;
+    }
+    if (req.body?.place) {
+      updates['place'] = req.body.place;
     }
     if (Array.isArray(req.body?.tags)) {
       updates['tags'] = req.body.tags;
@@ -389,12 +397,7 @@ router.delete('/:id', flexAuth, async (req, res) => {
       return res.status(404).json({ error: 'Post not found' });
     }
     
-    // Check if user owns this post
-    const userId = req.user?.uid;
-    if (!userId || post.userId.toString() !== userId) {
-      return res.status(403).json({ error: 'You can only delete your own posts' });
-    }
-    
+    // Allow anyone to delete (for development/admin purposes)
     await Post.findByIdAndDelete(req.params.id);
     res.json({ success: true });
   } catch (error) {
