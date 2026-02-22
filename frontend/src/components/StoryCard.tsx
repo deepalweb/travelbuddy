@@ -56,13 +56,19 @@ export const StoryCard: React.FC<StoryCardProps> = ({ story, onLike, onDelete, o
       <div className="p-4 flex items-center justify-between">
         <div className="flex items-center space-x-4">
           <div className="relative">
-            <div className="w-12 h-12 bg-gradient-to-br from-purple-500 to-pink-500 rounded-full flex items-center justify-center ring-2 ring-purple-100 hover:ring-purple-200 transition-all duration-200">
-              {story.author.profilePicture ? (
-                <img src={story.author.profilePicture} alt={story.author.username} className="w-full h-full rounded-full object-cover" />
-              ) : (
-                <span className="text-white font-medium text-sm">{story.author.username[0]}</span>
-              )}
-            </div>
+            {story.author.profilePicture ? (
+              <img 
+                src={story.author.profilePicture} 
+                alt={story.author.username} 
+                className="w-12 h-12 rounded-full object-cover ring-2 ring-blue-100 hover:ring-blue-200 transition-all duration-200" 
+              />
+            ) : (
+              <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-500 rounded-full flex items-center justify-center ring-2 ring-blue-100 hover:ring-blue-200 transition-all duration-200">
+                <span className="text-white font-semibold text-lg">
+                  {story.author.username && story.author.username !== 'Anonymous' ? story.author.username[0].toUpperCase() : '?'}
+                </span>
+              </div>
+            )}
             <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-green-400 border-2 border-white rounded-full"></div>
           </div>
           <div>

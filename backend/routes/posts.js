@@ -84,21 +84,25 @@ router.get('/community', async (req, res) => {
     const postsWithUsernames = await Promise.all(posts.map(async (post) => {
       if (post.userId) {
         try {
-          const user = await User.findById(post.userId).select('username fullName email').lean();
+          const user = await User.findById(post.userId).select('username fullName email profilePicture').lean();
           
           if (user) {
             post.username = user.username || user.fullName || user.email?.split('@')[0] || 'User';
+            post.profilePicture = user.profilePicture || null;
             console.log(`✅ Found user for post ${post._id}: ${post.username}`);
           } else {
             console.log(`❌ No user found for userId: ${post.userId}`);
             post.username = 'User';
+            post.profilePicture = null;
           }
         } catch (err) {
           console.error(`❌ Error looking up user ${post.userId}:`, err.message);
           post.username = 'User';
+          post.profilePicture = null;
         }
       } else {
         post.username = 'Anonymous';
+        post.profilePicture = null;
       }
       return post;
     }));
