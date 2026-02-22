@@ -143,7 +143,7 @@ export const LocationPicker: React.FC<LocationPickerProps> = ({ value, onChange,
 
         {/* Suggestions Dropdown */}
         {suggestions.length > 0 && (
-          <div className="mt-2 bg-white border border-gray-200 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+          <div className="mt-2 bg-white border border-gray-200 rounded-lg shadow-lg max-h-60 overflow-y-auto z-10 absolute w-full">
             {suggestions.map((suggestion, index) => (
               <button
                 key={index}
@@ -181,63 +181,10 @@ export const LocationPicker: React.FC<LocationPickerProps> = ({ value, onChange,
         )}
       </button>
 
-      {/* Manual Coordinates Input */}
-      <div className="grid grid-cols-2 gap-4">
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Latitude {required && <span className="text-red-500">*</span>}
-          </label>
-          <input
-            type="number"
-            step="any"
-            value={value.coordinates.lat || ''}
-            onChange={(e) => onChange({
-              ...value,
-              coordinates: { ...value.coordinates, lat: parseFloat(e.target.value) || 0 }
-            })}
-            placeholder="e.g., 6.9271"
-            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            required={required}
-          />
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Longitude {required && <span className="text-red-500">*</span>}
-          </label>
-          <input
-            type="number"
-            step="any"
-            value={value.coordinates.lng || ''}
-            onChange={(e) => onChange({
-              ...value,
-              coordinates: { ...value.coordinates, lng: parseFloat(e.target.value) || 0 }
-            })}
-            placeholder="e.g., 79.8612"
-            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            required={required}
-          />
-        </div>
-      </div>
-
-      {/* Address Display */}
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">
-          Full Address {required && <span className="text-red-500">*</span>}
-        </label>
-        <textarea
-          value={value.address}
-          onChange={(e) => onChange({ ...value, address: e.target.value })}
-          rows={2}
-          placeholder="Enter or edit the full address"
-          className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-          required={required}
-        />
-      </div>
-
       {/* Interactive Map */}
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-2">
-          Click or Drag Marker on Map to Select Location
+          Click or Drag Marker on Map
         </label>
         <div className="relative w-full h-96 bg-gray-100 rounded-lg overflow-hidden border border-gray-300">
           {typeof window !== 'undefined' && window.google ? (
@@ -262,45 +209,12 @@ export const LocationPicker: React.FC<LocationPickerProps> = ({ value, onChange,
               </div>
             </div>
           )}
-          <div className="absolute bottom-4 left-4 right-4 bg-white/95 backdrop-blur-sm rounded-lg p-3 shadow-lg">
-            <p className="text-xs text-gray-600">
-              📍 Current: {value.coordinates.lat.toFixed(6)}, {value.coordinates.lng.toFixed(6)}
-            </p>
-            <p className="text-xs text-blue-600 mt-1">
-              👆 Click map or drag marker to change location
-            </p>
-          </div>
-        </div>
-      </div>
-
-      {/* Map Preview Link */}
-      {value.coordinates.lat !== 0 && value.coordinates.lng !== 0 && (
-        <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-          <div className="flex items-start space-x-3">
-            <MapPin className="h-5 w-5 text-green-600 mt-0.5" />
-            <div className="flex-1">
-              <p className="text-sm font-medium text-green-900">Location Set Successfully</p>
-              <p className="text-xs text-green-700 mt-1">
-                Coordinates: {value.coordinates.lat.toFixed(6)}, {value.coordinates.lng.toFixed(6)}
-              </p>
-              <a
-                href={`https://www.google.com/maps/search/?api=1&query=${value.coordinates.lat},${value.coordinates.lng}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-xs text-blue-600 hover:text-blue-800 underline mt-2 inline-block"
-              >
-                Open in Google Maps →
-              </a>
+          {value.address && (
+            <div className="absolute bottom-4 left-4 right-4 bg-white/95 backdrop-blur-sm rounded-lg p-3 shadow-lg">
+              <p className="text-xs text-gray-700 font-medium">{value.address}</p>
             </div>
-          </div>
+          )}
         </div>
-      )}
-
-      {/* Help Text */}
-      <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-        <p className="text-xs text-blue-800">
-          💡 <strong>Tip:</strong> Accurate GPS coordinates help travelers find you on the mobile app's "Near Me" feature.
-        </p>
       </div>
     </div>
   )
