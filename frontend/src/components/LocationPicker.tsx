@@ -73,7 +73,7 @@ export const LocationPicker: React.FC<LocationPickerProps> = ({ value, onChange,
 
   // Search location using Nominatim
   const searchLocation = async (query: string) => {
-    if (query.length < 3) {
+    if (query.length < 2) {
       setSuggestions([])
       return
     }
@@ -95,7 +95,7 @@ export const LocationPicker: React.FC<LocationPickerProps> = ({ value, onChange,
       if (searchQuery) {
         searchLocation(searchQuery)
       }
-    }, 500)
+    }, 300)
     return () => clearTimeout(timer)
   }, [searchQuery])
 
