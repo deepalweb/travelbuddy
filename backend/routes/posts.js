@@ -79,30 +79,34 @@ router.get('/community', async (req, res) => {
     
     console.log(`✅ Found ${posts.length} posts matching query`);
     
-    // Populate username from User collection
+    // Populate username and profilePicture from User collection
     const User = mongoose.model('User');
     const postsWithUsernames = await Promise.all(posts.map(async (post) => {
+      // If post already has username, keep it as fallback
+      const existingUsername = post.username;
+      const existingProfilePicture = post.profilePicture;
+      
       if (post.userId) {
         try {
           const user = await User.findById(post.userId).select('username fullName email profilePicture').lean();
           
           if (user) {
-            post.username = user.username || user.fullName || user.email?.split('@')[0] || 'User';
-            post.profilePicture = user.profilePicture || null;
+            post.username = user.username || user.fullName || user.email?.split('@')[0] || existingUsername || 'User';
+            post.profilePicture = user.profilePicture || existingProfilePicture || null;
             console.log(`✅ Found user for post ${post._id}: ${post.username}`);
           } else {
-            console.log(`❌ No user found for userId: ${post.userId}`);
-            post.username = 'User';
-            post.profilePicture = null;
+            console.log(`⚠️ No user found for userId: ${post.userId}, using fallback`);
+            post.username = existingUsername || 'Traveler';
+            post.profilePicture = existingProfilePicture || null;
           }
         } catch (err) {
           console.error(`❌ Error looking up user ${post.userId}:`, err.message);
-          post.username = 'User';
-          post.profilePicture = null;
+          post.username = existingUsername || 'Traveler';
+          post.profilePicture = existingProfilePicture || null;
         }
       } else {
-        post.username = 'Anonymous';
-        post.profilePicture = null;
+        post.username = existingUsername || 'Anonymous';
+        post.profilePicture = existingProfilePicture || null;
       }
       return post;
     }));
@@ -131,6 +135,11 @@ router.post('/community', flexAuth, async (req, res) => {
     
     if (!body.userId && req.user?.uid) {
       body.userId = req.user.uid;
+    }
+    
+    // Set default username if not provided
+    if (!body.username) {
+      body.username = 'Traveler';
     }
     
     // Ensure moderationStatus is approved by default
