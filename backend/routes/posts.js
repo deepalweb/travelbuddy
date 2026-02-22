@@ -83,13 +83,22 @@ router.get('/community', async (req, res) => {
     const User = mongoose.model('User');
     const postsWithUsernames = await Promise.all(posts.map(async (post) => {
       if (post.userId) {
-        const user = await User.findOne({ 
-          $or: [{ firebaseUid: post.userId }, { _id: post.userId }] 
-        }).select('username fullName email').lean();
-        
-        if (user) {
-          post.username = user.username || user.fullName || user.email?.split('@')[0] || 'User';
+        try {
+          const user = await User.findById(post.userId).select('username fullName email').lean();
+          
+          if (user) {
+            post.username = user.username || user.fullName || user.email?.split('@')[0] || 'User';
+            console.log(`✅ Found user for post ${post._id}: ${post.username}`);
+          } else {
+            console.log(`❌ No user found for userId: ${post.userId}`);
+            post.username = 'User';
+          }
+        } catch (err) {
+          console.error(`❌ Error looking up user ${post.userId}:`, err.message);
+          post.username = 'User';
         }
+      } else {
+        post.username = 'Anonymous';
       }
       return post;
     }));
