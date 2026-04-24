@@ -179,13 +179,13 @@ export const OptimizedHomePage: React.FC = () => {
         <div className="mx-auto max-w-7xl px-4">
           <div className="mb-8 max-w-3xl sm:mb-10 lg:mb-12">
             <span className="inline-flex items-center rounded-full border border-sky-200 bg-sky-50 px-3.5 py-2 text-xs font-semibold text-sky-700 sm:px-4 sm:text-sm">
-              A clearer planning flow
+              Plan your trip with clarity
             </span>
             <h2 className="mt-4 text-3xl font-bold tracking-tight text-gray-900 sm:text-4xl md:text-5xl">
               Travel planning should feel directional, not chaotic.
             </h2>
             <p className="mt-3 text-base leading-7 text-gray-600 sm:mt-4 sm:text-lg sm:leading-8">
-              The homepage now focuses on the moments where travelers usually get stuck: deciding where
+              We focuses on the moments where travelers usually get stuck: deciding where
               to go, narrowing options, and turning inspiration into a plan you can actually use.
             </p>
           </div>
@@ -225,10 +225,10 @@ export const OptimizedHomePage: React.FC = () => {
               Built for real travel decisions
             </span>
             <h2 className="mt-4 text-3xl font-bold tracking-tight text-gray-900 sm:text-4xl md:text-5xl">
-              Better UX is not just visual polish.
+              This isn’t just about browsing—it’s about moving forward.
             </h2>
             <p className="mt-3 max-w-2xl text-base leading-7 text-gray-600 sm:mt-4 sm:text-lg sm:leading-8">
-              A useful home page should explain the product quickly, reduce decision fatigue, and guide
+              We explain the product quickly, reduce decision fatigue, and guide
               people toward the next meaningful action. This version does that with clearer sections,
               tighter copy, and stronger calls to action.
             </p>
@@ -258,21 +258,26 @@ export const OptimizedHomePage: React.FC = () => {
               <div className="border-b border-white/10 px-5 py-5 sm:px-6 lg:px-8 lg:py-6">
                 <span className="inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-sky-100">
                   <Sparkles className="h-3.5 w-3.5" aria-hidden="true" />
-                  Why this version works better
+                  Why This Works
                 </span>
               </div>
               <div className="space-y-5 px-5 py-6 sm:px-6 sm:py-7 lg:space-y-6 lg:px-8 lg:py-8">
                 <div>
-                  <p className="text-sm uppercase tracking-[0.24em] text-sky-200">Before</p>
+                  <p className="text-sm uppercase tracking-[0.24em] text-sky-200">travel sites</p>
                   <p className="mt-2 text-sm leading-7 text-slate-300">
-                    Too many competing sections, repeated claims, and CTAs that made the page feel crowded.
+                    Endless lists of destinations with no clear direction
+                    Inspiration that doesn’t turn into a real plan
+                    Multiple tabs, tools, and apps to organize one trip
+                    Generic recommendations that don’t adapt to you
                   </p>
                 </div>
                 <div>
-                  <p className="text-sm uppercase tracking-[0.24em] text-emerald-200">Now</p>
+                  <p className="text-sm uppercase tracking-[0.24em] text-emerald-200">DealFinder (TravelBuddy)</p>
                   <p className="mt-2 text-sm leading-7 text-slate-200">
-                    One clearer story: understand the product, explore destinations, see how it helps on
-                    mobile, compare plans, and move into the app with confidence.
+                    Clear flow: discover → refine → plan → act
+                    AI turns ideas into structured itineraries
+                    Everything in one place
+                    Plans that adapt to your pace and style
                   </p>
                 </div>
                 <div className="rounded-3xl border border-white/10 bg-white/5 p-4 sm:p-5">
