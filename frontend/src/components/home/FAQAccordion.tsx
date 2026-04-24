@@ -14,32 +14,32 @@ export const FAQAccordion: React.FC = () => {
     {
       icon: "🤖",
       question: "How does TravelBuddy create my itinerary?",
-      answer: "Our AI analyzes your preferences, budget, travel dates, and interests to create personalized itineraries in under 2 minutes. We consider factors like weather, local events, opening hours, and travel distances to optimize your trip."
+      answer: "TravelBuddy uses the details you provide, such as destination, trip length, interests, and planning preferences, to help structure an itinerary. You can then refine the result by saving places, adjusting pace, and exploring alternatives."
     },
     {
       icon: "💰",
       question: "Is the AI trip planner free?",
-      answer: "Yes! Our basic AI trip planner is completely free forever. You can create unlimited itineraries, discover places, and plan trips without any cost. Premium features like offline access and advanced weather AI are available for $9.99/month."
+      answer: "There is a free traveler tier for getting started, and paid plans unlock additional planning features. The subscription page is the best place to compare what each tier currently includes."
     },
     {
       icon: "📱",
       question: "Can I use the app offline?",
-      answer: "Premium users can download their complete itineraries, maps, and place details for offline access. This includes photos, descriptions, contact information, and navigation - perfect for international travel without roaming charges."
+      answer: "Offline capabilities depend on your plan. If offline access matters for your trips, check the current subscription features before you rely on it for navigation or saved itinerary details."
     },
     {
       icon: "✅",
-      question: "Are deals verified?",
-      answer: "All deals are verified in real-time through our partner network. We work directly with hotels, airlines, and activity providers to ensure accurate pricing and availability. Deals are updated every 15 minutes."
+      question: "What can I do on the home page?",
+      answer: "The home page is designed to help you quickly understand the product, start a trip plan, browse destination inspiration, and jump into discovery, community, or subscriptions without hunting through the app."
     },
     {
       icon: "🎯",
-      question: "How accurate are the AI recommendations?",
-      answer: "Our AI has a 94% satisfaction rate based on user feedback. It learns from 125,000+ successful trips and considers 200+ factors including weather, crowds, local events, and personal preferences to make recommendations."
+      question: "Do I need to know my exact destination first?",
+      answer: "No. You can start with a rough idea, a travel vibe, or just a shortlist of destinations. TravelBuddy is more useful when it helps you narrow options, not only after every decision is already made."
     },
     {
       icon: "👥",
-      question: "Can I share my itinerary with friends?",
-      answer: "Yes! You can share itineraries via link, export to PDF, or collaborate in real-time. Friends can add suggestions, vote on activities, and make changes together - perfect for group travel planning."
+      question: "Where should I go if I want deeper planning features?",
+      answer: "If you are ready to build a trip, go to Trips. If you still want ideas, use Discovery first. If you want to compare tiers like AI trip limits or offline tools, head to Subscription."
     }
   ]
 

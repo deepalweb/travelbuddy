@@ -820,9 +820,9 @@ app.options('/api/posts/community', (req, res) => {
 // Firebase user sync endpoint is now handled by routes/users.js
 // Serve static files from public directory (Azure deployment)
 const staticPaths = [
-  path.join(__dirname, 'public'),
-  path.join(__dirname, '../dist'),
   path.join(__dirname, '../frontend/dist'),
+  path.join(__dirname, '../dist'),
+  path.join(__dirname, 'public'),
   path.join('/home/site/wwwroot/public'),
   path.join(process.cwd(), 'public')
 ];
@@ -850,6 +850,9 @@ if (staticPath) {
         res.setHeader('Content-Type', 'application/json; charset=utf-8');
       } else if (filePath.endsWith('.html')) {
         res.setHeader('Content-Type', 'text/html; charset=utf-8');
+        res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+        res.setHeader('Pragma', 'no-cache');
+        res.setHeader('Expires', '0');
       }
     }
   }));
@@ -960,6 +963,15 @@ try {
   console.log('✅ AI Nearby routes loaded');
 } catch (error) {
   console.error('❌ Failed to load AI nearby routes:', error);
+}
+
+// Load AI place content routes
+try {
+  const placeContentRouter = (await import('./routes/place-content.js')).default;
+  app.use('/api/ai', placeContentRouter);
+  console.log('✅ AI Place content routes loaded');
+} catch (error) {
+  console.error('❌ Failed to load AI place content routes:', error);
 }
 
 // Load AI places routes
@@ -1844,6 +1856,7 @@ const tripPlanSchema = new mongoose.Schema({
       imageUrl: String,
       googleMapsUrl: String,
       isVisited: { type: Boolean, default: false },
+      visitedDate: Date,
       rating: Number,
       coordinates: {
         lat: Number,
@@ -1902,6 +1915,20 @@ const tripPlanSchema = new mongoose.Schema({
     weather: String,
     notes: [String]
   },
+  startDate: Date,
+  endDate: Date,
+  travelers: String,
+  budgetRange: String,
+  travelStyle: String,
+  notes: String,
+  mustSee: [String],
+  avoid: [String],
+  planningStatus: {
+    type: String,
+    enum: ['draft', 'ready', 'booked', 'in_progress', 'completed'],
+    default: 'draft'
+  },
+  coverImageUrl: String,
   shareId: String,
   localId: String,
   createdAt: { type: Date, default: Date.now }
@@ -4050,7 +4077,11 @@ app.patch('/api/users/trip-plans/:id/activities', async (req, res) => {
     const trip = await TripPlan.findById(req.params.id);
     if (!trip) return res.status(404).json({ error: 'Trip not found' });
 
-    if (trip.dailyPlans[dayIndex]?.activities[activityIndex]) {
+    if (trip.dailyItinerary?.[dayIndex]?.activities?.[activityIndex]) {
+      trip.dailyItinerary[dayIndex].activities[activityIndex].isVisited = isVisited;
+      trip.dailyItinerary[dayIndex].activities[activityIndex].visitedDate = visitedDate;
+      await trip.save();
+    } else if (trip.dailyPlans?.[dayIndex]?.activities?.[activityIndex]) {
       trip.dailyPlans[dayIndex].activities[activityIndex].isVisited = isVisited;
       trip.dailyPlans[dayIndex].activities[activityIndex].visitedDate = visitedDate;
       await trip.save();

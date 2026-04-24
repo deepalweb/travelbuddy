@@ -28,6 +28,17 @@
   }
 }
 
+@keyframes slide-up {
+  from {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 .animate-fade-in-up {
   animation: fade-in-up 0.6s ease-out forwards;
 }
@@ -38,6 +49,10 @@
 
 .animate-float {
   animation: float 3s ease-in-out infinite;
+}
+
+.animate-slide-up {
+  animation: slide-up 0.35s ease-out forwards;
 }
 
 /* Hover effects */
@@ -64,4 +79,27 @@
   background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
   background-size: 200px 100%;
   animation: shimmer 1.5s infinite;
+}
+
+.community-orb {
+  position: absolute;
+  border-radius: 9999px;
+  filter: blur(40px);
+  opacity: 0.9;
+}
+
+.community-orb-one {
+  top: 12%;
+  left: 8%;
+  width: 180px;
+  height: 180px;
+  background: rgba(14, 165, 233, 0.22);
+}
+
+.community-orb-two {
+  right: 10%;
+  bottom: 6%;
+  width: 220px;
+  height: 220px;
+  background: rgba(249, 115, 22, 0.18);
 }

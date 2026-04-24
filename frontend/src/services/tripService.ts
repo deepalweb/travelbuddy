@@ -11,6 +11,7 @@ export interface Activity {
   imageUrl?: string
   googleMapsUrl?: string
   isVisited?: boolean
+  visitedDate?: string
   rating?: number
 }
 
@@ -67,6 +68,16 @@ export interface TripPlan {
   tripTitle: string
   destination: string
   duration: string
+  startDate?: string
+  endDate?: string
+  travelers?: string
+  budgetRange?: string
+  travelStyle?: string
+  notes?: string
+  mustSee?: string[]
+  avoid?: string[]
+  planningStatus?: 'draft' | 'ready' | 'booked' | 'in_progress' | 'completed'
+  coverImageUrl?: string
   introduction: string
   tripOverview: TripOverview
   dailyItinerary: DailyPlan[]

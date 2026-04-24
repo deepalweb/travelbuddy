@@ -7,6 +7,62 @@ const router = express.Router();
 const getUser = () => mongoose.model('User');
 const getTripPlan = () => mongoose.model('TripPlan');
 
+function sanitizeTripPlanForSchema(tripPlan) {
+  if (!tripPlan || typeof tripPlan !== 'object') {
+    return tripPlan;
+  }
+
+  const sanitized = { ...tripPlan };
+
+  if (sanitized.tripOverview && typeof sanitized.tripOverview === 'object') {
+    sanitized.tripOverview = { ...sanitized.tripOverview };
+
+    if (sanitized.tripOverview.transportSummary && typeof sanitized.tripOverview.transportSummary !== 'string') {
+      const value = sanitized.tripOverview.transportSummary;
+      const route = Array.isArray(value?.route) ? `Route: ${value.route.join(' -> ')}` : '';
+      const recommendation = typeof value?.recommendedTransport === 'string' ? value.recommendedTransport : '';
+      const transportCost =
+        typeof value?.estimatedIntercityTransportUSD === 'number'
+          ? `Estimated intercity transport: USD ${Math.round(value.estimatedIntercityTransportUSD)}`
+          : '';
+
+      sanitized.tripOverview.transportSummary = [route, recommendation, transportCost].filter(Boolean).join(' | ') || String(value);
+    }
+
+    if (sanitized.tripOverview.estimatedTotalBudget && typeof sanitized.tripOverview.estimatedTotalBudget !== 'string') {
+      const value = sanitized.tripOverview.estimatedTotalBudget;
+
+      if (typeof value?.amount === 'number') {
+        const currency = typeof value.currency === 'string' ? value.currency : 'USD';
+        const travelerSuffix =
+          value.forTravelers !== undefined && value.forTravelers !== null
+            ? ` for ${value.forTravelers} traveler${String(value.forTravelers) === '1' ? '' : 's'}`
+            : '';
+
+        sanitized.tripOverview.estimatedTotalBudget = `${currency} ${Math.round(value.amount)}${travelerSuffix}`;
+      } else {
+        sanitized.tripOverview.estimatedTotalBudget = JSON.stringify(value);
+      }
+    }
+
+    if (Array.isArray(sanitized.tripOverview.hotels)) {
+      sanitized.tripOverview.hotels = sanitized.tripOverview.hotels.map((hotel) => {
+        if (typeof hotel === 'string') {
+          return hotel;
+        }
+
+        if (hotel && typeof hotel === 'object') {
+          return hotel.name || hotel.title || hotel.city || hotel.location || JSON.stringify(hotel);
+        }
+
+        return String(hotel);
+      });
+    }
+  }
+
+  return sanitized;
+}
+
 // Helper to extract uid from token
 async function extractUid(token) {
   // Handle demo tokens
@@ -320,7 +376,7 @@ router.post('/trip-plans', async (req, res) => {
     console.log('💾 Saving trip plan for user._id:', user._id);
     console.log('📝 Trip plan data:', JSON.stringify(req.body).substring(0, 200));
     
-    const trip = new TripPlan({ ...req.body, userId: user._id });
+    const trip = new TripPlan({ ...sanitizeTripPlanForSchema(req.body), userId: user._id });
     await trip.save();
     
     console.log('✅ Trip plan saved:');

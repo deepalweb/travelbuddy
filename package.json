@@ -6,7 +6,7 @@
   "scripts": {
     "start": "node start-server.js",
     "dev": "cd backend && nodemon server.js",
-    "build": "echo 'Build completed'",
+    "build": "cd frontend && npm run build",
     "test": "echo 'No tests specified'",
     "seed-deals": "cd backend && node scripts/seed-deals.js"
   },

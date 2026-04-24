@@ -1,6 +1,16 @@
 import React, { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Heart, MessageCircle, MapPin, Calendar, MoreHorizontal, ExternalLink, Trash2, Edit } from 'lucide-react'
+import {
+  Calendar,
+  ExternalLink,
+  Heart,
+  MapPin,
+  MessageCircle,
+  MoreHorizontal,
+  Share2,
+  Trash2,
+  Edit
+} from 'lucide-react'
 
 interface Story {
   _id: string;
@@ -32,9 +42,17 @@ interface StoryCardProps {
   onDelete?: (storyId: string) => void;
   onEdit?: (storyId: string) => void;
   currentUserId?: string;
+  highlighted?: boolean;
 }
 
-export const StoryCard: React.FC<StoryCardProps> = ({ story, onLike, onDelete, onEdit, currentUserId }) => {
+export const StoryCard: React.FC<StoryCardProps> = ({
+  story,
+  onLike,
+  onDelete,
+  onEdit,
+  currentUserId,
+  highlighted = false
+}) => {
   const [showComments, setShowComments] = useState(false)
   const [showMenu, setShowMenu] = useState(false)
   const navigate = useNavigate()
@@ -44,164 +62,220 @@ export const StoryCard: React.FC<StoryCardProps> = ({ story, onLike, onDelete, o
     const now = new Date()
     const diffTime = Math.abs(now.getTime() - date.getTime())
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
-    
+
     if (diffDays === 1) return 'Yesterday'
     if (diffDays < 7) return `${diffDays} days ago`
     return date.toLocaleDateString()
   }
 
+  const canManageStory = Boolean(currentUserId) && (
+    story.author._id === currentUserId ||
+    story.author.username === 'You'
+  )
+
+  const validImages = story.images.filter((image) => image && image.trim())
+
+  const handleShare = async () => {
+    const storyUrl = `${window.location.origin}/community/story/${story._id}`
+
+    try {
+      if (navigator.share) {
+        await navigator.share({
+          title: story.title,
+          text: `${story.title} • ${story.location}`,
+          url: storyUrl
+        })
+        return
+      }
+
+      await navigator.clipboard.writeText(storyUrl)
+      alert('Story link copied to clipboard')
+    } catch (error) {
+      console.error('Failed to share story:', error)
+    }
+  }
+
+  const handleOpenDirections = () => {
+    if (!story.place) return
+
+    const { lat, lng } = story.place.coordinates
+    window.open(`https://www.google.com/maps/search/?api=1&query=${lat},${lng}`, '_blank', 'noopener,noreferrer')
+  }
+
   return (
-    <div className="story-card bg-white rounded-xl shadow-md border border-gray-200 overflow-hidden hover:shadow-lg transition-shadow duration-200">
-      {/* Header */}
-      <div className="p-4 flex items-center justify-between">
-        <div className="flex items-center space-x-4">
-          <div className="relative">
-            {story.author.profilePicture ? (
-              <img 
-                src={story.author.profilePicture} 
-                alt={story.author.username} 
-                className="w-12 h-12 rounded-full object-cover ring-2 ring-blue-100 hover:ring-blue-200 transition-all duration-200" 
-              />
-            ) : (
-              <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-500 rounded-full flex items-center justify-center ring-2 ring-blue-100 hover:ring-blue-200 transition-all duration-200">
-                <span className="text-white font-semibold text-lg">
+    <article className={`story-card overflow-hidden rounded-[28px] border bg-white shadow-sm transition-all duration-300 ${
+      highlighted
+        ? 'border-sky-300 shadow-xl shadow-sky-100/70 ring-4 ring-sky-100'
+        : 'border-slate-200 hover:-translate-y-1 hover:shadow-lg'
+    }`}>
+      <div className="p-5 md:p-6">
+        <div className="flex items-start justify-between gap-4">
+          <div className="flex min-w-0 items-center gap-4">
+            <div className="relative">
+              {story.author.profilePicture ? (
+                <img
+                  src={story.author.profilePicture}
+                  alt={story.author.username}
+                  className="h-12 w-12 rounded-2xl object-cover ring-2 ring-sky-100"
+                />
+              ) : (
+                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[linear-gradient(135deg,#0ea5e9,#8b5cf6)] text-lg font-semibold text-white ring-2 ring-sky-100">
                   {story.author.username && story.author.username !== 'Anonymous' ? story.author.username[0].toUpperCase() : '?'}
+                </div>
+              )}
+              <div className="absolute -bottom-1 -right-1 h-4 w-4 rounded-full border-2 border-white bg-emerald-400" />
+            </div>
+
+            <div className="min-w-0">
+              <p className="truncate font-semibold text-slate-900">{story.author.username}</p>
+              <div className="mt-1 flex flex-wrap items-center gap-2 text-sm text-slate-500">
+                <span className="inline-flex items-center gap-1">
+                  <MapPin className="h-3.5 w-3.5" />
+                  {story.location}
+                </span>
+                <span>•</span>
+                <span className="inline-flex items-center gap-1">
+                  <Calendar className="h-3.5 w-3.5" />
+                  {formatDate(story.createdAt)}
                 </span>
               </div>
-            )}
-            <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-green-400 border-2 border-white rounded-full"></div>
-          </div>
-          <div>
-            <p className="font-medium text-gray-900">{story.author.username}</p>
-            <div className="flex items-center space-x-2 text-sm text-gray-500">
-              <MapPin className="w-3 h-3" />
-              <span>{story.location}</span>
-              <span>•</span>
-              <Calendar className="w-3 h-3" />
-              <span>{formatDate(story.createdAt)}</span>
             </div>
           </div>
+
+          <div className="flex items-center gap-2">
+            {highlighted && (
+              <span className="rounded-full bg-sky-100 px-3 py-1 text-xs font-semibold text-sky-700">
+                Selected from map
+              </span>
+            )}
+
+            {canManageStory && (
+              <div className="relative">
+                <button
+                  onClick={() => setShowMenu(!showMenu)}
+                  className="rounded-full p-2 text-slate-500 transition hover:bg-slate-100 hover:text-slate-700"
+                  aria-label="Story actions"
+                >
+                  <MoreHorizontal className="h-4 w-4" />
+                </button>
+
+                {showMenu && (
+                  <div className="absolute right-0 z-10 mt-2 w-44 rounded-2xl border border-slate-200 bg-white py-2 shadow-xl">
+                    <button
+                      onClick={() => {
+                        onEdit?.(story._id)
+                        setShowMenu(false)
+                      }}
+                      className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm font-medium text-sky-700 transition hover:bg-sky-50"
+                    >
+                      <Edit className="h-4 w-4" />
+                      Edit post
+                    </button>
+                    <button
+                      onClick={() => {
+                        onDelete?.(story._id)
+                        setShowMenu(false)
+                      }}
+                      className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm font-medium text-rose-600 transition hover:bg-rose-50"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                      Delete post
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
         </div>
-        <div className="relative">
-          <button 
-            onClick={() => setShowMenu(!showMenu)}
-            className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+
+        {story.place && (
+          <div className="mt-4 flex flex-wrap items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
+            <div className="rounded-2xl bg-white p-2 text-sky-700 shadow-sm">
+              <MapPin className="h-4 w-4" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="truncate font-semibold text-slate-900">{story.place.name}</p>
+              <p className="truncate text-sm text-slate-500">{story.place.address}</p>
+            </div>
+            <button
+              onClick={handleOpenDirections}
+              className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:border-slate-300 hover:text-slate-900"
+            >
+              Directions
+              <ExternalLink className="h-3.5 w-3.5" />
+            </button>
+          </div>
+        )}
+
+        <div className="mt-5">
+          <button
+            onClick={() => navigate(`/community/story/${story._id}`)}
+            className="text-left text-2xl font-bold leading-tight text-slate-900 transition hover:text-sky-700"
           >
-            <MoreHorizontal className="w-4 h-4 text-gray-500" />
+            {story.title}
           </button>
-          
-          {showMenu && (
-            <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-10">
-              <button
-                onClick={() => {
-                  onEdit?.(story._id)
-                  setShowMenu(false)
-                }}
-                className="w-full px-4 py-2 text-left text-blue-600 hover:bg-blue-50 flex items-center space-x-2"
-              >
-                <Edit className="w-4 h-4" />
-                <span>Edit Post</span>
-              </button>
-              <button
-                onClick={() => {
-                  if (confirm('Delete this post?')) {
-                    onDelete?.(story._id)
-                  }
-                  setShowMenu(false)
-                }}
-                className="w-full px-4 py-2 text-left text-red-600 hover:bg-red-50 flex items-center space-x-2"
-              >
-                <Trash2 className="w-4 h-4" />
-                <span>Delete Post</span>
-              </button>
+          <p className="mt-3 text-[15px] leading-7 text-slate-600">
+            {story.content}
+          </p>
+
+          {story.tags && story.tags.length > 0 && (
+            <div className="mt-4 flex flex-wrap gap-2">
+              {story.tags.map((tag, index) => (
+                <span
+                  key={index}
+                  className="inline-flex items-center rounded-full bg-sky-50 px-3 py-1 text-xs font-semibold text-sky-700"
+                >
+                  #{tag}
+                </span>
+              ))}
             </div>
           )}
         </div>
       </div>
 
-      {/* Place Info - Before Content */}
-      {story.place && (
-        <div className="px-4 pb-3">
-          <div className="flex items-center space-x-2 text-sm">
-            <MapPin className="w-4 h-4 text-purple-600" />
-            <div>
-              <p className="font-semibold text-gray-900">{story.place.name}</p>
-              <p className="text-xs text-gray-500">{story.place.address}</p>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Content */}
-      <div className="px-4 pb-3">
-        <h3 
-          onClick={() => navigate(`/community/story/${story._id}`)}
-          className="font-semibold text-lg text-gray-900 mb-2 hover:text-purple-600 transition-colors cursor-pointer"
-        >
-          {story.title}
-        </h3>
-        <p className="text-gray-700 text-[15px] leading-relaxed">{story.content}</p>
-        
-        {/* Tags */}
-        {story.tags && story.tags.length > 0 && (
-          <div className="flex flex-wrap gap-2 mt-3">
-            {story.tags.map((tag, index) => (
-              <span
-                key={index}
-                className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-purple-100 text-purple-700 font-medium"
-              >
-                #{tag}
-              </span>
-            ))}
-          </div>
-        )}
-      </div>
-
-      {/* Images - Full Width like Facebook */}
-      {story.images && story.images.length > 0 && story.images.filter(img => img && img.trim()).length > 0 && (
-        <div className="w-full">
-          {story.images.length === 1 ? (
-            <img 
-              src={story.images[0]} 
+      {validImages.length > 0 && (
+        <div className="w-full border-y border-slate-100 bg-slate-50">
+          {validImages.length === 1 ? (
+            <img
+              src={validImages[0]}
               alt={story.title}
-              className="w-full max-h-[600px] object-cover cursor-pointer"
-              onClick={() => window.open(story.images[0], '_blank')}
-              onError={(e) => {
-                console.error('Failed to load image:', story.images[0])
-                e.currentTarget.style.display = 'none'
+              className="max-h-[620px] w-full cursor-pointer object-cover"
+              onClick={() => window.open(validImages[0], '_blank', 'noopener,noreferrer')}
+              onError={(event) => {
+                event.currentTarget.style.display = 'none'
               }}
             />
-          ) : story.images.length === 2 ? (
-            <div className="grid grid-cols-2 gap-0.5">
-              {story.images.slice(0, 2).map((image, index) => (
-                <img 
+          ) : validImages.length === 2 ? (
+            <div className="grid grid-cols-2 gap-1">
+              {validImages.slice(0, 2).map((image, index) => (
+                <img
                   key={index}
-                  src={image} 
+                  src={image}
                   alt={`${story.title} ${index + 1}`}
-                  className="w-full h-[300px] object-cover cursor-pointer"
-                  onClick={() => window.open(image, '_blank')}
-                  onError={(e) => {
-                    e.currentTarget.style.display = 'none'
+                  className="h-[320px] w-full cursor-pointer object-cover"
+                  onClick={() => window.open(image, '_blank', 'noopener,noreferrer')}
+                  onError={(event) => {
+                    event.currentTarget.style.display = 'none'
                   }}
                 />
               ))}
             </div>
           ) : (
-            <div className="grid grid-cols-2 gap-0.5">
-              {story.images.slice(0, 4).map((image, index) => (
+            <div className="grid grid-cols-2 gap-1">
+              {validImages.slice(0, 4).map((image, index) => (
                 <div key={index} className="relative">
-                  <img 
-                    src={image} 
+                  <img
+                    src={image}
                     alt={`${story.title} ${index + 1}`}
-                    className="w-full h-[250px] object-cover cursor-pointer"
-                    onClick={() => window.open(image, '_blank')}
-                    onError={(e) => {
-                      e.currentTarget.style.display = 'none'
+                    className="h-[260px] w-full cursor-pointer object-cover"
+                    onClick={() => window.open(image, '_blank', 'noopener,noreferrer')}
+                    onError={(event) => {
+                      event.currentTarget.style.display = 'none'
                     }}
                   />
-                  {index === 3 && story.images.length > 4 && (
-                    <div className="absolute inset-0 bg-black bg-opacity-60 flex items-center justify-center cursor-pointer">
-                      <span className="text-white font-bold text-2xl">+{story.images.length - 4}</span>
+                  {index === 3 && validImages.length > 4 && (
+                    <div className="absolute inset-0 flex items-center justify-center bg-slate-950/60 text-2xl font-bold text-white">
+                      +{validImages.length - 4}
                     </div>
                   )}
                 </div>
@@ -211,50 +285,63 @@ export const StoryCard: React.FC<StoryCardProps> = ({ story, onLike, onDelete, o
         </div>
       )}
 
-      {/* Actions */}
-      <div className="px-4 py-3 border-t border-gray-200">
-        <div className="flex items-center justify-between mb-2">
-          <div className="flex items-center space-x-1">
+      <div className="border-t border-slate-100 px-5 py-4 md:px-6">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex flex-wrap items-center gap-2">
             <button
               onClick={() => onLike(story._id)}
-              className={`flex items-center space-x-1 px-3 py-2 rounded-lg transition-colors ${
-                story.isLiked ? 'text-red-500 bg-red-50' : 'text-gray-600 hover:bg-gray-100'
+              className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold transition ${
+                story.isLiked
+                  ? 'bg-rose-50 text-rose-600'
+                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200 hover:text-slate-900'
               }`}
             >
-              <Heart className={`w-5 h-5 ${
-                story.isLiked ? 'fill-current' : ''
-              }`} />
-              <span className="font-medium text-sm">{story.likes}</span>
+              <Heart className={`h-4 w-4 ${story.isLiked ? 'fill-current' : ''}`} />
+              {story.likes}
             </button>
             <button
               onClick={() => setShowComments(!showComments)}
-              className="flex items-center space-x-1 px-3 py-2 rounded-lg text-gray-600 hover:bg-gray-100 transition-colors"
+              className="inline-flex items-center gap-2 rounded-full bg-slate-100 px-4 py-2 text-sm font-semibold text-slate-600 transition hover:bg-slate-200 hover:text-slate-900"
             >
-              <MessageCircle className="w-5 h-5" />
-              <span className="font-medium text-sm">{story.comments}</span>
+              <MessageCircle className="h-4 w-4" />
+              {story.comments}
+            </button>
+            <button
+              onClick={handleShare}
+              className="inline-flex items-center gap-2 rounded-full bg-slate-100 px-4 py-2 text-sm font-semibold text-slate-600 transition hover:bg-slate-200 hover:text-slate-900"
+            >
+              <Share2 className="h-4 w-4" />
+              Share
             </button>
           </div>
+
+          <button
+            onClick={() => navigate(`/community/story/${story._id}`)}
+            className="inline-flex items-center gap-2 rounded-full border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:border-slate-300 hover:text-slate-900"
+          >
+            Read story
+            <ExternalLink className="h-4 w-4" />
+          </button>
         </div>
       </div>
 
-      {/* Comments Section */}
       {showComments && (
-        <div className="px-6 py-4 border-t border-gray-200 bg-gradient-to-r from-gray-50 to-blue-50 animate-fade-in-up">
+        <div className="animate-fade-in-up border-t border-slate-100 bg-[linear-gradient(180deg,#ffffff_0%,#f8fbff_100%)] px-5 py-5 md:px-6">
           <div className="space-y-3">
-            <div className="flex space-x-3">
-              <div className="w-8 h-8 bg-gray-300 rounded-full flex-shrink-0"></div>
+            <div className="flex gap-3">
+              <div className="h-9 w-9 flex-shrink-0 rounded-full bg-slate-200" />
               <div className="flex-1">
                 <input
                   type="text"
                   placeholder="Write a comment..."
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                  className="w-full rounded-2xl border border-slate-200 px-4 py-2.5 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-sky-400 focus:ring-4 focus:ring-sky-100"
                 />
               </div>
             </div>
-            <p className="text-sm text-gray-500 text-center">Comments coming soon...</p>
+            <p className="text-center text-sm text-slate-500">Comments are coming soon.</p>
           </div>
         </div>
       )}
-    </div>
+    </article>
   )
 }

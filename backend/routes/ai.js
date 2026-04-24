@@ -150,7 +150,7 @@ Return JSON with this structure:
               content: prompt
             }
           ],
-          max_tokens: 4000,
+          max_completion_tokens: 4000,
           temperature: 0.8
         })
       }
@@ -242,7 +242,7 @@ router.post('/generate-text', async (req, res) => {
               content: prompt
             }
           ],
-          max_tokens: 2000,
+          max_completion_tokens: 2000,
           temperature: 0.7,
           top_p: 0.95,
           frequency_penalty: 0,

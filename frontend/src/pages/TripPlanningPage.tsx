@@ -1,63 +1,98 @@
-import React, { useState, useEffect } from 'react'
-import { useAuth } from '../contexts/AuthContext'
+import React, { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Card, CardContent, CardHeader, CardTitle } from '../components/Card'
+import {
+  ArrowRight,
+  Calendar,
+  Clock3,
+  Compass,
+  Eye,
+  ListChecks,
+  MapPin,
+  Plus,
+  Sparkles,
+  Trash2,
+  TrendingUp,
+} from 'lucide-react'
+import { useAuth } from '../contexts/AuthContext'
 import { Button } from '../components/Button'
-import { MapPin, Calendar, Clock, Trash2, Eye, Sparkles, DollarSign, Navigation, Star, Users, Plane, Map, List } from 'lucide-react'
-import { tripService } from '../services/tripService'
+import { Card, CardContent } from '../components/Card'
 import { AITripGenerator } from '../components/AITripGenerator'
 import { TripForm } from '../components/TripForm'
+import { tripService, type TripPlan } from '../services/tripService'
+import { ImageWithFallback } from '../components/ImageWithFallback'
 
-import { DragDropItinerary } from '../components/DragDropItinerary'
+type Trip = TripPlan
 
-interface Trip {
-  _id: string
-  tripTitle: string
-  destination: string
-  duration: string
-  dailyPlans: any[]
-  createdAt: string
-  totalEstimatedCost?: string
-  estimatedWalkingDistance?: string
+const statusMeta: Record<string, { label: string; tone: string }> = {
+  draft: { label: 'Draft', tone: 'bg-slate-100 text-slate-700' },
+  ready: { label: 'Ready', tone: 'bg-sky-100 text-sky-700' },
+  booked: { label: 'Booked', tone: 'bg-violet-100 text-violet-700' },
+  in_progress: { label: 'On trip', tone: 'bg-amber-100 text-amber-700' },
+  completed: { label: 'Completed', tone: 'bg-emerald-100 text-emerald-700' },
+}
+
+const parseBudgetValue = (value?: string) => {
+  if (!value) return 0
+  const numeric = parseFloat(value.replace(/[^0-9.]/g, ''))
+  return Number.isFinite(numeric) ? numeric : 0
+}
+
+const getCoverImage = (trip: Trip) =>
+  trip.coverImageUrl ||
+  trip.dailyItinerary?.flatMap((day) => day.activities || []).find((activity) => activity.imageUrl)?.imageUrl ||
+  `https://picsum.photos/seed/${encodeURIComponent(`${trip.destination}-${trip._id}`)}/1200/800`
+
+const getVisitProgress = (trip: Trip) => {
+  const itinerary = trip.dailyItinerary || []
+  const totalActivities = itinerary.reduce((sum, day) => sum + (day.activities?.length || 0), 0)
+  const visitedActivities = itinerary.reduce(
+    (sum, day) => sum + (day.activities?.filter((activity) => activity.isVisited)?.length || 0),
+    0
+  )
+
+  return totalActivities > 0 ? Math.round((visitedActivities / totalActivities) * 100) : 0
+}
+
+const getPlanningReadiness = (trip: Trip) => {
+  let score = 0
+  if (trip.destination) score += 15
+  if (trip.duration) score += 15
+  if (trip.startDate) score += 10
+  if (trip.travelStyle) score += 10
+  if (trip.tripOverview?.keyAttractions?.length) score += 15
+  if (trip.preTripPreparation?.booking?.length) score += 10
+  if (trip.dailyItinerary?.length) score += 15
+  if (trip.dailyItinerary?.every((day) => day.activities?.length)) score += 10
+  return Math.min(score, 100)
 }
 
 export const TripPlanningPage: React.FC = () => {
   const { user } = useAuth()
+  const navigate = useNavigate()
   const [trips, setTrips] = useState<Trip[]>([])
+  const [loading, setLoading] = useState(true)
   const [showAIGenerator, setShowAIGenerator] = useState(false)
   const [showTripForm, setShowTripForm] = useState(false)
-  const [loading, setLoading] = useState(true)
   const [selectedPlaces, setSelectedPlaces] = useState<any[]>([])
-  const [viewMode, setViewMode] = useState<'list' | 'map'>('list')
-  const [generatedItinerary, setGeneratedItinerary] = useState<any>(null)
-  const navigate = useNavigate()
+  const [activeFilter, setActiveFilter] = useState<'all' | 'draft' | 'ready' | 'booked' | 'in_progress' | 'completed'>('all')
 
   useEffect(() => {
     fetchTrips()
-    
-    // Check for selected places from Explore page
+
     const storedPlaces = sessionStorage.getItem('selectedPlaces')
     if (storedPlaces) {
       const places = JSON.parse(storedPlaces)
       setSelectedPlaces(places)
       setShowAIGenerator(true)
-      sessionStorage.removeItem('selectedPlaces') // Clear after use
+      sessionStorage.removeItem('selectedPlaces')
     }
   }, [])
 
   const fetchTrips = async () => {
     try {
       setLoading(true)
-      
-      if (!user?.id) {
-        console.log('No user ID available')
-        setTrips([])
-        return
-      }
-      
-      const data = await tripService.getTrips(user.id)
+      const data = await tripService.getTrips()
       setTrips(Array.isArray(data) ? data : [])
-      console.log(`✅ Loaded ${data.length} trips from backend`)
     } catch (error) {
       console.error('Failed to fetch trips:', error)
       setTrips([])
@@ -68,138 +103,144 @@ export const TripPlanningPage: React.FC = () => {
 
   const deleteTrip = async (tripId: string) => {
     if (!confirm('Delete this trip?')) return
-    
+
     try {
       const success = await tripService.deleteTrip(tripId)
       if (success) {
         await fetchTrips()
-      } else {
-        alert('Failed to delete trip')
       }
     } catch (error) {
       console.error('Failed to delete trip:', error)
-      alert('Error deleting trip: ' + error.message)
     }
   }
 
-  const getProgressPercentage = (trip: Trip) => {
-    if (!trip.dailyPlans || trip.dailyPlans.length === 0) return 0
-    const totalActivities = trip.dailyPlans.reduce((acc, day) => acc + (day.activities?.length || 0), 0)
-    const completedActivities = trip.dailyPlans.reduce((acc, day) => 
-      acc + (day.activities?.filter((activity: any) => activity.isVisited)?.length || 0), 0
+  const filteredTrips = useMemo(
+    () => trips.filter((trip) => activeFilter === 'all' || (trip.planningStatus || 'draft') === activeFilter),
+    [activeFilter, trips]
+  )
+
+  const tripMetrics = useMemo(() => {
+    const totalTrips = trips.length
+    const activeTrips = trips.filter((trip) => ['draft', 'ready', 'booked', 'in_progress'].includes(trip.planningStatus || 'draft')).length
+    const averageVisitProgress = Math.round(
+      trips.reduce((sum, trip) => sum + getVisitProgress(trip), 0) / (trips.length || 1)
     )
-    return totalActivities > 0 ? Math.round((completedActivities / totalActivities) * 100) : 0
-  }
+    const averagePlanningReadiness = Math.round(
+      trips.reduce((sum, trip) => sum + getPlanningReadiness(trip), 0) / (trips.length || 1)
+    )
+
+    return {
+      totalTrips,
+      activeTrips,
+      averageVisitProgress,
+      averagePlanningReadiness,
+    }
+  }, [trips])
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
-      {/* Hero Section */}
-      <div className="relative overflow-hidden bg-gradient-to-r from-blue-600 to-purple-700 text-white">
-        <div 
-          className="absolute inset-0 bg-cover bg-center bg-no-repeat"
+    <div className="min-h-screen bg-[linear-gradient(180deg,#f8fbff_0%,#ffffff_42%,#f7f9fc_100%)]">
+      <section className="relative overflow-hidden bg-[#07111f] text-white">
+        <div
+          className="absolute inset-0 bg-cover bg-center"
           style={{
-            backgroundImage: 'url(https://images.unsplash.com/photo-1488646953014-85cb44e25828?w=1920&h=1080&fit=crop)',
+            backgroundImage:
+              'url(https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?w=1920&h=1080&fit=crop&auto=format&q=80)',
           }}
         />
-        <div className="absolute inset-0 bg-black opacity-50"></div>
-        <div className="relative max-w-7xl mx-auto px-4 py-16 sm:py-24">
-          <div className="text-center">
-            <div className="flex justify-center mb-6">
-              <div className="p-3 bg-white/20 rounded-full backdrop-blur-sm">
-                <Plane className="w-12 h-12" />
-              </div>
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,_rgba(125,211,252,0.18),_transparent_26%),linear-gradient(180deg,rgba(3,7,18,0.4)_0%,rgba(3,7,18,0.72)_52%,rgba(3,7,18,0.9)_100%)]" />
+        <div className="relative mx-auto grid max-w-7xl gap-8 px-4 py-16 sm:py-20 lg:grid-cols-[1.05fr_0.95fr] lg:py-24">
+          <div>
+            <div className="inline-flex items-center rounded-full bg-white/10 px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-white/80">
+              Trip Planner Workspace
             </div>
-            <h1 className="text-4xl sm:text-6xl font-bold mb-6 bg-gradient-to-r from-white to-blue-100 bg-clip-text text-transparent">
-              Your Travel Adventures
+            <h1 className="mt-5 max-w-4xl text-4xl font-semibold leading-tight sm:text-5xl lg:text-6xl">
+              Plan, generate, and track trips from one clearer dashboard.
             </h1>
-            <p className="text-xl sm:text-2xl text-blue-100 mb-8 max-w-3xl mx-auto">
-              Create personalized itineraries with AI-powered trip planning. Drag & drop to organize, visualize on maps.
+            <p className="mt-5 max-w-2xl text-base leading-7 text-white/76 sm:text-lg sm:leading-8">
+              Use AI for a richer first draft, build trips manually when you need control, and keep both
+              planning readiness and on-trip progress visible for every itinerary.
             </p>
-            
-            <div className="flex justify-center space-x-2 mb-8">
+            <div className="mt-8 flex flex-col gap-3 sm:flex-row">
               <Button
-                variant={viewMode === 'list' ? 'default' : 'outline'}
-                onClick={() => setViewMode('list')}
-                className="flex items-center bg-white/20 backdrop-blur-sm border-white/30 text-white hover:bg-white/30"
-              >
-                <List className="w-4 h-4 mr-2" />
-                List View
-              </Button>
-              <Button
-                variant={viewMode === 'map' ? 'default' : 'outline'}
-                onClick={() => setViewMode('map')}
-                className="flex items-center bg-white/20 backdrop-blur-sm border-white/30 text-white hover:bg-white/30"
-              >
-                <Map className="w-4 h-4 mr-2" />
-                Map View
-              </Button>
-            </div>
-            <div className="flex justify-center">
-              <Button 
                 onClick={() => setShowAIGenerator(true)}
-                className="bg-white text-blue-600 hover:bg-blue-50 text-lg px-8 py-4 rounded-full shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105"
+                className="rounded-xl bg-white px-6 py-3 text-slate-950 hover:bg-slate-100"
               >
-                <Sparkles className="w-5 h-5 mr-2" />
-                Create Trip Plan
+                <Sparkles className="mr-2 h-4 w-4" />
+                Generate with AI
+              </Button>
+              <Button
+                onClick={() => setShowTripForm(true)}
+                className="rounded-xl border border-white/20 bg-white/10 px-6 py-3 text-white hover:bg-white/15"
+              >
+                <Plus className="mr-2 h-4 w-4" />
+                Build manually
               </Button>
             </div>
           </div>
-        </div>
-      </div>
 
-      {/* Stats Section */}
-      <div className="max-w-7xl mx-auto px-4 -mt-8 relative z-10">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
-          <div className="bg-white rounded-2xl shadow-lg p-6 text-center border border-gray-100">
-            <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
-              <MapPin className="w-6 h-6 text-blue-600" />
-            </div>
-            <h3 className="text-2xl font-bold text-gray-900">{trips.length}</h3>
-            <p className="text-gray-600">Total Trips</p>
-          </div>
-          <div className="bg-white rounded-2xl shadow-lg p-6 text-center border border-gray-100">
-            <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-              <Star className="w-6 h-6 text-green-600" />
-            </div>
-            <h3 className="text-2xl font-bold text-gray-900">
-              {Math.round(trips.reduce((acc, trip) => acc + getProgressPercentage(trip), 0) / (trips.length || 1))}%
-            </h3>
-            <p className="text-gray-600">Avg Progress</p>
-          </div>
-          <div className="bg-white rounded-2xl shadow-lg p-6 text-center border border-gray-100">
-            <div className="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center mx-auto mb-4">
-              <Users className="w-6 h-6 text-purple-600" />
-            </div>
-            <h3 className="text-2xl font-bold text-gray-900">AI</h3>
-            <p className="text-gray-600">Powered</p>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Card className="border-white/10 bg-white/10 text-white backdrop-blur-md">
+              <CardContent className="p-5">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs uppercase tracking-[0.2em] text-white/60">Trips</p>
+                    <p className="mt-2 text-3xl font-semibold">{tripMetrics.totalTrips}</p>
+                  </div>
+                  <Compass className="h-7 w-7 text-sky-200" />
+                </div>
+              </CardContent>
+            </Card>
+            <Card className="border-white/10 bg-white/10 text-white backdrop-blur-md">
+              <CardContent className="p-5">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs uppercase tracking-[0.2em] text-white/60">Active</p>
+                    <p className="mt-2 text-3xl font-semibold">{tripMetrics.activeTrips}</p>
+                  </div>
+                  <TrendingUp className="h-7 w-7 text-emerald-200" />
+                </div>
+              </CardContent>
+            </Card>
+            <Card className="border-white/10 bg-white/10 text-white backdrop-blur-md">
+              <CardContent className="p-5">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs uppercase tracking-[0.2em] text-white/60">Planning readiness</p>
+                    <p className="mt-2 text-3xl font-semibold">{tripMetrics.averagePlanningReadiness}%</p>
+                  </div>
+                  <ListChecks className="h-7 w-7 text-amber-200" />
+                </div>
+              </CardContent>
+            </Card>
+            <Card className="border-white/10 bg-white/10 text-white backdrop-blur-md">
+              <CardContent className="p-5">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs uppercase tracking-[0.2em] text-white/60">Visit progress</p>
+                    <p className="mt-2 text-3xl font-semibold">{tripMetrics.averageVisitProgress}%</p>
+                  </div>
+                  <Clock3 className="h-7 w-7 text-violet-200" />
+                </div>
+              </CardContent>
+            </Card>
           </div>
         </div>
-      </div>
+      </section>
 
-      {/* AI Generator Modal */}
       {showAIGenerator && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 p-4 backdrop-blur-sm">
           <AITripGenerator
             selectedPlaces={selectedPlaces}
             onTripGenerated={async (trip) => {
               try {
-                if (!user?.id) {
-                  console.error('No user ID available')
-                  alert('Please log in to save trips')
-                  return
-                }
-                const savedTrip = await tripService.createTrip({ ...trip, userId: user.id })
+                const savedTrip = await tripService.createTrip({ ...trip, userId: user?.id })
                 if (savedTrip) {
                   setShowAIGenerator(false)
                   setSelectedPlaces([])
-                  fetchTrips()
-                } else {
-                  console.error('Failed to save trip - no response')
-                  alert('Failed to save trip. Please try again.')
+                  await fetchTrips()
                 }
               } catch (error) {
                 console.error('Failed to save AI trip:', error)
-                alert('Failed to save trip. Please try again.')
               }
             }}
             onClose={() => {
@@ -210,14 +251,13 @@ export const TripPlanningPage: React.FC = () => {
         </div>
       )}
 
-      {/* Manual Trip Form Modal */}
       {showTripForm && (
         <TripForm
           onSubmit={async (tripData) => {
             try {
               await tripService.createTrip({ ...tripData, userId: user?.id })
               setShowTripForm(false)
-              fetchTrips()
+              await fetchTrips()
             } catch (error) {
               console.error('Failed to save trip:', error)
             }
@@ -226,90 +266,117 @@ export const TripPlanningPage: React.FC = () => {
         />
       )}
 
-      {/* Trips Grid */}
-      <div className="max-w-7xl mx-auto px-4 pb-16">
+      <div className="mx-auto max-w-7xl px-4 py-10 sm:py-12">
+        <div className="mb-6 flex flex-wrap items-center gap-3">
+          {(['all', 'draft', 'ready', 'booked', 'in_progress', 'completed'] as const).map((filter) => (
+            <button
+              key={filter}
+              onClick={() => setActiveFilter(filter)}
+              className={`rounded-full px-4 py-2 text-sm font-medium transition-all ${activeFilter === filter ? 'bg-slate-900 text-white' : 'bg-white text-slate-600 ring-1 ring-slate-200 hover:bg-slate-50'}`}
+            >
+              {filter === 'all' ? 'All trips' : statusMeta[filter].label}
+            </button>
+          ))}
+        </div>
+
         {loading ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {[1, 2, 3].map((i) => (
-              <div key={i} className="bg-white rounded-2xl shadow-lg p-6 animate-pulse">
-                <div className="h-4 bg-gray-200 rounded mb-4"></div>
-                <div className="h-3 bg-gray-200 rounded mb-2"></div>
-                <div className="h-3 bg-gray-200 rounded mb-4"></div>
-                <div className="h-10 bg-gray-200 rounded"></div>
-              </div>
+          <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
+            {[1, 2, 3].map((item) => (
+              <div key={item} className="h-[360px] animate-pulse rounded-[1.75rem] bg-white shadow-sm ring-1 ring-slate-200/70" />
             ))}
           </div>
-        ) : trips.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {trips.map((trip) => {
-              const progress = getProgressPercentage(trip)
+        ) : filteredTrips.length > 0 ? (
+          <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
+            {filteredTrips.map((trip) => {
+              const visitProgress = getVisitProgress(trip)
+              const planningReadiness = getPlanningReadiness(trip)
+              const status = statusMeta[trip.planningStatus || 'draft']
+              const estimatedBudget =
+                trip.tripOverview?.estimatedTotalBudget ||
+                trip.expenseBreakdown?.total ||
+                trip.totalEstimatedCost ||
+                'Budget pending'
+
               return (
-                <Card key={trip._id} className="group hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-2 bg-white rounded-2xl border-0 shadow-lg overflow-hidden">
-                  <div className="relative">
-                    <div className="absolute top-4 right-4 z-10">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          deleteTrip(trip._id)
-                        }}
-                        className="bg-white/90 backdrop-blur-sm border-0 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-full w-8 h-8 p-0"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </Button>
+                <Card
+                  key={trip._id}
+                  className="group overflow-hidden rounded-[1.75rem] border-0 bg-white shadow-lg shadow-slate-200/70 transition-all duration-300 hover:-translate-y-1 hover:shadow-2xl"
+                >
+                  <div className="relative h-52 overflow-hidden">
+                    <ImageWithFallback
+                      src={getCoverImage(trip)}
+                      alt={trip.destination}
+                      className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
+                    <div className="absolute left-4 top-4">
+                      <span className={`rounded-full px-3 py-1 text-xs font-semibold ${status.tone}`}>
+                        {status.label}
+                      </span>
                     </div>
-                    <div className="bg-gradient-to-r from-blue-500 to-purple-600 h-32 flex items-center justify-center">
-                      <MapPin className="w-8 h-8 text-white" />
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        deleteTrip(trip._id)
+                      }}
+                      className="absolute right-4 top-4 flex h-9 w-9 items-center justify-center rounded-full bg-white/90 text-rose-600 shadow-sm transition hover:bg-white"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                    <div className="absolute inset-x-0 bottom-0 p-4 text-white">
+                      <h3 className="text-2xl font-semibold leading-tight">{trip.tripTitle}</h3>
+                      <div className="mt-2 flex items-center gap-2 text-sm text-white/80">
+                        <MapPin className="h-4 w-4" />
+                        <span>{trip.destination}</span>
+                      </div>
                     </div>
                   </div>
-                  
-                  <CardContent className="p-6">
-                    <h3 className="text-xl font-bold text-gray-900 mb-2 group-hover:text-blue-600 transition-colors">
-                      {trip.tripTitle}
-                    </h3>
-                    
-                    <div className="space-y-3 mb-6">
-                      <div className="flex items-center text-gray-600">
-                        <MapPin className="w-4 h-4 mr-3 text-blue-500" />
-                        <span className="font-medium">{trip.destination}</span>
+
+                  <CardContent className="space-y-5 p-5">
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <div className="rounded-2xl bg-slate-50 p-3">
+                        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Planning</p>
+                        <p className="mt-2 text-2xl font-semibold text-slate-900">{planningReadiness}%</p>
                       </div>
-                      <div className="flex items-center text-gray-600">
-                        <Clock className="w-4 h-4 mr-3 text-green-500" />
+                      <div className="rounded-2xl bg-slate-50 p-3">
+                        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Visited</p>
+                        <p className="mt-2 text-2xl font-semibold text-slate-900">{visitProgress}%</p>
+                      </div>
+                    </div>
+
+                    <div className="space-y-3 text-sm text-slate-600">
+                      <div className="flex items-center gap-2">
+                        <Calendar className="h-4 w-4 text-sky-600" />
+                        <span>{trip.startDate ? new Date(trip.startDate).toLocaleDateString() : 'Flexible dates'}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Clock3 className="h-4 w-4 text-emerald-600" />
                         <span>{trip.duration}</span>
                       </div>
-                      <div className="flex items-center text-gray-600">
-                        <Calendar className="w-4 h-4 mr-3 text-purple-500" />
-                        <span>{new Date(trip.createdAt).toLocaleDateString()}</span>
-                      </div>
-                      {trip.totalEstimatedCost && (
-                        <div className="flex items-center text-gray-600">
-                          <DollarSign className="w-4 h-4 mr-3 text-yellow-500" />
-                          <span>{trip.totalEstimatedCost}</span>
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Progress Bar */}
-                    <div className="mb-6">
-                      <div className="flex justify-between items-center mb-2">
-                        <span className="text-sm font-medium text-gray-700">Progress</span>
-                        <span className="text-sm text-gray-500">{progress}%</span>
-                      </div>
-                      <div className="w-full bg-gray-200 rounded-full h-2">
-                        <div 
-                          className="bg-gradient-to-r from-blue-500 to-purple-600 h-2 rounded-full transition-all duration-300"
-                          style={{ width: `${progress}%` }}
-                        ></div>
+                      <div className="flex items-center gap-2">
+                        <Sparkles className="h-4 w-4 text-violet-600" />
+                        <span>{trip.travelStyle || trip.tripOverview?.tripStyle || 'Balanced trip'}</span>
                       </div>
                     </div>
 
-                    <Button 
+                    <div className="rounded-2xl border border-slate-100 bg-slate-50 p-4">
+                      <div className="mb-2 flex items-center justify-between text-sm">
+                        <span className="font-medium text-slate-700">Estimated budget</span>
+                        <span className="font-semibold text-slate-900">{estimatedBudget}</span>
+                      </div>
+                      <div className="mb-2 flex items-center justify-between text-sm">
+                        <span className="font-medium text-slate-700">Days planned</span>
+                        <span className="font-semibold text-slate-900">{trip.dailyItinerary?.length || trip.dailyPlans?.length || 0}</span>
+                      </div>
+                    </div>
+
+                    <Button
                       onClick={() => navigate(`/trips/${trip._id}`)}
-                      className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white rounded-xl py-3 font-medium transition-all duration-300 transform hover:scale-105"
+                      className="w-full rounded-xl bg-gradient-to-r from-sky-600 to-indigo-600 py-3 text-white hover:from-sky-700 hover:to-indigo-700"
                     >
-                      <Eye className="w-4 h-4 mr-2" />
-                      View Trip Details
+                      <Eye className="mr-2 h-4 w-4" />
+                      Open planner
+                      <ArrowRight className="ml-2 h-4 w-4" />
                     </Button>
                   </CardContent>
                 </Card>
@@ -317,21 +384,23 @@ export const TripPlanningPage: React.FC = () => {
             })}
           </div>
         ) : (
-          <div className="text-center py-20">
-            <div className="w-24 h-24 bg-gradient-to-r from-blue-100 to-purple-100 rounded-full flex items-center justify-center mx-auto mb-8">
-              <Plane className="w-12 h-12 text-blue-600" />
+          <div className="rounded-[2rem] border border-slate-200 bg-white p-10 text-center shadow-sm">
+            <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-sky-50 text-sky-600">
+              <Compass className="h-10 w-10" />
             </div>
-            <h3 className="text-2xl font-bold text-gray-900 mb-4">Ready for Your Next Adventure?</h3>
-            <p className="text-gray-600 mb-8 text-lg max-w-md mx-auto">
-              Let AI create the perfect itinerary tailored to your preferences and budget.
+            <h3 className="mt-6 text-2xl font-semibold text-slate-900">No trips in this view yet</h3>
+            <p className="mx-auto mt-3 max-w-xl text-slate-600">
+              Start with AI for a stronger first itinerary, or save a manual draft so you can build the trip
+              progressively instead of trying to finish everything in one sitting.
             </p>
-            <div className="flex justify-center">
-              <Button 
-                onClick={() => setShowAIGenerator(true)}
-                className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white px-8 py-4 rounded-full text-lg font-medium shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105"
-              >
-                <Sparkles className="w-5 h-5 mr-2" />
-                Create Trip Plan
+            <div className="mt-6 flex flex-col justify-center gap-3 sm:flex-row">
+              <Button onClick={() => setShowAIGenerator(true)} className="rounded-xl bg-gradient-to-r from-sky-600 to-indigo-600 text-white">
+                <Sparkles className="mr-2 h-4 w-4" />
+                Generate with AI
+              </Button>
+              <Button onClick={() => setShowTripForm(true)} variant="outline" className="rounded-xl">
+                <Plus className="mr-2 h-4 w-4" />
+                Build manually
               </Button>
             </div>
           </div>

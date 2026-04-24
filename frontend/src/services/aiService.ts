@@ -21,6 +21,13 @@ export interface PlaceAIContent {
   localTip?: string
   handyPhrase?: string
   culturalInsight?: string
+  vibe?: string
+  bestTimeToVisit?: string
+  idealVisitDuration?: string
+  etiquette?: string
+  photoTip?: string
+  nearbyPairing?: string
+  planningTips?: string[]
 }
 
 class AIService {
@@ -90,13 +97,23 @@ class AIService {
   }
 
   // Generate AI content for places
-  async generatePlaceContent(placeId: string, placeName: string, placeType: string): Promise<PlaceAIContent> {
+  async generatePlaceContent(params: {
+    placeId: string
+    placeName: string
+    placeType?: string
+    address?: string
+    city?: string
+    country?: string
+    description?: string
+    rating?: number
+    tags?: string[]
+  }): Promise<PlaceAIContent> {
     try {
       const token = localStorage.getItem('auth_token')
       const response = await this.request<PlaceAIContent>('/ai/place-content', {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${token}` },
-        body: JSON.stringify({ placeId, placeName, placeType })
+        body: JSON.stringify(params)
       })
       return response
     } catch (error) {

@@ -6,9 +6,15 @@ import { MapPin, Clock, CheckCircle, Star, Save, DollarSign, ArrowLeft, AlertCir
 import { tripService } from '../services/tripService'
 import type { TripPlan } from '../services/tripService'
 import { useApp } from '../contexts/AppContext'
+import { ImageWithFallback } from '../components/ImageWithFallback'
 
 // Type alias for compatibility
 type Trip = TripPlan
+
+const getCoverImage = (trip: Trip) =>
+  trip.coverImageUrl ||
+  trip.dailyItinerary?.flatMap((day) => day.activities || []).find((activity) => activity.imageUrl)?.imageUrl ||
+  `https://picsum.photos/seed/${encodeURIComponent(`${trip.destination}-${trip._id}`)}/1400/900`
 
 
 export const TripDetailPage: React.FC = () => {
@@ -161,14 +167,45 @@ export const TripDetailPage: React.FC = () => {
     return `https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${finalDest}${waypointsStr}&travelmode=driving`;
   }
 
+  const getVisitProgress = (tripData: Trip) => {
+    const itinerary = tripData.dailyItinerary || []
+    const totalActivities = itinerary.reduce((sum, day) => sum + (day.activities?.length || 0), 0)
+    const visitedActivities = itinerary.reduce(
+      (sum, day) => sum + (day.activities?.filter((activity) => activity.isVisited)?.length || 0),
+      0
+    )
+
+    return totalActivities > 0 ? Math.round((visitedActivities / totalActivities) * 100) : 0
+  }
+
+  const getPlanningReadiness = (tripData: Trip) => {
+    let score = 0
+    if (tripData.destination) score += 15
+    if (tripData.duration) score += 15
+    if (tripData.startDate) score += 10
+    if (tripData.tripOverview?.keyAttractions?.length) score += 15
+    if (tripData.dailyItinerary?.length) score += 20
+    if (tripData.dailyItinerary?.every((day) => day.activities?.length)) score += 15
+    if (tripData.preTripPreparation?.booking?.length) score += 10
+    return Math.min(score, 100)
+  }
+
   if (loading) return <div className="min-h-screen flex items-center justify-center"><div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary-600"></div></div>
   if (!trip) return <div className="min-h-screen flex items-center justify-center"><div className="text-center"><h2 className="text-2xl font-bold mb-2">Trip Not Found</h2><Button onClick={() => navigate(-1)}>Back</Button></div></div>
 
+  const visitProgress = getVisitProgress(trip)
+  const planningReadiness = getPlanningReadiness(trip)
+
   return (
     <div className="min-h-screen bg-gray-50 font-sans text-gray-900">
-      {/* Heavy Header */}
-      <div className="bg-gradient-to-r from-blue-900 to-indigo-900 text-white py-12 px-4 shadow-xl">
-        <div className="max-w-7xl mx-auto">
+      <div className="relative overflow-hidden text-white shadow-xl">
+        <ImageWithFallback
+          src={getCoverImage(trip)}
+          alt={trip.destination}
+          className="absolute inset-0 h-full w-full object-cover"
+        />
+        <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(3,7,18,0.38)_0%,rgba(3,7,18,0.76)_50%,rgba(3,7,18,0.92)_100%)]" />
+        <div className="relative max-w-7xl mx-auto px-4 py-12 sm:py-16">
           <Button variant="outline" onClick={() => navigate(-1)} className="mb-6 bg-white/10 border-white/20 text-white hover:bg-white/20">
             <ArrowLeft className="w-4 h-4 mr-2" /> Back to Trips
           </Button>
@@ -180,6 +217,20 @@ export const TripDetailPage: React.FC = () => {
             {trip.tripOverview?.tripStyle && (
               <div className="flex items-center bg-white/20 px-3 py-1 rounded-full"><Star className="w-4 h-4 mr-2" /> {trip.tripOverview.tripStyle}</div>
             )}
+          </div>
+          <div className="mt-8 grid gap-4 sm:grid-cols-3">
+            <div className="rounded-2xl border border-white/10 bg-white/10 p-4 backdrop-blur-sm">
+              <p className="text-xs uppercase tracking-[0.18em] text-white/60">Planning readiness</p>
+              <p className="mt-2 text-3xl font-semibold">{planningReadiness}%</p>
+            </div>
+            <div className="rounded-2xl border border-white/10 bg-white/10 p-4 backdrop-blur-sm">
+              <p className="text-xs uppercase tracking-[0.18em] text-white/60">Visit progress</p>
+              <p className="mt-2 text-3xl font-semibold">{visitProgress}%</p>
+            </div>
+            <div className="rounded-2xl border border-white/10 bg-white/10 p-4 backdrop-blur-sm">
+              <p className="text-xs uppercase tracking-[0.18em] text-white/60">Planning stage</p>
+              <p className="mt-2 text-3xl font-semibold">{trip.planningStatus ? trip.planningStatus.replace('_', ' ') : 'draft'}</p>
+            </div>
           </div>
         </div>
       </div>
@@ -321,7 +372,11 @@ export const TripDetailPage: React.FC = () => {
                                 </div>
                               </div>
                               {activity.imageUrl && (
-                                <img src={activity.imageUrl} alt={activity.activityTitle} className="mt-3 rounded-lg w-full max-w-sm h-48 object-cover shadow-sm" />
+                                <ImageWithFallback
+                                  src={activity.imageUrl}
+                                  alt={activity.activityTitle}
+                                  className="mt-3 h-48 w-full max-w-sm rounded-lg object-cover shadow-sm"
+                                />
                               )}
                             </td>
                             <td className="p-4 text-sm font-semibold text-green-700 align-top">

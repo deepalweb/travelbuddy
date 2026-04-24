@@ -234,23 +234,23 @@ export const MobileAppShowcase: React.FC = () => {
   }, [appScreens.length])
 
   return (
-    <section className="py-20 bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50 relative overflow-hidden">
+    <section className="relative overflow-hidden bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50 py-14 sm:py-16 lg:py-20">
       <div className="absolute inset-0 bg-gradient-to-r from-blue-600/5 to-purple-600/5"></div>
       <div className="max-w-7xl mx-auto px-4 relative">
-        <div className="grid lg:grid-cols-2 gap-12 items-center">
+        <div className="grid items-center gap-8 lg:grid-cols-2 lg:gap-12">
           {/* Left: Phone Mockup with Animation */}
-          <div className="relative flex justify-center lg:justify-start order-2 lg:order-1">
+          <div className="relative order-2 flex justify-center lg:order-1 lg:justify-start">
             {/* Feature Tags Around Phone */}
-            <div className="absolute -top-8 -left-8 bg-blue-600 text-white px-4 py-2 rounded-full text-sm font-medium shadow-lg animate-pulse">
+            <div className="absolute -left-1 top-2 hidden rounded-full bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-lg animate-pulse md:block lg:-left-8 lg:-top-8">
               🗺️ Nearby Places
             </div>
-            <div className="absolute top-32 -right-12 bg-green-600 text-white px-4 py-2 rounded-full text-sm font-medium shadow-lg animate-pulse" style={{ animationDelay: '1s' }}>
+            <div className="absolute -right-2 top-32 hidden rounded-full bg-green-600 px-4 py-2 text-sm font-medium text-white shadow-lg animate-pulse md:block lg:-right-12" style={{ animationDelay: '1s' }}>
               📴 Offline Mode
             </div>
-            <div className="absolute bottom-32 -left-16 bg-purple-600 text-white px-4 py-2 rounded-full text-sm font-medium shadow-lg animate-pulse" style={{ animationDelay: '2s' }}>
+            <div className="absolute -left-6 bottom-32 hidden rounded-full bg-purple-600 px-4 py-2 text-sm font-medium text-white shadow-lg animate-pulse md:block lg:-left-16" style={{ animationDelay: '2s' }}>
               🤖 AI Recommendations
             </div>
-            <div className="absolute bottom-16 -right-8 bg-orange-600 text-white px-4 py-2 rounded-full text-sm font-medium shadow-lg animate-pulse" style={{ animationDelay: '3s' }}>
+            <div className="absolute -right-2 bottom-16 hidden rounded-full bg-orange-600 px-4 py-2 text-sm font-medium text-white shadow-lg animate-pulse md:block lg:-right-8" style={{ animationDelay: '3s' }}>
               🧭 Live Navigation
             </div>
 
@@ -259,7 +259,7 @@ export const MobileAppShowcase: React.FC = () => {
 
             {/* Phone Mockup */}
             <div className="relative phone-tilt-container z-10">
-              <div className="relative w-72 h-[580px] bg-gradient-to-b from-gray-900 to-black rounded-[3rem] p-2 shadow-2xl">
+              <div className="relative h-[540px] w-[272px] rounded-[3rem] bg-gradient-to-b from-gray-900 to-black p-2 shadow-2xl sm:h-[580px] sm:w-72">
                 {/* Phone Frame */}
                 <div className="w-full h-full bg-white rounded-[2.5rem] overflow-hidden relative">
                   {/* Status Bar */}
@@ -325,24 +325,24 @@ export const MobileAppShowcase: React.FC = () => {
           {/* Right: Content */}
           <div className="space-y-6 order-1 lg:order-2">
             <div>
-              <div className="inline-flex items-center bg-gradient-to-r from-blue-100 to-purple-100 rounded-full px-4 py-2 mb-4">
+              <div className="mb-4 inline-flex items-center rounded-full bg-gradient-to-r from-blue-100 to-purple-100 px-3.5 py-2 sm:px-4">
                 <span className="text-2xl mr-2">📱</span>
-                <span className="text-blue-800 font-semibold">Mobile App</span>
+                <span className="text-sm font-semibold text-blue-800 sm:text-base">Mobile App</span>
               </div>
-              <h2 className="text-4xl lg:text-5xl font-bold text-gray-900 mb-4 leading-tight">
+              <h2 className="mb-3 text-3xl font-bold leading-tight text-gray-900 sm:mb-4 sm:text-4xl lg:text-5xl">
                 Your Travel Companion
                 <span className="block text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-purple-600">
                   In Your Pocket
                 </span>
               </h2>
-              <p className="text-xl text-gray-600">
+              <p className="text-base text-gray-600 sm:text-xl">
                 Unique mobile features that make travel planning effortless
               </p>
             </div>
 
             {/* Mobile-Specific Features */}
-            <div className="space-y-4">
-              <div className="flex items-start gap-4 bg-white rounded-xl p-4 shadow-md hover:shadow-lg transition-all duration-300 group">
+            <div className="space-y-3 sm:space-y-4">
+              <div className="group flex items-start gap-3 rounded-xl bg-white p-4 shadow-md transition-all duration-300 hover:shadow-lg sm:gap-4">
                 <div className="w-12 h-12 bg-gradient-to-r from-blue-500 to-blue-600 rounded-xl flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-all duration-300">
                   <MapPin className="w-6 h-6 text-white" aria-hidden="true" />
                 </div>
@@ -352,7 +352,7 @@ export const MobileAppShowcase: React.FC = () => {
                 </div>
               </div>
 
-              <div className="flex items-start gap-4 bg-white rounded-xl p-4 shadow-md hover:shadow-lg transition-all duration-300 group">
+              <div className="group flex items-start gap-3 rounded-xl bg-white p-4 shadow-md transition-all duration-300 hover:shadow-lg sm:gap-4">
                 <div className="w-12 h-12 bg-gradient-to-r from-green-500 to-green-600 rounded-xl flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-all duration-300">
                   <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
@@ -364,7 +364,7 @@ export const MobileAppShowcase: React.FC = () => {
                 </div>
               </div>
 
-              <div className="flex items-start gap-4 bg-white rounded-xl p-4 shadow-md hover:shadow-lg transition-all duration-300 group">
+              <div className="group flex items-start gap-3 rounded-xl bg-white p-4 shadow-md transition-all duration-300 hover:shadow-lg sm:gap-4">
                 <div className="w-12 h-12 bg-gradient-to-r from-purple-500 to-purple-600 rounded-xl flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-all duration-300">
                   <Sparkles className="w-6 h-6 text-white" aria-hidden="true" />
                 </div>
@@ -374,7 +374,7 @@ export const MobileAppShowcase: React.FC = () => {
                 </div>
               </div>
 
-              <div className="flex items-start gap-4 bg-white rounded-xl p-4 shadow-md hover:shadow-lg transition-all duration-300 group">
+              <div className="group flex items-start gap-3 rounded-xl bg-white p-4 shadow-md transition-all duration-300 hover:shadow-lg sm:gap-4">
                 <div className="w-12 h-12 bg-gradient-to-r from-orange-500 to-orange-600 rounded-xl flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-all duration-300">
                   <Car className="w-6 h-6 text-white" aria-hidden="true" />
                 </div>
@@ -387,11 +387,11 @@ export const MobileAppShowcase: React.FC = () => {
 
             {/* CTA */}
             <div className="pt-4">
-              <p className="text-gray-600 mb-4 font-semibold">Download the mobile app:</p>
+              <p className="mb-4 font-semibold text-gray-600">Download the mobile app:</p>
               <div className="flex flex-col sm:flex-row gap-4">
                 <a 
                   href="https://drive.google.com/uc?export=download&id=1GcZIfFRBHKoyflPJIwgRnVKSCJKIUxVk" 
-                  className="inline-flex items-center justify-center bg-black text-white px-6 py-3 rounded-xl font-semibold shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-black"
+                  className="inline-flex items-center justify-center rounded-xl bg-black px-6 py-3 text-white font-semibold shadow-lg transition-all duration-300 transform hover:scale-105 hover:shadow-xl focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-black"
                 >
                   <svg className="w-6 h-6 mr-3" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
                     <path d="M3,20.5V3.5C3,2.91 3.34,2.39 3.84,2.15L13.69,12L3.84,21.85C3.34,21.6 3,21.09 3,20.5M16.81,15.12L6.05,21.34L14.54,12.85L16.81,15.12M20.16,10.81C20.5,11.08 20.75,11.5 20.75,12C20.75,12.5 20.53,12.9 20.18,13.18L17.89,14.5L15.39,12L17.89,9.5L20.16,10.81M6.05,2.66L16.81,8.88L14.54,11.15L6.05,2.66Z" />

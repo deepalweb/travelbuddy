@@ -7,9 +7,9 @@ interface SEOHeadProps {
 }
 
 export const SEOHead: React.FC<SEOHeadProps> = ({
-  title = "TravelBuddy - AI Travel Planner & Trip Planning App | Discover Destinations Worldwide",
-  description = "Plan your perfect trip with TravelBuddy's AI-powered travel planner. Explore millions of destinations, create custom itineraries, find deals, and manage everything in one app. Download for iOS & Android.",
-  keywords = "trip planner, travel app, AI travel planning, itinerary builder, discover destinations, travel deals, vacation planner, travel guide, flight booking, hotel booking"
+  title = "TravelBuddy | Trip Planning, Destination Discovery, and Travel Tools",
+  description = "Plan trips with TravelBuddy, explore destinations, save favorites, and use AI-assisted tools to build itineraries with less friction.",
+  keywords = "trip planner, travel app, itinerary builder, destination discovery, AI travel planning, travel tools"
 }) => {
   useEffect(() => {
     // Update document title
@@ -30,7 +30,7 @@ export const SEOHead: React.FC<SEOHeadProps> = ({
     updateMeta('keywords', keywords)
     updateMeta('robots', 'index, follow')
     
-    // Add comprehensive structured data
+    // Add conservative structured data based on product-level details only.
     const structuredData = {
       "@context": "https://schema.org",
       "@graph": [
@@ -46,27 +46,10 @@ export const SEOHead: React.FC<SEOHeadProps> = ({
           }
         },
         {
-          "@type": "LocalBusiness",
-          "@id": "https://travelbuddy.com/#business",
-          "name": "TravelBuddy",
-          "description": "AI-powered travel planning platform helping travelers discover, plan and experience the world effortlessly",
-          "url": "https://travelbuddy.com/",
-          "telephone": "+1-800-TRAVEL",
-          "address": {
-            "@type": "PostalAddress",
-            "addressCountry": "US"
-          },
-          "sameAs": [
-            "https://facebook.com/travelbuddy",
-            "https://twitter.com/travelbuddy",
-            "https://instagram.com/travelbuddy"
-          ]
-        },
-        {
           "@type": "TravelAgency",
           "@id": "https://travelbuddy.com/#travelagency",
           "name": "TravelBuddy",
-          "description": "AI-powered travel planning and booking platform",
+          "description": "Travel planning platform with destination discovery and itinerary tools",
           "url": "https://travelbuddy.com/",
           "priceRange": "Free - $19.99",
           "hasOfferCatalog": {
@@ -98,19 +81,12 @@ export const SEOHead: React.FC<SEOHeadProps> = ({
           "name": "TravelBuddy",
           "description": description,
           "applicationCategory": "TravelApplication",
-          "operatingSystem": ["iOS", "Android", "Web"],
+          "operatingSystem": ["Android", "Web"],
           "offers": {
             "@type": "Offer",
             "price": "0",
             "priceCurrency": "USD",
             "availability": "https://schema.org/InStock"
-          },
-          "aggregateRating": {
-            "@type": "AggregateRating",
-            "ratingValue": "4.8",
-            "reviewCount": "50000",
-            "bestRating": "5",
-            "worstRating": "1"
           }
         },
         {
@@ -122,7 +98,7 @@ export const SEOHead: React.FC<SEOHeadProps> = ({
               "name": "How does TravelBuddy create my itinerary?",
               "acceptedAnswer": {
                 "@type": "Answer",
-                "text": "Our AI analyzes your preferences, budget, travel dates, and interests to create personalized itineraries in under 2 minutes. We consider factors like weather, local events, opening hours, and travel distances to optimize your trip."
+                "text": "TravelBuddy uses the details you provide, such as destination, trip length, interests, and planning preferences, to help structure an itinerary that you can refine."
               }
             },
             {
@@ -130,7 +106,7 @@ export const SEOHead: React.FC<SEOHeadProps> = ({
               "name": "Is the AI trip planner free?",
               "acceptedAnswer": {
                 "@type": "Answer",
-                "text": "Yes! Our basic AI trip planner is completely free forever. You can create unlimited itineraries, discover places, and plan trips without any cost. Premium features like offline access and advanced weather AI are available for $9.99/month."
+                "text": "TravelBuddy offers a free tier to get started, while paid plans unlock additional planning features."
               }
             },
             {
@@ -138,28 +114,10 @@ export const SEOHead: React.FC<SEOHeadProps> = ({
               "name": "Can I use the app offline?",
               "acceptedAnswer": {
                 "@type": "Answer",
-                "text": "Premium users can download their complete itineraries, maps, and place details for offline access. This includes photos, descriptions, contact information, and navigation - perfect for international travel without roaming charges."
+                "text": "Offline capabilities depend on the current plan and available features."
               }
             }
           ]
-        },
-        {
-          "@type": "Review",
-          "@id": "https://travelbuddy.com/#review1",
-          "author": {
-            "@type": "Person",
-            "name": "Sarah Chen"
-          },
-          "reviewRating": {
-            "@type": "Rating",
-            "ratingValue": "5",
-            "bestRating": "5"
-          },
-          "reviewBody": "TravelBuddy helped me discover amazing local cafes in Tokyo I would never have found!",
-          "itemReviewed": {
-            "@type": "SoftwareApplication",
-            "name": "TravelBuddy"
-          }
         }
       ]
     }

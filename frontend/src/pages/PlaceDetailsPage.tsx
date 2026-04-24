@@ -4,6 +4,7 @@ import { Button } from '../components/Button'
 import { Card, CardContent } from '../components/Card'
 import { Badge } from '../components/Badge'
 import { apiService } from '../lib/api'
+import { aiService, type PlaceAIContent } from '../services/aiService'
 import { 
   ArrowLeft, 
   Star, 
@@ -19,6 +20,7 @@ import {
   Users,
   DollarSign,
   Info,
+  Sparkles,
   ChevronLeft,
   ChevronRight
 } from 'lucide-react'
@@ -88,6 +90,8 @@ const PlaceDetailsPage: React.FC = () => {
   const [loading, setLoading] = useState(!existingPlace)
   const [currentImageIndex, setCurrentImageIndex] = useState(0)
   const [showGallery, setShowGallery] = useState(false)
+  const [aiContent, setAiContent] = useState<PlaceAIContent | null>(null)
+  const [aiLoading, setAiLoading] = useState(false)
 
   useEffect(() => {
     if (existingPlace) {
@@ -142,6 +146,12 @@ const PlaceDetailsPage: React.FC = () => {
     }
   }, [placeId, existingPlace])
 
+  useEffect(() => {
+    if (place) {
+      loadAIContent(place)
+    }
+  }, [place?.id])
+
   const loadPlaceDetails = async (id: string) => {
     setLoading(true)
     try {
@@ -158,6 +168,78 @@ const PlaceDetailsPage: React.FC = () => {
       console.error('Failed to load place details:', error)
     } finally {
       setLoading(false)
+    }
+  }
+
+  const loadAIContent = async (placeData: PlaceDetails) => {
+    setAiLoading(true)
+
+    try {
+      const content = await aiService.generatePlaceContent({
+        placeId: placeData.id,
+        placeName: placeData.name,
+        placeType: placeData.category,
+        address: placeData.location.address,
+        city: placeData.location.city,
+        country: placeData.location.country,
+        description: placeData.description.full,
+        rating: placeData.rating.overall,
+        tags: placeData.tags
+      })
+
+      setAiContent(content)
+    } catch (error) {
+      console.error('Failed to load AI destination brief:', error)
+      setAiContent(null)
+    } finally {
+      setAiLoading(false)
+    }
+  }
+
+  const handlePlanVisit = () => {
+    if (!place) return
+
+    const placeForPlanner = existingPlace || {
+      id: place.id,
+      name: place.name,
+      description: aiContent?.description || place.description.short || place.description.full,
+      image: place.images.hero,
+      rating: place.rating.overall,
+      category: place.category,
+      priceLevel: place.priceLevel,
+      location: {
+        address: place.location.address,
+        city: place.location.city,
+        country: place.location.country,
+        coordinates: place.location.coordinates
+      },
+      contact: place.contact,
+      tags: place.tags,
+      highlights: place.description.highlights
+    }
+
+    sessionStorage.setItem('selectedPlaces', JSON.stringify([placeForPlanner]))
+    navigate('/trips')
+  }
+
+  const handleShare = async () => {
+    if (!place) return
+
+    const shareData = {
+      title: place.name,
+      text: `Check out ${place.name} in ${place.location.city}`,
+      url: window.location.href
+    }
+
+    try {
+      if (navigator.share) {
+        await navigator.share(shareData)
+      } else {
+        await navigator.clipboard.writeText(window.location.href)
+        alert('Link copied to clipboard')
+      }
+    } catch (error) {
+      console.error('Share failed:', error)
     }
   }
 
@@ -199,8 +281,21 @@ const PlaceDetailsPage: React.FC = () => {
     )
   }
 
+  const planningTips = [
+    ...place.tips,
+    ...(aiContent?.planningTips || [])
+  ].filter((tip, index, arr) => tip && arr.indexOf(tip) === index)
+
+  const primaryDescription = aiContent?.description || place.description.full
+  const aiInsightCards = [
+    { label: 'Vibe', value: aiContent?.vibe },
+    { label: 'Best Time', value: aiContent?.bestTimeToVisit },
+    { label: 'Ideal Visit', value: aiContent?.idealVisitDuration },
+    { label: 'Nearby Pairing', value: aiContent?.nearbyPairing }
+  ].filter((item) => item.value)
+
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-[radial-gradient(circle_at_top,#dbeafe_0%,#f8fafc_30%,#f8fafc_100%)]">
       {/* Header */}
       <div className="bg-white shadow-sm sticky top-0 z-40">
         <div className="max-w-7xl mx-auto px-4 py-4">
@@ -214,7 +309,7 @@ const PlaceDetailsPage: React.FC = () => {
               Back
             </Button>
             <div className="flex items-center gap-2">
-              <Button variant="outline" size="sm">
+              <Button variant="outline" size="sm" onClick={handleShare}>
                 <Share2 className="h-4 w-4 mr-2" />
                 Share
               </Button>
@@ -307,23 +402,101 @@ const PlaceDetailsPage: React.FC = () => {
 
             {/* Action Buttons */}
             <div className="flex flex-wrap gap-3">
-              <Button className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700">
+              <Button
+                className="bg-gradient-to-r from-blue-600 to-cyan-500 hover:from-blue-700 hover:to-cyan-600"
+                onClick={() => {
+                  const { lat, lng } = place.location.coordinates
+                  window.open(`https://www.google.com/maps?q=${lat},${lng}`, '_blank')
+                }}
+              >
                 <Navigation className="h-4 w-4 mr-2" />
                 Get Directions
               </Button>
-              <Button variant="outline">
+              <Button variant="outline" onClick={handlePlanVisit}>
                 <Calendar className="h-4 w-4 mr-2" />
                 Plan Visit
               </Button>
-              <Button variant="outline">
+              <Button
+                variant="outline"
+                onClick={() => place.contact.phone && window.open(`tel:${place.contact.phone}`, '_self')}
+                disabled={!place.contact.phone}
+              >
                 <Phone className="h-4 w-4 mr-2" />
                 Call
               </Button>
-              <Button variant="outline">
+              <Button
+                variant="outline"
+                onClick={() => place.contact.website && window.open(place.contact.website, '_blank', 'noopener,noreferrer')}
+                disabled={!place.contact.website}
+              >
                 <Globe className="h-4 w-4 mr-2" />
                 Website
               </Button>
             </div>
+
+            <Card className="overflow-hidden border-0 bg-[linear-gradient(135deg,#0f172a_0%,#1d4ed8_45%,#0ea5e9_100%)] text-white shadow-2xl">
+              <CardContent className="p-6 md:p-8">
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <div className="inline-flex items-center rounded-full bg-white/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-white/80">
+                      <Sparkles className="mr-2 h-3.5 w-3.5" />
+                      AI Destination Brief
+                    </div>
+                    <h3 className="mt-4 text-2xl font-semibold">A stronger read on this stop</h3>
+                    <p className="mt-3 max-w-3xl text-sm leading-6 text-white/80">
+                      {aiLoading ? 'Building a local-style brief with Azure Foundry...' : primaryDescription}
+                    </p>
+                  </div>
+                  <Badge className="border border-white/20 bg-white/10 text-white">Azure Foundry</Badge>
+                </div>
+
+                {aiInsightCards.length > 0 && (
+                  <div className="mt-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                    {aiInsightCards.map((item) => (
+                      <div key={item.label} className="rounded-2xl border border-white/10 bg-white/10 p-4 backdrop-blur-sm">
+                        <p className="text-xs uppercase tracking-[0.18em] text-white/60">{item.label}</p>
+                        <p className="mt-2 text-sm font-medium leading-6 text-white">{item.value}</p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {(aiLoading || aiContent?.localTip || aiContent?.culturalInsight || aiContent?.handyPhrase || aiContent?.etiquette || aiContent?.photoTip) && (
+                  <div className="mt-6 grid gap-4 md:grid-cols-2">
+                    {aiLoading && (
+                      <>
+                        <div className="h-28 animate-pulse rounded-2xl bg-white/10" />
+                        <div className="h-28 animate-pulse rounded-2xl bg-white/10" />
+                      </>
+                    )}
+                    {!aiLoading && aiContent?.localTip && (
+                      <div className="rounded-2xl bg-white p-4 text-slate-900">
+                        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-sky-700">Local Tip</p>
+                        <p className="mt-2 text-sm leading-6">{aiContent.localTip}</p>
+                      </div>
+                    )}
+                    {!aiLoading && aiContent?.culturalInsight && (
+                      <div className="rounded-2xl bg-white p-4 text-slate-900">
+                        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-sky-700">Cultural Insight</p>
+                        <p className="mt-2 text-sm leading-6">{aiContent.culturalInsight}</p>
+                      </div>
+                    )}
+                    {!aiLoading && aiContent?.handyPhrase && (
+                      <div className="rounded-2xl border border-white/15 bg-white/10 p-4 backdrop-blur-sm">
+                        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-white/60">Useful Phrase</p>
+                        <p className="mt-2 text-sm font-medium italic text-white">"{aiContent.handyPhrase}"</p>
+                      </div>
+                    )}
+                    {!aiLoading && aiContent?.photoTip && (
+                      <div className="rounded-2xl border border-white/15 bg-white/10 p-4 backdrop-blur-sm">
+                        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-white/60">Photo Tip</p>
+                        <p className="mt-2 text-sm leading-6 text-white">{aiContent.photoTip}</p>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
 
             {/* Photo Gallery Grid */}
             <div>
@@ -380,7 +553,7 @@ const PlaceDetailsPage: React.FC = () => {
             {/* Description */}
             <div>
               <h3 className="text-xl font-bold text-gray-900 mb-4">About</h3>
-              <p className="text-gray-700 leading-relaxed">{place.description.full}</p>
+              <p className="text-gray-700 leading-relaxed">{primaryDescription}</p>
             </div>
 
             {/* Highlights */}
@@ -400,7 +573,7 @@ const PlaceDetailsPage: React.FC = () => {
             <div>
               <h3 className="text-xl font-bold text-gray-900 mb-4">Tips & Recommendations</h3>
               <div className="space-y-3">
-                {place.tips.map((tip, index) => (
+                {planningTips.map((tip, index) => (
                   <div key={index} className="flex items-start bg-blue-50 p-3 rounded-lg">
                     <Info className="h-5 w-5 text-blue-600 mr-3 mt-0.5 flex-shrink-0" />
                     <span className="text-gray-700">{tip}</span>
@@ -440,6 +613,11 @@ const PlaceDetailsPage: React.FC = () => {
                       <div className="text-sm text-gray-600">User reviews</div>
                     </div>
                   </div>
+                  {aiContent?.etiquette && (
+                    <div className="rounded-xl bg-amber-50 p-3 text-sm text-amber-900">
+                      <span className="font-semibold">Etiquette:</span> {aiContent.etiquette}
+                    </div>
+                  )}
                 </div>
               </CardContent>
             </Card>
@@ -448,16 +626,59 @@ const PlaceDetailsPage: React.FC = () => {
             <Card>
               <CardContent className="p-6">
                 <h3 className="font-bold text-lg mb-4">Pricing</h3>
-                <div className="space-y-3">
-                  {place.pricing.tickets.map((ticket, index) => (
-                    <div key={index} className="flex justify-between items-center">
-                      <span className="text-gray-700">{ticket.type}</span>
-                      <span className="font-semibold">{place.pricing.currency} {ticket.price}</span>
-                    </div>
-                  ))}
-                </div>
+                {place.pricing.tickets.length > 0 ? (
+                  <div className="space-y-3">
+                    {place.pricing.tickets.map((ticket, index) => (
+                      <div key={index} className="flex justify-between items-center">
+                        <span className="text-gray-700">{ticket.type}</span>
+                        <span className="font-semibold">{place.pricing.currency} {ticket.price}</span>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-gray-600">Pricing often varies by season, package, or walk-in availability.</p>
+                )}
               </CardContent>
             </Card>
+
+            {(aiLoading || aiContent) && (
+              <Card className="border-sky-100 shadow-sm">
+                <CardContent className="p-6">
+                  <div className="flex items-center gap-2">
+                    <Sparkles className="h-5 w-5 text-sky-600" />
+                    <h3 className="font-bold text-lg">Visit Strategy</h3>
+                  </div>
+                  {aiLoading ? (
+                    <div className="mt-4 space-y-3">
+                      <div className="h-4 w-3/4 animate-pulse rounded bg-slate-200" />
+                      <div className="h-4 w-full animate-pulse rounded bg-slate-200" />
+                      <div className="h-4 w-5/6 animate-pulse rounded bg-slate-200" />
+                    </div>
+                  ) : (
+                    <div className="mt-4 space-y-4 text-sm text-gray-700">
+                      {aiContent?.bestTimeToVisit && (
+                        <div>
+                          <p className="font-semibold text-gray-900">Best Time To Visit</p>
+                          <p>{aiContent.bestTimeToVisit}</p>
+                        </div>
+                      )}
+                      {aiContent?.idealVisitDuration && (
+                        <div>
+                          <p className="font-semibold text-gray-900">Ideal Visit Duration</p>
+                          <p>{aiContent.idealVisitDuration}</p>
+                        </div>
+                      )}
+                      {aiContent?.nearbyPairing && (
+                        <div>
+                          <p className="font-semibold text-gray-900">Pair It With</p>
+                          <p>{aiContent.nearbyPairing}</p>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            )}
 
             {/* Contact */}
             <Card>

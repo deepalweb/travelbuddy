@@ -1,9 +1,9 @@
-import React, { useState } from 'react'
+import React, { useMemo, useState } from 'react'
+import { Banknote, Calendar, Compass, LoaderCircle, MapPin, Sparkles, Users, X } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from './Card'
 import { Button } from './Button'
 import { useConfig } from '../contexts/ConfigContext'
 import { useAuth } from '../contexts/AuthContext'
-import { Sparkles, MapPin, Clock, X, Users, DollarSign, Heart, Camera, Utensils, Mountain, Building, Waves, TreePine, Calendar, Banknote } from 'lucide-react'
 
 interface AITripGeneratorProps {
   onTripGenerated: (trip: any) => void
@@ -11,39 +11,86 @@ interface AITripGeneratorProps {
   selectedPlaces?: any[]
 }
 
-export const AITripGenerator: React.FC<AITripGeneratorProps> = ({ onTripGenerated, onClose, selectedPlaces = [] }) => {
+const interestOptions = [
+  'Culture & museums',
+  'Food & dining',
+  'Nature & outdoors',
+  'Photography',
+  'Architecture',
+  'Family-friendly stops',
+  'Nightlife',
+  'Wellness',
+]
+
+const generationSteps = [
+  'Understanding your travel brief',
+  'Building the itinerary structure',
+  'Refining daily pacing and budget',
+  'Preparing the saved trip draft',
+]
+
+export const AITripGenerator: React.FC<AITripGeneratorProps> = ({
+  onTripGenerated,
+  onClose,
+  selectedPlaces = [],
+}) => {
   const { config } = useConfig()
   const { user } = useAuth()
   const [formData, setFormData] = useState({
-    destination: selectedPlaces.length > 0 ? selectedPlaces[0].location.city + ', ' + selectedPlaces[0].location.country : '',
-    duration: '',
+    destination:
+      selectedPlaces.length > 0
+        ? `${selectedPlaces[0].location.city}, ${selectedPlaces[0].location.country}`
+        : '',
+    duration: '3 days',
     travelers: '1',
     budget: 'medium',
     travelStyle: 'balanced',
     interests: [] as string[],
     currency: 'USD',
     startDate: '',
-    endDate: ''
+    endDate: '',
+    notes: '',
+    mustSee: '',
+    avoid: '',
   })
   const [generating, setGenerating] = useState(false)
+  const [generationStepIndex, setGenerationStepIndex] = useState(0)
+
+  const canGenerate = useMemo(
+    () => Boolean(formData.destination.trim() && formData.duration),
+    [formData.destination, formData.duration]
+  )
+
+  const toggleInterest = (interest: string) => {
+    setFormData((prev) => ({
+      ...prev,
+      interests: prev.interests.includes(interest)
+        ? prev.interests.filter((item) => item !== interest)
+        : [...prev.interests, interest],
+    }))
+  }
 
   const generateTrip = async () => {
-    if (!formData.destination || !formData.duration) {
-      alert('Please fill in destination and duration')
+    if (!canGenerate) {
       return
     }
 
     setGenerating(true)
+    setGenerationStepIndex(0)
+
+    const stepInterval = window.setInterval(() => {
+      setGenerationStepIndex((prev) => Math.min(prev + 1, generationSteps.length - 1))
+    }, 1400)
+
     try {
       const apiUrl = config?.apiBaseUrl || 'http://localhost:3000'
       const headers: Record<string, string> = {
         'Content-Type': 'application/json',
       }
 
-      // Add authentication headers
       const demoToken = localStorage.getItem('demo_token')
       if (demoToken) {
-        headers['Authorization'] = `Bearer ${demoToken}`
+        headers.Authorization = `Bearer ${demoToken}`
       }
       if (user?.id) {
         headers['x-user-id'] = user.id
@@ -61,33 +108,23 @@ export const AITripGenerator: React.FC<AITripGeneratorProps> = ({ onTripGenerate
           interests: formData.interests,
           currency: formData.currency,
           startDate: formData.startDate,
-          selectedPlaces: selectedPlaces
-        })
+          endDate: formData.endDate,
+          notes: formData.notes,
+          mustSee: formData.mustSee
+            .split(',')
+            .map((item) => item.trim())
+            .filter(Boolean),
+          avoid: formData.avoid
+            .split(',')
+            .map((item) => item.trim())
+            .filter(Boolean),
+          selectedPlaces,
+        }),
       })
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({ error: 'Unknown error' }))
-
-        // Handle Azure OpenAI unavailable (503)
-        if (response.status === 503) {
-          alert('AI trip generation service is temporarily unavailable. Please try again later or contact support.')
-          return
-        }
-
-        // Handle subscription limits (429)
-        if (response.status === 429 && errorData.upgradeRequired) {
-          alert(`Upgrade required: ${errorData.error}. Please upgrade to ${errorData.nextTier} plan to continue.`)
-          return
-        }
-
-        // Handle authentication (401)
-        if (response.status === 401 && errorData.upgradeRequired) {
-          alert('Please log in or upgrade your account to use AI trip generation.')
-          return
-        }
-
-        // Handle general errors
-        throw new Error(errorData.message || errorData.error || `HTTP error! status: ${response.status}`)
+        throw new Error(errorData.message || errorData.error || `HTTP ${response.status}`)
       }
 
       const tripData = await response.json()
@@ -95,256 +132,246 @@ export const AITripGenerator: React.FC<AITripGeneratorProps> = ({ onTripGenerate
     } catch (error) {
       console.error('Failed to generate trip:', error)
       const errorMessage = error instanceof Error ? error.message : 'Failed to generate trip'
-
-      if (errorMessage.includes('not configured')) {
-        alert('Service temporarily unavailable. Please try again later or contact support.')
-      } else if (errorMessage.includes('Network')) {
-        alert('Network error. Please check your connection and try again.')
-      } else {
-        alert(`Failed to generate trip: ${errorMessage}`)
-      }
+      alert(`Failed to generate trip: ${errorMessage}`)
     } finally {
+      window.clearInterval(stepInterval)
       setGenerating(false)
+      setGenerationStepIndex(0)
     }
   }
 
-  const interestOptions = [
-    { id: 'culture', label: 'Culture & Museums', icon: Building },
-    { id: 'food', label: 'Food & Dining', icon: Utensils },
-    { id: 'nature', label: 'Nature & Outdoors', icon: TreePine },
-    { id: 'adventure', label: 'Adventure Sports', icon: Mountain },
-    { id: 'photography', label: 'Photography', icon: Camera },
-    { id: 'beaches', label: 'Beaches & Coast', icon: Waves },
-    { id: 'nightlife', label: 'Nightlife & Entertainment', icon: Sparkles },
-    { id: 'wellness', label: 'Wellness & Relaxation', icon: Heart }
-  ]
-
-  const toggleInterest = (interestId: string) => {
-    setFormData(prev => ({
-      ...prev,
-      interests: prev.interests.includes(interestId)
-        ? prev.interests.filter(id => id !== interestId)
-        : [...prev.interests, interestId]
-    }))
-  }
-
   return (
-    <Card className="w-full max-w-3xl mx-auto bg-white rounded-2xl shadow-2xl overflow-hidden">
-      <CardHeader className="bg-gradient-to-r from-blue-600 to-purple-600 text-white">
-        <div className="flex justify-between items-center">
-          <CardTitle className="flex items-center text-2xl font-bold">
-            <Sparkles className="w-6 h-6 mr-3" />
-            AI Trip Generator
-          </CardTitle>
+    <Card className="mx-auto w-full max-w-5xl overflow-hidden rounded-[2rem] border-0 bg-white shadow-2xl">
+      <CardHeader className="bg-[linear-gradient(135deg,#07111f_0%,#14396d_55%,#4f46e5_100%)] text-white">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <div className="inline-flex items-center rounded-full bg-white/10 px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-white/80">
+              AI Trip Studio
+            </div>
+            <CardTitle className="mt-4 flex items-center text-3xl font-semibold text-white">
+              <Sparkles className="mr-3 h-6 w-6" />
+              Create a stronger itinerary brief
+            </CardTitle>
+            <p className="mt-3 max-w-3xl text-sm leading-6 text-white/75">
+              Give the planner better context so the output feels more like a real trip draft and less
+              like a generic list of attractions.
+            </p>
+          </div>
           <Button
             variant="outline"
             size="sm"
             onClick={onClose}
-            className="bg-white/20 border-white/30 text-white hover:bg-white/30 rounded-full w-8 h-8 p-0"
+            className="h-10 w-10 rounded-full border-white/20 bg-white/10 p-0 text-white hover:bg-white/20"
           >
-            <X className="w-4 h-4" />
+            <X className="h-4 w-4" />
           </Button>
         </div>
-        <p className="text-blue-100 mt-2">Let AI create your perfect personalized itinerary</p>
       </CardHeader>
-      <CardContent className="p-8 space-y-6">
-        {selectedPlaces.length > 0 && (
-          <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 mb-6">
-            <h3 className="font-semibold text-blue-900 mb-2">Selected Places from Explore</h3>
-            <div className="flex flex-wrap gap-2">
-              {selectedPlaces.map((place, index) => (
-                <span key={index} className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm">
-                  {place.name}
-                </span>
-              ))}
+
+      <CardContent className="grid gap-8 p-6 lg:grid-cols-[1.2fr_0.8fr] lg:p-8">
+        <div className="space-y-6">
+          {selectedPlaces.length > 0 && (
+            <div className="rounded-[1.5rem] border border-sky-200 bg-sky-50 p-5">
+              <p className="text-sm font-semibold text-sky-900">Imported from Discovery</p>
+              <p className="mt-1 text-sm text-sky-700">These places will influence the itinerary and help the AI anchor the route.</p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                {selectedPlaces.map((place, index) => (
+                  <span key={index} className="rounded-full bg-sky-100 px-3 py-1 text-xs font-medium text-sky-800">
+                    {place.name}
+                  </span>
+                ))}
+              </div>
             </div>
-            <p className="text-sm text-blue-700 mt-2">
-              These places will be included in your trip itinerary
-            </p>
-          </div>
-        )}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              <MapPin className="w-4 h-4 inline mr-1" />
-              Destination
-            </label>
-            <input
-              type="text"
-              value={formData.destination}
-              onChange={(e) => setFormData({ ...formData, destination: e.target.value })}
-              placeholder="e.g., Paris, Tokyo, New York"
-              className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-            />
-          </div>
+          )}
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              <Clock className="w-4 h-4 inline mr-1" />
-              Duration
-            </label>
-            <select
-              value={formData.duration}
-              onChange={(e) => setFormData({ ...formData, duration: e.target.value })}
-              className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-            >
-              <option value="">Select duration</option>
-              <option value="1 day">1 Day</option>
-              <option value="2 days">2 Days</option>
-              <option value="3 days">3 Days</option>
-              <option value="4 days">4 Days</option>
-              <option value="5 days">5 Days</option>
-              <option value="1 week">1 Week</option>
-              <option value="10 days">10 Days</option>
-              <option value="2 weeks">2 Weeks</option>
-            </select>
-          </div>
-        </div>
-
-
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              <Users className="w-4 h-4 inline mr-1" />
-              Number of Travelers
-            </label>
-            <select
-              value={formData.travelers}
-              onChange={(e) => setFormData({ ...formData, travelers: e.target.value })}
-              className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-            >
-              <option value="1">Solo (1 person)</option>
-              <option value="2">Couple (2 people)</option>
-              <option value="3-4">Small Group (3-4 people)</option>
-              <option value="5+">Large Group (5+ people)</option>
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              <Banknote className="w-4 h-4 inline mr-1" />
-              Currency
-            </label>
-            <select
-              value={formData.currency}
-              onChange={(e) => setFormData({ ...formData, currency: e.target.value })}
-              className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-            >
-              <option value="USD">USD ($)</option>
-              <option value="EUR">EUR (€)</option>
-              <option value="GBP">GBP (£)</option>
-              <option value="JPY">JPY (¥)</option>
-              <option value="AUD">AUD (A$)</option>
-              <option value="CAD">CAD (C$)</option>
-              <option value="CHF">CHF (Fr)</option>
-              <option value="CNY">CNY (¥)</option>
-              <option value="INR">INR (₹)</option>
-            </select>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              <DollarSign className="w-4 h-4 inline mr-1" />
-              Budget Range
-            </label>
-            <select
-              value={formData.budget}
-              onChange={(e) => setFormData({ ...formData, budget: e.target.value })}
-              className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-            >
-              <option value="low">Budget ($300-600)</option>
-              <option value="medium">Medium ($600-1200)</option>
-              <option value="high">Luxury ($1200+)</option>
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              <Calendar className="w-4 h-4 inline mr-1" />
-              Start Date
-            </label>
-            <input
-              type="date"
-              value={formData.startDate}
-              onChange={(e) => setFormData({ ...formData, startDate: e.target.value })}
-              className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-            />
-          </div>
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-3">
-            Travel Style
-          </label>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-            {[
-              { id: 'relaxed', label: 'Relaxed', desc: 'Slow pace, plenty of rest' },
-              { id: 'balanced', label: 'Balanced', desc: 'Mix of activities and downtime' },
-              { id: 'packed', label: 'Action-Packed', desc: 'Maximum activities and sights' }
-            ].map((style) => (
-              <button
-                key={style.id}
-                type="button"
-                onClick={() => setFormData({ ...formData, travelStyle: style.id })}
-                className={`p-4 rounded-xl border-2 text-left transition-all ${formData.travelStyle === style.id
-                  ? 'border-blue-500 bg-blue-50 text-blue-700'
-                  : 'border-gray-200 hover:border-gray-300 text-gray-700'
-                  }`}
+          <div className="grid gap-4 md:grid-cols-2">
+            <div>
+              <label className="mb-2 block text-sm font-medium text-slate-700">Destination</label>
+              <div className="relative">
+                <MapPin className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                <input
+                  type="text"
+                  value={formData.destination}
+                  onChange={(e) => setFormData({ ...formData, destination: e.target.value })}
+                  placeholder="Lisbon, Portugal"
+                  className="w-full rounded-2xl border border-slate-300 px-11 py-3 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200"
+                />
+              </div>
+            </div>
+            <div>
+              <label className="mb-2 block text-sm font-medium text-slate-700">Duration</label>
+              <select
+                value={formData.duration}
+                onChange={(e) => setFormData({ ...formData, duration: e.target.value })}
+                className="w-full rounded-2xl border border-slate-300 px-4 py-3 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200"
               >
-                <div className="font-medium">{style.label}</div>
-                <div className="text-sm text-gray-500 mt-1">{style.desc}</div>
-              </button>
-            ))}
+                {['2 days', '3 days', '4 days', '5 days', '7 days', '10 days', '14 days'].map((option) => (
+                  <option key={option} value={option}>{option}</option>
+                ))}
+              </select>
+            </div>
           </div>
-        </div>
 
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-3">
-            Interests & Activities
-          </label>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            {interestOptions.map((interest) => {
-              const IconComponent = interest.icon
-              const isSelected = formData.interests.includes(interest.id)
-              return (
-                <button
-                  key={interest.id}
-                  type="button"
-                  onClick={() => toggleInterest(interest.id)}
-                  className={`p-3 rounded-xl border-2 text-center transition-all ${isSelected
-                    ? 'border-blue-500 bg-blue-50 text-blue-700'
-                    : 'border-gray-200 hover:border-gray-300 text-gray-700'
-                    }`}
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+            <div>
+              <label className="mb-2 block text-sm font-medium text-slate-700">Travelers</label>
+              <div className="relative">
+                <Users className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                <select
+                  value={formData.travelers}
+                  onChange={(e) => setFormData({ ...formData, travelers: e.target.value })}
+                  className="w-full rounded-2xl border border-slate-300 px-11 py-3 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200"
                 >
-                  <IconComponent className="w-5 h-5 mx-auto mb-2" />
-                  <div className="text-xs font-medium">{interest.label}</div>
-                </button>
-              )
-            })}
+                  <option value="1">Solo</option>
+                  <option value="2">Couple</option>
+                  <option value="3-4">Small group</option>
+                  <option value="5+">Large group</option>
+                </select>
+              </div>
+            </div>
+            <div>
+              <label className="mb-2 block text-sm font-medium text-slate-700">Budget</label>
+              <div className="relative">
+                <Banknote className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                <select
+                  value={formData.budget}
+                  onChange={(e) => setFormData({ ...formData, budget: e.target.value })}
+                  className="w-full rounded-2xl border border-slate-300 px-11 py-3 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200"
+                >
+                  <option value="low">Budget</option>
+                  <option value="medium">Mid-range</option>
+                  <option value="high">Premium</option>
+                </select>
+              </div>
+            </div>
+            <div>
+              <label className="mb-2 block text-sm font-medium text-slate-700">Start date</label>
+              <div className="relative">
+                <Calendar className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                <input
+                  type="date"
+                  value={formData.startDate}
+                  onChange={(e) => setFormData({ ...formData, startDate: e.target.value })}
+                  className="w-full rounded-2xl border border-slate-300 px-11 py-3 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200"
+                />
+              </div>
+            </div>
+            <div>
+              <label className="mb-2 block text-sm font-medium text-slate-700">Travel style</label>
+              <select
+                value={formData.travelStyle}
+                onChange={(e) => setFormData({ ...formData, travelStyle: e.target.value })}
+                className="w-full rounded-2xl border border-slate-300 px-4 py-3 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200"
+              >
+                <option value="relaxed">Relaxed</option>
+                <option value="balanced">Balanced</option>
+                <option value="packed">Action-packed</option>
+              </select>
+            </div>
+          </div>
+
+          <div>
+            <label className="mb-3 block text-sm font-medium text-slate-700">Interests</label>
+            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+              {interestOptions.map((interest) => {
+                const selected = formData.interests.includes(interest)
+                return (
+                  <button
+                    key={interest}
+                    type="button"
+                    onClick={() => toggleInterest(interest)}
+                    className={`rounded-2xl border px-4 py-3 text-left text-sm font-medium transition-all ${selected ? 'border-indigo-500 bg-indigo-50 text-indigo-700' : 'border-slate-200 text-slate-700 hover:border-slate-300'}`}
+                  >
+                    {interest}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+
+          <div className="grid gap-4 xl:grid-cols-2">
+            <div>
+              <label className="mb-2 block text-sm font-medium text-slate-700">Must-see priorities</label>
+              <textarea
+                rows={4}
+                value={formData.mustSee}
+                onChange={(e) => setFormData({ ...formData, mustSee: e.target.value })}
+                placeholder="Comma-separated list, like Alfama, sunset tram ride, food market"
+                className="w-full rounded-2xl border border-slate-300 px-4 py-3 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200"
+              />
+            </div>
+            <div>
+              <label className="mb-2 block text-sm font-medium text-slate-700">Avoid or constraints</label>
+              <textarea
+                rows={4}
+                value={formData.avoid}
+                onChange={(e) => setFormData({ ...formData, avoid: e.target.value })}
+                placeholder="Comma-separated list, like steep hikes, nightlife, long train days"
+                className="w-full rounded-2xl border border-slate-300 px-4 py-3 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="mb-2 block text-sm font-medium text-slate-700">Extra planning notes</label>
+            <textarea
+              rows={4}
+              value={formData.notes}
+              onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+              placeholder="Anything the planner should know: mobility needs, photo-heavy days, remote work blocks, celebration dinner, etc."
+              className="w-full rounded-2xl border border-slate-300 px-4 py-3 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200"
+            />
           </div>
         </div>
 
-        <div className="flex gap-4 pt-6">
-          <Button
-            type="button"
-            onClick={onClose}
-            variant="outline"
-            className="flex-1 py-3 rounded-xl border-2"
-          >
-            Cancel
-          </Button>
-          <Button
-            onClick={generateTrip}
-            disabled={generating || !formData.destination || !formData.duration}
-            className="flex-1 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white py-3 rounded-xl font-medium disabled:opacity-50 disabled:cursor-not-allowed transition-all"
-          >
-            <Sparkles className="w-5 h-5 mr-2" />
-            {generating ? 'Creating Your Perfect Trip...' : 'Generate AI Trip'}
-          </Button>
-        </div>
+        <aside className="space-y-5">
+          <div className="rounded-[1.75rem] border border-slate-200 bg-slate-50 p-5">
+            <div className="flex items-center gap-2 text-sm font-semibold text-slate-700">
+              <Compass className="h-4 w-4 text-indigo-500" />
+              Better output checklist
+            </div>
+            <ul className="mt-4 space-y-3 text-sm leading-6 text-slate-600">
+              <li>Use destination plus duration as the minimum brief</li>
+              <li>Add must-see priorities so the AI does not miss the important anchors</li>
+              <li>Use notes and avoid rules to reduce generic recommendations</li>
+              <li>Selected places from Discovery can shape the route automatically</li>
+            </ul>
+          </div>
+
+          <div className="rounded-[1.75rem] border border-slate-200 bg-white p-5">
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Generation status</p>
+            {generating ? (
+              <div className="mt-4 space-y-3">
+                {generationSteps.map((step, index) => (
+                  <div key={step} className={`rounded-2xl border px-4 py-3 text-sm ${index <= generationStepIndex ? 'border-indigo-200 bg-indigo-50 text-indigo-700' : 'border-slate-200 text-slate-400'}`}>
+                    <div className="flex items-center gap-2">
+                      {index === generationStepIndex ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+                      <span>{step}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="mt-4 text-sm leading-6 text-slate-600">
+                The saved trip will include itinerary structure, progress-ready activities, and image slots for the detail page.
+              </p>
+            )}
+          </div>
+
+          <div className="flex flex-col gap-3">
+            <Button
+              onClick={generateTrip}
+              disabled={generating || !canGenerate}
+              className="rounded-xl bg-gradient-to-r from-sky-600 to-indigo-600 py-3 text-white hover:from-sky-700 hover:to-indigo-700 disabled:opacity-50"
+            >
+              <Sparkles className="mr-2 h-5 w-5" />
+              {generating ? 'Generating trip...' : 'Generate AI Trip'}
+            </Button>
+            <Button type="button" onClick={onClose} variant="outline" className="rounded-xl py-3">
+              Cancel
+            </Button>
+          </div>
+        </aside>
       </CardContent>
     </Card>
   )
