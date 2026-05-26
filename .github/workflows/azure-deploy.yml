@@ -5,6 +5,10 @@ on:
     branches: [ master ]
   workflow_dispatch:
 
+permissions:
+  contents: read
+  actions: read
+
 env:
   NODE_VERSION: '20'
   AZURE_WEBAPP_NAME: 'travelbuddy'
