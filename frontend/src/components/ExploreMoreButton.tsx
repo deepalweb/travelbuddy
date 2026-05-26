@@ -28,12 +28,12 @@ const ExploreMoreButton: React.FC<ExploreMoreButtonProps> = ({
         ) : (
           <>
             <Sparkles className="h-4 w-4 mr-2" />
-            Explore More Places
+            Generate More Ideas
           </>
         )}
       </Button>
       <p className="text-sm text-gray-500 mt-2">
-        {placesCount > 0 ? `Showing ${placesCount} places • Click to discover more` : 'Click to discover places'}
+        {placesCount > 0 ? `Showing ${placesCount} AI ideas • Click to explore more directions` : 'Click to generate more AI ideas'}
       </p>
     </div>
   )

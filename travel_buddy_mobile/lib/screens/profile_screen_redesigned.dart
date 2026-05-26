@@ -5,7 +5,6 @@ import '../services/api_service.dart';
 import 'auth_screen.dart';
 import 'edit_profile_screen.dart';
 import 'travel_preferences_screen.dart';
-import 'social_links_screen.dart';
 import '../models/travel_style.dart';
 import 'security_settings_screen.dart';
 import 'subscription_plans_screen.dart';

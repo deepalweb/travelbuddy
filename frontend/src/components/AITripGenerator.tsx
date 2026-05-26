@@ -1,29 +1,19 @@
 import React, { useMemo, useState } from 'react'
-import { Banknote, Calendar, Compass, LoaderCircle, MapPin, Sparkles, Users, X } from 'lucide-react'
+import { Banknote, Calendar, Compass, LoaderCircle, MapPin, Sparkles, Users } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from './Card'
 import { Button } from './Button'
 import { useConfig } from '../contexts/ConfigContext'
 import { useAuth } from '../contexts/AuthContext'
 
 interface AITripGeneratorProps {
-  onTripGenerated: (trip: any) => void
-  onClose: () => void
+  onTripGenerated: (trip: any, workflowDraft?: any) => void
+  onClose?: () => void
   selectedPlaces?: any[]
+  mode?: 'modal' | 'page'
 }
 
-const interestOptions = [
-  'Culture & museums',
-  'Food & dining',
-  'Nature & outdoors',
-  'Photography',
-  'Architecture',
-  'Family-friendly stops',
-  'Nightlife',
-  'Wellness',
-]
-
 const generationSteps = [
-  'Understanding your travel brief',
+  'Understanding your trip brief',
   'Building the itinerary structure',
   'Refining daily pacing and budget',
   'Preparing the saved trip draft',
@@ -33,6 +23,7 @@ export const AITripGenerator: React.FC<AITripGeneratorProps> = ({
   onTripGenerated,
   onClose,
   selectedPlaces = [],
+  mode = 'modal',
 }) => {
   const { config } = useConfig()
   const { user } = useAuth()
@@ -45,7 +36,9 @@ export const AITripGenerator: React.FC<AITripGeneratorProps> = ({
     travelers: '1',
     budget: 'medium',
     travelStyle: 'balanced',
-    interests: [] as string[],
+    startingLocation: '',
+    transportPreference: 'balanced',
+    stayPreference: 'comfortable',
     currency: 'USD',
     startDate: '',
     endDate: '',
@@ -60,15 +53,6 @@ export const AITripGenerator: React.FC<AITripGeneratorProps> = ({
     () => Boolean(formData.destination.trim() && formData.duration),
     [formData.destination, formData.duration]
   )
-
-  const toggleInterest = (interest: string) => {
-    setFormData((prev) => ({
-      ...prev,
-      interests: prev.interests.includes(interest)
-        ? prev.interests.filter((item) => item !== interest)
-        : [...prev.interests, interest],
-    }))
-  }
 
   const generateTrip = async () => {
     if (!canGenerate) {
@@ -105,7 +89,10 @@ export const AITripGenerator: React.FC<AITripGeneratorProps> = ({
           travelers: formData.travelers,
           budget: formData.budget,
           travelStyle: formData.travelStyle,
-          interests: formData.interests,
+          startingLocation: formData.startingLocation,
+          transportPreference: formData.transportPreference,
+          stayPreference: formData.stayPreference,
+          interests: [],
           currency: formData.currency,
           startDate: formData.startDate,
           endDate: formData.endDate,
@@ -128,7 +115,40 @@ export const AITripGenerator: React.FC<AITripGeneratorProps> = ({
       }
 
       const tripData = await response.json()
-      onTripGenerated(tripData)
+      const workflowDraft = {
+        destination: formData.destination,
+        duration: formData.duration,
+        travelers: formData.travelers,
+        budget: formData.budget,
+        travelStyle: formData.travelStyle,
+        startingLocation: formData.startingLocation,
+        transportPreference: formData.transportPreference,
+        stayPreference: formData.stayPreference,
+        currency: formData.currency,
+        startDate: formData.startDate,
+        endDate: formData.endDate,
+        notes: formData.notes,
+        mustSee: formData.mustSee
+          .split(',')
+          .map((item) => item.trim())
+          .filter(Boolean),
+        avoid: formData.avoid
+          .split(',')
+          .map((item) => item.trim())
+          .filter(Boolean),
+        selectedPlaces,
+        generatedAt: new Date().toISOString(),
+      }
+
+      sessionStorage.setItem(
+        'tripPlannerWorkflowDraft',
+        JSON.stringify({
+          brief: workflowDraft,
+          trip: tripData,
+        })
+      )
+
+      onTripGenerated(tripData, workflowDraft)
     } catch (error) {
       console.error('Failed to generate trip:', error)
       const errorMessage = error instanceof Error ? error.message : 'Failed to generate trip'
@@ -140,31 +160,38 @@ export const AITripGenerator: React.FC<AITripGeneratorProps> = ({
     }
   }
 
+  const containerClassName =
+    mode === 'page'
+      ? 'overflow-hidden rounded-[2rem] border border-slate-200 bg-white shadow-xl shadow-slate-200/70'
+      : 'mx-auto w-full max-w-6xl overflow-hidden rounded-[2rem] border-0 bg-white shadow-2xl'
+
   return (
-    <Card className="mx-auto w-full max-w-5xl overflow-hidden rounded-[2rem] border-0 bg-white shadow-2xl">
+    <Card className={containerClassName}>
       <CardHeader className="bg-[linear-gradient(135deg,#07111f_0%,#14396d_55%,#4f46e5_100%)] text-white">
         <div className="flex items-start justify-between gap-4">
           <div>
             <div className="inline-flex items-center rounded-full bg-white/10 px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-white/80">
-              AI Trip Studio
+              Trip Planner Brief
             </div>
             <CardTitle className="mt-4 flex items-center text-3xl font-semibold text-white">
               <Sparkles className="mr-3 h-6 w-6" />
-              Create a stronger itinerary brief
+              Build your trip draft from one focused form
             </CardTitle>
             <p className="mt-3 max-w-3xl text-sm leading-6 text-white/75">
-              Give the planner better context so the output feels more like a real trip draft and less
-              like a generic list of attractions.
+              Start with the details that matter most for a trip plan: where you are going, how long you
+              are going for, your budget, your dates, and the trip style you want.
             </p>
           </div>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={onClose}
-            className="h-10 w-10 rounded-full border-white/20 bg-white/10 p-0 text-white hover:bg-white/20"
-          >
-            <X className="h-4 w-4" />
-          </Button>
+          {mode === 'modal' && onClose && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={onClose}
+              className="rounded-xl border-white/20 bg-white/10 px-4 py-2 text-white hover:bg-white/20"
+            >
+              Close
+            </Button>
+          )}
         </div>
       </CardHeader>
 
@@ -184,16 +211,16 @@ export const AITripGenerator: React.FC<AITripGeneratorProps> = ({
             </div>
           )}
 
-          <div className="grid gap-4 md:grid-cols-2">
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
             <div>
-              <label className="mb-2 block text-sm font-medium text-slate-700">Destination</label>
+              <label className="mb-2 block text-sm font-medium text-slate-700">Trip to</label>
               <div className="relative">
                 <MapPin className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
                 <input
                   type="text"
                   value={formData.destination}
                   onChange={(e) => setFormData({ ...formData, destination: e.target.value })}
-                  placeholder="Lisbon, Portugal"
+                  placeholder="Bali, Indonesia"
                   className="w-full rounded-2xl border border-slate-300 px-11 py-3 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200"
                 />
               </div>
@@ -209,25 +236,6 @@ export const AITripGenerator: React.FC<AITripGeneratorProps> = ({
                   <option key={option} value={option}>{option}</option>
                 ))}
               </select>
-            </div>
-          </div>
-
-          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-            <div>
-              <label className="mb-2 block text-sm font-medium text-slate-700">Travelers</label>
-              <div className="relative">
-                <Users className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-                <select
-                  value={formData.travelers}
-                  onChange={(e) => setFormData({ ...formData, travelers: e.target.value })}
-                  className="w-full rounded-2xl border border-slate-300 px-11 py-3 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200"
-                >
-                  <option value="1">Solo</option>
-                  <option value="2">Couple</option>
-                  <option value="3-4">Small group</option>
-                  <option value="5+">Large group</option>
-                </select>
-              </div>
             </div>
             <div>
               <label className="mb-2 block text-sm font-medium text-slate-700">Budget</label>
@@ -245,6 +253,25 @@ export const AITripGenerator: React.FC<AITripGeneratorProps> = ({
               </div>
             </div>
             <div>
+              <label className="mb-2 block text-sm font-medium text-slate-700">Travelers</label>
+              <div className="relative">
+                <Users className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                <select
+                  value={formData.travelers}
+                  onChange={(e) => setFormData({ ...formData, travelers: e.target.value })}
+                  className="w-full rounded-2xl border border-slate-300 px-11 py-3 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200"
+                >
+                  <option value="1">Solo</option>
+                  <option value="2">Couple</option>
+                  <option value="3-4">Small group</option>
+                  <option value="5+">Large group</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+            <div>
               <label className="mb-2 block text-sm font-medium text-slate-700">Start date</label>
               <div className="relative">
                 <Calendar className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
@@ -257,7 +284,19 @@ export const AITripGenerator: React.FC<AITripGeneratorProps> = ({
               </div>
             </div>
             <div>
-              <label className="mb-2 block text-sm font-medium text-slate-700">Travel style</label>
+              <label className="mb-2 block text-sm font-medium text-slate-700">End date</label>
+              <div className="relative">
+                <Calendar className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                <input
+                  type="date"
+                  value={formData.endDate}
+                  onChange={(e) => setFormData({ ...formData, endDate: e.target.value })}
+                  className="w-full rounded-2xl border border-slate-300 px-11 py-3 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200"
+                />
+              </div>
+            </div>
+            <div>
+              <label className="mb-2 block text-sm font-medium text-slate-700">Trip style</label>
               <select
                 value={formData.travelStyle}
                 onChange={(e) => setFormData({ ...formData, travelStyle: e.target.value })}
@@ -268,57 +307,77 @@ export const AITripGenerator: React.FC<AITripGeneratorProps> = ({
                 <option value="packed">Action-packed</option>
               </select>
             </div>
-          </div>
-
-          <div>
-            <label className="mb-3 block text-sm font-medium text-slate-700">Interests</label>
-            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-              {interestOptions.map((interest) => {
-                const selected = formData.interests.includes(interest)
-                return (
-                  <button
-                    key={interest}
-                    type="button"
-                    onClick={() => toggleInterest(interest)}
-                    className={`rounded-2xl border px-4 py-3 text-left text-sm font-medium transition-all ${selected ? 'border-indigo-500 bg-indigo-50 text-indigo-700' : 'border-slate-200 text-slate-700 hover:border-slate-300'}`}
-                  >
-                    {interest}
-                  </button>
-                )
-              })}
+            <div>
+              <label className="mb-2 block text-sm font-medium text-slate-700">Stay style</label>
+              <select
+                value={formData.stayPreference}
+                onChange={(e) => setFormData({ ...formData, stayPreference: e.target.value })}
+                className="w-full rounded-2xl border border-slate-300 px-4 py-3 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200"
+              >
+                <option value="budget">Budget stays</option>
+                <option value="comfortable">Comfortable mid-range</option>
+                <option value="boutique">Boutique and design-led</option>
+                <option value="luxury">Luxury stays</option>
+              </select>
+            </div>
+            <div>
+              <label className="mb-2 block text-sm font-medium text-slate-700">Transport preference</label>
+              <select
+                value={formData.transportPreference}
+                onChange={(e) => setFormData({ ...formData, transportPreference: e.target.value })}
+                className="w-full rounded-2xl border border-slate-300 px-4 py-3 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200"
+              >
+                <option value="balanced">Balanced options</option>
+                <option value="public">Mostly public transport</option>
+                <option value="private">Private transfers</option>
+                <option value="walkable">Walkable and local</option>
+              </select>
+            </div>
+            <div>
+              <label className="mb-2 block text-sm font-medium text-slate-700">Starting from</label>
+              <div className="relative">
+                <MapPin className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                <input
+                  type="text"
+                  value={formData.startingLocation}
+                  onChange={(e) => setFormData({ ...formData, startingLocation: e.target.value })}
+                  placeholder="Optional: Colombo, Sri Lanka"
+                  className="w-full rounded-2xl border border-slate-300 px-11 py-3 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200"
+                />
+              </div>
             </div>
           </div>
 
           <div className="grid gap-4 xl:grid-cols-2">
             <div>
-              <label className="mb-2 block text-sm font-medium text-slate-700">Must-see priorities</label>
+              <label className="mb-2 block text-sm font-medium text-slate-700">Must-do highlights</label>
               <textarea
                 rows={4}
                 value={formData.mustSee}
                 onChange={(e) => setFormData({ ...formData, mustSee: e.target.value })}
-                placeholder="Comma-separated list, like Alfama, sunset tram ride, food market"
+                placeholder="Examples: beach day, temple visit, shopping street, family dinner"
                 className="w-full rounded-2xl border border-slate-300 px-4 py-3 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200"
               />
             </div>
             <div>
-              <label className="mb-2 block text-sm font-medium text-slate-700">Avoid or constraints</label>
+              <label className="mb-2 block text-sm font-medium text-slate-700">Trip constraints</label>
               <textarea
                 rows={4}
                 value={formData.avoid}
                 onChange={(e) => setFormData({ ...formData, avoid: e.target.value })}
-                placeholder="Comma-separated list, like steep hikes, nightlife, long train days"
+                placeholder="Examples: low walking, avoid nightlife, kid-friendly only, no early mornings"
                 className="w-full rounded-2xl border border-slate-300 px-4 py-3 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200"
               />
             </div>
           </div>
 
           <div>
-            <label className="mb-2 block text-sm font-medium text-slate-700">Extra planning notes</label>
+            <label className="mb-2 block text-sm font-medium text-slate-700">Extra trip notes</label>
             <textarea
               rows={4}
               value={formData.notes}
               onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-              placeholder="Anything the planner should know: mobility needs, photo-heavy days, remote work blocks, celebration dinner, etc."
+              placeholder="Anything the planner should know: birthday trip, elderly travelers, meal priorities, hotel area preference, etc."
               className="w-full rounded-2xl border border-slate-300 px-4 py-3 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200"
             />
           </div>
@@ -328,13 +387,13 @@ export const AITripGenerator: React.FC<AITripGeneratorProps> = ({
           <div className="rounded-[1.75rem] border border-slate-200 bg-slate-50 p-5">
             <div className="flex items-center gap-2 text-sm font-semibold text-slate-700">
               <Compass className="h-4 w-4 text-indigo-500" />
-              Better output checklist
+              Trip brief checklist
             </div>
             <ul className="mt-4 space-y-3 text-sm leading-6 text-slate-600">
-              <li>Use destination plus duration as the minimum brief</li>
-              <li>Add must-see priorities so the AI does not miss the important anchors</li>
-              <li>Use notes and avoid rules to reduce generic recommendations</li>
-              <li>Selected places from Discovery can shape the route automatically</li>
+              <li>Use trip destination, duration, and budget as the core brief</li>
+              <li>Add dates when you already know them so the plan feels more concrete</li>
+              <li>Use must-do items and constraints to avoid generic itinerary filler</li>
+              <li>Transport and stay style help Compare give better alternatives later</li>
             </ul>
           </div>
 
@@ -353,7 +412,7 @@ export const AITripGenerator: React.FC<AITripGeneratorProps> = ({
               </div>
             ) : (
               <p className="mt-4 text-sm leading-6 text-slate-600">
-                The saved trip will include itinerary structure, progress-ready activities, and image slots for the detail page.
+                The generated trip draft will include a structured itinerary, budget direction, and details you can save or compare next.
               </p>
             )}
           </div>
@@ -367,9 +426,11 @@ export const AITripGenerator: React.FC<AITripGeneratorProps> = ({
               <Sparkles className="mr-2 h-5 w-5" />
               {generating ? 'Generating trip...' : 'Generate AI Trip'}
             </Button>
-            <Button type="button" onClick={onClose} variant="outline" className="rounded-xl py-3">
-              Cancel
-            </Button>
+            {onClose && (
+              <Button type="button" onClick={onClose} variant="outline" className="rounded-xl py-3">
+                Close
+              </Button>
+            )}
           </div>
         </aside>
       </CardContent>

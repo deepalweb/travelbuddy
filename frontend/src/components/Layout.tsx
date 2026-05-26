@@ -40,6 +40,9 @@ export const Layout: React.FC = () => {
   const { currentPage } = useApp()
   const { user, isLoading, logout } = useAuth()
   const location = useLocation()
+  const tripPlannerPaths = new Set([
+    '/trips',
+  ])
   
   if (isLoading) {
     return (
@@ -55,7 +58,24 @@ export const Layout: React.FC = () => {
   }
   
   // Show landing page for unauthenticated users on home route
-  const publicPaths = ['/login', '/register', '/role-selection', '/']
+  const publicPaths = [
+    '/login',
+    '/register',
+    '/role-selection',
+    '/',
+    '/home',
+    '/community',
+    '/deals',
+    '/events',
+    '/about',
+    '/contact',
+    '/privacy-policy',
+    '/terms-of-service',
+    '/cookie-policy',
+    '/services',
+    '/agents',
+    '/transport',
+  ]
   if (!user && !publicPaths.includes(location.pathname)) {
     return <Navigate to="/" replace />
   }
@@ -67,7 +87,7 @@ export const Layout: React.FC = () => {
     }
     
     // Check if it's a trip details route
-    if (location.pathname.startsWith('/trips/') && location.pathname !== '/trips') {
+    if (location.pathname.startsWith('/trips/') && !tripPlannerPaths.has(location.pathname)) {
       return <TripDetailPage />
     }
     
@@ -78,7 +98,17 @@ export const Layout: React.FC = () => {
         // Show landing page for unauthenticated users, dashboard for authenticated
         return <OptimizedHomePage />
       case '/discovery':
-        return <DiscoveryPage />
+        return <Navigate to="/trips" replace />
+      case '/compare':
+        return <Navigate to="/trips" replace />
+      case '/prepare':
+        return <Navigate to="/trips" replace />
+      case '/assistant':
+        return <Navigate to="/trips" replace />
+      case '/saved-plans':
+        return <Navigate to="/trips" replace />
+      case '/places':
+        return <Navigate to="/trips" replace />
       case '/trips':
         return <TripPlanningPage />
       case '/services':
@@ -120,7 +150,7 @@ export const Layout: React.FC = () => {
   }
   
   // For place and trip details pages, use full layout without sidebar
-  if (location.pathname.startsWith('/places/') || (location.pathname.startsWith('/trips/') && location.pathname !== '/trips')) {
+  if (location.pathname.startsWith('/places/') || (location.pathname.startsWith('/trips/') && !tripPlannerPaths.has(location.pathname))) {
     return (
       <div className="min-h-screen bg-gray-50">
         {renderPage()}
@@ -131,9 +161,9 @@ export const Layout: React.FC = () => {
   return (
     <div className="min-h-screen">
       <MainHeader />
-      <Breadcrumbs />
+      {location.pathname !== '/' && location.pathname !== '/home' && <Breadcrumbs />}
       
-      <main className="pt-16 lg:pt-20">
+      <main className="pt-20 lg:pt-20">
         {renderPage()}
       </main>
       

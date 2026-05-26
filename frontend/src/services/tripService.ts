@@ -8,6 +8,9 @@ export interface Activity {
   details: string
   cost: string
   notes: string
+  estimatedDuration?: string
+  priority?: string
+  travelNote?: string
   imageUrl?: string
   googleMapsUrl?: string
   isVisited?: boolean
@@ -19,6 +22,13 @@ export interface DailyPlan {
   day: number
   date: string
   theme: string
+  dayGoal?: string
+  energyLevel?: string
+  estimatedTravelTime?: string
+  estimatedDayCost?: string
+  mustDo?: string
+  optionalAddOn?: string
+  weatherBackup?: string
   activities: Activity[]
   overnight?: {
     name: string
@@ -47,13 +57,26 @@ export interface ExpenseBreakdown {
 
 export interface TripOverview {
   totalTravelDays: string
+  summaryHeadline?: string
+  whyThisTripFits?: string[]
+  routeStrategy?: string[]
+  tradeoffs?: string[]
   keyAttractions: string[]
   transportSummary: string
   hotels: string[]
   estimatedTotalBudget: string
+  budgetPerDay?: string
   tripStyle?: string
   bestFor?: string[]
   accommodationType?: string
+  bookingPriority?: string[]
+  saveMoneyTips?: string[]
+  upgradeIdeas?: string[]
+  paceScore?: string
+  travelEfficiency?: string
+  startingLocation?: string
+  transportPreference?: string
+  stayPreference?: string
 }
 
 export interface PreTripPreparation {
@@ -153,6 +176,28 @@ class TripService {
     this.baseURL = import.meta.env.VITE_API_BASE_URL || 'https://travelbuddy-b2c6hgbbgeh4esdh.eastus2-01.azurewebsites.net'
   }
 
+  private normalizeOptionalDate(value?: string | null) {
+    if (!value || !String(value).trim()) {
+      return undefined
+    }
+
+    return value
+  }
+
+  private normalizeTripPlanForSave(tripPlan: Omit<TripPlan, 'id'> & { userId?: string }) {
+    const normalizedTripPlan: Record<string, any> = {
+      ...tripPlan,
+      planningStatus: tripPlan.planningStatus || 'draft',
+      startDate: this.normalizeOptionalDate(tripPlan.startDate),
+      endDate: this.normalizeOptionalDate(tripPlan.endDate),
+    }
+
+    delete normalizedTripPlan._id
+    delete normalizedTripPlan.createdAt
+
+    return normalizedTripPlan
+  }
+
   // Helper method to get authentication token
   private async getAuthToken(): Promise<string | null> {
     // Try demo token first (for demo login)
@@ -231,7 +276,7 @@ class TripService {
         errorData = { message: errorText || 'Request failed' }
       }
 
-      throw new Error(errorData.message || `HTTP ${response.status}: ${response.statusText}`)
+      throw new Error(errorData.message || errorData.error || `HTTP ${response.status}: ${response.statusText}`)
     }
 
     const data = await response.json()
@@ -390,12 +435,12 @@ class TripService {
       const response = await this.request<TripPlan>('/users/trip-plans', {
         method: 'POST',
         headers,
-        body: JSON.stringify(tripPlan),
+        body: JSON.stringify(this.normalizeTripPlanForSave(tripPlan)),
       })
       return response
     } catch (error) {
       console.error('Error creating trip plan:', error)
-      return null
+      throw error
     }
   }
 

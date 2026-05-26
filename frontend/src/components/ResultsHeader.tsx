@@ -34,7 +34,7 @@ const ResultsHeader: React.FC<ResultsHeaderProps> = ({
       <div className="flex items-center justify-between mb-4 flex-wrap gap-4">
         <div className="flex items-center">
           <TrendingUp className="h-5 w-5 text-blue-600 mr-2" />
-          <h2 className="text-2xl font-bold text-gray-900">Discovery Results</h2>
+          <h2 className="text-2xl font-bold text-gray-900">AI Planning Ideas</h2>
         </div>
         
         {/* Action Buttons */}
@@ -80,9 +80,9 @@ const ResultsHeader: React.FC<ResultsHeaderProps> = ({
       <div>
         <p className="text-gray-600 font-medium">{searchContext}</p>
         <p className="text-sm text-gray-500 mt-1">
-          Found <span className="font-semibold text-gray-700">{placesCount}</span> places
+          Generated <span className="font-semibold text-gray-700">{placesCount}</span> planning ideas
           {filteredCount < placesCount && ` • Showing ${displayCount} after filters`}
-          {selectedCount > 0 && ` • ${selectedCount} selected for trip`}
+          {selectedCount > 0 && ` • ${selectedCount} selected for your itinerary draft`}
         </p>
       </div>
     </div>

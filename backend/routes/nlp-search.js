@@ -10,6 +10,17 @@ const openai = process.env.AZURE_OPENAI_API_KEY ? new OpenAI({
   defaultHeaders: { 'api-key': process.env.AZURE_OPENAI_API_KEY },
 }) : null;
 
+const buildIdeaMeta = (source, query, locationName) => ({
+  source,
+  mode: 'ai_planning_ideas',
+  userNotice:
+    'These AI-generated suggestions are meant to help with trip planning and itinerary drafting. They are not verified listings, official photos, or guaranteed real-time facts.',
+  query,
+  planningLens: locationName
+    ? `Idea set generated around ${locationName} to help you compare directions and draft an itinerary.`
+    : 'Idea set generated to help you compare directions and draft an itinerary.',
+});
+
 router.get('/search', async (req, res) => {
   try {
     const { q, limit = 8 } = req.query;
@@ -54,8 +65,8 @@ router.get('/search', async (req, res) => {
       }
     }
 
-    // Generate mock places
-    const places = Array.from({ length: parseInt(limit) }, (_, i) => {
+    // Generate AI planning ideas
+    const ideas = Array.from({ length: parseInt(limit) }, (_, i) => {
       const names = {
         restaurant: ['The Spice Garden', 'Ocean View Restaurant', 'Heritage Kitchen', 'Royal Dining', 'Sunset Grill', 'Garden Cafe', 'Fusion Bistro', 'Local Flavors'],
         hotel: ['Grand Palace Hotel', 'Seaside Resort', 'Heritage Manor', 'Royal Suites', 'Paradise Inn', 'Luxury Lodge', 'Comfort Stay', 'Elite Hotel'],
@@ -71,7 +82,7 @@ router.get('/search', async (req, res) => {
       return {
         id: `place_${Date.now()}_${i}`,
         name: name,
-        description: `A wonderful ${category} in ${loc.name} offering authentic experiences and memorable moments.`,
+        description: `A promising ${category} stop for a ${loc.name} planning draft. Use it as a sample anchor while shaping the pace and mix of your itinerary.`,
         category: category,
         rating: 3.5 + Math.random() * 1.5,
         priceLevel: ['$', '$$', '$$$'][Math.floor(Math.random() * 3)],
@@ -84,16 +95,23 @@ router.get('/search', async (req, res) => {
             lng: loc.lng + (Math.random() - 0.5) * 0.1 
           }
         },
-        highlights: ['Popular destination', 'Great reviews', 'Recommended'],
+        highlights: ['Useful planning anchor', 'Good fit for itinerary drafting', 'Worth pressure-testing'],
         image: `https://source.unsplash.com/800x600/?${category},${loc.name.replace(/\s/g, '')}`,
         photos: [],
         contact: { phone: '+94 11 234 5678', website: 'https://example.com' },
         openHours: 'Open daily 9:00 AM - 6:00 PM',
-        tags: [category, loc.name.toLowerCase()]
+        tags: [category, loc.name.toLowerCase()],
+        itemType: 'ai_stop_idea',
+        trustNote: 'AI planning suggestion, not a verified place record.',
+        planningRole: i === 0 ? 'strong starter' : i < 3 ? 'good fit' : 'optional add-on',
       };
     });
 
-    res.json({ results: places });
+    res.json({
+      results: ideas,
+      searchContext: `AI planning ideas for "${q}"`,
+      meta: buildIdeaMeta('nlp_generated_ideas', q, loc.name),
+    });
 
   } catch (error) {
     console.error('❌ NLP search error:', error);

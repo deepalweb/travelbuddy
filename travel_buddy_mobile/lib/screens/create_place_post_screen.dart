@@ -3,7 +3,6 @@ import 'package:provider/provider.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
 import '../providers/community_provider.dart';
-import '../providers/app_provider.dart';
 import '../services/image_service.dart';
 import '../widgets/location_autocomplete_field.dart';
 import '../widgets/enhanced_location_picker_map.dart';

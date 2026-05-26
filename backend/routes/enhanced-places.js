@@ -90,6 +90,9 @@ Generate JSON:
 // Step 3: Format for frontend with Unsplash photos
 function formatPlaceForFrontend(azurePlace, aiEnhancement) {
   const photoUrl = `https://source.unsplash.com/800x600/?${encodeURIComponent(azurePlace.name)},travel`;
+  const addressParts = (azurePlace.formatted_address || '').split(',').map((part) => part.trim()).filter(Boolean);
+  const inferredCountry = addressParts.length > 0 ? addressParts[addressParts.length - 1] : 'Unknown country';
+  const inferredCity = addressParts.length > 1 ? addressParts[addressParts.length - 2] : inferredCountry;
 
   return {
     id: azurePlace.place_id,
@@ -100,6 +103,8 @@ function formatPlaceForFrontend(azurePlace, aiEnhancement) {
     priceLevel: aiEnhancement.priceLevel,
     location: {
       address: azurePlace.formatted_address,
+      city: inferredCity,
+      country: inferredCountry,
       coordinates: {
         lat: azurePlace.geometry.location.lat,
         lng: azurePlace.geometry.location.lng
@@ -116,7 +121,10 @@ function formatPlaceForFrontend(azurePlace, aiEnhancement) {
       website: azurePlace.website || "Available on details"
     },
     tags: azurePlace.types?.slice(0, 3) || [],
-    source: 'azure_ai_enhanced'
+    source: 'azure_ai_enhanced',
+    itemType: 'ai_stop_idea',
+    trustNote: 'AI-shaped planning suggestion based on map data. Confirm current details independently.',
+    planningRole: 'candidate stop'
   };
 }
 
@@ -171,10 +179,18 @@ router.get('/search', async (req, res) => {
       success: true,
       query: query,
       results: enhancedPlaces,
+      searchContext: `AI planning ideas shaped from map data for "${query}"`,
       total: enhancedPlaces.length,
       nextPageToken: null,
       hasMore: false,
-      source: 'azure_maps_ai_enhanced'
+      source: 'azure_maps_ai_enhanced',
+      meta: {
+        source: 'azure_maps_ai_enhanced',
+        mode: 'ai_planning_ideas',
+        userNotice:
+          'These suggestions are best used as itinerary-building inputs. Photos, descriptions, and tips may be AI-shaped and should not be treated as verified live place facts.',
+        planningLens: 'Real map candidates reframed for AI trip planning',
+      }
     });
 
   } catch (error) {

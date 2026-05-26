@@ -3,12 +3,12 @@ import { useNavigate } from 'react-router-dom'
 import {
   ArrowRight,
   Calendar,
+  CheckCircle2,
   Clock3,
   Compass,
   Eye,
   ListChecks,
   MapPin,
-  Plus,
   Sparkles,
   Trash2,
   TrendingUp,
@@ -17,7 +17,6 @@ import { useAuth } from '../contexts/AuthContext'
 import { Button } from '../components/Button'
 import { Card, CardContent } from '../components/Card'
 import { AITripGenerator } from '../components/AITripGenerator'
-import { TripForm } from '../components/TripForm'
 import { tripService, type TripPlan } from '../services/tripService'
 import { ImageWithFallback } from '../components/ImageWithFallback'
 
@@ -71,10 +70,11 @@ export const TripPlanningPage: React.FC = () => {
   const navigate = useNavigate()
   const [trips, setTrips] = useState<Trip[]>([])
   const [loading, setLoading] = useState(true)
+  const [savingDraft, setSavingDraft] = useState(false)
+  const [saveDraftError, setSaveDraftError] = useState<string | null>(null)
   const [showAIGenerator, setShowAIGenerator] = useState(false)
-  const [showTripForm, setShowTripForm] = useState(false)
   const [selectedPlaces, setSelectedPlaces] = useState<any[]>([])
-  const [activeFilter, setActiveFilter] = useState<'all' | 'draft' | 'ready' | 'booked' | 'in_progress' | 'completed'>('all')
+  const [workflowDraft, setWorkflowDraft] = useState<any | null>(null)
 
   useEffect(() => {
     fetchTrips()
@@ -85,6 +85,15 @@ export const TripPlanningPage: React.FC = () => {
       setSelectedPlaces(places)
       setShowAIGenerator(true)
       sessionStorage.removeItem('selectedPlaces')
+    }
+
+    const storedWorkflowDraft = sessionStorage.getItem('tripPlannerWorkflowDraft')
+    if (storedWorkflowDraft) {
+      try {
+        setWorkflowDraft(JSON.parse(storedWorkflowDraft))
+      } catch (error) {
+        console.error('Failed to parse planner workflow draft:', error)
+      }
     }
   }, [])
 
@@ -114,11 +123,6 @@ export const TripPlanningPage: React.FC = () => {
     }
   }
 
-  const filteredTrips = useMemo(
-    () => trips.filter((trip) => activeFilter === 'all' || (trip.planningStatus || 'draft') === activeFilter),
-    [activeFilter, trips]
-  )
-
   const tripMetrics = useMemo(() => {
     const totalTrips = trips.length
     const activeTrips = trips.filter((trip) => ['draft', 'ready', 'booked', 'in_progress'].includes(trip.planningStatus || 'draft')).length
@@ -137,6 +141,38 @@ export const TripPlanningPage: React.FC = () => {
     }
   }, [trips])
 
+  const saveWorkflowDraft = async () => {
+    if (!workflowDraft?.trip || savingDraft) {
+      return
+    }
+
+    try {
+      setSavingDraft(true)
+      setSaveDraftError(null)
+      const savedTrip = await tripService.createTrip({ ...workflowDraft.trip, userId: user?.id })
+      if (savedTrip) {
+        sessionStorage.removeItem('tripPlannerWorkflowDraft')
+        setWorkflowDraft(null)
+        await fetchTrips()
+        navigate(`/trips/${savedTrip._id}`)
+        return
+      }
+
+      setSaveDraftError('The draft could not be saved. Please try again.')
+    } catch (error) {
+      console.error('Failed to save workflow draft:', error)
+      setSaveDraftError(error instanceof Error ? error.message : 'The draft could not be saved.')
+    } finally {
+      setSavingDraft(false)
+    }
+  }
+
+  const dismissWorkflowDraft = () => {
+    sessionStorage.removeItem('tripPlannerWorkflowDraft')
+    setWorkflowDraft(null)
+    setSaveDraftError(null)
+  }
+
   return (
     <div className="min-h-screen bg-[linear-gradient(180deg,#f8fbff_0%,#ffffff_42%,#f7f9fc_100%)]">
       <section className="relative overflow-hidden bg-[#07111f] text-white">
@@ -151,14 +187,14 @@ export const TripPlanningPage: React.FC = () => {
         <div className="relative mx-auto grid max-w-7xl gap-8 px-4 py-16 sm:py-20 lg:grid-cols-[1.05fr_0.95fr] lg:py-24">
           <div>
             <div className="inline-flex items-center rounded-full bg-white/10 px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-white/80">
-              Trip Planner Workspace
+              AI Trip Plan Generator
             </div>
             <h1 className="mt-5 max-w-4xl text-4xl font-semibold leading-tight sm:text-5xl lg:text-6xl">
-              Plan, generate, and track trips from one clearer dashboard.
+              Generate a stronger trip plan from one focused brief.
             </h1>
             <p className="mt-5 max-w-2xl text-base leading-7 text-white/76 sm:text-lg sm:leading-8">
-              Use AI for a richer first draft, build trips manually when you need control, and keep both
-              planning readiness and on-trip progress visible for every itinerary.
+              We are keeping this simple: tell the planner where the trip goes, how long it is, your dates,
+              budget, and a few practical preferences. AI then generates a trip plan you can save and refine.
             </p>
             <div className="mt-8 flex flex-col gap-3 sm:flex-row">
               <Button
@@ -166,14 +202,7 @@ export const TripPlanningPage: React.FC = () => {
                 className="rounded-xl bg-white px-6 py-3 text-slate-950 hover:bg-slate-100"
               >
                 <Sparkles className="mr-2 h-4 w-4" />
-                Generate with AI
-              </Button>
-              <Button
-                onClick={() => setShowTripForm(true)}
-                className="rounded-xl border border-white/20 bg-white/10 px-6 py-3 text-white hover:bg-white/15"
-              >
-                <Plus className="mr-2 h-4 w-4" />
-                Build manually
+                New Plan
               </Button>
             </div>
           </div>
@@ -228,20 +257,15 @@ export const TripPlanningPage: React.FC = () => {
       </section>
 
       {showAIGenerator && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 p-4 backdrop-blur-sm">
+        <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-slate-950/70 px-4 py-8 backdrop-blur-sm sm:py-12">
           <AITripGenerator
+            mode="modal"
             selectedPlaces={selectedPlaces}
-            onTripGenerated={async (trip) => {
-              try {
-                const savedTrip = await tripService.createTrip({ ...trip, userId: user?.id })
-                if (savedTrip) {
-                  setShowAIGenerator(false)
-                  setSelectedPlaces([])
-                  await fetchTrips()
-                }
-              } catch (error) {
-                console.error('Failed to save AI trip:', error)
-              }
+            onTripGenerated={async (trip, brief) => {
+              setSaveDraftError(null)
+              setWorkflowDraft({ trip, brief })
+              setShowAIGenerator(false)
+              setSelectedPlaces([])
             }}
             onClose={() => {
               setShowAIGenerator(false)
@@ -251,43 +275,94 @@ export const TripPlanningPage: React.FC = () => {
         </div>
       )}
 
-      {showTripForm && (
-        <TripForm
-          onSubmit={async (tripData) => {
-            try {
-              await tripService.createTrip({ ...tripData, userId: user?.id })
-              setShowTripForm(false)
-              await fetchTrips()
-            } catch (error) {
-              console.error('Failed to save trip:', error)
-            }
-          }}
-          onClose={() => setShowTripForm(false)}
-        />
+      {workflowDraft?.trip && (
+        <section className="mx-auto max-w-7xl px-4 pt-8 sm:px-6 lg:px-8">
+          <Card className="overflow-hidden border-0 bg-white shadow-xl shadow-slate-200/70">
+            <CardContent className="grid gap-6 p-6 lg:grid-cols-[1.05fr_0.95fr] lg:p-8">
+              <div>
+                <div className="inline-flex items-center rounded-full bg-emerald-100 px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-emerald-800">
+                  Fresh AI plan ready
+                </div>
+                <h2 className="mt-4 text-3xl font-semibold text-slate-900">
+                  {workflowDraft.trip.tripTitle || workflowDraft.trip.destination}
+                </h2>
+                <p className="mt-3 max-w-2xl text-sm leading-7 text-slate-600">
+                  AI has generated a trip plan from your brief. Save it if it looks good, or open the trip brief again
+                  to generate a different version with updated dates, budget, destination, or preferences.
+                </p>
+                <div className="mt-5 flex flex-wrap gap-3 text-sm text-slate-600">
+                  <span className="rounded-full bg-slate-100 px-3 py-1">{workflowDraft.trip.destination}</span>
+                  <span className="rounded-full bg-slate-100 px-3 py-1">{workflowDraft.trip.duration}</span>
+                  {workflowDraft.brief?.travelStyle && (
+                    <span className="rounded-full bg-slate-100 px-3 py-1">{workflowDraft.brief.travelStyle}</span>
+                  )}
+                  {workflowDraft.brief?.budget && (
+                    <span className="rounded-full bg-slate-100 px-3 py-1">{workflowDraft.brief.budget} budget</span>
+                  )}
+                </div>
+                <div className="mt-6 flex flex-col gap-3 sm:flex-row">
+                  <Button
+                    onClick={saveWorkflowDraft}
+                    disabled={savingDraft}
+                    className="rounded-xl bg-slate-900 text-white hover:bg-slate-800"
+                  >
+                    <CheckCircle2 className="mr-2 h-4 w-4" />
+                    {savingDraft ? 'Saving draft...' : 'Save Draft'}
+                  </Button>
+                  <Button
+                    onClick={() => setShowAIGenerator(true)}
+                    variant="outline"
+                    className="rounded-xl"
+                  >
+                    <Sparkles className="mr-2 h-4 w-4" />
+                    New Plan
+                  </Button>
+                  <Button onClick={dismissWorkflowDraft} variant="ghost" className="rounded-xl text-slate-500 hover:text-slate-700">
+                    Dismiss
+                  </Button>
+                </div>
+                {saveDraftError && (
+                  <div className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+                    {saveDraftError}
+                  </div>
+                )}
+              </div>
+
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="rounded-[1.5rem] bg-slate-50 p-5">
+                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Plan brief</p>
+                  <div className="mt-4 space-y-3 text-sm text-slate-700">
+                    <p><span className="font-medium text-slate-900">Trip to:</span> {workflowDraft.brief?.destination || workflowDraft.trip.destination}</p>
+                    <p><span className="font-medium text-slate-900">Dates:</span> {workflowDraft.brief?.startDate || 'Flexible start'} {workflowDraft.brief?.endDate ? `to ${workflowDraft.brief.endDate}` : ''}</p>
+                    <p><span className="font-medium text-slate-900">Transport:</span> {workflowDraft.brief?.transportPreference || 'Balanced'}</p>
+                    <p><span className="font-medium text-slate-900">Stay style:</span> {workflowDraft.brief?.stayPreference || 'Comfortable'}</p>
+                  </div>
+                </div>
+                <div className="rounded-[1.5rem] bg-slate-50 p-5">
+                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">What to do next</p>
+                  <ul className="mt-4 space-y-3 text-sm leading-6 text-slate-700">
+                    <li>Save the draft when the plan structure feels right</li>
+                    <li>Regenerate with different dates, budget, or stay style if needed</li>
+                    <li>Open the saved trip to review itinerary details day by day</li>
+                    <li>Use the trip detail page later for preparation and follow-up changes</li>
+                  </ul>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </section>
       )}
 
       <div className="mx-auto max-w-7xl px-4 py-10 sm:py-12">
-        <div className="mb-6 flex flex-wrap items-center gap-3">
-          {(['all', 'draft', 'ready', 'booked', 'in_progress', 'completed'] as const).map((filter) => (
-            <button
-              key={filter}
-              onClick={() => setActiveFilter(filter)}
-              className={`rounded-full px-4 py-2 text-sm font-medium transition-all ${activeFilter === filter ? 'bg-slate-900 text-white' : 'bg-white text-slate-600 ring-1 ring-slate-200 hover:bg-slate-50'}`}
-            >
-              {filter === 'all' ? 'All trips' : statusMeta[filter].label}
-            </button>
-          ))}
-        </div>
-
         {loading ? (
           <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
             {[1, 2, 3].map((item) => (
               <div key={item} className="h-[360px] animate-pulse rounded-[1.75rem] bg-white shadow-sm ring-1 ring-slate-200/70" />
             ))}
           </div>
-        ) : filteredTrips.length > 0 ? (
+        ) : trips.length > 0 ? (
           <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
-            {filteredTrips.map((trip) => {
+            {trips.map((trip) => {
               const visitProgress = getVisitProgress(trip)
               const planningReadiness = getPlanningReadiness(trip)
               const status = statusMeta[trip.planningStatus || 'draft']
@@ -388,19 +463,15 @@ export const TripPlanningPage: React.FC = () => {
             <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-sky-50 text-sky-600">
               <Compass className="h-10 w-10" />
             </div>
-            <h3 className="mt-6 text-2xl font-semibold text-slate-900">No trips in this view yet</h3>
+            <h3 className="mt-6 text-2xl font-semibold text-slate-900">No saved trip plans yet</h3>
             <p className="mx-auto mt-3 max-w-xl text-slate-600">
-              Start with AI for a stronger first itinerary, or save a manual draft so you can build the trip
-              progressively instead of trying to finish everything in one sitting.
+              Start with the trip brief above and let AI generate your first trip plan. Once you save one,
+              it will appear here for quick access.
             </p>
             <div className="mt-6 flex flex-col justify-center gap-3 sm:flex-row">
               <Button onClick={() => setShowAIGenerator(true)} className="rounded-xl bg-gradient-to-r from-sky-600 to-indigo-600 text-white">
                 <Sparkles className="mr-2 h-4 w-4" />
-                Generate with AI
-              </Button>
-              <Button onClick={() => setShowTripForm(true)} variant="outline" className="rounded-xl">
-                <Plus className="mr-2 h-4 w-4" />
-                Build manually
+                New Plan
               </Button>
             </div>
           </div>

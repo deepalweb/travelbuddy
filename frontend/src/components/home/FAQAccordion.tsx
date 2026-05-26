@@ -14,7 +14,7 @@ export const FAQAccordion: React.FC = () => {
     {
       icon: "🤖",
       question: "How does TravelBuddy create my itinerary?",
-      answer: "TravelBuddy uses the details you provide, such as destination, trip length, interests, and planning preferences, to help structure an itinerary. You can then refine the result by saving places, adjusting pace, and exploring alternatives."
+      answer: "TravelBuddy uses the details you provide, such as destination, trip length, interests, and planning preferences, to build an itinerary draft. You can then refine the structure, pacing, and ideas instead of starting from a blank page."
     },
     {
       icon: "💰",
@@ -29,7 +29,7 @@ export const FAQAccordion: React.FC = () => {
     {
       icon: "✅",
       question: "What can I do on the home page?",
-      answer: "The home page is designed to help you quickly understand the product, start a trip plan, browse destination inspiration, and jump into discovery, community, or subscriptions without hunting through the app."
+      answer: "The home page is designed to help you understand the AI planning workflow quickly, start a trip draft, compare directions, and move into planning without hunting through the app."
     },
     {
       icon: "🎯",
@@ -38,8 +38,8 @@ export const FAQAccordion: React.FC = () => {
     },
     {
       icon: "👥",
-      question: "Where should I go if I want deeper planning features?",
-      answer: "If you are ready to build a trip, go to Trips. If you still want ideas, use Discovery first. If you want to compare tiers like AI trip limits or offline tools, head to Subscription."
+      question: "How should I use the idea studio?",
+      answer: "Use the idea studio when you want inspiration, sample stops, or planning angles. Use Trips when you are ready to turn those ideas into a structured itinerary draft. If you want to compare AI limits or other features, head to Subscription."
     }
   ]
 

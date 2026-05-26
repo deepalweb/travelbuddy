@@ -15,7 +15,7 @@ interface Suggestion {
 
 export const SearchBar: React.FC<SearchBarProps> = ({ 
   onSearch, 
-  placeholder = "Where do you want to go? (e.g., Kandy, Ella, Galle)",
+  placeholder = "Describe the trip idea you want to explore (e.g., relaxed Kandy weekend, Tokyo food trip)",
   showSuggestions = true
 }) => {
   const [query, setQuery] = useState('')

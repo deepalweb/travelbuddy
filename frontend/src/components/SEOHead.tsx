@@ -7,9 +7,9 @@ interface SEOHeadProps {
 }
 
 export const SEOHead: React.FC<SEOHeadProps> = ({
-  title = "TravelBuddy | Trip Planning, Destination Discovery, and Travel Tools",
-  description = "Plan trips with TravelBuddy, explore destinations, save favorites, and use AI-assisted tools to build itineraries with less friction.",
-  keywords = "trip planner, travel app, itinerary builder, destination discovery, AI travel planning, travel tools"
+  title = "TravelBuddy | AI Trip Planner, Travel Itineraries, Community Tips, and Deals",
+  description = "TravelBuddy helps travelers create AI trip plans, build better travel itineraries, explore community travel tips, and discover useful travel deals.",
+  keywords = "AI trip planner, travel itinerary planner, trip planner, itinerary generator, travel community, travel deals, Sri Lanka travel planner"
 }) => {
   useEffect(() => {
     // Update document title
@@ -49,7 +49,7 @@ export const SEOHead: React.FC<SEOHeadProps> = ({
           "@type": "TravelAgency",
           "@id": "https://travelbuddy.com/#travelagency",
           "name": "TravelBuddy",
-          "description": "Travel planning platform with destination discovery and itinerary tools",
+          "description": "AI travel planning platform with trip itineraries, community travel tips, and travel deals",
           "url": "https://travelbuddy.com/",
           "priceRange": "Free - $19.99",
           "hasOfferCatalog": {
@@ -61,15 +61,15 @@ export const SEOHead: React.FC<SEOHeadProps> = ({
                 "itemOffered": {
                   "@type": "Service",
                   "name": "AI Trip Planning",
-                  "description": "Personalized itinerary creation using artificial intelligence"
+                  "description": "Personalized travel itinerary creation using artificial intelligence"
                 }
               },
               {
                 "@type": "Offer",
                 "itemOffered": {
                   "@type": "Service",
-                  "name": "Destination Discovery",
-                  "description": "Find hidden gems and popular attractions worldwide"
+                  "name": "Travel Community and Deals",
+                  "description": "Explore traveler stories, practical travel insight, and useful travel deals"
                 }
               }
             ]

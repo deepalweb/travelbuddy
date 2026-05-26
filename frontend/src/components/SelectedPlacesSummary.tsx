@@ -25,10 +25,10 @@ const SelectedPlacesSummary: React.FC<SelectedPlacesSummaryProps> = ({
         <div>
           <h3 className="font-semibold text-blue-900 flex items-center">
             <Plane className="h-4 w-4 mr-2" />
-            Selected Places for Trip
+            Selected Ideas for Your Trip
           </h3>
           <p className="text-sm text-blue-700">
-            {selectedPlaces.length} place{selectedPlaces.length !== 1 ? 's' : ''} selected
+            {selectedPlaces.length} stop{selectedPlaces.length !== 1 ? 's' : ''} selected for planning
           </p>
         </div>
         <Button

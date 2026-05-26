@@ -42,7 +42,27 @@ interface CreateStoryData {
   tags?: string[];
 }
 
-const API_BASE = import.meta.env.VITE_API_URL || 'https://travelbuddylk.com/api'
+const resolveApiBase = () => {
+  if (typeof window !== 'undefined' && window.location.hostname === 'localhost') {
+    return '/api'
+  }
+
+  const runtimeBase =
+    (window as any).ENV?.VITE_API_BASE_URL &&
+    !(window as any).ENV?.VITE_API_BASE_URL.includes('#{')
+      ? (window as any).ENV.VITE_API_BASE_URL
+      : null
+
+  const configuredBase = runtimeBase || import.meta.env.VITE_API_BASE_URL
+
+  if (configuredBase) {
+    return `${configuredBase.replace(/\/$/, '')}/api`
+  }
+
+  return '/api'
+}
+
+const API_BASE = resolveApiBase()
 
 // Transform backend post to frontend story format
 const transformPost = (post: any): Story => {

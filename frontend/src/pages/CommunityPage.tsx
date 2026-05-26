@@ -1,14 +1,13 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 import {
   ArrowRight,
   Camera,
-  Clock3,
   Compass,
   Flame,
   Heart,
   Image as ImageIcon,
   List,
-  Map,
+  Map as MapIcon,
   MapPin,
   MessageCircle,
   Plus,
@@ -16,44 +15,44 @@ import {
   Search,
   Sparkles,
   TrendingUp,
-  Users
+  Users,
 } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import { StoryCard } from '../components/StoryCard'
 import { CreateStoryModal } from '../components/CreateStoryModal'
 import { StoryMap } from '../components/StoryMap'
 import { communityService } from '../services/communityService'
-import '../styles/community.css'
+import { SEOHead } from '../components/SEOHead'
 
 interface Story {
-  _id: string;
-  title: string;
-  content: string;
-  images: string[];
+  _id: string
+  title: string
+  content: string
+  images: string[]
   author: {
-    _id?: string;
-    username: string;
-    profilePicture?: string;
-  };
-  location: string;
+    _id?: string
+    username: string
+    profilePicture?: string
+  }
+  location: string
   place?: {
-    placeId: string;
-    name: string;
-    coordinates: { lat: number; lng: number };
-    address: string;
-  };
-  likes: number;
-  comments: number;
-  createdAt: string;
-  isLiked?: boolean;
-  tags?: string[];
+    placeId: string
+    name: string
+    coordinates: { lat: number; lng: number }
+    address: string
+  }
+  likes: number
+  comments: number
+  createdAt: string
+  isLiked?: boolean
+  tags?: string[]
 }
 
 interface TopTraveler {
-  username: string;
-  profilePicture?: string;
-  storiesCount: number;
-  totalLikes: number;
+  username: string
+  profilePicture?: string
+  storiesCount: number
+  totalLikes: number
 }
 
 type ViewMode = 'feed' | 'map'
@@ -64,19 +63,19 @@ const semanticMatches: Record<string, string[]> = {
   adventure: ['hiking', 'climbing', 'extreme', 'thrill', 'exciting'],
   culture: ['museum', 'temple', 'traditional', 'heritage', 'history'],
   nature: ['park', 'wildlife', 'forest', 'mountain', 'beach', 'ocean'],
-  city: ['urban', 'downtown', 'street', 'building', 'shopping']
+  city: ['urban', 'downtown', 'street', 'building', 'shopping'],
 }
 
 const filterOptions = [
-  { id: 'recent', label: 'Recent', icon: Clock3 },
+  { id: 'recent', label: 'Recent', icon: RefreshCw },
   { id: 'popular', label: 'Popular', icon: Heart },
-  { id: 'trending', label: 'Trending', icon: Flame }
+  { id: 'trending', label: 'Trending', icon: Flame },
 ] as const
 
 const contentModes: Array<{ id: ContentMode; label: string; icon: typeof Compass }> = [
   { id: 'all', label: 'All stories', icon: Compass },
   { id: 'places', label: 'Place reviews', icon: MapPin },
-  { id: 'photos', label: 'Photo diaries', icon: ImageIcon }
+  { id: 'photos', label: 'Photo diaries', icon: ImageIcon },
 ]
 
 const formatRelativeDate = (dateString: string) => {
@@ -106,7 +105,7 @@ export const CommunityPage: React.FC = () => {
   const [filter, setFilter] = useState('recent')
   const [selectedTag, setSelectedTag] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
-  const [viewMode, setViewMode] = useState<ViewMode>('map')
+  const [viewMode, setViewMode] = useState<ViewMode>('feed')
   const [contentMode, setContentMode] = useState<ContentMode>('all')
   const [hasMore, setHasMore] = useState(true)
   const [cursor, setCursor] = useState<string | null>(null)
@@ -148,7 +147,7 @@ export const CommunityPage: React.FC = () => {
       setError(null)
       const [storiesData, travelersData] = await Promise.all([
         communityService.getStories(filter, null),
-        communityService.getTopTravelers()
+        communityService.getTopTravelers(),
       ])
 
       setStories(storiesData)
@@ -189,35 +188,40 @@ export const CommunityPage: React.FC = () => {
     }
   }
 
-  const filteredStories = stories.filter((story) => {
-    const matchesTag = !selectedTag || (story.tags && story.tags.includes(selectedTag))
-    const matchesContentMode =
-      contentMode === 'all' ||
-      (contentMode === 'places' && Boolean(story.place)) ||
-      (contentMode === 'photos' && story.images.length > 0)
+  const filteredStories = useMemo(
+    () =>
+      stories.filter((story) => {
+        const matchesTag = !selectedTag || (story.tags && story.tags.includes(selectedTag))
+        const matchesContentMode =
+          contentMode === 'all' ||
+          (contentMode === 'places' && Boolean(story.place)) ||
+          (contentMode === 'photos' && story.images.length > 0)
 
-    if (!searchQuery) return matchesTag && matchesContentMode
+        if (!searchQuery) return matchesTag && matchesContentMode
 
-    const query = searchQuery.toLowerCase()
-    const matchesBasic =
-      story.title.toLowerCase().includes(query) ||
-      story.content.toLowerCase().includes(query) ||
-      story.location.toLowerCase().includes(query) ||
-      story.place?.name.toLowerCase().includes(query) ||
-      story.tags?.some((tag) => tag.toLowerCase().includes(query))
+        const query = searchQuery.toLowerCase()
+        const matchesBasic =
+          story.title.toLowerCase().includes(query) ||
+          story.content.toLowerCase().includes(query) ||
+          story.location.toLowerCase().includes(query) ||
+          story.place?.name.toLowerCase().includes(query) ||
+          story.tags?.some((tag) => tag.toLowerCase().includes(query))
 
-    const matchesSemantic = Object.entries(semanticMatches).some(([key, synonyms]) => {
-      if (query.includes(key)) {
-        return synonyms.some((synonym) =>
-          story.title.toLowerCase().includes(synonym) ||
-          story.content.toLowerCase().includes(synonym)
-        )
-      }
-      return false
-    })
+        const matchesSemantic = Object.entries(semanticMatches).some(([key, synonyms]) => {
+          if (query.includes(key)) {
+            return synonyms.some(
+              (synonym) =>
+                story.title.toLowerCase().includes(synonym) ||
+                story.content.toLowerCase().includes(synonym)
+            )
+          }
+          return false
+        })
 
-    return matchesTag && matchesContentMode && (matchesBasic || matchesSemantic)
-  })
+        return matchesTag && matchesContentMode && (matchesBasic || matchesSemantic)
+      }),
+    [stories, selectedTag, contentMode, searchQuery]
+  )
 
   const displayedStories = selectedPlace
     ? [...filteredStories].sort((a, b) => {
@@ -233,6 +237,7 @@ export const CommunityPage: React.FC = () => {
   const photoStories = stories.filter((story) => story.images.length > 0)
   const totalLikes = stories.reduce((sum, story) => sum + story.likes, 0)
   const totalComments = stories.reduce((sum, story) => sum + story.comments, 0)
+
   const topPlaces = Array.from(
     new Map(
       placeStories.map((story) => [
@@ -242,8 +247,8 @@ export const CommunityPage: React.FC = () => {
           stories: placeStories.filter((candidate) => candidate.place?.name === story.place!.name).length,
           likes: placeStories
             .filter((candidate) => candidate.place?.name === story.place!.name)
-            .reduce((sum, candidate) => sum + candidate.likes, 0)
-        }
+            .reduce((sum, candidate) => sum + candidate.likes, 0),
+        },
       ])
     ).values()
   )
@@ -252,12 +257,19 @@ export const CommunityPage: React.FC = () => {
 
   const topTags = Array.from(
     new Map(
-      stories.flatMap((story) => (story.tags || []).map((tag) => [tag, (stories.filter((candidate) => candidate.tags?.includes(tag)).length)] as const))
+      stories.flatMap((story) =>
+        (story.tags || []).map((tag) => [tag, stories.filter((candidate) => candidate.tags?.includes(tag)).length] as const)
+      )
     ).entries()
   )
     .map(([tag, count]) => ({ tag, count }))
     .sort((a, b) => b.count - a.count)
     .slice(0, 6)
+
+  const openCreateModal = () => {
+    setEditingStory(undefined)
+    setShowCreateModal(true)
+  }
 
   const handleLike = async (storyId: string) => {
     try {
@@ -290,7 +302,6 @@ export const CommunityPage: React.FC = () => {
   const handleEdit = (storyId: string) => {
     const story = stories.find((currentStory) => currentStory._id === storyId)
     if (!story) return
-
     setEditingStory(story)
     setShowCreateModal(true)
   }
@@ -308,146 +319,94 @@ export const CommunityPage: React.FC = () => {
     setEditingStory(undefined)
   }
 
+  const resetFilters = () => {
+    setSelectedTag(null)
+    setSearchQuery('')
+    setContentMode('all')
+    setSelectedPlace(null)
+  }
+
   return (
-    <div className="min-h-screen bg-[linear-gradient(180deg,#f5f7fb_0%,#f9fafb_18%,#ffffff_100%)]">
-      <section className="relative overflow-hidden border-b border-slate-200 bg-[radial-gradient(circle_at_top_left,_rgba(14,165,233,0.18),_transparent_30%),radial-gradient(circle_at_top_right,_rgba(249,115,22,0.16),_transparent_28%),linear-gradient(135deg,#ffffff_0%,#f8fbff_48%,#fff8f2_100%)]">
-        <div className="absolute inset-0 opacity-40">
-          <div className="community-orb community-orb-one" />
-          <div className="community-orb community-orb-two" />
-        </div>
+    <div className="min-h-screen bg-[linear-gradient(180deg,#f7f6f2_0%,#ffffff_26%,#f4f7fb_100%)]">
+      <SEOHead
+        title="TravelBuddy Community | Travel Stories, Place Reviews, and Local Tips"
+        description="Explore travel stories, place reviews, and community travel tips on TravelBuddy. Discover real experiences, photo diaries, and destination insight from travelers."
+        keywords="travel community, travel stories, place reviews, local travel tips, destination stories, traveler insights"
+      />
 
-        <div className="relative mx-auto max-w-7xl px-4 py-10 md:px-6 lg:px-8 lg:py-14">
-          <div className="grid gap-8 lg:grid-cols-[1.55fr,0.95fr] lg:items-start">
+      <section className="relative overflow-hidden border-b border-slate-200/70 bg-[radial-gradient(circle_at_top_left,rgba(56,189,248,0.16),transparent_28%),radial-gradient(circle_at_top_right,rgba(251,146,60,0.12),transparent_24%),linear-gradient(180deg,#ffffff_0%,#f8fbff_58%,#fff8f2_100%)]">
+        <div className="mx-auto max-w-7xl px-4 pb-12 pt-16 sm:px-6 lg:px-8 lg:pb-16 lg:pt-20">
+          <div className="grid gap-8 lg:grid-cols-[1.1fr_0.9fr] lg:items-end">
             <div>
-              <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-sky-200 bg-white/80 px-4 py-2 text-sm font-medium text-sky-700 shadow-sm backdrop-blur">
-                <Sparkles className="h-4 w-4" />
-                <span>Real traveler notes, photos, and place reviews</span>
+              <div className="inline-flex items-center gap-2 rounded-full border border-sky-200 bg-white/80 px-4 py-2 text-xs font-semibold uppercase tracking-[0.22em] text-sky-700 shadow-sm">
+                <Sparkles className="h-3.5 w-3.5" />
+                Travel community
               </div>
-
-              <h1 className="max-w-3xl text-4xl font-bold tracking-tight text-slate-900 md:text-5xl">
-                Discover where the community actually loved going.
+              <h1 className="font-heading mt-5 max-w-3xl text-5xl font-semibold leading-[1.04] tracking-tight text-slate-950 sm:text-6xl">
+                Real travel stories that make trip planning smarter.
               </h1>
-              <p className="mt-4 max-w-2xl text-base leading-7 text-slate-600 md:text-lg">
-                Browse destination stories, photo diaries, and practical place tips from travelers in the field.
-                Save time by learning what stood out before you plan your own stop.
+              <p className="mt-5 max-w-2xl text-base leading-8 text-slate-600 sm:text-lg">
+                Browse travel stories, place reviews, photo diaries, and local travel tips from people who have
+                already been there. Use the community to plan with more confidence before you lock in your itinerary.
               </p>
 
-              <div className="mt-6 flex flex-col gap-3 sm:flex-row">
+              <div className="mt-8 flex flex-col gap-3 sm:flex-row">
                 <button
-                  onClick={() => {
-                    setEditingStory(undefined)
-                    setShowCreateModal(true)
-                  }}
-                  className="inline-flex items-center justify-center gap-2 rounded-2xl bg-slate-950 px-6 py-3 text-sm font-semibold text-white shadow-lg shadow-slate-900/10 transition hover:-translate-y-0.5 hover:bg-slate-800"
+                  onClick={openCreateModal}
+                  className="inline-flex items-center justify-center gap-2 rounded-full bg-slate-950 px-6 py-3 text-sm font-semibold text-white shadow-[0_16px_36px_rgba(15,23,42,0.14)] transition hover:bg-slate-800"
                 >
                   <Plus className="h-4 w-4" />
-                  Share your story
+                  Share a story
                 </button>
                 <button
                   onClick={() => loadCommunityData()}
-                  className="inline-flex items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white/80 px-6 py-3 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-slate-300 hover:bg-white"
+                  className="inline-flex items-center justify-center gap-2 rounded-full border border-slate-200 bg-white px-6 py-3 text-sm font-semibold text-slate-700 transition hover:border-slate-300 hover:bg-slate-50"
                 >
                   <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
-                  Refresh feed
+                  Refresh community
                 </button>
-              </div>
-
-              <div className="mt-8 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-                <div className="rounded-2xl border border-white/70 bg-white/80 p-4 shadow-sm backdrop-blur">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm font-medium text-slate-500">Stories</span>
-                    <Camera className="h-4 w-4 text-sky-500" />
-                  </div>
-                  <div className="mt-2 text-2xl font-bold text-slate-900">{stories.length}</div>
-                  <p className="mt-1 text-sm text-slate-500">Fresh travel moments in this feed</p>
-                </div>
-                <div className="rounded-2xl border border-white/70 bg-white/80 p-4 shadow-sm backdrop-blur">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm font-medium text-slate-500">Reviewed places</span>
-                    <MapPin className="h-4 w-4 text-orange-500" />
-                  </div>
-                  <div className="mt-2 text-2xl font-bold text-slate-900">{new Set(placeStories.map((story) => story.place!.name)).size}</div>
-                  <p className="mt-1 text-sm text-slate-500">Destinations with community context</p>
-                </div>
-                <div className="rounded-2xl border border-white/70 bg-white/80 p-4 shadow-sm backdrop-blur">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm font-medium text-slate-500">Photo diaries</span>
-                    <ImageIcon className="h-4 w-4 text-emerald-500" />
-                  </div>
-                  <div className="mt-2 text-2xl font-bold text-slate-900">{photoStories.length}</div>
-                  <p className="mt-1 text-sm text-slate-500">Visual trip notes to scan quickly</p>
-                </div>
-                <div className="rounded-2xl border border-white/70 bg-white/80 p-4 shadow-sm backdrop-blur">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm font-medium text-slate-500">Community love</span>
-                    <Heart className="h-4 w-4 text-rose-500" />
-                  </div>
-                  <div className="mt-2 text-2xl font-bold text-slate-900">{totalLikes}</div>
-                  <p className="mt-1 text-sm text-slate-500">{totalComments} conversations across stories</p>
-                </div>
               </div>
             </div>
 
-            <div className="rounded-[28px] border border-white/70 bg-white/80 p-6 shadow-xl shadow-slate-900/5 backdrop-blur">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-semibold uppercase tracking-[0.18em] text-slate-400">Community pulse</p>
-                  <h2 className="mt-2 text-2xl font-bold text-slate-900">What travelers are talking about</h2>
-                </div>
-                <div className="rounded-2xl bg-slate-900 p-3 text-white shadow-lg">
-                  <TrendingUp className="h-5 w-5" />
-                </div>
-              </div>
-
-              <div className="mt-6 space-y-4">
-                {topPlaces.length > 0 ? topPlaces.slice(0, 3).map((place, index) => (
-                  <div key={place.name} className="rounded-2xl border border-slate-100 bg-slate-50/80 p-4">
-                    <div className="flex items-center justify-between gap-4">
-                      <div className="flex items-start gap-3">
-                        <div className={`mt-0.5 flex h-8 w-8 items-center justify-center rounded-xl text-sm font-bold ${
-                          index === 0 ? 'bg-amber-100 text-amber-700' :
-                          index === 1 ? 'bg-sky-100 text-sky-700' :
-                          'bg-emerald-100 text-emerald-700'
-                        }`}>
-                          {index + 1}
-                        </div>
-                        <div>
-                          <p className="font-semibold text-slate-900">{place.name}</p>
-                          <p className="text-sm text-slate-500">{place.stories} stories • {place.likes} likes</p>
-                        </div>
-                      </div>
-                      <button
-                        onClick={() => {
-                          setSearchQuery(place.name)
-                          setContentMode('places')
-                          setViewMode('feed')
-                        }}
-                        className="inline-flex items-center gap-1 text-sm font-semibold text-sky-700 transition hover:text-sky-800"
-                      >
-                        Explore
-                        <ArrowRight className="h-4 w-4" />
-                      </button>
-                    </div>
+            <div className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-[0_20px_46px_rgba(15,23,42,0.08)]">
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Community snapshot</p>
+              <h2 className="font-heading mt-3 text-3xl font-semibold tracking-tight text-slate-950">
+                See what travelers are actually talking about.
+              </h2>
+              <div className="mt-6 grid gap-4 sm:grid-cols-2">
+                <div className="rounded-[1.35rem] bg-slate-50 p-4">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium text-slate-500">Stories</span>
+                    <Camera className="h-4 w-4 text-sky-600" />
                   </div>
-                )) : (
-                  <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-5 text-sm text-slate-500">
-                    The first place stories will show up here once travelers start tagging destinations.
+                  <p className="mt-3 text-3xl font-semibold text-slate-950">{stories.length}</p>
+                  <p className="mt-1 text-sm text-slate-500">Fresh travel notes in the feed</p>
+                </div>
+                <div className="rounded-[1.35rem] bg-slate-50 p-4">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium text-slate-500">Reviewed places</span>
+                    <MapPin className="h-4 w-4 text-amber-600" />
                   </div>
-                )}
-              </div>
-
-              <div className="mt-6 grid gap-3 sm:grid-cols-3">
-                <div className="rounded-2xl bg-slate-950 p-4 text-white">
-                  <p className="text-xs uppercase tracking-[0.16em] text-slate-400">Top travelers</p>
-                  <p className="mt-2 text-2xl font-bold">{topTravelers.length}</p>
+                  <p className="mt-3 text-3xl font-semibold text-slate-950">
+                    {new Set(placeStories.map((story) => story.place!.name)).size}
+                  </p>
+                  <p className="mt-1 text-sm text-slate-500">Destinations with community context</p>
                 </div>
-                <div className="rounded-2xl bg-sky-50 p-4">
-                  <p className="text-xs uppercase tracking-[0.16em] text-sky-600">Hot tags</p>
-                  <p className="mt-2 text-2xl font-bold text-slate-900">{topTags.length}</p>
+                <div className="rounded-[1.35rem] bg-slate-50 p-4">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium text-slate-500">Photo diaries</span>
+                    <ImageIcon className="h-4 w-4 text-emerald-600" />
+                  </div>
+                  <p className="mt-3 text-3xl font-semibold text-slate-950">{photoStories.length}</p>
+                  <p className="mt-1 text-sm text-slate-500">Visual stories to scan quickly</p>
                 </div>
-                <div className="rounded-2xl bg-orange-50 p-4">
-                  <p className="text-xs uppercase tracking-[0.16em] text-orange-600">Selected mode</p>
-                  <p className="mt-2 text-lg font-bold capitalize text-slate-900">{contentMode}</p>
+                <div className="rounded-[1.35rem] bg-slate-950 p-4 text-white">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium text-white/60">Engagement</span>
+                    <Heart className="h-4 w-4 text-rose-300" />
+                  </div>
+                  <p className="mt-3 text-3xl font-semibold">{totalLikes}</p>
+                  <p className="mt-1 text-sm text-white/68">{totalComments} conversations across the community</p>
                 </div>
               </div>
             </div>
@@ -455,126 +414,122 @@ export const CommunityPage: React.FC = () => {
         </div>
       </section>
 
-      <div className="mx-auto max-w-7xl px-4 py-8 md:px-6 lg:px-8">
-        <div className="grid grid-cols-1 gap-8 lg:grid-cols-4">
-          <div className="lg:col-span-3">
-            <div className="rounded-[28px] border border-slate-200 bg-white p-5 shadow-sm">
-              <div className="flex flex-col gap-4">
-                <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
-                  <div className="relative flex-1">
-                    <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-                    <input
-                      type="text"
-                      placeholder="Search places, tags, themes, or story titles"
-                      value={searchQuery}
-                      onChange={(event) => setSearchQuery(event.target.value)}
-                      className="w-full rounded-2xl border border-slate-200 bg-slate-50 py-3 pl-11 pr-4 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-sky-400 focus:bg-white focus:ring-4 focus:ring-sky-100"
-                    />
-                  </div>
+      <section className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+        <div className="rounded-[2rem] border border-slate-200 bg-white p-5 shadow-[0_16px_36px_rgba(15,23,42,0.05)]">
+          <div className="flex flex-col gap-4">
+            <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+              <div className="relative flex-1">
+                <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                <input
+                  type="text"
+                  placeholder="Search travel stories, places, tags, or local tips"
+                  value={searchQuery}
+                  onChange={(event) => setSearchQuery(event.target.value)}
+                  className="w-full rounded-2xl border border-slate-200 bg-slate-50 py-3 pl-11 pr-4 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-sky-400 focus:bg-white focus:ring-4 focus:ring-sky-100"
+                />
+              </div>
 
-                  <div className="flex items-center gap-2 self-start rounded-2xl bg-slate-100 p-1">
-                    {filterOptions.map((option) => {
-                      const Icon = option.icon
-                      const isActive = filter === option.id
-                      return (
-                        <button
-                          key={option.id}
-                          onClick={() => setFilter(option.id)}
-                          className={`inline-flex items-center gap-2 rounded-2xl px-4 py-2 text-sm font-semibold transition ${
-                            isActive
-                              ? 'bg-white text-slate-900 shadow-sm'
-                              : 'text-slate-600 hover:text-slate-900'
-                          }`}
-                        >
-                          <Icon className="h-4 w-4" />
-                          {option.label}
-                        </button>
-                      )
-                    })}
-                  </div>
-                </div>
-
-                <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
-                  <div className="flex flex-wrap gap-2">
-                    {contentModes.map((mode) => {
-                      const Icon = mode.icon
-                      const isActive = contentMode === mode.id
-                      return (
-                        <button
-                          key={mode.id}
-                          onClick={() => setContentMode(mode.id)}
-                          className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium transition ${
-                            isActive
-                              ? 'bg-slate-950 text-white shadow-lg shadow-slate-900/10'
-                              : 'border border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:text-slate-900'
-                          }`}
-                        >
-                          <Icon className="h-4 w-4" />
-                          {mode.label}
-                        </button>
-                      )
-                    })}
-                  </div>
-
-                  <div className="flex items-center gap-2">
-                    {(selectedTag || searchQuery || contentMode !== 'all') && (
-                      <button
-                        onClick={() => {
-                          setSelectedTag(null)
-                          setSearchQuery('')
-                          setContentMode('all')
-                        }}
-                        className="rounded-full border border-slate-200 px-4 py-2 text-sm font-medium text-slate-600 transition hover:border-slate-300 hover:text-slate-900"
-                      >
-                        Clear filters
-                      </button>
-                    )}
-
-                    <div className="flex items-center gap-1 rounded-2xl bg-slate-100 p-1">
-                      <button
-                        onClick={() => setViewMode('feed')}
-                        className={`rounded-xl px-3 py-2 transition ${viewMode === 'feed' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500'}`}
-                        aria-label="Feed view"
-                      >
-                        <List className="h-4 w-4" />
-                      </button>
-                      <button
-                        onClick={() => setViewMode('map')}
-                        className={`rounded-xl px-3 py-2 transition ${viewMode === 'map' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500'}`}
-                        aria-label="Map view"
-                      >
-                        <Map className="h-4 w-4" />
-                      </button>
-                    </div>
-                  </div>
-                </div>
-
-                {allTags.length > 0 && (
-                  <div className="flex flex-wrap gap-2 border-t border-slate-100 pt-1">
-                    {allTags.map((tag) => (
-                      <button
-                        key={tag}
-                        onClick={() => setSelectedTag(selectedTag === tag ? null : tag)}
-                        className={`rounded-full px-3 py-1.5 text-xs font-semibold transition ${
-                          selectedTag === tag
-                            ? 'bg-sky-100 text-sky-700'
-                            : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                        }`}
-                      >
-                        #{tag}
-                      </button>
-                    ))}
-                  </div>
-                )}
+              <div className="flex items-center gap-2 self-start rounded-2xl bg-slate-100 p-1">
+                {filterOptions.map((option) => {
+                  const Icon = option.icon
+                  const isActive = filter === option.id
+                  return (
+                    <button
+                      key={option.id}
+                      onClick={() => setFilter(option.id)}
+                      className={`inline-flex items-center gap-2 rounded-2xl px-4 py-2 text-sm font-semibold transition ${
+                        isActive ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-600 hover:text-slate-900'
+                      }`}
+                    >
+                      <Icon className={`h-4 w-4 ${option.id === 'recent' && refreshing ? 'animate-spin' : ''}`} />
+                      {option.label}
+                    </button>
+                  )
+                })}
               </div>
             </div>
 
+            <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+              <div className="flex flex-wrap gap-2">
+                {contentModes.map((mode) => {
+                  const Icon = mode.icon
+                  const isActive = contentMode === mode.id
+                  return (
+                    <button
+                      key={mode.id}
+                      onClick={() => setContentMode(mode.id)}
+                      className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium transition ${
+                        isActive
+                          ? 'bg-slate-950 text-white shadow-[0_16px_30px_rgba(15,23,42,0.12)]'
+                          : 'border border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:text-slate-900'
+                      }`}
+                    >
+                      <Icon className="h-4 w-4" />
+                      {mode.label}
+                    </button>
+                  )
+                })}
+              </div>
+
+              <div className="flex items-center gap-2">
+                {(selectedTag || searchQuery || contentMode !== 'all') && (
+                  <button
+                    onClick={resetFilters}
+                    className="rounded-full border border-slate-200 px-4 py-2 text-sm font-medium text-slate-600 transition hover:border-slate-300 hover:text-slate-900"
+                  >
+                    Clear filters
+                  </button>
+                )}
+
+                <div className="flex items-center gap-1 rounded-2xl bg-slate-100 p-1">
+                  <button
+                    onClick={() => setViewMode('feed')}
+                    className={`rounded-xl px-3 py-2 transition ${viewMode === 'feed' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500'}`}
+                    aria-label="Feed view"
+                  >
+                    <List className="h-4 w-4" />
+                  </button>
+                  <button
+                    onClick={() => setViewMode('map')}
+                    className={`rounded-xl px-3 py-2 transition ${viewMode === 'map' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500'}`}
+                    aria-label="Map view"
+                  >
+                    <MapIcon className="h-4 w-4" />
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {allTags.length > 0 && (
+              <div className="flex flex-wrap gap-2 border-t border-slate-100 pt-1">
+                {allTags.map((tag) => (
+                  <button
+                    key={tag}
+                    onClick={() => setSelectedTag(selectedTag === tag ? null : tag)}
+                    className={`rounded-full px-3 py-1.5 text-xs font-semibold transition ${
+                      selectedTag === tag
+                        ? 'bg-sky-100 text-sky-700'
+                        : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                    }`}
+                  >
+                    #{tag}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      </section>
+
+      <div className="mx-auto max-w-7xl px-4 pb-14 sm:px-6 lg:px-8">
+        <div className="grid grid-cols-1 gap-8 xl:grid-cols-[1.1fr_0.9fr]">
+          <div className="space-y-6">
             {error ? (
-              <div className="mt-6 rounded-[28px] border border-rose-100 bg-white p-10 text-center shadow-sm">
+              <div className="rounded-[2rem] border border-rose-100 bg-white p-10 text-center shadow-sm">
                 <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-rose-50 text-rose-500">
                   <RefreshCw className="h-7 w-7" />
                 </div>
-                <h3 className="text-2xl font-bold text-slate-900">Community feed hit a bump</h3>
+                <h3 className="font-heading text-2xl font-semibold text-slate-900">Community feed hit a bump</h3>
                 <p className="mx-auto mt-3 max-w-md text-slate-600">{error}</p>
                 <button
                   onClick={() => loadCommunityData(true)}
@@ -584,9 +539,9 @@ export const CommunityPage: React.FC = () => {
                 </button>
               </div>
             ) : loading ? (
-              <div className="mt-6 space-y-6">
+              <div className="space-y-6">
                 {[1, 2, 3].map((item) => (
-                  <div key={item} className="rounded-[28px] border border-slate-200 bg-white p-6 shadow-sm">
+                  <div key={item} className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm">
                     <div className="mb-5 flex items-center gap-4">
                       <div className="h-12 w-12 rounded-full bg-slate-200" />
                       <div className="flex-1">
@@ -602,20 +557,17 @@ export const CommunityPage: React.FC = () => {
                 ))}
               </div>
             ) : stories.length === 0 ? (
-              <div className="mt-6 rounded-[28px] border border-slate-200 bg-[linear-gradient(135deg,#ffffff_0%,#f5faff_60%,#fff7ee_100%)] p-10 text-center shadow-sm">
+              <div className="rounded-[2rem] border border-slate-200 bg-[linear-gradient(135deg,#ffffff_0%,#f5faff_60%,#fff7ee_100%)] p-10 text-center shadow-sm">
                 <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-[24px] bg-slate-950 text-white shadow-lg shadow-slate-900/10">
                   <MapPin className="h-10 w-10" />
                 </div>
-                <h3 className="mt-6 text-3xl font-bold text-slate-900">Start the first story thread</h3>
+                <h3 className="font-heading mt-6 text-3xl font-semibold text-slate-900">Start the first story thread</h3>
                 <p className="mx-auto mt-3 max-w-lg text-slate-600">
                   This space is ready for destination notes, hidden finds, food tips, and honest traveler photos.
                   Add the first story so the next traveler has something useful to learn from.
                 </p>
                 <button
-                  onClick={() => {
-                    setEditingStory(undefined)
-                    setShowCreateModal(true)
-                  }}
+                  onClick={openCreateModal}
                   className="mt-6 inline-flex items-center gap-2 rounded-2xl bg-slate-950 px-6 py-3 text-sm font-semibold text-white transition hover:bg-slate-800"
                 >
                   <Plus className="h-4 w-4" />
@@ -623,13 +575,16 @@ export const CommunityPage: React.FC = () => {
                 </button>
               </div>
             ) : viewMode === 'map' ? (
-              <div className="mt-6 space-y-6">
-                <div className="rounded-[28px] border border-slate-200 bg-white p-6 shadow-sm">
+              <>
+                <div className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm">
                   <div className="mb-6 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
                     <div>
-                      <h3 className="text-2xl font-bold text-slate-900">Map the stories</h3>
-                      <p className="mt-1 text-sm text-slate-600">
-                        Jump from destination to destination, then switch to the feed to read the selected story.
+                      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Map view</p>
+                      <h3 className="font-heading mt-2 text-3xl font-semibold tracking-tight text-slate-950">
+                        Follow the community on the map.
+                      </h3>
+                      <p className="mt-2 text-sm leading-7 text-slate-600">
+                        Click a destination marker to send that story to the top of the feed.
                       </p>
                     </div>
                     <button
@@ -650,47 +605,50 @@ export const CommunityPage: React.FC = () => {
                   />
                 </div>
 
-                <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-                  {filteredStories.filter((story) => story.place).slice(0, 6).map((story) => (
-                    <button
-                      key={story._id}
-                      onClick={() => {
-                        setSelectedPlace(story._id)
-                        setViewMode('feed')
-                      }}
-                      className="rounded-[24px] border border-slate-200 bg-white p-5 text-left shadow-sm transition hover:-translate-y-1 hover:shadow-lg"
-                    >
-                      <div className="flex items-start gap-3">
-                        <div className="rounded-2xl bg-sky-50 p-3 text-sky-700">
-                          <MapPin className="h-5 w-5" />
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <p className="truncate text-base font-bold text-slate-900">{story.place?.name}</p>
-                          <p className="mt-1 line-clamp-2 text-sm text-slate-600">{story.title}</p>
-                          <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-slate-500">
-                            <span>by {story.author.username}</span>
-                            <span>•</span>
-                            <span>{story.likes} likes</span>
-                            <span>•</span>
-                            <span>{formatRelativeDate(story.createdAt)}</span>
+                <div className="grid gap-4 md:grid-cols-2">
+                  {filteredStories
+                    .filter((story) => story.place)
+                    .slice(0, 6)
+                    .map((story) => (
+                      <button
+                        key={story._id}
+                        onClick={() => {
+                          setSelectedPlace(story._id)
+                          setViewMode('feed')
+                        }}
+                        className="rounded-[1.75rem] border border-slate-200 bg-white p-5 text-left shadow-sm transition hover:-translate-y-1 hover:shadow-lg"
+                      >
+                        <div className="flex items-start gap-3">
+                          <div className="rounded-2xl bg-sky-50 p-3 text-sky-700">
+                            <MapPin className="h-5 w-5" />
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <p className="truncate font-semibold text-slate-900">{story.place?.name}</p>
+                            <p className="mt-1 line-clamp-2 text-sm text-slate-600">{story.title}</p>
+                            <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-slate-500">
+                              <span>by {story.author.username}</span>
+                              <span>•</span>
+                              <span>{story.likes} likes</span>
+                              <span>•</span>
+                              <span>{formatRelativeDate(story.createdAt)}</span>
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    </button>
-                  ))}
+                      </button>
+                    ))}
                 </div>
-              </div>
+              </>
             ) : (
-              <div className="mt-6 space-y-6">
+              <>
                 {featuredStory && (
-                  <div className="rounded-[28px] border border-slate-200 bg-[linear-gradient(135deg,#0f172a_0%,#111827_38%,#172554_100%)] p-6 text-white shadow-xl shadow-slate-900/10">
+                  <div className="rounded-[2rem] border border-slate-200 bg-[linear-gradient(135deg,#0f172a_0%,#111827_38%,#172554_100%)] p-6 text-white shadow-xl shadow-slate-900/10">
                     <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
                       <div className="max-w-3xl">
                         <div className="inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-slate-200">
                           <Sparkles className="h-3.5 w-3.5" />
                           Story spotlight
                         </div>
-                        <h3 className="mt-4 text-2xl font-bold">{featuredStory.title}</h3>
+                        <h3 className="font-heading mt-4 text-3xl font-semibold">{featuredStory.title}</h3>
                         <p className="mt-3 max-w-2xl text-sm leading-7 text-slate-300">
                           {featuredStory.content.length > 220
                             ? `${featuredStory.content.slice(0, 220)}...`
@@ -708,24 +666,30 @@ export const CommunityPage: React.FC = () => {
                       <div className="grid min-w-[220px] gap-3 sm:grid-cols-3 lg:grid-cols-1">
                         <div className="rounded-2xl bg-white/10 p-4">
                           <p className="text-xs uppercase tracking-[0.16em] text-slate-300">Place tag</p>
-                          <p className="mt-2 text-lg font-semibold text-white">{featuredStory.place?.name || 'General trip note'}</p>
+                          <p className="mt-2 text-lg font-semibold text-white">
+                            {featuredStory.place?.name || 'General trip note'}
+                          </p>
                         </div>
                         <div className="rounded-2xl bg-white/10 p-4">
                           <p className="text-xs uppercase tracking-[0.16em] text-slate-300">Format</p>
-                          <p className="mt-2 text-lg font-semibold text-white">{featuredStory.images.length > 0 ? 'Photo story' : 'Written story'}</p>
+                          <p className="mt-2 text-lg font-semibold text-white">
+                            {featuredStory.images.length > 0 ? 'Photo story' : 'Written story'}
+                          </p>
                         </div>
                         <div className="rounded-2xl bg-white/10 p-4">
                           <p className="text-xs uppercase tracking-[0.16em] text-slate-300">Posted</p>
-                          <p className="mt-2 text-lg font-semibold text-white">{formatRelativeDate(featuredStory.createdAt)}</p>
+                          <p className="mt-2 text-lg font-semibold text-white">
+                            {formatRelativeDate(featuredStory.createdAt)}
+                          </p>
                         </div>
                       </div>
                     </div>
                   </div>
                 )}
 
-                <div className="flex flex-col gap-3 rounded-[24px] border border-slate-200 bg-white p-5 shadow-sm md:flex-row md:items-center md:justify-between">
+                <div className="flex flex-col gap-3 rounded-[1.75rem] border border-slate-200 bg-white p-5 shadow-sm md:flex-row md:items-center md:justify-between">
                   <div>
-                    <h3 className="text-lg font-bold text-slate-900">
+                    <h3 className="font-heading text-2xl font-semibold text-slate-900">
                       {displayedStories.length} matching {displayedStories.length === 1 ? 'story' : 'stories'}
                     </h3>
                     <p className="text-sm text-slate-500">
@@ -736,7 +700,9 @@ export const CommunityPage: React.FC = () => {
                   </div>
                   <div className="flex flex-wrap gap-2">
                     {selectedTag && (
-                      <span className="rounded-full bg-sky-100 px-3 py-1 text-xs font-semibold text-sky-700">#{selectedTag}</span>
+                      <span className="rounded-full bg-sky-100 px-3 py-1 text-xs font-semibold text-sky-700">
+                        #{selectedTag}
+                      </span>
                     )}
                     {searchQuery && (
                       <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700">
@@ -752,20 +718,18 @@ export const CommunityPage: React.FC = () => {
                 </div>
 
                 {displayedStories.length === 0 ? (
-                  <div className="rounded-[28px] border border-dashed border-slate-300 bg-white p-10 text-center shadow-sm">
+                  <div className="rounded-[2rem] border border-dashed border-slate-300 bg-white p-10 text-center shadow-sm">
                     <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-slate-100 text-slate-500">
                       <Search className="h-7 w-7" />
                     </div>
-                    <h3 className="mt-5 text-2xl font-bold text-slate-900">No stories match those filters</h3>
+                    <h3 className="font-heading mt-5 text-2xl font-semibold text-slate-900">
+                      No stories match those filters
+                    </h3>
                     <p className="mx-auto mt-3 max-w-md text-slate-600">
                       Try a broader search, switch back to all stories, or clear the active tag to bring more results back in.
                     </p>
                     <button
-                      onClick={() => {
-                        setSelectedTag(null)
-                        setSearchQuery('')
-                        setContentMode('all')
-                      }}
+                      onClick={resetFilters}
                       className="mt-6 rounded-2xl border border-slate-200 px-5 py-3 text-sm font-semibold text-slate-700 transition hover:border-slate-300 hover:text-slate-900"
                     >
                       Reset filters
@@ -783,7 +747,7 @@ export const CommunityPage: React.FC = () => {
                         onLike={handleLike}
                         onDelete={handleDelete}
                         onEdit={handleEdit}
-                        currentUserId={user?.uid || user?._id || ''}
+                        currentUserId={(user as any)?.firebaseUid || (user as any)?.id || ''}
                         highlighted={story._id === selectedPlace}
                       />
                     </div>
@@ -802,26 +766,25 @@ export const CommunityPage: React.FC = () => {
                     You’ve reached the end of the current feed.
                   </div>
                 )}
-              </div>
+              </>
             )}
           </div>
 
           <aside className="space-y-6">
-            <div className="rounded-[28px] border border-slate-200 bg-slate-950 p-6 text-white shadow-xl shadow-slate-900/10">
-              <div className="flex items-center gap-3">
+            <div className="rounded-[2rem] border border-slate-200 bg-slate-950 p-6 text-white shadow-[0_22px_50px_rgba(15,23,42,0.14)]">
+              <div className="flex items-start gap-4">
                 <div className="rounded-2xl bg-white/10 p-3">
                   <Compass className="h-5 w-5" />
                 </div>
                 <div>
-                  <p className="text-sm font-semibold text-slate-200">Contribute a useful stop</p>
-                  <p className="text-xs text-slate-400">Share photos, route notes, or a hidden find.</p>
+                  <p className="font-semibold text-white">Contribute a useful stop</p>
+                  <p className="mt-1 text-sm leading-7 text-white/66">
+                    Share photos, route notes, food finds, or an honest local tip for the next traveler.
+                  </p>
                 </div>
               </div>
               <button
-                onClick={() => {
-                  setEditingStory(undefined)
-                  setShowCreateModal(true)
-                }}
+                onClick={openCreateModal}
                 className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-white px-4 py-3 text-sm font-semibold text-slate-900 transition hover:bg-slate-100"
               >
                 <Plus className="h-4 w-4" />
@@ -829,110 +792,131 @@ export const CommunityPage: React.FC = () => {
               </button>
             </div>
 
-            <div className="rounded-[28px] border border-slate-200 bg-white p-6 shadow-sm">
+            <div className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm">
               <div className="mb-5 flex items-center gap-3">
                 <div className="rounded-2xl bg-amber-50 p-3 text-amber-600">
                   <Users className="h-5 w-5" />
                 </div>
                 <div>
-                  <h3 className="text-lg font-bold text-slate-900">Top travelers</h3>
+                  <h3 className="font-heading text-xl font-semibold text-slate-900">Top travelers</h3>
                   <p className="text-sm text-slate-500">People driving the most engagement right now</p>
                 </div>
               </div>
               <div className="space-y-4">
-                {topTravelers.length > 0 ? topTravelers.map((traveler, index) => (
-                  <div key={traveler.username} className="flex items-center gap-3">
-                    <div className="relative">
-                      <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[linear-gradient(135deg,#0ea5e9,#8b5cf6)] text-sm font-bold text-white">
-                        {traveler.profilePicture ? (
-                          <img src={traveler.profilePicture} alt={traveler.username} className="h-full w-full rounded-2xl object-cover" />
-                        ) : (
-                          traveler.username[0]
-                        )}
+                {topTravelers.length > 0 ? (
+                  topTravelers.map((traveler, index) => (
+                    <div key={traveler.username} className="flex items-center gap-3">
+                      <div className="relative">
+                        <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[linear-gradient(135deg,#0ea5e9,#8b5cf6)] text-sm font-bold text-white">
+                          {traveler.profilePicture ? (
+                            <img
+                              src={traveler.profilePicture}
+                              alt={traveler.username}
+                              className="h-full w-full rounded-2xl object-cover"
+                            />
+                          ) : (
+                            traveler.username[0]
+                          )}
+                        </div>
+                        <div className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-slate-950 text-[10px] font-bold text-white">
+                          {index + 1}
+                        </div>
                       </div>
-                      <div className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-slate-950 text-[10px] font-bold text-white">
-                        {index + 1}
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate font-semibold text-slate-900">{traveler.username}</p>
+                        <p className="text-sm text-slate-500">
+                          {traveler.storiesCount} stories • {traveler.totalLikes} likes
+                        </p>
                       </div>
                     </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate font-semibold text-slate-900">{traveler.username}</p>
-                      <p className="text-sm text-slate-500">{traveler.storiesCount} stories • {traveler.totalLikes} likes</p>
-                    </div>
-                  </div>
-                )) : (
+                  ))
+                ) : (
                   <p className="text-sm text-slate-500">Traveler rankings will populate once stories are available.</p>
                 )}
               </div>
             </div>
 
-            <div className="rounded-[28px] border border-slate-200 bg-white p-6 shadow-sm">
-              <h3 className="text-lg font-bold text-slate-900">Trending tags</h3>
-              <p className="mt-1 text-sm text-slate-500">Quick entry points into the feed</p>
-              <div className="mt-4 flex flex-wrap gap-2">
-                {topTags.length > 0 ? topTags.map(({ tag, count }) => (
-                  <button
-                    key={tag}
-                    onClick={() => {
-                      setSelectedTag(tag)
-                      setViewMode('feed')
-                    }}
-                    className="rounded-full bg-slate-100 px-3 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-200"
-                  >
-                    #{tag} • {count}
-                  </button>
-                )) : (
+            <div className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm">
+              <div className="mb-4 flex items-center justify-between">
+                <div>
+                  <h3 className="font-heading text-xl font-semibold text-slate-900">Trending tags</h3>
+                  <p className="text-sm text-slate-500">Quick entry points into the feed</p>
+                </div>
+                <TrendingUp className="h-5 w-5 text-slate-400" />
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {topTags.length > 0 ? (
+                  topTags.map(({ tag, count }) => (
+                    <button
+                      key={tag}
+                      onClick={() => {
+                        setSelectedTag(tag)
+                        setViewMode('feed')
+                      }}
+                      className="rounded-full bg-slate-100 px-3 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-200"
+                    >
+                      #{tag} • {count}
+                    </button>
+                  ))
+                ) : (
                   <p className="text-sm text-slate-500">No tags have been added yet.</p>
                 )}
               </div>
             </div>
 
-            <div className="rounded-[28px] border border-slate-200 bg-white p-6 shadow-sm">
-              <h3 className="text-lg font-bold text-slate-900">Destination pulse</h3>
+            <div className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm">
+              <h3 className="font-heading text-xl font-semibold text-slate-900">Destination pulse</h3>
               <p className="mt-1 text-sm text-slate-500">Places with the most recent community activity</p>
               <div className="mt-5 space-y-4">
-                {topPlaces.length > 0 ? topPlaces.map((place, index) => (
-                  <button
-                    key={place.name}
-                    onClick={() => {
-                      setSearchQuery(place.name)
-                      setContentMode('places')
-                      setViewMode('feed')
-                    }}
-                    className="flex w-full items-center justify-between rounded-2xl bg-slate-50 px-4 py-3 text-left transition hover:bg-slate-100"
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className={`h-2.5 w-2.5 rounded-full ${index === 0 ? 'bg-emerald-500' : index === 1 ? 'bg-sky-500' : 'bg-orange-400'}`} />
-                      <div>
-                        <p className="font-semibold text-slate-900">{place.name}</p>
-                        <p className="text-xs text-slate-500">{place.stories} stories</p>
+                {topPlaces.length > 0 ? (
+                  topPlaces.map((place, index) => (
+                    <button
+                      key={place.name}
+                      onClick={() => {
+                        setSearchQuery(place.name)
+                        setContentMode('places')
+                        setViewMode('feed')
+                      }}
+                      className="flex w-full items-center justify-between rounded-2xl bg-slate-50 px-4 py-3 text-left transition hover:bg-slate-100"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div
+                          className={`h-2.5 w-2.5 rounded-full ${
+                            index === 0 ? 'bg-emerald-500' : index === 1 ? 'bg-sky-500' : 'bg-orange-400'
+                          }`}
+                        />
+                        <div>
+                          <p className="font-semibold text-slate-900">{place.name}</p>
+                          <p className="text-xs text-slate-500">{place.stories} stories</p>
+                        </div>
                       </div>
-                    </div>
-                    <ArrowRight className="h-4 w-4 text-slate-400" />
-                  </button>
-                )) : (
+                      <ArrowRight className="h-4 w-4 text-slate-400" />
+                    </button>
+                  ))
+                ) : (
                   <p className="text-sm text-slate-500">Tagged place insights will appear here.</p>
                 )}
               </div>
             </div>
 
-            <div className="rounded-[28px] border border-slate-200 bg-white p-6 shadow-sm">
-              <h3 className="text-lg font-bold text-slate-900">Community stats</h3>
+            <div className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm">
+              <h3 className="font-heading text-xl font-semibold text-slate-900">Community stats</h3>
               <div className="mt-5 space-y-4">
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-slate-500">Stories</span>
-                  <span className="font-bold text-slate-900">{stories.length}</span>
+                  <span className="font-semibold text-slate-900">{stories.length}</span>
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-slate-500">Likes</span>
-                  <span className="font-bold text-slate-900">{totalLikes}</span>
+                  <span className="font-semibold text-slate-900">{totalLikes}</span>
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-slate-500">Comments</span>
-                  <span className="font-bold text-slate-900">{totalComments}</span>
+                  <span className="font-semibold text-slate-900">{totalComments}</span>
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-slate-500">Top travelers</span>
-                  <span className="font-bold text-slate-900">{topTravelers.length}</span>
+                  <span className="font-semibold text-slate-900">{topTravelers.length}</span>
                 </div>
               </div>
             </div>

@@ -2,6 +2,52 @@ import { configService } from '../services/configService'
 
 let API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001'
 
+export interface PlanningIdea {
+  id: string
+  name: string
+  description: string
+  category: string
+  rating: number
+  priceLevel: string
+  location: {
+    address: string
+    city?: string
+    country?: string
+    coordinates: {
+      lat: number
+      lng: number
+    }
+  }
+  highlights: string[]
+  image: string
+  photos?: Array<{
+    photo_reference: string
+    height: number
+    width: number
+  }>
+  contact: {
+    phone: string
+    website: string
+  }
+  openHours: string
+  tags: string[]
+  itemType?: string
+  trustNote?: string
+  planningRole?: string
+}
+
+export interface PlanningIdeaSearchResponse {
+  items: PlanningIdea[]
+  searchContext: string
+  meta?: {
+    source?: string
+    mode?: string
+    userNotice?: string
+    query?: string
+    planningLens?: string
+  }
+}
+
 class ApiService {
   private async getBaseUrl(): Promise<string> {
     try {
@@ -140,7 +186,7 @@ class ApiService {
   }
 
   // Enhanced Places Search API (Google Places First + AI Enhancement)
-  async searchPlaces(query: string, filters?: any) {
+  async searchPlaces(query: string, filters?: any): Promise<PlanningIdeaSearchResponse> {
     if (!query?.trim()) {
       throw new Error('Search query is required')
     }
@@ -150,7 +196,11 @@ class ApiService {
       const response = await this.request<any>(`/nlp/search?q=${encodeURIComponent(query.trim())}&limit=${filters?.limit || 8}`)
       
       if (response?.results && Array.isArray(response.results)) {
-        return response.results
+        return {
+          items: response.results,
+          searchContext: response.searchContext || `AI planning ideas for "${query.trim()}"`,
+          meta: response.meta,
+        }
       }
       
       // Fallback to enhanced search
@@ -164,13 +214,23 @@ class ApiService {
       const enhancedResponse = await this.request<any>(`/enhanced-places/search?${params}`)
       
       if (enhancedResponse?.success && enhancedResponse.results) {
-        return Array.isArray(enhancedResponse.results) ? enhancedResponse.results : []
+        return {
+          items: Array.isArray(enhancedResponse.results) ? enhancedResponse.results : [],
+          searchContext: enhancedResponse.searchContext || `AI planning ideas for "${query.trim()}"`,
+          meta: enhancedResponse.meta,
+        }
       }
       
-      return []
+      return {
+        items: [],
+        searchContext: `No AI planning ideas found for "${query.trim()}"`,
+      }
     } catch (error) {
       console.error('Search places failed:', error)
-      return []
+      return {
+        items: [],
+        searchContext: `Search failed for "${query.trim()}"`,
+      }
     }
   }
 

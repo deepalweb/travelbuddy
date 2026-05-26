@@ -244,16 +244,28 @@ export const TripDetailPage: React.FC = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <Card className="bg-white shadow-md border-t-4 border-indigo-500">
                 <CardContent className="p-6">
+                  {trip.tripOverview.summaryHeadline && (
+                    <p className="mb-3 text-sm font-semibold uppercase tracking-[0.18em] text-indigo-500">{trip.tripOverview.summaryHeadline}</p>
+                  )}
                   <p className="text-gray-700 mb-6 italic text-lg leading-relaxed">"{trip.introduction}"</p>
                   <div className="space-y-3">
                     <div className="flex items-start"><span className="font-semibold w-32 text-indigo-700">Key Highlights:</span> <span className="flex-1">{trip.tripOverview.keyAttractions.join(', ')}</span></div>
                     <div className="flex items-start"><span className="font-semibold w-32 text-indigo-700">Transport:</span> <span className="flex-1">{trip.tripOverview.transportSummary}</span></div>
                     <div className="flex items-start"><span className="font-semibold w-32 text-indigo-700">Hotels:</span> <span className="flex-1">{trip.tripOverview.hotels.join(', ')}</span></div>
+                    {trip.tripOverview.budgetPerDay && (
+                      <div className="flex items-start"><span className="font-semibold w-32 text-indigo-700">Per Day:</span> <span className="flex-1">{trip.tripOverview.budgetPerDay}</span></div>
+                    )}
                     {trip.tripOverview.accommodationType && (
                       <div className="flex items-start"><span className="font-semibold w-32 text-indigo-700">Accommodation:</span> <span className="flex-1">{trip.tripOverview.accommodationType}</span></div>
                     )}
                     {trip.tripOverview.bestFor && (
                       <div className="flex items-start"><span className="font-semibold w-32 text-indigo-700">🌿 Best For:</span> <span className="flex-1">{trip.tripOverview.bestFor.join(', ')}</span></div>
+                    )}
+                    {trip.tripOverview.paceScore && (
+                      <div className="flex items-start"><span className="font-semibold w-32 text-indigo-700">Pace Score:</span> <span className="flex-1">{trip.tripOverview.paceScore}</span></div>
+                    )}
+                    {trip.tripOverview.travelEfficiency && (
+                      <div className="flex items-start"><span className="font-semibold w-32 text-indigo-700">Efficiency:</span> <span className="flex-1">{trip.tripOverview.travelEfficiency}</span></div>
                     )}
                   </div>
                 </CardContent>
@@ -284,6 +296,48 @@ export const TripDetailPage: React.FC = () => {
                 </Card>
               )}
             </div>
+            <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-2">
+              {trip.tripOverview.whyThisTripFits && trip.tripOverview.whyThisTripFits.length > 0 && (
+                <Card className="bg-white shadow-sm border-t-4 border-sky-500">
+                  <CardContent className="p-6">
+                    <h3 className="mb-4 text-lg font-bold text-slate-900">Why This Trip Fits</h3>
+                    <ul className="list-inside list-disc space-y-2 text-sm text-slate-600">
+                      {trip.tripOverview.whyThisTripFits.map((item, index) => <li key={index}>{item}</li>)}
+                    </ul>
+                  </CardContent>
+                </Card>
+              )}
+              {trip.tripOverview.routeStrategy && trip.tripOverview.routeStrategy.length > 0 && (
+                <Card className="bg-white shadow-sm border-t-4 border-violet-500">
+                  <CardContent className="p-6">
+                    <h3 className="mb-4 text-lg font-bold text-slate-900">Route Strategy</h3>
+                    <ul className="list-inside list-disc space-y-2 text-sm text-slate-600">
+                      {trip.tripOverview.routeStrategy.map((item, index) => <li key={index}>{item}</li>)}
+                    </ul>
+                  </CardContent>
+                </Card>
+              )}
+              {trip.tripOverview.tradeoffs && trip.tripOverview.tradeoffs.length > 0 && (
+                <Card className="bg-white shadow-sm border-t-4 border-amber-500">
+                  <CardContent className="p-6">
+                    <h3 className="mb-4 text-lg font-bold text-slate-900">Trip Tradeoffs</h3>
+                    <ul className="list-inside list-disc space-y-2 text-sm text-slate-600">
+                      {trip.tripOverview.tradeoffs.map((item, index) => <li key={index}>{item}</li>)}
+                    </ul>
+                  </CardContent>
+                </Card>
+              )}
+              {trip.tripOverview.bookingPriority && trip.tripOverview.bookingPriority.length > 0 && (
+                <Card className="bg-white shadow-sm border-t-4 border-emerald-500">
+                  <CardContent className="p-6">
+                    <h3 className="mb-4 text-lg font-bold text-slate-900">Book These First</h3>
+                    <ul className="list-inside list-disc space-y-2 text-sm text-slate-600">
+                      {trip.tripOverview.bookingPriority.map((item, index) => <li key={index}>{item}</li>)}
+                    </ul>
+                  </CardContent>
+                </Card>
+              )}
+            </div>
           </section>
         )}
 
@@ -298,6 +352,12 @@ export const TripDetailPage: React.FC = () => {
                   <div>
                     <h3 className="text-xl font-bold text-indigo-900">Day {day.day}: {day.theme}</h3>
                     <p className="text-sm text-indigo-600 font-medium">{day.date}</p>
+                    <div className="mt-2 flex flex-wrap gap-2 text-xs text-indigo-700">
+                      {day.dayGoal && <span className="rounded-full border border-indigo-100 bg-white px-3 py-1">Goal: {day.dayGoal}</span>}
+                      {day.energyLevel && <span className="rounded-full border border-indigo-100 bg-white px-3 py-1">Energy: {day.energyLevel}</span>}
+                      {day.estimatedTravelTime && <span className="rounded-full border border-indigo-100 bg-white px-3 py-1">Travel: {day.estimatedTravelTime}</span>}
+                      {day.estimatedDayCost && <span className="rounded-full border border-indigo-100 bg-white px-3 py-1">Day Cost: {day.estimatedDayCost}</span>}
+                    </div>
                   </div>
                   <div className="mt-2 md:mt-0 flex items-center gap-3">
                     <Button
@@ -316,6 +376,29 @@ export const TripDetailPage: React.FC = () => {
                     </div>
                   </div>
                 </div>
+
+                {(day.mustDo || day.optionalAddOn || day.weatherBackup) && (
+                  <div className="grid gap-3 border-b border-indigo-100 bg-white px-6 py-4 md:grid-cols-3">
+                    {day.mustDo && (
+                      <div className="rounded-xl bg-emerald-50 p-4">
+                        <p className="text-xs font-bold uppercase tracking-wide text-emerald-700">Must-Do</p>
+                        <p className="mt-2 text-sm text-emerald-950">{day.mustDo}</p>
+                      </div>
+                    )}
+                    {day.optionalAddOn && (
+                      <div className="rounded-xl bg-sky-50 p-4">
+                        <p className="text-xs font-bold uppercase tracking-wide text-sky-700">Optional Add-On</p>
+                        <p className="mt-2 text-sm text-sky-950">{day.optionalAddOn}</p>
+                      </div>
+                    )}
+                    {day.weatherBackup && (
+                      <div className="rounded-xl bg-amber-50 p-4">
+                        <p className="text-xs font-bold uppercase tracking-wide text-amber-700">Weather Backup</p>
+                        <p className="mt-2 text-sm text-amber-950">{day.weatherBackup}</p>
+                      </div>
+                    )}
+                  </div>
+                )}
 
                 <div className="overflow-x-auto">
                   <table className="w-full text-left border-collapse">
@@ -357,6 +440,13 @@ export const TripDetailPage: React.FC = () => {
                                 <div className="text-sm text-gray-600 leading-relaxed whitespace-pre-line mb-3">
                                   {activity.details}
                                 </div>
+                                {(activity.estimatedDuration || activity.priority || activity.travelNote) && (
+                                  <div className="mb-3 flex flex-wrap gap-2 text-xs text-slate-600">
+                                    {activity.estimatedDuration && <span className="rounded-full bg-slate-100 px-2.5 py-1">Duration: {activity.estimatedDuration}</span>}
+                                    {activity.priority && <span className="rounded-full bg-slate-100 px-2.5 py-1">Priority: {activity.priority}</span>}
+                                    {activity.travelNote && <span className="rounded-full bg-slate-100 px-2.5 py-1">{activity.travelNote}</span>}
+                                  </div>
+                                )}
 
                                 <div className="flex flex-wrap items-center gap-3">
                                   {activity.googleMapsUrl && (

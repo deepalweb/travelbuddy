@@ -1,44 +1,72 @@
-import React, { useState, useEffect } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
-import { 
-  Compass, Home, Globe, MapPin, Hotel, Car, Calendar, 
-  Users, Bot, Search, Heart, User, ChevronDown, Menu, X,
-  Bell, Settings, LogOut, BookOpen, Plane, Tag, Mail
+import {
+  Bell,
+  ChevronDown,
+  Compass,
+  Heart,
+  LogOut,
+  Menu,
+  Settings,
+  Tag,
+  User,
+  Users,
+  Calendar,
+  Car,
+  Sparkles,
+  X,
 } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import { Button } from './Button'
-import { DatabaseStatus } from './DatabaseStatus'
 
-const navigationItems = [
-  { id: 'home', label: 'Home', icon: Home, path: '/' },
-  { id: 'discover', label: 'Destinations', icon: Globe, path: '/places' },
-  { id: 'planner', label: 'Trip Planner', icon: MapPin, path: '/trips' },
-  { id: 'deals', label: 'Deals', icon: Tag, path: '/deals' },
-  { id: 'community', label: 'Community', icon: Users, path: '/community' },
-  { 
-    id: 'services', 
-    label: 'Services', 
-    icon: ChevronDown, 
-    path: '#',
+type NavigationItem = {
+  id: string
+  label: string
+  path?: string
+  icon?: React.ComponentType<{ className?: string }>
+  dropdown?: Array<{
+    label: string
+    path: string
+    icon?: React.ComponentType<{ className?: string }>
+    description?: string
+  }>
+}
+
+const navigationItems: NavigationItem[] = [
+  { id: 'home', label: 'Home', path: '/', icon: Compass },
+  { id: 'planner', label: 'Trip Planner', path: '/trips', icon: Sparkles },
+  { id: 'community', label: 'Community', path: '/community', icon: Users },
+  {
+    id: 'services',
+    label: 'Services',
+    icon: ChevronDown,
     dropdown: [
-      { label: 'Events', path: '/events', icon: Calendar },
-      { label: 'Transport Hub', path: '/transport', icon: Car },
-      { label: 'Travel Agents', path: '/services', icon: Users }
-    ]
-  }
-]
-
-const languages = [
-  { code: 'en', label: 'English', flag: '🇺🇸' },
-  { code: 'si', label: 'සිංහල', flag: '🇱🇰' },
-  { code: 'ta', label: 'தமிழ்', flag: '🇱🇰' }
-]
-
-const mockSearchResults = [
-  { type: 'destination', name: 'Paris, France', category: 'City' },
-  { type: 'destination', name: 'Bali, Indonesia', category: 'Island' },
-  { type: 'stay', name: 'Luxury Resort Paris', category: 'Hotel' },
-  { type: 'event', name: 'Paris Fashion Week', category: 'Event' }
+      {
+        label: 'Deals',
+        path: '/deals',
+        icon: Tag,
+        description: 'Live offers and promotions for trip savings.',
+      },
+      {
+        label: 'Events',
+        path: '/events',
+        icon: Calendar,
+        description: 'Find happenings worth planning around.',
+      },
+      {
+        label: 'Transport Hub',
+        path: '/transport',
+        icon: Car,
+        description: 'Compare practical ways to move through the trip.',
+      },
+      {
+        label: 'Travel Agents',
+        path: '/services',
+        icon: Users,
+        description: 'Get human help when you need it.',
+      },
+    ],
+  },
 ]
 
 export const MainHeader: React.FC = () => {
@@ -46,139 +74,110 @@ export const MainHeader: React.FC = () => {
   const location = useLocation()
   const [isScrolled, setIsScrolled] = useState(false)
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
-  const [isProfileOpen, setIsProfileOpen] = useState(false)
-  const [isLanguageOpen, setIsLanguageOpen] = useState(false)
-  const [activeDropdown, setActiveDropdown] = useState<string | null>(null)
   const [showProfileMenu, setShowProfileMenu] = useState(false)
-  const [currentLanguage, setCurrentLanguage] = useState(languages[0])
+  const [activeDropdown, setActiveDropdown] = useState<string | null>(null)
 
   useEffect(() => {
-    const handleScroll = () => {
-      setIsScrolled(window.scrollY > 20)
-    }
+    const handleScroll = () => setIsScrolled(window.scrollY > 24)
+    handleScroll()
     window.addEventListener('scroll', handleScroll)
     return () => window.removeEventListener('scroll', handleScroll)
   }, [])
 
   useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      const target = e.target as HTMLElement
-      if (!target.closest('.dropdown-container')) {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as HTMLElement
+      if (!target.closest('.tb-dropdown')) {
         setActiveDropdown(null)
         setShowProfileMenu(false)
-        setIsLanguageOpen(false)
       }
     }
+
     document.addEventListener('click', handleClickOutside)
     return () => document.removeEventListener('click', handleClickOutside)
   }, [])
 
+  const isNavItemActive = (path?: string) => {
+    if (!path) return false
+    if (path === '/trips') {
+      return location.pathname === '/trips' || location.pathname.startsWith('/trips/')
+    }
+    return location.pathname === path
+  }
 
+  const isServicesActive = useMemo(
+    () => navigationItems
+      .find((item) => item.id === 'services')
+      ?.dropdown?.some((item) => isNavItemActive(item.path)) || false,
+    [location.pathname]
+  )
 
   const handleLogout = () => {
     logout()
-    setIsProfileOpen(false)
+    setShowProfileMenu(false)
+    setIsMobileMenuOpen(false)
   }
 
-  const handleLanguageChange = (lang: typeof languages[0]) => {
-    setCurrentLanguage(lang)
-    setIsLanguageOpen(false)
-  }
+  const headerTone = isScrolled
+    ? 'border-white/70 bg-[rgba(249,249,246,0.88)] shadow-[0_12px_40px_rgba(15,23,42,0.08)] backdrop-blur-xl'
+    : 'border-white/20 bg-[rgba(9,16,29,0.52)] backdrop-blur-md'
 
-
+  const navTone = isScrolled ? 'text-slate-700 hover:text-slate-950' : 'text-white/82 hover:text-white'
+  const activeTone = isScrolled ? 'bg-slate-900 text-white' : 'bg-white text-slate-950'
 
   return (
-    <header className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
-      isScrolled 
-        ? 'bg-white/95 backdrop-blur-md shadow-lg border-b border-white/50' 
-        : 'bg-black/30 backdrop-blur-sm'
-    }`}>
-      <div className="max-w-full mx-auto px-6 sm:px-8 lg:px-12">
-        <div className="flex items-center justify-between h-16 lg:h-20">
-          
-          {/* Left: Brand Identity */}
-          <div className="flex items-center space-x-3">
-            <Link to="/" className="flex items-center space-x-3 group" title="TravelBuddy - Your Intelligent Travel Companion">
-              <div className="relative w-12 h-12 bg-gradient-to-br from-blue-600 via-purple-600 to-indigo-600 rounded-2xl flex items-center justify-center group-hover:scale-105 transition-all duration-300 shadow-lg">
-                <Compass className="w-7 h-7 text-white" />
-                <div className="absolute inset-0 bg-white/20 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-              </div>
-              <div className="hidden sm:block">
-                <div className="flex items-center space-x-2">
-                  <h1 className={`text-2xl font-bold transition-all duration-300 ${
-                    isScrolled ? 'text-black' : 'text-white drop-shadow-lg'
-                  }`}>
-                    TravelBuddy
-                  </h1>
-                  <span className="px-2 py-0.5 bg-blue-500 text-white text-xs font-semibold rounded-full">Beta</span>
-                </div>
-              </div>
-            </Link>
+    <header className={`fixed inset-x-0 top-0 z-50 border-b transition-all duration-300 ${headerTone}`}>
+      <div className="mx-auto flex h-20 w-full max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
+        <Link to="/" className="flex items-center gap-3">
+          <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[linear-gradient(145deg,#0f172a,#155e75)] shadow-[0_10px_25px_rgba(8,15,34,0.28)]">
+            <Compass className="h-5 w-5 text-white" />
           </div>
+          <div>
+            <p className={`font-heading text-lg font-semibold tracking-tight ${isScrolled ? 'text-slate-950' : 'text-white'}`}>
+              TravelBuddy
+            </p>
+            <p className={`text-xs uppercase tracking-[0.24em] ${isScrolled ? 'text-slate-500' : 'text-white/58'}`}>
+              Plan. Share. Go.
+            </p>
+          </div>
+        </Link>
 
-          {/* Center: Main Navigation (Desktop) */}
-          <nav className="hidden lg:flex items-center space-x-4">
-            {navigationItems.map((item) => {
-              const Icon = item.icon
-              const isActive = location.pathname === item.path
-              const hasDropdown = item.dropdown && item.dropdown.length > 0
-              
+        <nav className="hidden items-center gap-2 lg:flex">
+          {navigationItems.map((item) => {
+            const isActive = item.id === 'services' ? isServicesActive : isNavItemActive(item.path)
+
+            if (item.dropdown?.length) {
               return (
-                <div key={item.id} className="relative dropdown-container">
-                  {hasDropdown ? (
-                    <button
-                      onClick={() => setActiveDropdown(activeDropdown === item.id ? null : item.id)}
-                      className={`flex items-center space-x-2 px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 relative ${
-                        isActive
-                          ? isScrolled 
-                            ? 'text-blue-600 font-semibold' 
-                            : 'text-white font-semibold'
-                          : isScrolled
-                            ? 'text-gray-700 hover:text-gray-900'
-                            : 'text-white/90 hover:text-white'
-                      }`}
-                    >
-                      <Icon className="w-4 h-4" />
-                      <span>{item.label}</span>
-                      {isActive && (
-                        <div className="absolute bottom-1 left-1/2 transform -translate-x-1/2 w-1 h-1 bg-blue-600 rounded-full"></div>
-                      )}
-                    </button>
-                  ) : (
-                    <Link
-                      to={item.path}
-                      className={`flex items-center space-x-2 px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 relative ${
-                        isActive
-                          ? isScrolled 
-                            ? 'text-blue-600 font-semibold' 
-                            : 'text-white font-semibold'
-                          : isScrolled
-                            ? 'text-gray-700 hover:text-gray-900'
-                            : 'text-white/90 hover:text-white'
-                      }`}
-                    >
-                      <Icon className="w-4 h-4" />
-                      <span>{item.label}</span>
-                      {isActive && (
-                        <div className="absolute bottom-1 left-1/2 transform -translate-x-1/2 w-1 h-1 bg-blue-600 rounded-full"></div>
-                      )}
-                    </Link>
-                  )}
-                  
-                  {/* Dropdown Menu */}
-                  {hasDropdown && activeDropdown === item.id && (
-                    <div className="absolute top-full left-0 mt-1 w-48 bg-white rounded-xl shadow-xl border border-gray-200 py-2 z-50">
-                      {item.dropdown?.map((dropItem) => {
-                        const DropIcon = dropItem.icon
+                <div key={item.id} className="tb-dropdown relative">
+                  <button
+                    type="button"
+                    onClick={() => setActiveDropdown(activeDropdown === item.id ? null : item.id)}
+                    className={`inline-flex items-center gap-2 rounded-full px-4 py-2.5 text-sm font-medium transition-all ${
+                      isActive ? activeTone : navTone
+                    }`}
+                  >
+                    <span>{item.label}</span>
+                    <ChevronDown className={`h-4 w-4 transition-transform ${activeDropdown === item.id ? 'rotate-180' : ''}`} />
+                  </button>
+
+                  {activeDropdown === item.id && (
+                    <div className="absolute right-0 top-full mt-3 w-[320px] overflow-hidden rounded-[1.5rem] border border-slate-200 bg-white p-2 shadow-[0_22px_60px_rgba(15,23,42,0.18)]">
+                      {item.dropdown.map((entry) => {
+                        const Icon = entry.icon
                         return (
                           <Link
-                            key={dropItem.path}
-                            to={dropItem.path}
+                            key={entry.path}
+                            to={entry.path}
                             onClick={() => setActiveDropdown(null)}
-                            className="flex items-center space-x-3 px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                            className="flex items-start gap-3 rounded-[1.1rem] px-4 py-3 transition-colors hover:bg-slate-50"
                           >
-                            {DropIcon && <DropIcon className="w-4 h-4 text-gray-500" />}
-                            <span>{dropItem.label}</span>
+                            <div className="mt-0.5 flex h-10 w-10 items-center justify-center rounded-2xl bg-slate-100 text-slate-700">
+                              {Icon && <Icon className="h-4 w-4" />}
+                            </div>
+                            <div>
+                              <p className="text-sm font-semibold text-slate-900">{entry.label}</p>
+                              <p className="mt-1 text-sm leading-6 text-slate-500">{entry.description}</p>
+                            </div>
                           </Link>
                         )
                       })}
@@ -186,248 +185,221 @@ export const MainHeader: React.FC = () => {
                   )}
                 </div>
               )
-            })}
-          </nav>
+            }
 
-          {/* Right: User Actions */}
-          <div className="flex items-center space-x-5">
-
-            
-
-
-            {/* Notifications & Favorites */}
-            {user && (
-              <div className="flex items-center space-x-2">
-                <Link to="/notifications">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className={`relative p-2 ${
-                      isScrolled ? 'text-gray-700 hover:bg-gray-100' : 'text-white hover:bg-white/10'
-                    }`}
-                    title="Notifications"
-                  >
-                    <Bell className="w-5 h-5" />
-                    <span className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full text-xs flex items-center justify-center">
-                      <span className="w-1.5 h-1.5 bg-white rounded-full"></span>
-                    </span>
-                  </Button>
-                </Link>
-                <Link to="/favorites">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className={`p-2 ${
-                      isScrolled ? 'text-gray-700 hover:bg-gray-100' : 'text-white hover:bg-white/10'
-                    }`}
-                    title="Saved Trips & Favorites"
-                  >
-                    <Heart className="w-5 h-5" />
-                  </Button>
-                </Link>
-              </div>
-            )}
-
-            {/* Language Selector */}
-            <div className="relative hidden md:block dropdown-container">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setIsLanguageOpen(!isLanguageOpen)}
-                className={`flex items-center space-x-2 px-3 py-2 text-sm font-medium ${
-                  isScrolled ? 'text-gray-700 hover:bg-gray-100' : 'text-white hover:bg-white/10'
+            return (
+              <Link
+                key={item.id}
+                to={item.path || '/'}
+                className={`rounded-full px-4 py-2.5 text-sm font-medium transition-all ${
+                  isActive ? activeTone : navTone
                 }`}
               >
-                <span>{currentLanguage.flag}</span>
-                <span>{currentLanguage.code.toUpperCase()}</span>
-                <ChevronDown className="w-3 h-3" />
-              </Button>
-              
-              {isLanguageOpen && (
-                <div className="absolute right-0 mt-1 w-40 bg-white rounded-lg shadow-lg border border-gray-200 py-2 z-50">
-                  {languages.map((lang) => (
-                    <button
-                      key={lang.code}
-                      onClick={() => handleLanguageChange(lang)}
-                      className={`flex items-center space-x-3 w-full px-4 py-2 text-sm text-left hover:bg-gray-100 transition-colors ${
-                        currentLanguage.code === lang.code ? 'bg-blue-50 text-blue-700' : 'text-gray-700'
-                      }`}
-                    >
-                      <span>{lang.flag}</span>
-                      <span>{lang.label}</span>
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
+                {item.label}
+              </Link>
+            )
+          })}
+        </nav>
 
-            {/* User Profile / Login */}
-            {user ? (
-              <div className="relative dropdown-container">
+        <div className="hidden items-center gap-2 lg:flex">
+          {user ? (
+            <>
+              <Link
+                to="/notifications"
+                className={`flex h-11 w-11 items-center justify-center rounded-full border transition-all ${
+                  isScrolled
+                    ? 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+                    : 'border-white/18 bg-white/8 text-white hover:bg-white/12'
+                }`}
+              >
+                <Bell className="h-4 w-4" />
+              </Link>
+              <Link
+                to="/favorites"
+                className={`flex h-11 w-11 items-center justify-center rounded-full border transition-all ${
+                  isScrolled
+                    ? 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+                    : 'border-white/18 bg-white/8 text-white hover:bg-white/12'
+                }`}
+              >
+                <Heart className="h-4 w-4" />
+              </Link>
+              <div className="tb-dropdown relative">
                 <button
-                  onClick={() => setShowProfileMenu(!showProfileMenu)}
-                  className={`flex items-center space-x-2 px-2 py-2 rounded-full transition-all duration-200 ${
-                    isScrolled ? 'hover:bg-gray-100' : 'hover:bg-white/10'
+                  type="button"
+                  onClick={() => setShowProfileMenu((value) => !value)}
+                  className={`flex items-center gap-3 rounded-full border px-3 py-2 transition-all ${
+                    isScrolled
+                      ? 'border-slate-200 bg-white text-slate-900 hover:bg-slate-50'
+                      : 'border-white/18 bg-white/8 text-white hover:bg-white/12'
                   }`}
                 >
-                  <div className="relative w-9 h-9 bg-gradient-to-br from-blue-500 via-purple-500 to-indigo-500 rounded-full flex items-center justify-center">
+                  <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[linear-gradient(145deg,#155e75,#0f172a)] text-white">
                     {user.profilePicture ? (
-                      <img src={user.profilePicture} alt="Profile" className="w-full h-full rounded-full object-cover" />
+                      <img src={user.profilePicture} alt="Profile" className="h-full w-full rounded-full object-cover" />
                     ) : (
-                      <User className="w-5 h-5 text-white" />
+                      <User className="h-4 w-4" />
                     )}
-                    <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-green-500 border-2 border-white rounded-full" title="Online" />
                   </div>
-                  <span className={`hidden lg:block text-sm font-medium ${
-                    isScrolled ? 'text-gray-700' : 'text-white'
-                  }`}>
-                    {(user as any).fullName?.split(' ')[0] || user.email?.split('@')[0] || 'User'}
-                  </span>
+                  <div className="text-left">
+                    <p className="text-sm font-semibold">
+                      {(user as any).fullName?.split(' ')[0] || user.email?.split('@')[0] || 'Traveler'}
+                    </p>
+                    <p className={`text-xs ${isScrolled ? 'text-slate-500' : 'text-white/60'}`}>Account</p>
+                  </div>
+                  <ChevronDown className="h-4 w-4" />
                 </button>
 
-                {/* Profile Quick Menu */}
                 {showProfileMenu && (
-                  <div className="absolute right-0 mt-1 w-56 bg-white rounded-xl shadow-2xl border border-gray-200 py-2 z-50">
-                    <Link 
-                      to="/profile" 
-                      onClick={() => setShowProfileMenu(false)}
-                      className="flex items-center space-x-3 px-4 py-3 hover:bg-gray-50 transition-colors"
-                    >
-                      <User className="w-4 h-4 text-gray-600" />
-                      <span className="text-sm text-gray-700">My Profile</span>
+                  <div className="absolute right-0 top-full mt-3 w-60 overflow-hidden rounded-[1.5rem] border border-slate-200 bg-white p-2 shadow-[0_22px_60px_rgba(15,23,42,0.18)]">
+                    <Link to="/profile" onClick={() => setShowProfileMenu(false)} className="flex items-center gap-3 rounded-[1rem] px-4 py-3 text-sm text-slate-700 transition-colors hover:bg-slate-50">
+                      <User className="h-4 w-4" />
+                      <span>Profile</span>
                     </Link>
-                    <Link 
-                      to="/trips" 
-                      onClick={() => setShowProfileMenu(false)}
-                      className="flex items-center space-x-3 px-4 py-3 hover:bg-gray-50 transition-colors"
-                    >
-                      <MapPin className="w-4 h-4 text-gray-600" />
-                      <span className="text-sm text-gray-700">My Trips</span>
+                    <Link to="/trips" onClick={() => setShowProfileMenu(false)} className="flex items-center gap-3 rounded-[1rem] px-4 py-3 text-sm text-slate-700 transition-colors hover:bg-slate-50">
+                      <Sparkles className="h-4 w-4" />
+                      <span>My trip plans</span>
                     </Link>
-                    <Link 
-                      to="/community" 
-                      onClick={() => setShowProfileMenu(false)}
-                      className="flex items-center space-x-3 px-4 py-3 hover:bg-gray-50 transition-colors"
-                    >
-                      <Heart className="w-4 h-4 text-gray-600" />
-                      <span className="text-sm text-gray-700">Saved Places</span>
+                    <Link to="/settings" onClick={() => setShowProfileMenu(false)} className="flex items-center gap-3 rounded-[1rem] px-4 py-3 text-sm text-slate-700 transition-colors hover:bg-slate-50">
+                      <Settings className="h-4 w-4" />
+                      <span>Settings</span>
                     </Link>
-                    <Link 
-                      to="/profile" 
-                      onClick={() => setShowProfileMenu(false)}
-                      className="flex items-center space-x-3 px-4 py-3 hover:bg-gray-50 transition-colors"
+                    <div className="my-2 border-t border-slate-100" />
+                    <button
+                      type="button"
+                      onClick={handleLogout}
+                      className="flex w-full items-center gap-3 rounded-[1rem] px-4 py-3 text-left text-sm text-rose-600 transition-colors hover:bg-rose-50"
                     >
-                      <Settings className="w-4 h-4 text-gray-600" />
-                      <span className="text-sm text-gray-700">Settings</span>
-                    </Link>
-                    <div className="border-t border-gray-200 my-2" />
-                    <button onClick={handleLogout} className="flex items-center space-x-3 px-4 py-3 hover:bg-red-50 transition-colors w-full text-left">
-                      <LogOut className="w-4 h-4 text-red-600" />
-                      <span className="text-sm text-red-600">Logout</span>
+                      <LogOut className="h-4 w-4" />
+                      <span>Logout</span>
                     </button>
                   </div>
                 )}
               </div>
-            ) : (
-              <div className="flex items-center space-x-3">
-                <Link to="/login">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className={`px-4 py-2 rounded-lg font-medium transition-all duration-200 ${
-                      isScrolled ? 'text-gray-700 hover:bg-gray-100' : 'text-white hover:bg-white/10'
-                    }`}
-                  >
-                    Login
-                  </Button>
-                </Link>
-                <Link to="/register">
-                  <Button
-                    size="sm"
-                    className="bg-gradient-to-r from-blue-600 via-purple-600 to-indigo-600 text-white hover:from-blue-700 hover:via-purple-700 hover:to-indigo-700 px-6 py-2 rounded-lg font-medium shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-105"
-                  >
-                    Sign Up Free
-                  </Button>
-                </Link>
-              </div>
-            )}
-
-            {/* Mobile Menu Button */}
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-              className={`lg:hidden p-2 ${
-                isScrolled ? 'text-gray-700 hover:bg-gray-100' : 'text-white hover:bg-white/10'
-              }`}
-            >
-              {isMobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
-            </Button>
-          </div>
+            </>
+          ) : (
+            <>
+              <Link to="/login">
+                <Button variant="ghost" className={isScrolled ? 'text-slate-700 hover:bg-slate-100' : 'text-white hover:bg-white/10'}>
+                  Login
+                </Button>
+              </Link>
+              <Link to="/register">
+                <Button className="rounded-full bg-[linear-gradient(135deg,#f97316,#fb7185)] px-5 text-white shadow-[0_16px_36px_rgba(249,115,22,0.28)] hover:opacity-95">
+                  Start Free
+                </Button>
+              </Link>
+            </>
+          )}
         </div>
 
-        {/* Enhanced Mobile Menu */}
-        {isMobileMenuOpen && (
-          <div className="lg:hidden bg-white/95 backdrop-blur-md border-t border-gray-200 py-4">
-            
-            {/* Mobile Quick Actions */}
-            {user && (
-              <div className="px-4 pb-4 mb-4 border-b border-gray-200">
-                <div className="grid grid-cols-2 gap-3">
-                  <Link to="/trips" onClick={() => setIsMobileMenuOpen(false)} className="flex items-center justify-center space-x-2 px-4 py-3 bg-blue-50 rounded-xl text-blue-700 font-medium text-sm">
-                    <MapPin className="w-4 h-4" />
-                    <span>Plan Trip</span>
-                  </Link>
-                  <Link to="/community" onClick={() => setIsMobileMenuOpen(false)} className="flex items-center justify-center space-x-2 px-4 py-3 bg-purple-50 rounded-xl text-purple-700 font-medium text-sm">
-                    <Heart className="w-4 h-4" />
-                    <span>Saved</span>
-                  </Link>
-                </div>
-              </div>
-            )}
-            
-            <nav className="space-y-1 px-4">
-              {navigationItems.map((item) => {
-                const Icon = item.icon
-                const isActive = location.pathname === item.path
+        <button
+          type="button"
+          onClick={() => setIsMobileMenuOpen((value) => !value)}
+          className={`flex h-11 w-11 items-center justify-center rounded-full border lg:hidden ${
+            isScrolled
+              ? 'border-slate-200 bg-white text-slate-800'
+              : 'border-white/18 bg-white/8 text-white'
+          }`}
+        >
+          {isMobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+        </button>
+      </div>
+
+      {isMobileMenuOpen && (
+        <div className="border-t border-white/10 bg-[rgba(247,246,242,0.96)] px-4 py-4 backdrop-blur-xl lg:hidden">
+          <div className="mx-auto max-w-7xl space-y-3">
+            {navigationItems.map((item) => {
+              const isActive = item.id === 'services' ? isServicesActive : isNavItemActive(item.path)
+
+              if (item.dropdown?.length) {
                 return (
-                  <Link
-                    key={item.id}
-                    to={item.path}
-                    onClick={() => setIsMobileMenuOpen(false)}
-                    className={`flex items-center space-x-3 px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200 ${
-                      isActive
-                        ? 'bg-blue-100 text-blue-700'
-                        : 'text-gray-700 hover:bg-gray-100'
-                    }`}
-                  >
-                    <Icon className="w-5 h-5" />
-                    <span>{item.label}</span>
-                  </Link>
+                  <div key={item.id} className="overflow-hidden rounded-[1.4rem] border border-slate-200 bg-white">
+                    <button
+                      type="button"
+                      onClick={() => setActiveDropdown(activeDropdown === item.id ? null : item.id)}
+                      className="flex w-full items-center justify-between px-4 py-3.5 text-sm font-semibold text-slate-800"
+                    >
+                      <span>{item.label}</span>
+                      <ChevronDown className={`h-4 w-4 transition-transform ${activeDropdown === item.id ? 'rotate-180' : ''}`} />
+                    </button>
+                    {activeDropdown === item.id && (
+                      <div className="space-y-1 px-2 pb-2">
+                        {item.dropdown.map((entry) => {
+                          const Icon = entry.icon
+                          return (
+                            <Link
+                              key={entry.path}
+                              to={entry.path}
+                              onClick={() => {
+                                setIsMobileMenuOpen(false)
+                                setActiveDropdown(null)
+                              }}
+                              className={`flex items-center gap-3 rounded-[1rem] px-4 py-3 text-sm ${
+                                isNavItemActive(entry.path) ? 'bg-slate-900 text-white' : 'text-slate-700 hover:bg-slate-50'
+                              }`}
+                            >
+                              {Icon && <Icon className="h-4 w-4" />}
+                              <span>{entry.label}</span>
+                            </Link>
+                          )
+                        })}
+                      </div>
+                    )}
+                  </div>
                 )
-              })}
-            </nav>
-            
-            {/* Mobile User Actions */}
-            {!user && (
-              <div className="px-4 pt-4 border-t border-gray-200 mt-4">
-                <div className="flex space-x-3">
-                  <Link to="/login" className="flex-1">
-                    <Button variant="outline" className="w-full">
+              }
+
+              return (
+                <Link
+                  key={item.id}
+                  to={item.path || '/'}
+                  onClick={() => setIsMobileMenuOpen(false)}
+                  className={`block rounded-[1.4rem] border px-4 py-3.5 text-sm font-semibold ${
+                    isActive
+                      ? 'border-slate-900 bg-slate-900 text-white'
+                      : 'border-slate-200 bg-white text-slate-800'
+                  }`}
+                >
+                  {item.label}
+                </Link>
+              )
+            })}
+
+            <div className="grid grid-cols-2 gap-3 pt-3">
+              {user ? (
+                <>
+                  <Link to="/notifications" onClick={() => setIsMobileMenuOpen(false)} className="rounded-[1.2rem] border border-slate-200 bg-white px-4 py-3 text-center text-sm font-semibold text-slate-700">
+                    Notifications
+                  </Link>
+                  <Link to="/favorites" onClick={() => setIsMobileMenuOpen(false)} className="rounded-[1.2rem] border border-slate-200 bg-white px-4 py-3 text-center text-sm font-semibold text-slate-700">
+                    Favorites
+                  </Link>
+                  <Link to="/profile" onClick={() => setIsMobileMenuOpen(false)} className="rounded-[1.2rem] border border-slate-200 bg-white px-4 py-3 text-center text-sm font-semibold text-slate-700">
+                    Profile
+                  </Link>
+                  <button type="button" onClick={handleLogout} className="rounded-[1.2rem] bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-600">
+                    Logout
+                  </button>
+                </>
+              ) : (
+                <>
+                  <Link to="/login" onClick={() => setIsMobileMenuOpen(false)}>
+                    <Button variant="outline" className="w-full border-slate-300 text-slate-800 hover:bg-slate-100">
                       Login
                     </Button>
                   </Link>
-                  <Link to="/register" className="flex-1">
-                    <Button className="w-full bg-gradient-to-r from-blue-600 to-purple-600">
-                      Sign Up
+                  <Link to="/register" onClick={() => setIsMobileMenuOpen(false)}>
+                    <Button className="w-full rounded-full bg-[linear-gradient(135deg,#f97316,#fb7185)] text-white shadow-[0_16px_36px_rgba(249,115,22,0.24)]">
+                      Start Free
                     </Button>
                   </Link>
-                </div>
-              </div>
-            )}
+                </>
+              )}
+            </div>
           </div>
-        )}
-      </div>
+        </div>
+      )}
     </header>
   )
 }

@@ -1,138 +1,118 @@
 import React from 'react'
 import { Link } from 'react-router-dom'
-import { 
-  Compass, MapPin, Plane, Car, Users, BookOpen, 
-  Mail, Phone, Facebook, Twitter, Instagram, Youtube
-} from 'lucide-react'
+import { Compass, Instagram, Mail, MapPinned, Phone, Sparkles, Tag, Users } from 'lucide-react'
+
+const footerColumns = [
+  {
+    title: 'Platform',
+    links: [
+      { label: 'Trip Planner', path: '/trips' },
+      { label: 'Community', path: '/community' },
+      { label: 'Deals', path: '/deals' },
+      { label: 'Events', path: '/events' },
+    ],
+  },
+  {
+    title: 'Services',
+    links: [
+      { label: 'Transport Hub', path: '/transport' },
+      { label: 'Travel Agents', path: '/services' },
+      { label: 'Subscription', path: '/subscription' },
+      { label: 'Contact', path: '/contact' },
+    ],
+  },
+  {
+    title: 'Company',
+    links: [
+      { label: 'About', path: '/about' },
+      { label: 'Privacy Policy', path: '/privacy-policy' },
+      { label: 'Terms of Service', path: '/terms-of-service' },
+      { label: 'Cookie Policy', path: '/cookie-policy' },
+    ],
+  },
+]
 
 export const Footer: React.FC = () => {
   return (
-    <footer className="bg-gray-900 text-white">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
-          
-          {/* Brand Section */}
-          <div className="lg:col-span-1">
-            <div className="flex items-center space-x-3 mb-4">
-              <div className="w-10 h-10 bg-gradient-to-br from-blue-600 via-purple-600 to-indigo-600 rounded-xl flex items-center justify-center">
-                <Compass className="w-6 h-6 text-white" />
+    <footer className="relative overflow-hidden bg-[#08111d] text-white">
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(56,189,248,0.16),transparent_30%),radial-gradient(circle_at_bottom_right,rgba(251,146,60,0.16),transparent_26%)]" />
+
+      <div className="relative mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8 lg:py-20">
+        <div className="grid gap-10 lg:grid-cols-[1.15fr_0.85fr] lg:items-start">
+          <div className="max-w-xl">
+            <div className="flex items-center gap-3">
+              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[linear-gradient(145deg,#155e75,#0f172a)] shadow-[0_16px_30px_rgba(8,15,34,0.38)]">
+                <Compass className="h-5 w-5 text-white" />
               </div>
               <div>
-                <h3 className="text-xl font-bold">TravelBuddy</h3>
-                <p className="text-sm text-gray-400">Your Intelligent Travel Companion</p>
+                <h3 className="font-heading text-2xl font-semibold tracking-tight">TravelBuddy</h3>
+                <p className="text-sm uppercase tracking-[0.22em] text-white/50">AI trip planning studio</p>
               </div>
             </div>
-            <p className="text-gray-400 text-sm mb-4">
-              Discover amazing destinations, plan perfect trips, and connect with trusted travel services worldwide.
+
+            <p className="mt-6 text-base leading-8 text-white/72">
+              A calmer way to build trips: generate a plan, shape it with community insight, and keep the useful
+              travel tools close without turning the app into a maze.
             </p>
-            <div className="flex space-x-4">
-              <a href="#" className="text-gray-400 hover:text-white transition-colors">
-                <Facebook className="w-5 h-5" />
-              </a>
-              <a href="#" className="text-gray-400 hover:text-white transition-colors">
-                <Twitter className="w-5 h-5" />
-              </a>
-              <a href="#" className="text-gray-400 hover:text-white transition-colors">
-                <Instagram className="w-5 h-5" />
-              </a>
-              <a href="#" className="text-gray-400 hover:text-white transition-colors">
-                <Youtube className="w-5 h-5" />
-              </a>
-            </div>
-          </div>
 
-          {/* Explore */}
-          <div>
-            <h4 className="text-lg font-semibold mb-4">Explore</h4>
-            <ul className="space-y-2">
-              <li>
-                <Link to="/places" className="text-gray-400 hover:text-white transition-colors flex items-center">
-                  <MapPin className="w-4 h-4 mr-2" />
-                  Destinations
-                </Link>
-              </li>
-              <li>
-                <Link to="/trips" className="text-gray-400 hover:text-white transition-colors flex items-center">
-                  <Plane className="w-4 h-4 mr-2" />
-                  Trip Planner
-                </Link>
-              </li>
-              <li>
-                <Link to="/events" className="text-gray-400 hover:text-white transition-colors flex items-center">
-                  <Plane className="w-4 h-4 mr-2" />
-                  Events
-                </Link>
-              </li>
-              <li>
-                <Link to="/transport" className="text-gray-400 hover:text-white transition-colors flex items-center">
-                  <Car className="w-4 h-4 mr-2" />
-                  Transportation
-                </Link>
-              </li>
-              <li>
-                <Link to="/services" className="text-gray-400 hover:text-white transition-colors flex items-center">
-                  <Users className="w-4 h-4 mr-2" />
-                  Travel Agents
-                </Link>
-              </li>
-            </ul>
-          </div>
-
-          {/* Support */}
-          <div>
-            <h4 className="text-lg font-semibold mb-4">Support</h4>
-            <ul className="space-y-2">
-              <li>
-                <Link to="/about" className="text-gray-400 hover:text-white transition-colors">
-                  About Us
-                </Link>
-              </li>
-              <li>
-                <Link to="/contact" className="text-gray-400 hover:text-white transition-colors">
-                  Contact Us
-                </Link>
-              </li>
-              <li>
-                <Link to="/help" className="text-gray-400 hover:text-white transition-colors">
-                  Help Center
-                </Link>
-              </li>
-            </ul>
-          </div>
-
-          {/* Contact */}
-          <div>
-            <h4 className="text-lg font-semibold mb-4">Contact</h4>
-            <div className="space-y-3">
-              <div className="flex items-center text-gray-400">
-                <Mail className="w-4 h-4 mr-2" />
-                <span className="text-sm">drtechservicelk@gmail.com</span>
+            <div className="mt-8 grid gap-3 sm:grid-cols-3">
+              <div className="rounded-[1.35rem] border border-white/10 bg-white/6 p-4">
+                <Sparkles className="h-5 w-5 text-sky-300" />
+                <p className="mt-3 text-sm font-semibold">AI trip planning</p>
+                <p className="mt-1 text-sm text-white/58">Start from one smart brief.</p>
               </div>
-              <div className="flex items-center text-gray-400">
-                <Phone className="w-4 h-4 mr-2" />
-                <span className="text-sm">+94760846996</span>
+              <div className="rounded-[1.35rem] border border-white/10 bg-white/6 p-4">
+                <Users className="h-5 w-5 text-amber-300" />
+                <p className="mt-3 text-sm font-semibold">Community context</p>
+                <p className="mt-1 text-sm text-white/58">See how people actually travel.</p>
+              </div>
+              <div className="rounded-[1.35rem] border border-white/10 bg-white/6 p-4">
+                <Tag className="h-5 w-5 text-rose-300" />
+                <p className="mt-3 text-sm font-semibold">Useful deals</p>
+                <p className="mt-1 text-sm text-white/58">Save money where it matters.</p>
               </div>
             </div>
+          </div>
+
+          <div className="grid gap-8 sm:grid-cols-3">
+            {footerColumns.map((column) => (
+              <div key={column.title}>
+                <h4 className="text-sm font-semibold uppercase tracking-[0.2em] text-white/50">{column.title}</h4>
+                <ul className="mt-5 space-y-3">
+                  {column.links.map((link) => (
+                    <li key={link.path}>
+                      <Link to={link.path} className="text-sm text-white/74 transition-colors hover:text-white">
+                        {link.label}
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
           </div>
         </div>
 
-        {/* Bottom Bar */}
-        <div className="border-t border-gray-800 mt-8 pt-8 flex flex-col md:flex-row justify-between items-center">
-          <p className="text-gray-400 text-sm">
-            © 2024 TravelBuddy. All rights reserved.
-          </p>
-          <div className="flex flex-wrap gap-4 mt-4 md:mt-0 justify-center md:justify-end">
-            <Link to="/privacy-policy" className="text-gray-400 hover:text-white text-sm transition-colors">
-              Privacy Policy
-            </Link>
-            <span className="text-gray-600">•</span>
-            <Link to="/terms-of-service" className="text-gray-400 hover:text-white text-sm transition-colors">
-              Terms of Service
-            </Link>
-            <span className="text-gray-600">•</span>
-            <Link to="/cookie-policy" className="text-gray-400 hover:text-white text-sm transition-colors">
-              Cookie Policy
-            </Link>
+        <div className="mt-14 flex flex-col gap-6 border-t border-white/10 pt-8 md:flex-row md:items-center md:justify-between">
+          <div className="flex flex-col gap-3 text-sm text-white/62 sm:flex-row sm:items-center sm:gap-6">
+            <span className="flex items-center gap-2">
+              <Mail className="h-4 w-4" />
+              drtechservicelk@gmail.com
+            </span>
+            <span className="flex items-center gap-2">
+              <Phone className="h-4 w-4" />
+              +94 76 084 6996
+            </span>
+            <span className="flex items-center gap-2">
+              <MapPinned className="h-4 w-4" />
+              Sri Lanka
+            </span>
+          </div>
+
+          <div className="flex items-center gap-4 text-white/56">
+            <a href="https://instagram.com" target="_blank" rel="noreferrer" className="transition-colors hover:text-white">
+              <Instagram className="h-4 w-4" />
+            </a>
+            <p className="text-sm">© 2026 TravelBuddy. Crafted for better trip decisions.</p>
           </div>
         </div>
       </div>

@@ -1,61 +1,103 @@
+@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap');
 @import "tailwindcss";
 
 @layer base {
+  :root {
+    --tb-bg: #f7f6f2;
+    --tb-surface: #ffffff;
+    --tb-surface-soft: #f4f7fb;
+    --tb-foreground: #0f172a;
+    --tb-muted: #5b667a;
+    --tb-border: rgba(148, 163, 184, 0.24);
+    --tb-accent: #155e75;
+    --tb-accent-2: #f97316;
+    --tb-shadow: 0 18px 46px rgba(15, 23, 42, 0.08);
+  }
+
   html {
     scroll-behavior: smooth;
   }
-  
+
+  body {
+    margin: 0;
+    background:
+      radial-gradient(circle at top, rgba(34, 211, 238, 0.08), transparent 24%),
+      linear-gradient(180deg, #f7f6f2 0%, #ffffff 32%, #f4f7fb 100%);
+    color: var(--tb-foreground);
+    font-family: 'Manrope', 'Segoe UI', sans-serif;
+    font-feature-settings: 'rlig' 1, 'calt' 1;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6,
+  .font-heading {
+    font-family: 'Space Grotesk', 'Manrope', sans-serif;
+    letter-spacing: -0.03em;
+  }
+
   *:focus-visible {
-    outline: 2px solid #3b82f6;
+    outline: 2px solid #0ea5e9;
     outline-offset: 2px;
   }
-  
-  body {
-    font-feature-settings: 'rlig' 1, 'calt' 1;
+
+  ::selection {
+    background: rgba(14, 165, 233, 0.2);
+    color: #082f49;
+  }
+
+  a {
+    text-decoration: none;
   }
 }
 
 @layer components {
   .glass {
-    background: rgba(255, 255, 255, 0.8);
-    backdrop-filter: blur(8px);
-    border: 1px solid rgba(255, 255, 255, 0.2);
+    background: rgba(255, 255, 255, 0.72);
+    backdrop-filter: blur(16px);
+    border: 1px solid rgba(255, 255, 255, 0.35);
   }
-  
+
   .card-hover {
-    transition: all 0.3s ease;
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
   }
-  
+
   .card-hover:hover {
-    box-shadow: 0 20px 40px -12px rgba(0, 0, 0, 0.15);
-    transform: translateY(-6px) scale(1.02);
+    transform: translateY(-6px);
+    box-shadow: 0 22px 44px rgba(15, 23, 42, 0.12);
   }
-  
+
   .gradient-bg {
-    background: linear-gradient(135deg, #14b8a6 0%, #0d9488 100%);
+    background: linear-gradient(135deg, #155e75 0%, #0f172a 100%);
   }
-  
+
   .gradient-secondary {
-    background: linear-gradient(135deg, #f97316 0%, #ea580c 100%);
+    background: linear-gradient(135deg, #f97316 0%, #fb7185 100%);
   }
-  
+
   .line-clamp-3 {
     display: -webkit-box;
     -webkit-line-clamp: 3;
     -webkit-box-orient: vertical;
     overflow: hidden;
   }
-  
+
   .animate-fade-in {
-    animation: fadeIn 0.5s ease-in-out;
+    animation: fadeIn 0.45s ease-in-out;
   }
-  
+
   .animate-slide-up {
-    animation: slideUp 0.3s ease-out;
+    animation: slideUp 0.35s ease-out;
   }
-  
+
   .animate-scale-in {
-    animation: scaleIn 0.2s ease-out;
+    animation: scaleIn 0.22s ease-out;
   }
 }
 
@@ -64,6 +106,7 @@
     opacity: 0;
     transform: translateY(10px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);
@@ -75,6 +118,7 @@
     opacity: 0;
     transform: translateY(20px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);
@@ -86,6 +130,7 @@
     opacity: 0;
     transform: scale(0.95);
   }
+
   to {
     opacity: 1;
     transform: scale(1);

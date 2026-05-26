@@ -16,7 +16,7 @@ export const Card: React.FC<CardProps> = ({
   return (
     <div
       className={cn(
-        'rounded-2xl border border-gray-200 bg-white shadow-sm',
+        'rounded-[1.75rem] border border-[rgba(148,163,184,0.2)] bg-white shadow-[0_18px_42px_rgba(15,23,42,0.06)]',
         hover && 'card-hover cursor-pointer',
         glass && 'glass',
         className

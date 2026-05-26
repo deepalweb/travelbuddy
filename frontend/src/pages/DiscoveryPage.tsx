@@ -15,59 +15,35 @@ import PlaceGridDisplay from '../components/PlaceGridDisplay'
 import ExploreMoreButton from '../components/ExploreMoreButton'
 import SortControls from '../components/SortControls'
 import PlaceComparison from '../components/PlaceComparison'
+import { PlannerWorkspaceNav } from '../components/PlannerWorkspaceNav'
 
 import { usePlaceSorting } from '../hooks/usePlaceSorting'
 
-import { apiService } from '../lib/api'
+import { apiService, type PlanningIdea } from '../lib/api'
 import { 
   Sparkles
 } from 'lucide-react'
 
 // Global cache outside component to persist across navigation
-const searchCache = new Map<string, { data: Place[], timestamp: number, context: string }>()
+const searchCache = new Map<string, {
+  data: PlanningIdea[]
+  timestamp: number
+  context: string
+  notice?: string
+}>()
 const CACHE_TTL = 10 * 60 * 1000 // 10 minutes
 
 // Global state to persist current search
 let globalSearchState = {
-  places: [] as Place[],
+  places: [] as PlanningIdea[],
   query: '',
-  context: ''
-}
-
-interface Place {
-  id: string
-  name: string
-  description: string
-  category: string
-  rating: number
-  priceLevel: string
-  location: {
-    address: string
-    city: string
-    country: string
-    coordinates: {
-      lat: number
-      lng: number
-    }
-  }
-  highlights: string[]
-  image: string
-  photos?: Array<{
-    photo_reference: string
-    height: number
-    width: number
-  }>
-  contact: {
-    phone: string
-    website: string
-  }
-  openHours: string
-  tags: string[]
+  context: '',
+  notice: ''
 }
 
 const DiscoveryPage: React.FC = () => {
   const navigate = useNavigate()
-  const [places, setPlaces] = useState<Place[]>(globalSearchState.places)
+  const [places, setPlaces] = useState<PlanningIdea[]>(globalSearchState.places)
 
   const [loading, setLoading] = useState(false)
   const [loadingMore, setLoadingMore] = useState(false)
@@ -75,17 +51,18 @@ const DiscoveryPage: React.FC = () => {
   const [loadingProgress, setLoadingProgress] = useState(0)
   const [searchQuery, setSearchQuery] = useState(globalSearchState.query)
   const [searchContext, setSearchContext] = useState(globalSearchState.context)
+  const [searchNotice, setSearchNotice] = useState(globalSearchState.notice)
   const [hasMore, setHasMore] = useState(globalSearchState.places.length > 0)
-  const [selectedPlaces, setSelectedPlaces] = useState<Place[]>([])
+  const [selectedPlaces, setSelectedPlaces] = useState<PlanningIdea[]>([])
   const [showFilters, setShowFilters] = useState(false)
   const [activeFilters, setActiveFilters] = useState({ category: [], priceRange: [], rating: 0, location: '', openNow: false, radius: 5000 })
   const [showMap, setShowMap] = useState(false)
-  const [filteredPlaces, setFilteredPlaces] = useState<Place[]>([])
+  const [filteredPlaces, setFilteredPlaces] = useState<PlanningIdea[]>([])
   
   // Sorting hook
   const { sortedPlaces, sortBy, setSortBy } = usePlaceSorting(filteredPlaces || places, undefined)
 
-  const applyFilters = (placesToFilter: Place[]) => {
+  const applyFilters = (placesToFilter: PlanningIdea[]) => {
     let filtered = [...placesToFilter]
 
     // Category filter
@@ -139,6 +116,7 @@ const DiscoveryPage: React.FC = () => {
         setPlaces(allPlaces)
         setFilteredPlaces(applyFilters(allPlaces))
         setSearchContext(cached.context + ' (Cached)')
+        setSearchNotice(cached.notice || '')
         setHasMore(true)
         setLoading(false)
         
@@ -146,7 +124,8 @@ const DiscoveryPage: React.FC = () => {
         globalSearchState = {
           places: allPlaces,
           query: query,
-          context: cached.context
+          context: cached.context,
+          notice: cached.notice || ''
         }
         return
       }
@@ -171,33 +150,38 @@ const DiscoveryPage: React.FC = () => {
       }, 5000)
       
       setLoadingStage('Analyzing your search...')
-      const results = await apiService.searchPlaces(query, { limit: 8 })
+      const searchResponse = await apiService.searchPlaces(query, { limit: 8 })
+      const results = searchResponse.items || []
       
       clearInterval(progressInterval)
       clearTimeout(timeoutWarning)
       setLoadingProgress(100)
-      setLoadingStage(`Found ${results?.length || 0} amazing places!`)
+      setLoadingStage(`Generated ${results?.length || 0} planning ideas`)
       
       if (isNewSearch) {
         const newPlaces = results || []
-        const context = `AI-powered results for "${query}"`
+        const context = searchResponse.searchContext || `AI planning ideas for "${query}"`
+        const notice = searchResponse.meta?.userNotice || ''
         
         setPlaces(newPlaces)
         setFilteredPlaces(applyFilters(newPlaces))
         setSearchContext(context)
+        setSearchNotice(notice)
         
         // Cache the results
         searchCache.set(cacheKey, {
           data: newPlaces,
           timestamp: Date.now(),
-          context: context
+          context: context,
+          notice,
         })
         
         // Update global state
         globalSearchState = {
           places: newPlaces,
           query: query,
-          context: context
+          context: context,
+          notice,
         }
       } else {
         const updatedPlaces = [...places, ...(results || [])]
@@ -212,6 +196,7 @@ const DiscoveryPage: React.FC = () => {
         setPlaces([])
         setFilteredPlaces([])
         setSearchContext('Search failed. Please try again.')
+        setSearchNotice('')
       }
     } finally {
       setTimeout(() => {
@@ -252,7 +237,7 @@ const DiscoveryPage: React.FC = () => {
     return colors[priceLevel as keyof typeof colors] || 'text-gray-600'
   }
 
-  const togglePlaceSelection = (place: Place) => {
+  const togglePlaceSelection = (place: PlanningIdea) => {
     console.log('🔄 Toggling place selection:', place.name)
     setSelectedPlaces(prev => {
       const isSelected = prev.some(p => p.id === place.id)
@@ -267,7 +252,7 @@ const DiscoveryPage: React.FC = () => {
     })
   }
 
-  const isPlaceSelected = (place: Place) => {
+  const isPlaceSelected = (place: PlanningIdea) => {
     return selectedPlaces.some(p => p.id === place.id)
   }
 
@@ -281,6 +266,7 @@ const DiscoveryPage: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-gray-50">
+      <PlannerWorkspaceNav />
       {/* Hero Section */}
       <div className="bg-gradient-to-br from-blue-600 via-purple-600 to-indigo-700 text-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
@@ -288,19 +274,23 @@ const DiscoveryPage: React.FC = () => {
             <div className="flex items-center justify-center mb-4">
               <Sparkles className="h-8 w-8 mr-3" />
               <h1 className="text-4xl md:text-5xl font-bold">
-                Discover Your Next Adventure
+                AI Trip Idea Studio
               </h1>
             </div>
             <p className="text-xl md:text-2xl mb-8 text-blue-100 max-w-3xl mx-auto">
-              AI-powered travel discovery. Find amazing places, hidden gems, and perfect experiences tailored just for you.
+              Use AI to explore directions, sample stops, and itinerary starting points before you commit to a full plan.
             </p>
             
             {/* Search Section */}
             <div className="max-w-2xl mx-auto">
               <SearchBar onSearch={handleSearch} />
               <p className="text-sm text-blue-200 mt-2">
-                Try: "restaurants in Tokyo", "museums in Paris", "hotels in New York"
+                Try: "3-day food-focused Tokyo ideas", "relaxed Paris culture plan", "Sri Lanka coastal weekend draft"
               </p>
+            </div>
+            <div className="mx-auto mt-5 max-w-3xl rounded-2xl border border-white/15 bg-white/10 px-4 py-3 text-sm text-blue-50 backdrop-blur-sm">
+              This space is best used for AI planning support. Suggestions help you compare directions and shape itineraries,
+              but they should not be treated as verified place listings, exact hours, or official imagery.
             </div>
           </div>
         </div>
@@ -308,7 +298,7 @@ const DiscoveryPage: React.FC = () => {
 
       {/* Region Quick Access Shortcuts */}
       <QuickAccessButtons 
-        onCountrySelect={(country) => handleSearch(`best places in ${country}`, true)}
+        onCountrySelect={(country) => handleSearch(`best trip ideas in ${country}`, true)}
         onRegionSelect={(query) => handleSearch(query, true)}
         loading={loading}
       />
@@ -324,23 +314,30 @@ const DiscoveryPage: React.FC = () => {
         )}
 
         {searchContext && !loading && (
-          <ResultsHeader
-            searchContext={searchContext}
-            placesCount={places.length}
-            filteredCount={filteredPlaces.length}
-            selectedCount={selectedPlaces.length}
-            filterCount={
-              activeFilters.category.length + 
-              activeFilters.priceRange.length + 
-              (activeFilters.rating > 0 ? 1 : 0) + 
-              (activeFilters.openNow ? 1 : 0)
-            }
-            showMap={showMap}
-            loading={loading}
-            onToggleFilters={() => setShowFilters(true)}
-            onToggleMap={() => setShowMap(!showMap)}
-            onGenerateTrip={handleGenerateTrip}
-          />
+          <>
+            <ResultsHeader
+              searchContext={searchContext}
+              placesCount={places.length}
+              filteredCount={filteredPlaces.length}
+              selectedCount={selectedPlaces.length}
+              filterCount={
+                activeFilters.category.length + 
+                activeFilters.priceRange.length + 
+                (activeFilters.rating > 0 ? 1 : 0) + 
+                (activeFilters.openNow ? 1 : 0)
+              }
+              showMap={showMap}
+              loading={loading}
+              onToggleFilters={() => setShowFilters(true)}
+              onToggleMap={() => setShowMap(!showMap)}
+              onGenerateTrip={handleGenerateTrip}
+            />
+            {searchNotice && (
+              <div className="mb-6 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+                {searchNotice}
+              </div>
+            )}
+          </>
         )}
 
         {places.length > 0 && !loading && (
@@ -350,10 +347,10 @@ const DiscoveryPage: React.FC = () => {
               <div className="flex items-center justify-between">
                 <div>
                   <h2 className="text-lg font-semibold text-gray-800">
-                    Results
+                    Suggested Stops
                   </h2>
                   <p className="text-sm text-gray-500 mt-1">
-                    Showing {sortedPlaces.length} places
+                    Showing {sortedPlaces.length} AI-generated planning ideas
                   </p>
                 </div>
                 <SortControls sortBy={sortBy} onSortChange={setSortBy} />
@@ -394,10 +391,10 @@ const DiscoveryPage: React.FC = () => {
 
         {!loading && places.length === 0 && searchQuery && (
           <EmptyState
-            title="No results found"
-            message="Try a different search term or check your spelling"
-            actionLabel="Try Popular Searches"
-            onAction={() => handleSearch('restaurants in Tokyo', true)}
+            title="No planning ideas found"
+            message="Try a clearer travel intention, destination, or trip style."
+            actionLabel="Try Example Prompts"
+            onAction={() => handleSearch('3-day food-focused Tokyo ideas', true)}
             icon={<Sparkles className="h-8 w-8 text-gray-400" />}
           />
         )}
@@ -406,10 +403,15 @@ const DiscoveryPage: React.FC = () => {
           <div className="text-center py-12">
             <div className="text-gray-500">
               <Sparkles className="h-16 w-16 mx-auto mb-4 opacity-50" />
-              <h3 className="text-xl font-medium mb-2">Ready to Discover?</h3>
-              <p className="mb-6">Use the search bar above to find amazing places, then select them to generate a custom trip</p>
+              <h3 className="text-xl font-medium mb-2">Ready to Explore Ideas?</h3>
+              <p className="mb-6">Use the search bar above to generate trip ideas, sample stops, and planning angles you can turn into a custom itinerary.</p>
               <div className="flex flex-wrap justify-center gap-2">
-                {['restaurants in Colombo', 'temples in Kandy', 'hotels in Galle', 'beaches in Mirissa'].map((suggestion) => (
+                {[
+                  '2-day Colombo food and culture draft',
+                  'slow-paced Kandy heritage plan',
+                  'Galle weekend for couples',
+                  'Mirissa beach reset itinerary'
+                ].map((suggestion) => (
                   <Button 
                     key={suggestion}
                     variant="outline" 

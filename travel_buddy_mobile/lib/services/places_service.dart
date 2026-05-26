@@ -130,7 +130,7 @@ class PlacesService {
   
   // Check if place is fallback place (skip radius check)
   bool _isFallbackPlace(Place place) {
-    return place.id?.startsWith('fallback_') == true;
+    return place.id.startsWith('fallback_') == true;
   }
   
   // Check if place is within radius (strict filtering)

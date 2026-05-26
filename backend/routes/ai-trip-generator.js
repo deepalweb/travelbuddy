@@ -136,7 +136,19 @@ function buildSeededImageUrl(...parts) {
   return `https://picsum.photos/seed/${seed || 'travelbuddy-trip'}/1200/800`;
 }
 
-async function generateWithAzureModel(prompt) {
+function buildCompactTripGenerationPrompt(basePrompt) {
+  return `${basePrompt}
+
+Compression rules for this retry:
+- Keep every string concise.
+- Limit introduction to 2 short sentences.
+- Limit each routeStrategy, whyThisTripFits, tradeoffs, bookingPriority, saveMoneyTips, and upgradeIdeas item to one short sentence.
+- Keep each activity details field to one concise sentence.
+- Keep notes and weather guidance brief but useful.
+- Do not omit required keys.`;
+}
+
+async function generateWithAzureModel(prompt, options = {}) {
   const result = await callAzureChatCompletion([
     {
       role: 'system',
@@ -147,7 +159,7 @@ async function generateWithAzureModel(prompt) {
       content: prompt
     }
   ], {
-    maxTokens: 3000,
+    maxTokens: options.maxTokens || 5200,
     reasoningEffort: 'low',
     responseFormat: { type: 'json_object' }
   });
@@ -203,7 +215,11 @@ function buildTripGenerationPrompt({
   currency,
   notes,
   mustSee,
-  avoid
+  avoid,
+  startingLocation,
+  transportPreference,
+  stayPreference,
+  selectedPlaces
 }) {
   const interestList = Array.isArray(interests)
     ? interests.filter(Boolean)
@@ -213,10 +229,17 @@ function buildTripGenerationPrompt({
 
   const hasInterests = interestList.length > 0;
   const travelMode = travelStyles || travelStyle || 'balanced';
+  const selectedPlaceNames = Array.isArray(selectedPlaces)
+    ? selectedPlaces
+      .map((place) => place?.name || place?.title || '')
+      .filter(Boolean)
+      .join(', ')
+    : '';
 
-  return `Create a ${days} day travel itinerary for ${destination} and return JSON only.
+  return `Create a premium-quality ${days} day trip plan for ${destination} and return JSON only.
 
 Trip inputs:
+- Starting location: ${startingLocation || 'Not specified'}
 - Travel style: ${travelMode}
 - Pace: ${pace || 'moderate'}
 - Budget: ${budget || 'medium'}
@@ -224,25 +247,39 @@ Trip inputs:
 - Start date: ${startDate || 'Flexible'}
 - End date: ${endDate || 'Flexible'}
 - Currency: ${currency || 'USD'}
+- Transport preference: ${transportPreference || 'balanced'}
+- Stay preference: ${stayPreference || 'comfortable'}
 - Interests: ${hasInterests ? interestList.join(', ') : 'General highlights'}
 - Must-see priorities: ${mustSee?.length ? mustSee.join(', ') : 'None specified'}
 - Avoid: ${avoid?.length ? avoid.join(', ') : 'None specified'}
+- Imported planning anchors: ${selectedPlaceNames || 'None'}
 - Notes: ${notes || 'None'}
 
 Planning rules:
 - Each day must have 3 to 5 activities.
 - Prioritize iconic highlights and realistic travel flow.
-- Keep advice specific and practical.
-- Make costs and hotels realistic for the selected budget.
+- Keep advice specific, practical, and personalized to the trip inputs.
+- Make costs and hotels realistic for the selected budget and traveler count.
 - Include food suggestions where appropriate.
 - Respect the avoid list.
+- Explain route logic and major tradeoffs.
+- Avoid generic filler unless it supports pacing, food timing, transport flow, or rest.
+- The total estimated budget must be internally consistent with the expense breakdown.
+- Hotel recommendations should be areas or hotel-base suggestions, not just city names when possible.
 
 Return JSON only with these keys:
-tripTitle, destination, duration, introduction, keyAttractions, hotels, transportSummary, estimatedTotalBudget, dailyItinerary, expenseBreakdown, preTripPreparation
+tripTitle, destination, duration, introduction, tripOverview, dailyItinerary, expenseBreakdown, preTripPreparation
 
 For dailyItinerary, return an array of ${days} day objects with:
 - day
 - theme
+- dayGoal
+- energyLevel
+- estimatedTravelTime
+- estimatedDayCost
+- mustDo
+- optionalAddOn
+- weatherBackup
 - activities
 - overnight
 
@@ -253,9 +290,40 @@ Each activity must include:
 - details
 - cost
 - notes
+- estimatedDuration
+- priority
+- travelNote
+
+For tripOverview, return:
+- totalTravelDays
+- summaryHeadline
+- whyThisTripFits
+- routeStrategy
+- tradeoffs
+- keyAttractions
+- transportSummary
+- hotels
+- estimatedTotalBudget
+- budgetPerDay
+- tripStyle
+- bestFor
+- accommodationType
+- bookingPriority
+- saveMoneyTips
+- upgradeIdeas
+- paceScore
+- travelEfficiency
+- startingLocation
+- transportPreference
+- stayPreference
 
 For expenseBreakdown, return:
-accommodation, transport, tickets, dining, localTransport, total
+- accommodation
+- transport
+- tickets
+- dining
+- localTransport
+- total
 
 For preTripPreparation, return:
 booking, packing, weather, notes
@@ -402,9 +470,42 @@ function normalizeActivity(activity, destination) {
     details: activity?.details || activity?.description || '',
     cost: toCostString(activity?.cost, 'Included'),
     notes: activity?.notes || activity?.tip || '',
+    estimatedDuration: activity?.estimatedDuration || activity?.duration || '',
+    priority: activity?.priority || '',
+    travelNote: activity?.travelNote || activity?.transferNote || '',
     imageUrl: activity?.imageUrl || '',
     googleMapsUrl: activity?.googleMapsUrl || ''
   };
+}
+
+function extractNumericCost(value) {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return value;
+  }
+
+  if (typeof value === 'string') {
+    const numeric = parseFloat(value.replace(/[^0-9.]/g, ''));
+    return Number.isFinite(numeric) ? numeric : 0;
+  }
+
+  if (value && typeof value === 'object') {
+    if (typeof value.amount === 'number' && Number.isFinite(value.amount)) {
+      return value.amount;
+    }
+
+    for (const item of Object.values(value)) {
+      const numeric = extractNumericCost(item);
+      if (numeric > 0) {
+        return numeric;
+      }
+    }
+  }
+
+  return 0;
+}
+
+function formatCurrencyAmount(amount, currency = 'USD') {
+  return `${currency} ${Math.round(amount || 0)}`;
 }
 
 function normalizeGeneratedTripPlan(rawTripPlan, context) {
@@ -419,13 +520,24 @@ function normalizeGeneratedTripPlan(rawTripPlan, context) {
     endDate,
     notes,
     mustSee,
-    avoid
+    avoid,
+    currency,
+    startingLocation,
+    transportPreference,
+    stayPreference
   } = context;
 
   const dailyItinerary = (rawTripPlan.dailyItinerary || []).map((day, index) => ({
     day: day?.day || index + 1,
     date: day?.date || `Day ${day?.day || index + 1}`,
     theme: day?.theme || day?.title || day?.location || `Day ${day?.day || index + 1} Highlights`,
+    dayGoal: day?.dayGoal || '',
+    energyLevel: day?.energyLevel || '',
+    estimatedTravelTime: day?.estimatedTravelTime || '',
+    estimatedDayCost: toCostString(day?.estimatedDayCost, ''),
+    mustDo: day?.mustDo || '',
+    optionalAddOn: day?.optionalAddOn || '',
+    weatherBackup: day?.weatherBackup || '',
     activities: (day?.activities || []).map((activity) => normalizeActivity(activity, destination)),
     overnight: normalizeOvernightStay(day?.overnight, day?.location || destination, day?.day || index + 1)
   }));
@@ -435,14 +547,25 @@ function normalizeGeneratedTripPlan(rawTripPlan, context) {
   const fixedTickets = toCostString(rawTripPlan.expenseBreakdown?.tickets, '$0');
   const variableDining = toCostString(rawTripPlan.expenseBreakdown?.dining, '$0');
   const variableLocalTransport = toCostString(rawTripPlan.expenseBreakdown?.localTransport, '$0');
-  const totalCost = toCostString(
-    rawTripPlan.expenseBreakdown?.total || rawTripPlan.estimatedTotalBudget,
-    '$0'
-  );
+  const accommodationValue = extractNumericCost(rawTripPlan.expenseBreakdown?.accommodation);
+  const transportValue = extractNumericCost(rawTripPlan.expenseBreakdown?.transport);
+  const ticketsValue = extractNumericCost(rawTripPlan.expenseBreakdown?.tickets);
+  const diningValue = extractNumericCost(rawTripPlan.expenseBreakdown?.dining);
+  const localTransportValue = extractNumericCost(rawTripPlan.expenseBreakdown?.localTransport);
+  const computedTotal = accommodationValue + transportValue + ticketsValue + diningValue + localTransportValue;
+  const totalCost = computedTotal > 0
+    ? formatCurrencyAmount(computedTotal, currency || 'USD')
+    : toCostString(
+      rawTripPlan.expenseBreakdown?.total || rawTripPlan.estimatedTotalBudget,
+      '$0'
+    );
 
   const hotelList = Array.isArray(rawTripPlan.hotels)
     ? rawTripPlan.hotels.map(formatHotelEntry).filter(Boolean)
     : [];
+  const budgetPerDay = computedTotal > 0
+    ? formatCurrencyAmount(computedTotal / Math.max(days, 1), currency || 'USD')
+    : (rawTripPlan.tripOverview?.budgetPerDay || '');
 
   return {
     tripTitle: rawTripPlan.tripTitle || `${destination} Trip Plan`,
@@ -461,6 +584,21 @@ function normalizeGeneratedTripPlan(rawTripPlan, context) {
     introduction: rawTripPlan.introduction || `Explore the best of ${destination} with a well-paced itinerary.`,
     tripOverview: {
       totalTravelDays: rawTripPlan.tripOverview?.totalTravelDays || rawTripPlan.duration || `${days} days`,
+      summaryHeadline: rawTripPlan.tripOverview?.summaryHeadline || `${destination} highlights in ${days} days`,
+      whyThisTripFits: normalizeStringArray(rawTripPlan.tripOverview?.whyThisTripFits, [
+        `Built for ${travelers || '1'} traveler${String(travelers || '1') === '1' ? '' : 's'}`,
+        `Balanced around a ${budget || 'medium'} budget`,
+        `Matches a ${travelStyles || travelStyle || 'balanced'} trip style`
+      ]),
+      routeStrategy: normalizeStringArray(rawTripPlan.tripOverview?.routeStrategy, [
+        'The route is organized to reduce backtracking',
+        'Longer transfers are paired with lighter sightseeing windows',
+        'Iconic highlights are spread across the trip to keep the pace realistic'
+      ]),
+      tradeoffs: normalizeStringArray(rawTripPlan.tripOverview?.tradeoffs, [
+        'Short trips prioritize major highlights over deeper local exploration',
+        'Comfort-focused transport may cost more but protects limited time'
+      ]),
       keyAttractions: normalizeStringArray(rawTripPlan.tripOverview?.keyAttractions || rawTripPlan.keyAttractions, []),
       transportSummary: formatTransportSummary(
         rawTripPlan.tripOverview?.transportSummary || rawTripPlan.transportSummary,
@@ -468,12 +606,31 @@ function normalizeGeneratedTripPlan(rawTripPlan, context) {
       ),
       hotels: normalizeStringArray(rawTripPlan.tripOverview?.hotels, hotelList),
       estimatedTotalBudget: toCostString(
-        rawTripPlan.tripOverview?.estimatedTotalBudget || rawTripPlan.estimatedTotalBudget || totalCost,
+        totalCost || rawTripPlan.tripOverview?.estimatedTotalBudget || rawTripPlan.estimatedTotalBudget,
         totalCost
       ),
+      budgetPerDay,
       tripStyle: rawTripPlan.tripOverview?.tripStyle || `${budget || 'medium'} ${travelStyles || travelStyle || 'balanced'} trip`,
       bestFor: normalizeStringArray(rawTripPlan.tripOverview?.bestFor, ['First-time visitors']),
-      accommodationType: rawTripPlan.tripOverview?.accommodationType || 'Mid-range hotels and guesthouses'
+      accommodationType: rawTripPlan.tripOverview?.accommodationType || 'Mid-range hotels and guesthouses',
+      bookingPriority: normalizeStringArray(rawTripPlan.tripOverview?.bookingPriority, [
+        'Flights',
+        'First hotel stay',
+        'Time-sensitive trains or safaris'
+      ]),
+      saveMoneyTips: normalizeStringArray(rawTripPlan.tripOverview?.saveMoneyTips, [
+        'Book key transport early when possible',
+        'Mix premium experiences with simpler meal choices'
+      ]),
+      upgradeIdeas: normalizeStringArray(rawTripPlan.tripOverview?.upgradeIdeas, [
+        'Upgrade one hotel stay for a stronger finale',
+        'Use a private transfer on the longest travel day'
+      ]),
+      paceScore: rawTripPlan.tripOverview?.paceScore || '',
+      travelEfficiency: rawTripPlan.tripOverview?.travelEfficiency || '',
+      startingLocation: rawTripPlan.tripOverview?.startingLocation || startingLocation || '',
+      transportPreference: rawTripPlan.tripOverview?.transportPreference || transportPreference || '',
+      stayPreference: rawTripPlan.tripOverview?.stayPreference || stayPreference || ''
     },
     dailyItinerary,
     expenseBreakdown: {
@@ -517,7 +674,11 @@ const handleGenerateTripPlan = async (req, res) => {
       notes,
       mustSee,
       avoid,
-      travelStyle
+      travelStyle,
+      startingLocation,
+      transportPreference,
+      stayPreference,
+      selectedPlaces
     } = req.body;
 
     if (!destination || !duration) {
@@ -559,12 +720,22 @@ const handleGenerateTripPlan = async (req, res) => {
       currency,
       notes,
       mustSee,
-      avoid
+      avoid,
+      startingLocation,
+      transportPreference,
+      stayPreference,
+      selectedPlaces
     });
 
     console.log('🗺️ Generating trip plan for:', destination, duration);
 
-    const generation = await generateWithAzureModel(prompt);
+    let generation = await generateWithAzureModel(prompt, { maxTokens: 5200 });
+
+    if (generation.finishReason === 'length') {
+      console.warn('⚠️ Trip generation hit token limit, retrying with compact prompt');
+      generation = await generateWithAzureModel(buildCompactTripGenerationPrompt(prompt), { maxTokens: 5200 });
+    }
+
     const text = generation.text;
 
     if (!text.trim()) {
@@ -606,7 +777,11 @@ const handleGenerateTripPlan = async (req, res) => {
         endDate,
         notes,
         mustSee,
-        avoid
+        avoid,
+        currency,
+        startingLocation,
+        transportPreference,
+        stayPreference
       });
       tripPlan.id = `plan_${Date.now()}`;
       tripPlan.createdAt = new Date().toISOString();
