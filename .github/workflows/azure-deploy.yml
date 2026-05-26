@@ -112,9 +112,41 @@ jobs:
         </configuration>
         EOF
     
-    - name: Deploy to Azure
-      uses: azure/webapps-deploy@v3
-      with:
-        app-name: ${{ env.AZURE_WEBAPP_NAME }}
-        publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
-        package: ./backend
+    - name: Deploy to Azure via Kudu ZIP Deploy
+      env:
+        AZURE_WEBAPP_PUBLISH_PROFILE: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
+      run: |
+        set -euo pipefail
+
+        cd backend
+        zip -r ../release.zip .
+        cd ..
+
+        mapfile -t kudu_profile < <(node - <<'EOF'
+        const xml = process.env.AZURE_WEBAPP_PUBLISH_PROFILE || "";
+        const matches = [...xml.matchAll(/publishUrl="([^"]+)"[^>]*userName="([^"]+)"[^>]*userPWD="([^"]+)"/g)];
+        const profile = matches.find(([, url]) => url.includes(".scm.")) || matches[0];
+
+        if (!profile) {
+          console.error("Could not parse Azure publish profile.");
+          process.exit(1);
+        }
+
+        const [, publishUrl, userName, password] = profile;
+        const host = publishUrl.replace(/:443$/, "");
+        const auth = Buffer.from(`${userName}:${password}`).toString("base64");
+
+        console.log(host);
+        console.log(auth);
+        EOF
+        )
+
+        SCM_HOST="${kudu_profile[0]}"
+        AUTH_TOKEN="${kudu_profile[1]}"
+
+        curl --fail-with-body --silent --show-error \
+          -X POST \
+          -H "Authorization: Basic $AUTH_TOKEN" \
+          -H "Content-Type: application/zip" \
+          --data-binary "@release.zip" \
+          "https://${SCM_HOST}/api/zipdeploy"
