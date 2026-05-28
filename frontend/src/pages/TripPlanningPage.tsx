@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import {
   ArrowRight,
   Calendar,
@@ -7,11 +7,15 @@ import {
   Clock3,
   Compass,
   Eye,
+  GitCompareArrows,
   ListChecks,
   MapPin,
+  ShieldAlert,
   Sparkles,
   Trash2,
   TrendingUp,
+  Bot,
+  ClipboardList,
 } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import { Button } from '../components/Button'
@@ -21,6 +25,24 @@ import { tripService, type TripPlan } from '../services/tripService'
 import { ImageWithFallback } from '../components/ImageWithFallback'
 
 type Trip = TripPlan
+
+const buildTripCoverPlaceholder = (destination: string) =>
+  `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(`
+    <svg xmlns="http://www.w3.org/2000/svg" width="1200" height="800" viewBox="0 0 1200 800">
+      <defs>
+        <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stop-color="#07111f" />
+          <stop offset="100%" stop-color="#15345d" />
+        </linearGradient>
+      </defs>
+      <rect width="1200" height="800" fill="url(#bg)" />
+      <circle cx="190" cy="170" r="120" fill="#67e8f9" opacity="0.12" />
+      <circle cx="1030" cy="650" r="150" fill="#ffffff" opacity="0.08" />
+      <text x="600" y="360" text-anchor="middle" font-family="Arial, sans-serif" font-size="28" fill="#cbd5e1" letter-spacing="5">TRIP PREVIEW</text>
+      <text x="600" y="440" text-anchor="middle" font-family="Arial, sans-serif" font-size="54" fill="#f8fafc" font-weight="700">${destination.replace(/&/g, '&amp;')}</text>
+      <text x="600" y="505" text-anchor="middle" font-family="Arial, sans-serif" font-size="24" fill="#cbd5e1">No verified cover image was available for this trip.</text>
+    </svg>
+  `)}`
 
 const statusMeta: Record<string, { label: string; tone: string }> = {
   draft: { label: 'Draft', tone: 'bg-slate-100 text-slate-700' },
@@ -39,7 +61,7 @@ const parseBudgetValue = (value?: string) => {
 const getCoverImage = (trip: Trip) =>
   trip.coverImageUrl ||
   trip.dailyItinerary?.flatMap((day) => day.activities || []).find((activity) => activity.imageUrl)?.imageUrl ||
-  `https://picsum.photos/seed/${encodeURIComponent(`${trip.destination}-${trip._id}`)}/1200/800`
+  buildTripCoverPlaceholder(trip.destination)
 
 const getVisitProgress = (trip: Trip) => {
   const itinerary = trip.dailyItinerary || []
@@ -68,6 +90,7 @@ const getPlanningReadiness = (trip: Trip) => {
 export const TripPlanningPage: React.FC = () => {
   const { user } = useAuth()
   const navigate = useNavigate()
+  const location = useLocation()
   const [trips, setTrips] = useState<Trip[]>([])
   const [loading, setLoading] = useState(true)
   const [savingDraft, setSavingDraft] = useState(false)
@@ -75,6 +98,7 @@ export const TripPlanningPage: React.FC = () => {
   const [showAIGenerator, setShowAIGenerator] = useState(false)
   const [selectedPlaces, setSelectedPlaces] = useState<any[]>([])
   const [workflowDraft, setWorkflowDraft] = useState<any | null>(null)
+  const [generatorInitialValues, setGeneratorInitialValues] = useState<any | null>(null)
 
   useEffect(() => {
     fetchTrips()
@@ -95,7 +119,46 @@ export const TripPlanningPage: React.FC = () => {
         console.error('Failed to parse planner workflow draft:', error)
       }
     }
-  }, [])
+
+    const params = new URLSearchParams(location.search)
+    if (params.get('quick') === 'true') {
+      const durationMap: Record<string, string> = {
+        '3': '3 days',
+        '5': '5 days',
+        '10': '10 days',
+        '14': '14 days',
+      }
+      const travelerMap: Record<string, string> = {
+        solo: '1',
+        couple: '2',
+        family: '3-4',
+        friends: '3-4',
+      }
+      const budgetMap: Record<string, string> = {
+        budget: 'low',
+        'mid-range': 'medium',
+        luxury: 'high',
+      }
+      const styleMap: Record<string, string> = {
+        solo: 'balanced',
+        couple: 'relaxed',
+        family: 'balanced',
+        friends: 'packed',
+      }
+
+      setGeneratorInitialValues({
+        destination: params.get('destination') || '',
+        duration: durationMap[params.get('days') || ''] || '5 days',
+        travelers: travelerMap[params.get('style') || ''] || '1',
+        budget: budgetMap[params.get('budget') || ''] || 'medium',
+        travelStyle: styleMap[params.get('style') || ''] || 'balanced',
+        startingLocation: params.get('origin') || '',
+        notes: params.get('month') ? `User is targeting travel in ${params.get('month')}.` : '',
+        mustSee: (location.state as any)?.discoveryRecommendation?.bestFor?.join(', ') || '',
+      })
+      setShowAIGenerator(true)
+    }
+  }, [location.search, location.state])
 
   const fetchTrips = async () => {
     try {
@@ -261,15 +324,18 @@ export const TripPlanningPage: React.FC = () => {
           <AITripGenerator
             mode="modal"
             selectedPlaces={selectedPlaces}
+            initialValues={generatorInitialValues || undefined}
             onTripGenerated={async (trip, brief) => {
               setSaveDraftError(null)
               setWorkflowDraft({ trip, brief })
               setShowAIGenerator(false)
               setSelectedPlaces([])
+              setGeneratorInitialValues(null)
             }}
             onClose={() => {
               setShowAIGenerator(false)
               setSelectedPlaces([])
+              setGeneratorInitialValues(null)
             }}
           />
         </div>
@@ -352,6 +418,96 @@ export const TripPlanningPage: React.FC = () => {
           </Card>
         </section>
       )}
+
+      <section className="mx-auto max-w-7xl px-4 pt-8 sm:px-6 lg:px-8">
+        <div className="mb-5 flex items-end justify-between gap-4">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Planning tools</p>
+            <h2 className="mt-2 text-3xl font-semibold text-slate-900">New pages focused on the parts generic AI usually misses.</h2>
+          </div>
+        </div>
+
+        <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-4">
+          {[
+            {
+              title: 'Must-Do / Skip',
+              description: 'See what the traveler should protect first if time, weather, or energy changes.',
+              icon: ListChecks,
+              path: '/trips/priorities',
+            },
+            {
+              title: 'Reality Checker',
+              description: 'Stress-test the draft for overloaded days, weak backups, and hidden friction.',
+              icon: ShieldAlert,
+              path: '/trips/reality',
+            },
+            {
+              title: 'Compare',
+              description: 'Review alternate destination, route, transport, and comfort tradeoffs before saving.',
+              icon: GitCompareArrows,
+              path: '/trips/compare',
+            },
+            {
+              title: 'Prepare',
+              description: 'Move from idea to readiness with booking order, packing, and departure logic.',
+              icon: ClipboardList,
+              path: '/trips/prepare',
+            },
+          ].map((item) => {
+            const Icon = item.icon
+            return (
+              <Link key={item.title} to={item.path}>
+                <Card className="h-full border-slate-200 bg-white shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-lg">
+                  <CardContent className="p-6">
+                    <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-900 text-white">
+                      <Icon className="h-5 w-5" />
+                    </div>
+                    <h3 className="mt-4 text-xl font-semibold text-slate-900">{item.title}</h3>
+                    <p className="mt-3 text-sm leading-7 text-slate-600">{item.description}</p>
+                    <div className="mt-5 inline-flex items-center text-sm font-semibold text-sky-700">
+                      Open page
+                      <ArrowRight className="ml-2 h-4 w-4" />
+                    </div>
+                  </CardContent>
+                </Card>
+              </Link>
+            )
+          })}
+        </div>
+
+        <div className="mt-5 grid gap-5 md:grid-cols-2">
+          <Link to="/trips/assistant">
+            <Card className="border-slate-200 bg-white shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-lg">
+              <CardContent className="flex items-start gap-4 p-6">
+                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-900 text-white">
+                  <Bot className="h-5 w-5" />
+                </div>
+                <div>
+                  <h3 className="text-xl font-semibold text-slate-900">Planning Assistant</h3>
+                  <p className="mt-2 text-sm leading-7 text-slate-600">
+                    Refine a saved draft with focused asks like “make it less tiring,” “make it more romantic,” or “what should I cut?”
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+          </Link>
+          <Link to="/trips/saved">
+            <Card className="border-slate-200 bg-white shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-lg">
+              <CardContent className="flex items-start gap-4 p-6">
+                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-900 text-white">
+                  <Compass className="h-5 w-5" />
+                </div>
+                <div>
+                  <h3 className="text-xl font-semibold text-slate-900">Saved Plans Workspace</h3>
+                  <p className="mt-2 text-sm leading-7 text-slate-600">
+                    Organize saved ideas around must-do places, optional layers, and themes you can actually act on.
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+          </Link>
+        </div>
+      </section>
 
       <div className="mx-auto max-w-7xl px-4 py-10 sm:py-12">
         {loading ? (

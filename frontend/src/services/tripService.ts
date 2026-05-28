@@ -5,6 +5,9 @@ export interface Activity {
   timeSlot: string
   activityType: string
   activityTitle: string
+  placeName?: string
+  city?: string
+  country?: string
   details: string
   cost: string
   notes: string
@@ -12,7 +15,11 @@ export interface Activity {
   priority?: string
   travelNote?: string
   imageUrl?: string
+  imageSource?: string
+  isRepresentativeImage?: boolean
   googleMapsUrl?: string
+  fullAddress?: string
+  googlePlaceId?: string
   isVisited?: boolean
   visitedDate?: string
   rating?: number

@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import {
+  ArrowRight,
   Bell,
   ChevronDown,
   Compass,
@@ -24,6 +25,7 @@ type NavigationItem = {
   label: string
   path?: string
   icon?: React.ComponentType<{ className?: string }>
+  highlight?: string
   dropdown?: Array<{
     label: string
     path: string
@@ -34,19 +36,15 @@ type NavigationItem = {
 
 const navigationItems: NavigationItem[] = [
   { id: 'home', label: 'Home', path: '/', icon: Compass },
-  { id: 'planner', label: 'Trip Planner', path: '/trips', icon: Sparkles },
+  { id: 'discover', label: 'Find Destination', path: '/discovery', icon: Compass, highlight: 'New' },
+  { id: 'planner', label: 'Plan a Trip', path: '/trips', icon: Sparkles, highlight: 'Core' },
+  { id: 'deals', label: 'Deals', path: '/deals', icon: Tag },
   { id: 'community', label: 'Community', path: '/community', icon: Users },
   {
-    id: 'services',
-    label: 'Services',
+    id: 'more',
+    label: 'More',
     icon: ChevronDown,
     dropdown: [
-      {
-        label: 'Deals',
-        path: '/deals',
-        icon: Tag,
-        description: 'Live offers and promotions for trip savings.',
-      },
       {
         label: 'Events',
         path: '/events',
@@ -64,6 +62,18 @@ const navigationItems: NavigationItem[] = [
         path: '/services',
         icon: Users,
         description: 'Get human help when you need it.',
+      },
+      {
+        label: 'About',
+        path: '/about',
+        icon: Compass,
+        description: 'Learn what TravelBuddy is building for modern travelers.',
+      },
+      {
+        label: 'Contact',
+        path: '/contact',
+        icon: Bell,
+        description: 'Reach the team when you need help or want to partner.',
       },
     ],
   },
@@ -105,9 +115,9 @@ export const MainHeader: React.FC = () => {
     return location.pathname === path
   }
 
-  const isServicesActive = useMemo(
+  const isMoreActive = useMemo(
     () => navigationItems
-      .find((item) => item.id === 'services')
+      .find((item) => item.id === 'more')
       ?.dropdown?.some((item) => isNavItemActive(item.path)) || false,
     [location.pathname]
   )
@@ -142,9 +152,9 @@ export const MainHeader: React.FC = () => {
           </div>
         </Link>
 
-        <nav className="hidden items-center gap-2 lg:flex">
+        <nav className="hidden items-center gap-2 rounded-full border border-white/10 bg-white/6 p-1.5 shadow-[0_18px_40px_rgba(15,23,42,0.08)] backdrop-blur lg:flex">
           {navigationItems.map((item) => {
-            const isActive = item.id === 'services' ? isServicesActive : isNavItemActive(item.path)
+            const isActive = item.id === 'more' ? isMoreActive : isNavItemActive(item.path)
 
             if (item.dropdown?.length) {
               return (
@@ -161,7 +171,7 @@ export const MainHeader: React.FC = () => {
                   </button>
 
                   {activeDropdown === item.id && (
-                    <div className="absolute right-0 top-full mt-3 w-[320px] overflow-hidden rounded-[1.5rem] border border-slate-200 bg-white p-2 shadow-[0_22px_60px_rgba(15,23,42,0.18)]">
+                    <div className="absolute right-0 top-full mt-3 w-[340px] overflow-hidden rounded-[1.5rem] border border-slate-200 bg-white p-2 shadow-[0_22px_60px_rgba(15,23,42,0.18)]">
                       {item.dropdown.map((entry) => {
                         const Icon = entry.icon
                         return (
@@ -191,10 +201,17 @@ export const MainHeader: React.FC = () => {
               <Link
                 key={item.id}
                 to={item.path || '/'}
-                className={`rounded-full px-4 py-2.5 text-sm font-medium transition-all ${
+                className={`inline-flex items-center gap-2 rounded-full px-4 py-2.5 text-sm font-medium transition-all ${
                   isActive ? activeTone : navTone
                 }`}
               >
+                {item.highlight && (
+                  <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.18em] ${
+                    isActive ? 'bg-black/10 text-current' : isScrolled ? 'bg-slate-900/8 text-slate-500' : 'bg-white/10 text-white/70'
+                  }`}>
+                    {item.highlight}
+                  </span>
+                )}
                 {item.label}
               </Link>
             )
@@ -286,7 +303,8 @@ export const MainHeader: React.FC = () => {
               </Link>
               <Link to="/register">
                 <Button className="rounded-full bg-[linear-gradient(135deg,#f97316,#fb7185)] px-5 text-white shadow-[0_16px_36px_rgba(249,115,22,0.28)] hover:opacity-95">
-                  Start Free
+                  Start Planning
+                  <ArrowRight className="ml-2 h-4 w-4" />
                 </Button>
               </Link>
             </>
@@ -310,7 +328,7 @@ export const MainHeader: React.FC = () => {
         <div className="border-t border-white/10 bg-[rgba(247,246,242,0.96)] px-4 py-4 backdrop-blur-xl lg:hidden">
           <div className="mx-auto max-w-7xl space-y-3">
             {navigationItems.map((item) => {
-              const isActive = item.id === 'services' ? isServicesActive : isNavItemActive(item.path)
+              const isActive = item.id === 'more' ? isMoreActive : isNavItemActive(item.path)
 
               if (item.dropdown?.length) {
                 return (
@@ -361,7 +379,16 @@ export const MainHeader: React.FC = () => {
                       : 'border-slate-200 bg-white text-slate-800'
                   }`}
                 >
-                  {item.label}
+                  <span className="flex items-center justify-between gap-3">
+                    <span>{item.label}</span>
+                    {item.highlight && (
+                      <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.18em] ${
+                        isActive ? 'bg-white/12 text-white' : 'bg-slate-100 text-slate-500'
+                      }`}>
+                        {item.highlight}
+                      </span>
+                    )}
+                  </span>
                 </Link>
               )
             })}
@@ -391,7 +418,7 @@ export const MainHeader: React.FC = () => {
                   </Link>
                   <Link to="/register" onClick={() => setIsMobileMenuOpen(false)}>
                     <Button className="w-full rounded-full bg-[linear-gradient(135deg,#f97316,#fb7185)] text-white shadow-[0_16px_36px_rgba(249,115,22,0.24)]">
-                      Start Free
+                      Start Planning
                     </Button>
                   </Link>
                 </>

@@ -907,6 +907,15 @@ try {
   console.error('❌ Failed to load place details routes:', error);
 }
 
+// Load free place image resolver routes
+try {
+  const freePlaceImagesRouter = (await import('./routes/free-place-images.js')).default;
+  app.use('/api/free-place-images', freePlaceImagesRouter);
+  console.log('✅ Free place image routes loaded');
+} catch (error) {
+  console.error('❌ Failed to load free place image routes:', error);
+}
+
 
 
 
@@ -1846,14 +1855,34 @@ const tripPlanSchema = new mongoose.Schema({
     day: Number,
     date: String,
     theme: String,
+    dayGoal: String,
+    energyLevel: String,
+    estimatedTravelTime: String,
+    estimatedDayCost: String,
+    mustDo: String,
+    optionalAddOn: String,
+    weatherBackup: String,
+    overnight: {
+      name: String,
+      price: String,
+      note: String
+    },
     activities: [{
       timeSlot: String,
       activityType: String,
       activityTitle: String,
+      placeName: String,
+      city: String,
+      country: String,
       details: String,
       cost: String,
       notes: String,
+      estimatedDuration: String,
+      priority: String,
+      travelNote: String,
       imageUrl: String,
+      imageSource: String,
+      isRepresentativeImage: Boolean,
       googleMapsUrl: String,
       isVisited: { type: Boolean, default: false },
       visitedDate: Date,
@@ -1865,22 +1894,30 @@ const tripPlanSchema = new mongoose.Schema({
       location: String,
       googlePlaceId: String,
       fullAddress: String,
-      overnight: {
-        name: String,
-        price: String,
-        note: String
-      }
     }]
   }],
   tripOverview: {
     totalTravelDays: String,
+    summaryHeadline: String,
+    whyThisTripFits: [String],
+    routeStrategy: [String],
+    tradeoffs: [String],
     keyAttractions: [String],
     transportSummary: String,
     hotels: [String],
     estimatedTotalBudget: String,
+    budgetPerDay: String,
     tripStyle: String,
     bestFor: [String],
-    accommodationType: String
+    accommodationType: String,
+    bookingPriority: [String],
+    saveMoneyTips: [String],
+    upgradeIdeas: [String],
+    paceScore: String,
+    travelEfficiency: String,
+    startingLocation: String,
+    transportPreference: String,
+    stayPreference: String
   },
   expenseBreakdown: {
     fixed: {
@@ -1929,6 +1966,8 @@ const tripPlanSchema = new mongoose.Schema({
     default: 'draft'
   },
   coverImageUrl: String,
+  coverImageSource: String,
+  coverIsRepresentativeImage: Boolean,
   shareId: String,
   localId: String,
   createdAt: { type: Date, default: Date.now }

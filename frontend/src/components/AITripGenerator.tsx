@@ -10,6 +10,16 @@ interface AITripGeneratorProps {
   onClose?: () => void
   selectedPlaces?: any[]
   mode?: 'modal' | 'page'
+  initialValues?: Partial<{
+    destination: string
+    duration: string
+    travelers: string
+    budget: string
+    travelStyle: string
+    startingLocation: string
+    notes: string
+    mustSee: string
+  }>
 }
 
 const generationSteps = [
@@ -24,26 +34,26 @@ export const AITripGenerator: React.FC<AITripGeneratorProps> = ({
   onClose,
   selectedPlaces = [],
   mode = 'modal',
+  initialValues,
 }) => {
   const { config } = useConfig()
   const { user } = useAuth()
   const [formData, setFormData] = useState({
-    destination:
-      selectedPlaces.length > 0
-        ? `${selectedPlaces[0].location.city}, ${selectedPlaces[0].location.country}`
-        : '',
-    duration: '3 days',
-    travelers: '1',
-    budget: 'medium',
-    travelStyle: 'balanced',
-    startingLocation: '',
+    destination: initialValues?.destination || (selectedPlaces.length > 0
+      ? `${selectedPlaces[0].location.city}, ${selectedPlaces[0].location.country}`
+      : ''),
+    duration: initialValues?.duration || '3 days',
+    travelers: initialValues?.travelers || '1',
+    budget: initialValues?.budget || 'medium',
+    travelStyle: initialValues?.travelStyle || 'balanced',
+    startingLocation: initialValues?.startingLocation || '',
     transportPreference: 'balanced',
     stayPreference: 'comfortable',
     currency: 'USD',
     startDate: '',
     endDate: '',
-    notes: '',
-    mustSee: '',
+    notes: initialValues?.notes || '',
+    mustSee: initialValues?.mustSee || '',
     avoid: '',
   })
   const [generating, setGenerating] = useState(false)

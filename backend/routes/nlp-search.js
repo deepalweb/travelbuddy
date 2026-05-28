@@ -1,5 +1,6 @@
 import express from 'express';
 import OpenAI from 'openai';
+import { resolveFreePlaceImage } from '../services/freePlaceImageService.js';
 
 const router = express.Router();
 
@@ -66,7 +67,7 @@ router.get('/search', async (req, res) => {
     }
 
     // Generate AI planning ideas
-    const ideas = Array.from({ length: parseInt(limit) }, (_, i) => {
+    const rawIdeas = Array.from({ length: parseInt(limit) }, (_, i) => {
       const names = {
         restaurant: ['The Spice Garden', 'Ocean View Restaurant', 'Heritage Kitchen', 'Royal Dining', 'Sunset Grill', 'Garden Cafe', 'Fusion Bistro', 'Local Flavors'],
         hotel: ['Grand Palace Hotel', 'Seaside Resort', 'Heritage Manor', 'Royal Suites', 'Paradise Inn', 'Luxury Lodge', 'Comfort Stay', 'Elite Hotel'],
@@ -96,7 +97,6 @@ router.get('/search', async (req, res) => {
           }
         },
         highlights: ['Useful planning anchor', 'Good fit for itinerary drafting', 'Worth pressure-testing'],
-        image: `https://source.unsplash.com/800x600/?${category},${loc.name.replace(/\s/g, '')}`,
         photos: [],
         contact: { phone: '+94 11 234 5678', website: 'https://example.com' },
         openHours: 'Open daily 9:00 AM - 6:00 PM',
@@ -106,6 +106,24 @@ router.get('/search', async (req, res) => {
         planningRole: i === 0 ? 'strong starter' : i < 3 ? 'good fit' : 'optional add-on',
       };
     });
+
+    const ideas = await Promise.all(
+      rawIdeas.map(async (idea) => {
+        const imageResult = await resolveFreePlaceImage({
+          name: idea.name,
+          category: idea.category,
+          city: idea.location.city,
+          country: idea.location.country,
+        });
+
+        return {
+          ...idea,
+          image: imageResult.image,
+          imageSource: imageResult.imageSource,
+          isRepresentativeImage: imageResult.isRepresentative,
+        };
+      })
+    );
 
     res.json({
       results: ideas,

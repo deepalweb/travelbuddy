@@ -11,10 +11,28 @@ import { ImageWithFallback } from '../components/ImageWithFallback'
 // Type alias for compatibility
 type Trip = TripPlan
 
+const buildTripCoverPlaceholder = (destination: string) =>
+  `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(`
+    <svg xmlns="http://www.w3.org/2000/svg" width="1400" height="900" viewBox="0 0 1400 900">
+      <defs>
+        <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stop-color="#07111f" />
+          <stop offset="100%" stop-color="#1e3a5f" />
+        </linearGradient>
+      </defs>
+      <rect width="1400" height="900" fill="url(#bg)" />
+      <circle cx="250" cy="180" r="140" fill="#7dd3fc" opacity="0.1" />
+      <circle cx="1180" cy="720" r="180" fill="#f8fafc" opacity="0.08" />
+      <text x="700" y="410" text-anchor="middle" font-family="Arial, sans-serif" font-size="34" fill="#cbd5e1" letter-spacing="6">TRIP COVER</text>
+      <text x="700" y="500" text-anchor="middle" font-family="Arial, sans-serif" font-size="64" fill="#f8fafc" font-weight="700">${destination.replace(/&/g, '&amp;')}</text>
+      <text x="700" y="570" text-anchor="middle" font-family="Arial, sans-serif" font-size="26" fill="#cbd5e1">No verified cover image was available for this trip.</text>
+    </svg>
+  `)}`
+
 const getCoverImage = (trip: Trip) =>
   trip.coverImageUrl ||
   trip.dailyItinerary?.flatMap((day) => day.activities || []).find((activity) => activity.imageUrl)?.imageUrl ||
-  `https://picsum.photos/seed/${encodeURIComponent(`${trip.destination}-${trip._id}`)}/1400/900`
+  buildTripCoverPlaceholder(trip.destination)
 
 
 export const TripDetailPage: React.FC = () => {
@@ -59,30 +77,30 @@ export const TripDetailPage: React.FC = () => {
     // Create default expense breakdown if missing
     const expenseBreakdown = tripData.expenseBreakdown || {
       fixed: {
-        accommodation: { desc: 'Estimated', cost: 'Var' },
-        transport: { desc: 'Estimated', cost: 'Var' },
-        tickets: { desc: 'Estimated', cost: 'Var' }
+        accommodation: { desc: 'Accommodation', cost: 'Not provided' },
+        transport: { desc: 'Transport', cost: 'Not provided' },
+        tickets: { desc: 'Tickets', cost: 'Not provided' }
       },
       variable: {
-        dining: { desc: 'Estimated', cost: 'Var' },
-        localTransport: { desc: 'Estimated', cost: 'Var' }
+        dining: { desc: 'Dining', cost: 'Not provided' },
+        localTransport: { desc: 'Local transport', cost: 'Not provided' }
       },
       total: tripData.totalEstimatedCost || 'N/A'
     }
 
     // Create default preparation if missing
     const preTripPreparation = tripData.preTripPreparation || {
-      booking: ['Check flights', 'Book accommodation'],
-      packing: ['Standard travel essentials'],
-      weather: 'Check local forecast',
-      notes: tripData.travelTips || ['Verify visa requirements']
+      booking: [],
+      packing: [],
+      weather: 'Forecast details were not provided.',
+      notes: tripData.travelTips || []
     }
 
     // Create default overview if missing
     const tripOverview = tripData.tripOverview || {
       totalTravelDays: tripData.duration || 'N/A',
       keyAttractions: [],
-      transportSummary: 'Local transport available',
+      transportSummary: 'Transport details were not provided.',
       hotels: [],
       estimatedTotalBudget: tripData.totalEstimatedCost || 'N/A'
     }
@@ -462,11 +480,24 @@ export const TripDetailPage: React.FC = () => {
                                 </div>
                               </div>
                               {activity.imageUrl && (
-                                <ImageWithFallback
-                                  src={activity.imageUrl}
-                                  alt={activity.activityTitle}
-                                  className="mt-3 h-48 w-full max-w-sm rounded-lg object-cover shadow-sm"
-                                />
+                                <div className="mt-3 max-w-sm">
+                                  <ImageWithFallback
+                                    src={activity.imageUrl}
+                                    alt={activity.activityTitle}
+                                    className="h-48 w-full rounded-lg object-cover shadow-sm"
+                                  />
+                                  {(activity.imageSource || activity.isRepresentativeImage) && (
+                                    <div className="mt-2 flex flex-wrap gap-2">
+                                      <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-semibold ${
+                                        activity.isRepresentativeImage
+                                          ? 'bg-amber-100 text-amber-900'
+                                          : 'bg-emerald-100 text-emerald-900'
+                                      }`}>
+                                        {activity.isRepresentativeImage ? 'Representative image' : `Image source: ${activity.imageSource}`}
+                                      </span>
+                                    </div>
+                                  )}
+                                </div>
                               )}
                             </td>
                             <td className="p-4 text-sm font-semibold text-green-700 align-top">

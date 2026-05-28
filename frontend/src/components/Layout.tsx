@@ -5,9 +5,16 @@ import { Footer } from './Footer'
 import { OptimizedHomePage } from './OptimizedHomePage'
 import { ProfilePage } from '../pages/ProfilePage'
 import DiscoveryPage from '../pages/DiscoveryPage'
+import DestinationDiscoveryPage from '../pages/DestinationDiscoveryPage'
 import PlaceDetailsPage from '../pages/PlaceDetailsPage'
 import { TripPlanningPage } from '../pages/TripPlanningPage'
 import { TripDetailPage } from '../pages/TripDetailPage'
+import { PlanningComparePage } from '../pages/PlanningComparePage'
+import { PlanningAssistantPage } from '../pages/PlanningAssistantPage'
+import { PlanningPreparePage } from '../pages/PlanningPreparePage'
+import { SavedPlansWorkspacePage } from '../pages/SavedPlansWorkspacePage'
+import { TripPrioritiesPage } from '../pages/TripPrioritiesPage'
+import { TripRealityCheckerPage } from '../pages/TripRealityCheckerPage'
 import { TravelAgentsPage } from '../pages/TravelAgentsPage'
 import { TransportationPage } from '../pages/TransportationPage'
 import { TravelPreferencesPage } from '../pages/TravelPreferencesPage'
@@ -42,6 +49,12 @@ export const Layout: React.FC = () => {
   const location = useLocation()
   const tripPlannerPaths = new Set([
     '/trips',
+    '/trips/priorities',
+    '/trips/reality',
+    '/trips/compare',
+    '/trips/assistant',
+    '/trips/prepare',
+    '/trips/saved',
   ])
   
   if (isLoading) {
@@ -98,19 +111,31 @@ export const Layout: React.FC = () => {
         // Show landing page for unauthenticated users, dashboard for authenticated
         return <OptimizedHomePage />
       case '/discovery':
-        return <Navigate to="/trips" replace />
+        return <DestinationDiscoveryPage />
       case '/compare':
-        return <Navigate to="/trips" replace />
+        return <Navigate to="/trips/compare" replace />
       case '/prepare':
-        return <Navigate to="/trips" replace />
+        return <Navigate to="/trips/prepare" replace />
       case '/assistant':
-        return <Navigate to="/trips" replace />
+        return <Navigate to="/trips/assistant" replace />
       case '/saved-plans':
-        return <Navigate to="/trips" replace />
+        return <Navigate to="/trips/saved" replace />
       case '/places':
         return <Navigate to="/trips" replace />
       case '/trips':
         return <TripPlanningPage />
+      case '/trips/priorities':
+        return <TripPrioritiesPage />
+      case '/trips/reality':
+        return <TripRealityCheckerPage />
+      case '/trips/compare':
+        return <PlanningComparePage />
+      case '/trips/assistant':
+        return <PlanningAssistantPage />
+      case '/trips/prepare':
+        return <PlanningPreparePage />
+      case '/trips/saved':
+        return <SavedPlansWorkspacePage />
       case '/services':
       case '/agents':
         return <TravelAgentsPage />
@@ -145,7 +170,7 @@ export const Layout: React.FC = () => {
       case '/settings':
         return <SettingsPage />
       default:
-        return <DiscoveryPage /> // Default to discovery page
+        return <DiscoveryPage />
     }
   }
   

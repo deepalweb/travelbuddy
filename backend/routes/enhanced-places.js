@@ -2,6 +2,7 @@ import express from 'express';
 import fetch from 'node-fetch';
 import OpenAI from 'openai';
 import { AzureMapsSearch } from '../services/azureMapsSearch.js';
+import { resolveFreePlaceImage } from '../services/freePlaceImageService.js';
 
 const router = express.Router();
 
@@ -87,12 +88,17 @@ Generate JSON:
   }
 }
 
-// Step 3: Format for frontend with Unsplash photos
-function formatPlaceForFrontend(azurePlace, aiEnhancement) {
-  const photoUrl = `https://source.unsplash.com/800x600/?${encodeURIComponent(azurePlace.name)},travel`;
+// Step 3: Format for frontend with free image resolution
+async function formatPlaceForFrontend(azurePlace, aiEnhancement) {
   const addressParts = (azurePlace.formatted_address || '').split(',').map((part) => part.trim()).filter(Boolean);
   const inferredCountry = addressParts.length > 0 ? addressParts[addressParts.length - 1] : 'Unknown country';
   const inferredCity = addressParts.length > 1 ? addressParts[addressParts.length - 2] : inferredCountry;
+  const imageResult = await resolveFreePlaceImage({
+    name: azurePlace.name,
+    category: azurePlace.types?.[0] || 'attraction',
+    city: inferredCity,
+    country: inferredCountry,
+  });
 
   return {
     id: azurePlace.place_id,
@@ -110,7 +116,7 @@ function formatPlaceForFrontend(azurePlace, aiEnhancement) {
         lng: azurePlace.geometry.location.lng
       }
     },
-    image: photoUrl,
+    image: imageResult.image,
     highlights: aiEnhancement.highlights,
     bestTime: aiEnhancement.bestTime,
     insiderTip: aiEnhancement.insiderTip,
@@ -121,6 +127,8 @@ function formatPlaceForFrontend(azurePlace, aiEnhancement) {
       website: azurePlace.website || "Available on details"
     },
     tags: azurePlace.types?.slice(0, 3) || [],
+    imageSource: imageResult.imageSource,
+    isRepresentativeImage: imageResult.isRepresentative,
     source: 'azure_ai_enhanced',
     itemType: 'ai_stop_idea',
     trustNote: 'AI-shaped planning suggestion based on map data. Confirm current details independently.',

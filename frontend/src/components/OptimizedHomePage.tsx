@@ -1,9 +1,11 @@
-import React from 'react'
+import React, { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import {
   ArrowRight,
+  Clock3,
   Compass,
+  MapPin,
   MessageSquareText,
   Sparkles,
   Tag,
@@ -72,6 +74,15 @@ const communityStories = getCommunityStories().slice(0, 3)
 
 export const OptimizedHomePage: React.FC = () => {
   const { user } = useAuth()
+  const [heroDestination, setHeroDestination] = useState('')
+  const [heroDays, setHeroDays] = useState('4')
+
+  const quickPlanHref = useMemo(() => {
+    const destination = heroDestination.trim()
+    if (!destination) return '/trips'
+
+    return `/trips?destination=${encodeURIComponent(destination)}&days=${heroDays}&quick=true`
+  }, [heroDestination, heroDays])
 
   return (
     <div className="overflow-hidden bg-[linear-gradient(180deg,#f7f6f2_0%,#ffffff_28%,#f4f7fb_100%)] text-slate-900">
@@ -93,57 +104,158 @@ export const OptimizedHomePage: React.FC = () => {
           }}
         />
 
-        <div className="relative mx-auto grid max-w-7xl gap-10 px-4 pb-16 pt-32 sm:px-6 lg:grid-cols-[1.08fr_0.92fr] lg:px-8 lg:pb-20 lg:pt-36">
+        <div className="relative mx-auto grid max-w-7xl gap-10 px-4 pb-16 pt-32 sm:px-6 lg:grid-cols-[1.04fr_0.96fr] lg:px-8 lg:pb-20 lg:pt-36">
           <div>
             <span className="inline-flex items-center rounded-full border border-white/14 bg-white/10 px-4 py-2 text-xs font-semibold uppercase tracking-[0.24em] text-white/72">
               AI Trip Planner
             </span>
-            <h1 className="font-heading mt-6 max-w-3xl text-5xl font-semibold leading-[1.04] tracking-tight text-white sm:text-6xl">
-              AI trip planner for better travel itineraries and smarter trip decisions.
+            <h1 className="font-heading mt-6 max-w-3xl text-5xl font-semibold leading-[1.02] tracking-tight text-white sm:text-6xl">
+              Plan the trip before the tabs, screenshots, and guesswork take over.
             </h1>
-            <p className="mt-5 max-w-xl text-lg leading-8 text-white/74">
-              Build a trip itinerary from one clear brief, improve it with community travel insight, and keep
-              travel deals close while planning Sri Lanka trips and other journeys.
+            <p className="mt-5 max-w-2xl text-lg leading-8 text-white/74">
+              Start with a destination, trip length, and budget mindset. TravelBuddy turns that brief into a clearer
+              itinerary draft, then keeps community insight and useful deals close while you shape the plan.
             </p>
 
-            <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-              <Link to="/trips">
-                <Button className="rounded-full bg-[linear-gradient(135deg,#f97316,#fb7185)] px-6 py-3 text-white shadow-[0_16px_40px_rgba(249,115,22,0.28)]">
-                  Start Planning
+              <div className="mt-8 flex flex-wrap gap-3">
+              <Link to="/discovery">
+                <Button className="rounded-full bg-[linear-gradient(135deg,#f97316,#fb7185)] px-6 text-white shadow-[0_16px_40px_rgba(249,115,22,0.28)]">
+                  Find My Destination
                   <ArrowRight className="ml-2 h-4 w-4" />
                 </Button>
               </Link>
-              <Link to="/community">
-                <Button variant="outline" className="rounded-full border-white/24 bg-white/8 px-6 py-3 text-white hover:bg-white/12">
-                  Explore Community
+              <Link to={quickPlanHref} className={!heroDestination.trim() ? 'pointer-events-none' : ''}>
+                <Button
+                  variant="outline"
+                  className="rounded-full border-white/18 bg-white/8 px-6 text-white hover:bg-white/12 disabled:opacity-50"
+                  disabled={!heroDestination.trim()}
+                >
+                  Quick Planner
                 </Button>
               </Link>
+            </div>
+
+            <div className="mt-6 flex flex-wrap gap-3">
+              <span className="rounded-full border border-white/14 bg-white/8 px-4 py-2 text-sm font-medium text-white/82">
+                AI itinerary drafts
+              </span>
+              <span className="rounded-full border border-white/14 bg-white/8 px-4 py-2 text-sm font-medium text-white/82">
+                Community travel context
+              </span>
+              <span className="rounded-full border border-white/14 bg-white/8 px-4 py-2 text-sm font-medium text-white/82">
+                Deals that support the plan
+              </span>
+            </div>
+
+            <div className="mt-8 grid gap-3 sm:max-w-2xl sm:grid-cols-3">
+              <div className="rounded-[1.4rem] border border-white/12 bg-white/10 px-4 py-4 backdrop-blur-md">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-white/56">Starting point</p>
+                <p className="mt-2 text-lg font-semibold text-white">One trip brief</p>
+                <p className="mt-1 text-sm leading-6 text-white/74">Destination, days, pace, and budget in one place.</p>
+              </div>
+              <div className="rounded-[1.4rem] border border-white/12 bg-white/10 px-4 py-4 backdrop-blur-md">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-white/56">Output</p>
+                <p className="mt-2 text-lg font-semibold text-white">Cleaner first draft</p>
+                <p className="mt-1 text-sm leading-6 text-white/74">A plan with route logic and daily structure.</p>
+              </div>
+              <div className="rounded-[1.4rem] border border-white/12 bg-white/10 px-4 py-4 backdrop-blur-md">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-white/56">Decision help</p>
+                <p className="mt-2 text-lg font-semibold text-white">Less planning noise</p>
+                <p className="mt-1 text-sm leading-6 text-white/74">Keep context and savings near the itinerary.</p>
+              </div>
             </div>
           </div>
 
           <div>
             <Card className="border-white/12 bg-[rgba(255,255,255,0.92)] shadow-[0_24px_60px_rgba(8,15,34,0.22)]">
               <CardContent className="p-6 lg:p-7">
-                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">How it works</p>
+                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Quick start</p>
                 <h2 className="mt-3 font-heading text-3xl font-semibold tracking-tight text-slate-950">
-                  Plan a trip itinerary in one focused flow.
+                  Build a trip draft from a real starting point.
                 </h2>
+                <p className="mt-3 text-sm leading-7 text-slate-600">
+                  Use the planner like a brief, not a blank page. Start here and move into the full trip workspace with useful context.
+                </p>
+
                 <div className="mt-6 space-y-4">
-                  <div className="rounded-[1.3rem] bg-[linear-gradient(180deg,#f8fafc_0%,#eef4fb_100%)] p-4">
-                    <p className="text-sm font-semibold text-slate-900">1. Start with destination and trip details</p>
-                    <p className="mt-1 text-sm leading-7 text-slate-600">
-                      Add destination, duration, travel dates, and budget.
-                    </p>
+                  <div className="relative">
+                    <MapPin className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-sky-700" />
+                    <input
+                      type="text"
+                      value={heroDestination}
+                      onChange={(event) => setHeroDestination(event.target.value)}
+                      placeholder="Where to? Try Ella, Kyoto, Bali, or Paris"
+                      className="w-full rounded-[1.35rem] border border-slate-200 bg-white px-12 py-4 text-sm font-medium text-slate-900 outline-none transition focus:border-sky-300 focus:ring-4 focus:ring-sky-100"
+                    />
                   </div>
-                  <div className="rounded-[1.3rem] bg-[linear-gradient(180deg,#f8fafc_0%,#eef4fb_100%)] p-4">
-                    <p className="text-sm font-semibold text-slate-900">2. Generate an AI trip plan</p>
-                    <p className="mt-1 text-sm leading-7 text-slate-600">
-                      Get an itinerary draft with route logic, pacing, and daily structure.
-                    </p>
+
+                  <div className="grid gap-3 sm:grid-cols-[0.9fr_1.1fr]">
+                    <div className="relative">
+                      <Clock3 className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-amber-600" />
+                      <select
+                        value={heroDays}
+                        onChange={(event) => setHeroDays(event.target.value)}
+                        className="w-full appearance-none rounded-[1.35rem] border border-slate-200 bg-white px-12 py-4 text-sm font-medium text-slate-900 outline-none transition focus:border-amber-300 focus:ring-4 focus:ring-amber-100"
+                      >
+                        {[2, 3, 4, 5, 7, 10, 14].map((day) => (
+                          <option key={day} value={day}>
+                            {day} days
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <Link to={quickPlanHref} className={!heroDestination.trim() ? 'pointer-events-none' : ''}>
+                      <Button
+                        className="w-full rounded-[1.35rem] bg-[linear-gradient(135deg,#f97316,#fb7185)] px-6 py-4 text-white shadow-[0_16px_40px_rgba(249,115,22,0.22)] hover:opacity-95 disabled:opacity-50"
+                        disabled={!heroDestination.trim()}
+                      >
+                        Start Planning
+                        <ArrowRight className="ml-2 h-4 w-4" />
+                      </Button>
+                    </Link>
                   </div>
-                  <div className="rounded-[1.3rem] bg-slate-950 px-4 py-4 text-white">
-                    <p className="text-xs uppercase tracking-[0.18em] text-white/52">Core travel tools</p>
-                    <p className="mt-2 text-lg font-semibold">Trip Planner, travel community, and deals</p>
+
+                  <div className="grid gap-3 sm:grid-cols-3">
+                    <div className="rounded-[1.2rem] bg-[linear-gradient(180deg,#f8fafc_0%,#eef4fb_100%)] p-4">
+                      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Step 1</p>
+                      <p className="mt-2 text-sm font-semibold text-slate-900">Set the trip frame</p>
+                      <p className="mt-1 text-sm leading-6 text-slate-600">Destination and trip length first.</p>
+                    </div>
+                    <div className="rounded-[1.2rem] bg-[linear-gradient(180deg,#f8fafc_0%,#eef4fb_100%)] p-4">
+                      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Step 2</p>
+                      <p className="mt-2 text-sm font-semibold text-slate-900">Generate the draft</p>
+                      <p className="mt-1 text-sm leading-6 text-slate-600">Get itinerary structure before editing details.</p>
+                    </div>
+                    <div className="rounded-[1.2rem] bg-slate-950 px-4 py-4 text-white">
+                      <p className="text-xs uppercase tracking-[0.18em] text-white/52">Step 3</p>
+                      <p className="mt-2 text-sm font-semibold">Refine with community and deals</p>
+                      <p className="mt-1 text-sm leading-6 text-white/68">Improve the plan with context, not clutter.</p>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-col gap-3 border-t border-slate-200 pt-4 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Not sure where to go yet?</p>
+                      <p className="mt-1 text-sm leading-6 text-slate-600">Use the new destination finder to get ranked travel ideas before planning.</p>
+                    </div>
+                    <div className="flex gap-3">
+                      <Link to="/discovery">
+                        <Button variant="outline" className="rounded-full border-slate-300 bg-white px-5 text-slate-800 hover:bg-slate-50">
+                          Find Destination
+                        </Button>
+                      </Link>
+                      <Link to="/community">
+                        <Button variant="outline" className="rounded-full border-slate-300 bg-white px-5 text-slate-800 hover:bg-slate-50">
+                          Community
+                        </Button>
+                      </Link>
+                      <Link to="/deals">
+                        <Button variant="outline" className="rounded-full border-slate-300 bg-white px-5 text-slate-800 hover:bg-slate-50">
+                          Deals
+                        </Button>
+                      </Link>
+                    </div>
                   </div>
                 </div>
               </CardContent>

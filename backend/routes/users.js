@@ -60,6 +60,39 @@ function sanitizeTripPlanForSchema(tripPlan) {
     }
   }
 
+  if (sanitized.preTripPreparation && typeof sanitized.preTripPreparation === 'object') {
+    sanitized.preTripPreparation = { ...sanitized.preTripPreparation };
+
+    if (sanitized.preTripPreparation.weather && typeof sanitized.preTripPreparation.weather !== 'string') {
+      const value = sanitized.preTripPreparation.weather;
+
+      if (Array.isArray(value)) {
+        sanitized.preTripPreparation.weather = value
+          .map((item) => {
+            if (typeof item === 'string') {
+              return item.trim();
+            }
+
+            if (item && typeof item === 'object') {
+              const candidate = item.text || item.note || item.description || item.title;
+              return typeof candidate === 'string' ? candidate.trim() : '';
+            }
+
+            return '';
+          })
+          .filter(Boolean)
+          .join(' ');
+      } else if (value && typeof value === 'object') {
+        sanitized.preTripPreparation.weather = Object.values(value)
+          .filter((item) => typeof item === 'string' && item.trim())
+          .map((item) => item.trim())
+          .join(' ');
+      } else {
+        sanitized.preTripPreparation.weather = String(value);
+      }
+    }
+  }
+
   return sanitized;
 }
 

@@ -34,6 +34,8 @@ export interface PlanningIdea {
   itemType?: string
   trustNote?: string
   planningRole?: string
+  imageSource?: string
+  isRepresentativeImage?: boolean
 }
 
 export interface PlanningIdeaSearchResponse {
@@ -262,6 +264,29 @@ class ApiService {
       console.error('Place details failed:', error)
       throw error
     }
+  }
+
+  async resolveFreePlaceImage(params: {
+    name: string
+    category?: string
+    city?: string
+    country?: string
+  }) {
+    const query = new URLSearchParams({
+      name: params.name,
+      category: params.category || '',
+      city: params.city || '',
+      country: params.country || '',
+    })
+
+    return this.request<{
+      success: boolean
+      image: string
+      gallery: string[]
+      imageSource: string
+      isRepresentative: boolean
+      imageAttribution?: string
+    }>(`/free-place-images/resolve?${query}`)
   }
 
   // Health check

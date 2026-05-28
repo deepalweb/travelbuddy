@@ -92,18 +92,12 @@ const PlaceDetailsPage: React.FC = () => {
   const [showGallery, setShowGallery] = useState(false)
   const [aiContent, setAiContent] = useState<PlaceAIContent | null>(null)
   const [aiLoading, setAiLoading] = useState(false)
+  const [imageMeta, setImageMeta] = useState<{ source?: string; isRepresentative?: boolean }>({})
 
   useEffect(() => {
     if (existingPlace) {
       // Convert existing place data to PlaceDetails format
-      const galleryImages = [
-        existingPlace.image,
-        `https://source.unsplash.com/1200x800/?${encodeURIComponent(existingPlace.name)},interior`,
-        `https://source.unsplash.com/1200x800/?${encodeURIComponent(existingPlace.name)},exterior`,
-        `https://source.unsplash.com/1200x800/?${encodeURIComponent(existingPlace.category)},${encodeURIComponent(existingPlace.location.city)}`,
-        `https://source.unsplash.com/1200x800/?${encodeURIComponent(existingPlace.name)},architecture`,
-        `https://source.unsplash.com/1200x800/?${encodeURIComponent(existingPlace.category)},travel`
-      ]
+      const galleryImages = [existingPlace.image]
       
       const convertedPlace: PlaceDetails = {
         id: existingPlace.id,
@@ -140,6 +134,10 @@ const PlaceDetailsPage: React.FC = () => {
         similarPlaces: []
       }
       setPlace(convertedPlace)
+      setImageMeta({
+        source: existingPlace.imageSource,
+        isRepresentative: existingPlace.isRepresentativeImage,
+      })
       setLoading(false)
     } else if (placeId) {
       loadPlaceDetails(placeId)
@@ -150,6 +148,43 @@ const PlaceDetailsPage: React.FC = () => {
     if (place) {
       loadAIContent(place)
     }
+  }, [place?.id])
+
+  useEffect(() => {
+    const resolveImage = async () => {
+      if (!place) return
+
+      try {
+        const imageResult = await apiService.resolveFreePlaceImage({
+          name: place.name,
+          category: place.category,
+          city: place.location.city,
+          country: place.location.country,
+        })
+
+        setPlace((current) => {
+          if (!current) return current
+
+          return {
+            ...current,
+            images: {
+              hero: imageResult.image,
+              gallery: imageResult.gallery.length > 0 ? imageResult.gallery : [imageResult.image],
+              count: imageResult.gallery.length > 0 ? imageResult.gallery.length : 1,
+            },
+          }
+        })
+
+        setImageMeta({
+          source: imageResult.imageSource,
+          isRepresentative: imageResult.isRepresentative,
+        })
+      } catch (error) {
+        console.error('Failed to resolve free place image:', error)
+      }
+    }
+
+    resolveImage()
   }, [place?.id])
 
   const loadPlaceDetails = async (id: string) => {
@@ -325,7 +360,7 @@ const PlaceDetailsPage: React.FC = () => {
       {/* Hero Image */}
       <div className="relative h-96 overflow-hidden bg-gray-200">
         <img 
-          src={place.images.hero || `https://source.unsplash.com/1200x800/?${encodeURIComponent(place.name)},${encodeURIComponent(place.location.city)}`} 
+          src={place.images.hero} 
           alt={place.name}
           className="w-full h-full object-cover transition-all duration-500"
           loading="eager"
@@ -340,15 +375,9 @@ const PlaceDetailsPage: React.FC = () => {
             const loader = target.parentElement?.querySelector('.hero-loader')
             if (loader) loader.classList.add('hidden')
             
-            if (!target.src.includes('source.unsplash.com')) {
-              target.src = `https://source.unsplash.com/1200x800/?${encodeURIComponent(place.name)},travel,landmark`
-            } else if (!target.src.includes('picsum.photos')) {
-              target.src = `https://picsum.photos/seed/${Math.abs(place.name.split('').reduce((a, b) => { a = ((a << 5) - a) + b.charCodeAt(0); return a & a; }, 0))}/1200/800`
-            } else {
-              target.style.display = 'none'
-              const placeholder = target.parentElement?.querySelector('.hero-placeholder')
-              if (placeholder) placeholder.classList.remove('hidden')
-            }
+            target.style.display = 'none'
+            const placeholder = target.parentElement?.querySelector('.hero-placeholder')
+            if (placeholder) placeholder.classList.remove('hidden')
           }}
           style={{ opacity: 0 }}
         />
@@ -398,6 +427,13 @@ const PlaceDetailsPage: React.FC = () => {
                 <MapPin className="h-4 w-4 mr-2" />
                 <span>{place.location.address}</span>
               </div>
+              {imageMeta.source && (
+                <div className="mb-4">
+                  <Badge className={imageMeta.isRepresentative ? 'bg-amber-100 text-amber-900' : 'bg-emerald-100 text-emerald-900'}>
+                    {imageMeta.isRepresentative ? 'Representative image' : `Image source: ${imageMeta.source}`}
+                  </Badge>
+                </div>
+              )}
             </div>
 
             {/* Action Buttons */}
@@ -526,12 +562,7 @@ const PlaceDetailsPage: React.FC = () => {
                         const target = e.target as HTMLImageElement
                         const loader = target.parentElement?.querySelector('.gallery-loader')
                         if (loader) loader.classList.add('hidden')
-                        
-                        if (!target.src.includes('source.unsplash.com')) {
-                          target.src = `https://source.unsplash.com/600x400/?${encodeURIComponent(place.name)},travel,photo${index}`
-                        } else {
-                          target.src = `https://picsum.photos/seed/${encodeURIComponent(place.id + index)}/600/400`
-                        }
+                        target.style.display = 'none'
                       }}
                       style={{ opacity: 0 }}
                     />
@@ -778,7 +809,7 @@ const PlaceDetailsPage: React.FC = () => {
                       const target = e.target as HTMLImageElement
                       const loader = target.parentElement?.querySelector('.similar-loader')
                       if (loader) loader.classList.add('hidden')
-                      target.src = `https://source.unsplash.com/400x300/?${encodeURIComponent(similarPlace.name)},${encodeURIComponent(similarPlace.category)}`
+                      target.style.display = 'none'
                     }}
                     style={{ opacity: 0 }}
                   />
@@ -835,12 +866,7 @@ const PlaceDetailsPage: React.FC = () => {
                   const target = e.target as HTMLImageElement
                   const loader = target.parentElement?.querySelector('.modal-loader')
                   if (loader) loader.classList.add('hidden')
-                  
-                  if (!target.src.includes('source.unsplash.com')) {
-                    target.src = `https://source.unsplash.com/1200x800/?${encodeURIComponent(place.name)},travel,photo${currentImageIndex}`
-                  } else {
-                    target.src = `https://picsum.photos/seed/${encodeURIComponent(place.id + currentImageIndex)}/1200/800`
-                  }
+                  target.style.display = 'none'
                 }}
                 style={{ opacity: 0 }}
               />

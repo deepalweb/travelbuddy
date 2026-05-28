@@ -86,16 +86,9 @@ const PlaceCard: React.FC<PlaceCardProps> = ({
     const target = e.target as HTMLImageElement
     const loader = target.parentElement?.querySelector('.image-loader')
     if (loader) loader.classList.add('hidden')
-    
-    if (!target.src.includes('source.unsplash.com')) {
-      target.src = `https://source.unsplash.com/800x600/?${encodeURIComponent(place.category)},${encodeURIComponent(place.location.country)},travel`
-    } else if (!target.src.includes('picsum.photos')) {
-      target.src = `https://picsum.photos/seed/${Math.abs(place.name.split('').reduce((a, b) => { a = ((a << 5) - a) + b.charCodeAt(0); return a & a; }, 0))}/800/600`
-    } else {
-      target.style.display = 'none'
-      const placeholder = target.parentElement?.querySelector('.image-placeholder')
-      if (placeholder) placeholder.classList.remove('hidden')
-    }
+    target.style.display = 'none'
+    const placeholder = target.parentElement?.querySelector('.image-placeholder')
+    if (placeholder) placeholder.classList.remove('hidden')
   }
 
   const handleImageLoad = (e: React.SyntheticEvent<HTMLImageElement>) => {
@@ -119,7 +112,7 @@ const PlaceCard: React.FC<PlaceCardProps> = ({
         {/* Image Container */}
         <div className="relative w-full h-48 bg-gray-200 overflow-hidden">
           <img 
-            src={place.image || `https://source.unsplash.com/800x600/?${encodeURIComponent(place.name)},${encodeURIComponent(place.category)},${encodeURIComponent(place.location.city)}`} 
+            src={place.image} 
             alt={place.name}
             className="w-full h-48 object-cover transition-all duration-300 hover:scale-105"
             loading="lazy"

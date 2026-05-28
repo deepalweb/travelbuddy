@@ -1,10 +1,14 @@
 import React from 'react'
 import { Link, useLocation } from 'react-router-dom'
-import { Compass, FolderHeart, GitCompareArrows } from 'lucide-react'
+import { Bot, Compass, FolderHeart, GitCompareArrows, ListChecks, ShieldAlert, ClipboardList } from 'lucide-react'
 
 const plannerItems = [
   { label: 'Plan', path: '/trips', icon: Compass },
+  { label: 'Prioritize', path: '/trips/priorities', icon: ListChecks },
+  { label: 'Reality', path: '/trips/reality', icon: ShieldAlert },
   { label: 'Compare', path: '/trips/compare', icon: GitCompareArrows },
+  { label: 'Assistant', path: '/trips/assistant', icon: Bot },
+  { label: 'Prepare', path: '/trips/prepare', icon: ClipboardList },
   { label: 'Saved Plans', path: '/trips/saved', icon: FolderHeart },
 ]
 
