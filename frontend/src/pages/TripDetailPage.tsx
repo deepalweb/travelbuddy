@@ -7,6 +7,7 @@ import { tripService } from '../services/tripService'
 import type { TripPlan } from '../services/tripService'
 import { useApp } from '../contexts/AppContext'
 import { ImageWithFallback } from '../components/ImageWithFallback'
+import { calculateTripConfidence } from '../lib/tripConfidence'
 
 // Type alias for compatibility
 type Trip = TripPlan
@@ -213,6 +214,7 @@ export const TripDetailPage: React.FC = () => {
 
   const visitProgress = getVisitProgress(trip)
   const planningReadiness = getPlanningReadiness(trip)
+  const confidence = calculateTripConfidence(trip)
 
   return (
     <div className="min-h-screen bg-gray-50 font-sans text-gray-900">
@@ -242,8 +244,8 @@ export const TripDetailPage: React.FC = () => {
               <p className="mt-2 text-3xl font-semibold">{planningReadiness}%</p>
             </div>
             <div className="rounded-2xl border border-white/10 bg-white/10 p-4 backdrop-blur-sm">
-              <p className="text-xs uppercase tracking-[0.18em] text-white/60">Visit progress</p>
-              <p className="mt-2 text-3xl font-semibold">{visitProgress}%</p>
+              <p className="text-xs uppercase tracking-[0.18em] text-white/60">Trip confidence</p>
+              <p className="mt-2 text-3xl font-semibold">{confidence.overall}%</p>
             </div>
             <div className="rounded-2xl border border-white/10 bg-white/10 p-4 backdrop-blur-sm">
               <p className="text-xs uppercase tracking-[0.18em] text-white/60">Planning stage</p>
@@ -254,6 +256,83 @@ export const TripDetailPage: React.FC = () => {
       </div>
 
       <div className="max-w-7xl mx-auto px-4 py-8 space-y-12">
+        <section>
+          <div className="grid gap-6 lg:grid-cols-[0.9fr_1.1fr]">
+            <Card className="bg-white shadow-sm border-t-4 border-sky-500">
+              <CardContent className="p-6">
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Confidence Summary</p>
+                <h2 className="mt-3 text-3xl font-semibold text-slate-900">{confidence.summary}</h2>
+                <p className="mt-3 text-sm leading-7 text-slate-600">
+                  This score helps answer the traveler’s real question: “Can I trust this plan to feel good in real life, not just on paper?”
+                </p>
+                <div className="mt-5 flex items-center gap-3">
+                  <div className="h-3 flex-1 overflow-hidden rounded-full bg-slate-200">
+                    <div
+                      className={`h-full rounded-full ${
+                        confidence.tone === 'strong'
+                          ? 'bg-emerald-500'
+                          : confidence.tone === 'watch'
+                            ? 'bg-amber-500'
+                            : 'bg-rose-500'
+                      }`}
+                      style={{ width: `${confidence.overall}%` }}
+                    />
+                  </div>
+                  <span className="text-lg font-semibold text-slate-900">{confidence.overall}%</span>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="bg-white shadow-sm border-t-4 border-violet-500">
+              <CardContent className="p-6">
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">What Drives The Score</p>
+                <div className="mt-5 grid gap-3 sm:grid-cols-2">
+                  {confidence.categories.map((category) => (
+                    <div key={category.key} className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                      <div className="flex items-center justify-between gap-3">
+                        <p className="text-sm font-semibold text-slate-900">{category.label}</p>
+                        <span className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ${
+                          category.tone === 'strong'
+                            ? 'bg-emerald-100 text-emerald-800'
+                            : category.tone === 'watch'
+                              ? 'bg-amber-100 text-amber-800'
+                              : 'bg-rose-100 text-rose-800'
+                        }`}>
+                          {category.score}%
+                        </span>
+                      </div>
+                      <p className="mt-2 text-sm leading-6 text-slate-600">{category.summary}</p>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          <div className="mt-6 grid gap-6 lg:grid-cols-2">
+            <Card className="bg-white shadow-sm border-t-4 border-emerald-500">
+              <CardContent className="p-6">
+                <h3 className="text-lg font-bold text-slate-900">What looks strong</h3>
+                <ul className="mt-4 list-inside list-disc space-y-2 text-sm text-slate-600">
+                  {confidence.strengths.length > 0 ? confidence.strengths.map((item, index) => (
+                    <li key={index}>{item}</li>
+                  )) : <li>No major strengths were detected yet.</li>}
+                </ul>
+              </CardContent>
+            </Card>
+
+            <Card className="bg-white shadow-sm border-t-4 border-amber-500">
+              <CardContent className="p-6">
+                <h3 className="text-lg font-bold text-slate-900">What still needs attention</h3>
+                <ul className="mt-4 list-inside list-disc space-y-2 text-sm text-slate-600">
+                  {confidence.warnings.length > 0 ? confidence.warnings.map((item, index) => (
+                    <li key={index}>{item}</li>
+                  )) : <li>No major warnings were detected from the current draft.</li>}
+                </ul>
+              </CardContent>
+            </Card>
+          </div>
+        </section>
 
         {/* Trip Overview Section */}
         {trip.tripOverview && (

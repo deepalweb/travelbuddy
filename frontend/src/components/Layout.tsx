@@ -7,14 +7,8 @@ import { ProfilePage } from '../pages/ProfilePage'
 import DiscoveryPage from '../pages/DiscoveryPage'
 import DestinationDiscoveryPage from '../pages/DestinationDiscoveryPage'
 import PlaceDetailsPage from '../pages/PlaceDetailsPage'
-import { TripPlanningPage } from '../pages/TripPlanningPage'
+import { TripPlanningResetPage } from '../pages/TripPlanningResetPage'
 import { TripDetailPage } from '../pages/TripDetailPage'
-import { PlanningComparePage } from '../pages/PlanningComparePage'
-import { PlanningAssistantPage } from '../pages/PlanningAssistantPage'
-import { PlanningPreparePage } from '../pages/PlanningPreparePage'
-import { SavedPlansWorkspacePage } from '../pages/SavedPlansWorkspacePage'
-import { TripPrioritiesPage } from '../pages/TripPrioritiesPage'
-import { TripRealityCheckerPage } from '../pages/TripRealityCheckerPage'
 import { TravelAgentsPage } from '../pages/TravelAgentsPage'
 import { TransportationPage } from '../pages/TransportationPage'
 import { TravelPreferencesPage } from '../pages/TravelPreferencesPage'
@@ -47,15 +41,7 @@ export const Layout: React.FC = () => {
   const { currentPage } = useApp()
   const { user, isLoading, logout } = useAuth()
   const location = useLocation()
-  const tripPlannerPaths = new Set([
-    '/trips',
-    '/trips/priorities',
-    '/trips/reality',
-    '/trips/compare',
-    '/trips/assistant',
-    '/trips/prepare',
-    '/trips/saved',
-  ])
+  const tripPlannerPaths = new Set(['/trips'])
   
   if (isLoading) {
     return (
@@ -77,6 +63,8 @@ export const Layout: React.FC = () => {
     '/role-selection',
     '/',
     '/home',
+    '/discovery',
+    '/trips',
     '/community',
     '/deals',
     '/events',
@@ -113,29 +101,20 @@ export const Layout: React.FC = () => {
       case '/discovery':
         return <DestinationDiscoveryPage />
       case '/compare':
-        return <Navigate to="/trips/compare" replace />
       case '/prepare':
-        return <Navigate to="/trips/prepare" replace />
       case '/assistant':
-        return <Navigate to="/trips/assistant" replace />
       case '/saved-plans':
-        return <Navigate to="/trips/saved" replace />
+      case '/trips/priorities':
+      case '/trips/reality':
+      case '/trips/compare':
+      case '/trips/assistant':
+      case '/trips/prepare':
+      case '/trips/saved':
+        return <Navigate to="/trips" replace />
       case '/places':
         return <Navigate to="/trips" replace />
       case '/trips':
-        return <TripPlanningPage />
-      case '/trips/priorities':
-        return <TripPrioritiesPage />
-      case '/trips/reality':
-        return <TripRealityCheckerPage />
-      case '/trips/compare':
-        return <PlanningComparePage />
-      case '/trips/assistant':
-        return <PlanningAssistantPage />
-      case '/trips/prepare':
-        return <PlanningPreparePage />
-      case '/trips/saved':
-        return <SavedPlansWorkspacePage />
+        return <TripPlanningResetPage />
       case '/services':
       case '/agents':
         return <TravelAgentsPage />

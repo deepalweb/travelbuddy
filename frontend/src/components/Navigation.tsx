@@ -11,7 +11,7 @@ import { cn } from '../lib/utils'
 const navItems = [
   { id: 'home', label: 'Home', icon: Home, path: '/home' },
   { id: 'discover', label: 'Discover', icon: Compass, path: '/discovery' },
-  { id: 'trips', label: 'Trip Planning', icon: Map, path: '/trips' },
+  { id: 'trips', label: 'Plan', icon: Map, path: '/trips' },
   { id: 'deals', label: 'Deals', icon: Tag, path: '/deals' },
   { id: 'news', label: 'News', icon: Newspaper, path: '/news' },
   { id: 'community', label: 'Community', icon: Users, path: '/community' },

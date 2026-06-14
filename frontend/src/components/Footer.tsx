@@ -46,20 +46,20 @@ export const Footer: React.FC = () => {
               </div>
               <div>
                 <h3 className="font-heading text-2xl font-semibold tracking-tight">TravelBuddy</h3>
-                <p className="text-sm uppercase tracking-[0.22em] text-white/50">AI trip planning studio</p>
+                <p className="text-sm uppercase tracking-[0.22em] text-white/50">Smart travel decision assistant</p>
               </div>
             </div>
 
             <p className="mt-6 text-base leading-8 text-white/72">
-              A calmer way to build trips: generate a plan, shape it with community insight, and keep the useful
-              travel tools close without turning the app into a maze.
+              A calmer way to make travel decisions: discover where to go, use community context, and keep the useful
+              trip tools close while the planner is rebuilt more simply.
             </p>
 
             <div className="mt-8 grid gap-3 sm:grid-cols-3">
               <div className="rounded-[1.35rem] border border-white/10 bg-white/6 p-4">
                 <Sparkles className="h-5 w-5 text-sky-300" />
-                <p className="mt-3 text-sm font-semibold">AI trip planning</p>
-                <p className="mt-1 text-sm text-white/58">Start from one smart brief.</p>
+                <p className="mt-3 text-sm font-semibold">Planner reset</p>
+                <p className="mt-1 text-sm text-white/58">We cleared the old trip module.</p>
               </div>
               <div className="rounded-[1.35rem] border border-white/10 bg-white/6 p-4">
                 <Users className="h-5 w-5 text-amber-300" />

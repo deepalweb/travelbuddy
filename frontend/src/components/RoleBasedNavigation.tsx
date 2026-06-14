@@ -17,7 +17,7 @@ export const RoleBasedNavigation: React.FC<RoleBasedNavigationProps> = ({
   const getNavigationItems = () => {
     const baseItems = [
       { to: '/', label: 'Explore', icon: <MapPin className="w-4 h-4" /> },
-      { to: '/trips', label: 'My Trips', icon: <Calendar className="w-4 h-4" /> }
+      { to: '/trips', label: 'Plan', icon: <Calendar className="w-4 h-4" /> }
     ]
 
     const roleSpecificItems = {

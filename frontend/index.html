@@ -38,19 +38,20 @@
       gtag('config', 'G-4F3SD0WVQ8');
     </script>
     
-    <!-- Google Maps API -->
-    <script>
-      // Load Google Maps API with a demo key for development
-      const script = document.createElement('script');
-      script.src = 'https://maps.googleapis.com/maps/api/js?key=AIzaSyBFw0Qbyq9zTFTd-tUY6dZWTgaQzuU17R8&libraries=places';
-      script.async = true;
-      script.defer = true;
-      document.head.appendChild(script);
-    </script>
   </head>
   <body>
     <div id="root"></div>
     <script src="/config.js"></script>
+    <script>
+      const googleMapsApiKey = window.ENV?.VITE_GOOGLE_MAPS_API_KEY;
+      if (googleMapsApiKey && !googleMapsApiKey.startsWith('#{')) {
+        const script = document.createElement('script');
+        script.src = `https://maps.googleapis.com/maps/api/js?key=${googleMapsApiKey}&libraries=places`;
+        script.async = true;
+        script.defer = true;
+        document.head.appendChild(script);
+      }
+    </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

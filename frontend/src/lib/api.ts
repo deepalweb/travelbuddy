@@ -1,4 +1,5 @@
 import { configService } from '../services/configService'
+import type { TripPlanInput, TripPlanResult } from '../types/tripPlan'
 
 let API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001'
 
@@ -50,6 +51,29 @@ export interface PlanningIdeaSearchResponse {
   }
 }
 
+export interface DiscoveryRecommendationPayload {
+  origin?: string
+  departure: string
+  month: string
+  budget: string
+  budgetTotal?: number
+  duration: string
+  durationDays?: number
+  travelerType: string
+  interests: string[]
+  avoid?: string[]
+  tripNotes?: string
+}
+
+export interface TripPlanGenerateResponse {
+  success: boolean
+  tripPlan: TripPlanResult
+  meta?: {
+    source?: string
+  }
+  error?: string
+}
+
 class ApiService {
   private async getBaseUrl(): Promise<string> {
     try {
@@ -77,7 +101,12 @@ class ApiService {
       
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({ message: 'Network error' }))
-        throw new Error(errorData.message || `HTTP ${response.status}: ${response.statusText}`)
+        throw new Error(
+          errorData.message ||
+          errorData.error ||
+          errorData.details ||
+          `HTTP ${response.status}: ${response.statusText}`
+        )
       }
       
       const data = await response.json()
@@ -354,6 +383,26 @@ class ApiService {
       method: 'POST',
       headers: { 'Authorization': `Bearer ${token}` },
       body: JSON.stringify(params)
+    })
+  }
+
+  async getDiscoveryRecommendations(payload: DiscoveryRecommendationPayload) {
+    return this.request<{
+      recommendations: any[]
+      meta?: {
+        source?: string
+        count?: number
+      }
+    }>('/ai/discovery-recommendations', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    })
+  }
+
+  async generateTripPlan(payload: TripPlanInput) {
+    return this.request<TripPlanGenerateResponse>('/trip-plan/generate', {
+      method: 'POST',
+      body: JSON.stringify(payload),
     })
   }
 

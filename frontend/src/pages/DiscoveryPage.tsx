@@ -15,7 +15,6 @@ import PlaceGridDisplay from '../components/PlaceGridDisplay'
 import ExploreMoreButton from '../components/ExploreMoreButton'
 import SortControls from '../components/SortControls'
 import PlaceComparison from '../components/PlaceComparison'
-import { PlannerWorkspaceNav } from '../components/PlannerWorkspaceNav'
 
 import { usePlaceSorting } from '../hooks/usePlaceSorting'
 
@@ -266,7 +265,6 @@ const DiscoveryPage: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <PlannerWorkspaceNav />
       {/* Hero Section */}
       <div className="bg-gradient-to-br from-blue-600 via-purple-600 to-indigo-700 text-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">

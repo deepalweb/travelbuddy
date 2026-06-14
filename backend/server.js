@@ -1057,13 +1057,13 @@ try {
   console.error('❌ Failed to load NLP search routes:', error);
 }
 
-// Load AI trip generator routes (Google Places + AI Enhancement)
+// Load structured trip planning routes
 try {
-  const aiTripGeneratorRouter = (await import('./routes/ai-trip-generator.js')).default;
-  app.use('/api/ai-trips', aiTripGeneratorRouter);
-  console.log('✅ AI trip generator routes loaded');
+  const tripPlanningRouter = (await import('./routes/trip-planning.js')).default;
+  app.use('/api/trip-plan', tripPlanningRouter);
+  console.log('✅ Structured trip planning routes loaded');
 } catch (error) {
-  console.error('❌ Failed to load AI trip generator routes:', error);
+  console.error('❌ Failed to load structured trip planning routes:', error);
 }
 
 // Load posts routes
@@ -6583,15 +6583,6 @@ try {
   console.log('✅ Deals routes loaded');
 } catch (error) {
   console.error('❌ Failed to load deals routes:', error);
-}
-
-// AI Trip Generator routes
-try {
-  const aiTripsRouter = (await import('./routes/ai-trip-generator.js')).default;
-  app.use('/api/ai-trips', aiTripsRouter);
-  console.log('✅ AI Trip routes loaded');
-} catch (error) {
-  console.error('❌ Failed to load AI Trip routes:', error);
 }
 
 // General AI routes

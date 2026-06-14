@@ -4,6 +4,7 @@ import {
   ArrowRight,
   Bell,
   ChevronDown,
+  ClipboardList,
   Compass,
   Heart,
   LogOut,
@@ -36,10 +37,9 @@ type NavigationItem = {
 
 const navigationItems: NavigationItem[] = [
   { id: 'home', label: 'Home', path: '/', icon: Compass },
-  { id: 'discover', label: 'Find Destination', path: '/discovery', icon: Compass, highlight: 'New' },
-  { id: 'planner', label: 'Plan a Trip', path: '/trips', icon: Sparkles, highlight: 'Core' },
-  { id: 'deals', label: 'Deals', path: '/deals', icon: Tag },
-  { id: 'community', label: 'Community', path: '/community', icon: Users },
+  { id: 'discover', label: 'Discover', path: '/discovery', icon: Compass, highlight: 'Core' },
+  { id: 'planner', label: 'Plan', path: '/trips', icon: Sparkles, highlight: 'Reset' },
+  { id: 'my-trips', label: 'Trips', path: '/trips', icon: ClipboardList },
   {
     id: 'more',
     label: 'More',
@@ -147,7 +147,7 @@ export const MainHeader: React.FC = () => {
               TravelBuddy
             </p>
             <p className={`text-xs uppercase tracking-[0.24em] ${isScrolled ? 'text-slate-500' : 'text-white/58'}`}>
-              Plan. Share. Go.
+              Decide. Plan. Go.
             </p>
           </div>
         </Link>
@@ -303,7 +303,7 @@ export const MainHeader: React.FC = () => {
               </Link>
               <Link to="/register">
                 <Button className="rounded-full bg-[linear-gradient(135deg,#f97316,#fb7185)] px-5 text-white shadow-[0_16px_36px_rgba(249,115,22,0.28)] hover:opacity-95">
-                  Start Planning
+                  Find My Trip
                   <ArrowRight className="ml-2 h-4 w-4" />
                 </Button>
               </Link>
@@ -418,7 +418,7 @@ export const MainHeader: React.FC = () => {
                   </Link>
                   <Link to="/register" onClick={() => setIsMobileMenuOpen(false)}>
                     <Button className="w-full rounded-full bg-[linear-gradient(135deg,#f97316,#fb7185)] text-white shadow-[0_16px_36px_rgba(249,115,22,0.24)]">
-                      Start Planning
+                      Find My Trip
                     </Button>
                   </Link>
                 </>

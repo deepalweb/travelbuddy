@@ -191,7 +191,7 @@ class TripService {
     return value
   }
 
-  private normalizeTripPlanForSave(tripPlan: Omit<TripPlan, 'id'> & { userId?: string }) {
+  private normalizeTripPlanForSave(tripPlan: Omit<TripPlan, '_id' | 'createdAt'> & { userId?: string }) {
     const normalizedTripPlan: Record<string, any> = {
       ...tripPlan,
       planningStatus: tripPlan.planningStatus || 'draft',
@@ -436,7 +436,7 @@ class TripService {
   }
 
   // Create trip plan
-  async createTrip(tripPlan: Omit<TripPlan, 'id'> & { userId?: string }): Promise<TripPlan | null> {
+  async createTrip(tripPlan: Omit<TripPlan, '_id' | 'createdAt'> & { userId?: string }): Promise<TripPlan | null> {
     try {
       const headers = await this.getAuthHeaders()
       const response = await this.request<TripPlan>('/users/trip-plans', {

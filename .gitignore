@@ -41,6 +41,7 @@ build/
 **/dist/
 **/build/
 out/
+*.zip
 
 # Logs
 *.log
@@ -63,6 +64,7 @@ coverage/
 .tmp/
 temp/
 .temp/
+backend/temp_*.txt
 
 # OS generated files
 .DS_Store
@@ -154,11 +156,6 @@ ssl/
 .cache/
 *.cache
 
-# Package manager
-package-lock.json
-yarn.lock
-pnpm-lock.yaml
-# Environment variables
-.env
-backend/.env
-frontend/.env
+# Runtime uploads and local runtime config
+backend/uploads/
+backend/public/config.local.js
