@@ -8,7 +8,7 @@ import ErrorBoundary from './components/ErrorBoundaryNew'
 import { RouteErrorBoundary } from './components/RouteErrorBoundary'
 import { LoginPage } from './pages/LoginPage'
 import { RegisterPage } from './pages/RegisterPage'
-import { TripDetailPage } from './pages/TripDetailPage'
+import { SavedTripPlanRoute } from './pages/SavedTripPlanRoute'
 import PlaceDetailsPage from './pages/PlaceDetailsPage'
 import { AgentRegistration } from './pages/AgentRegistration'
 
@@ -79,7 +79,7 @@ const AppContent: React.FC = () => {
             <Route path="/transport-registration" element={<TransportRegistration />} />
             <Route path="/transportation" element={<TransportationPage />} />
             <Route path="/subscription" element={<SubscriptionPage />} />
-            <Route path="/trips/:id" element={<TripDetailPage />} />
+            <Route path="/trips/:id" element={<SavedTripPlanRoute />} />
             <Route path="/places/:id" element={<PlaceDetailsPage />} />
             <Route path="/community/story/:id" element={<StoryDetailPage />} />
             <Route path="/admin" element={<AdminPanel />} />

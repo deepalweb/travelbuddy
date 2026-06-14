@@ -185,7 +185,7 @@ function normalizePlaceList(value) {
   const seen = new Set();
   return (Array.isArray(value) ? value : []).filter((place) => {
     const key = String(place?.name || '').trim().toLowerCase();
-    if (!key || isPlaceholderPlace(key) || seen.has(key)) {
+    if (!key || isPlaceholderPlace(key) || isGenericPlaceName(key) || seen.has(key)) {
       return false;
     }
     seen.add(key);
@@ -193,28 +193,40 @@ function normalizePlaceList(value) {
   });
 }
 
+function normalizeActivityTitle(activity, placeName) {
+  const title = String(activity?.title || '').trim();
+  if (title && !isPlaceholderPlace(title)) {
+    return title;
+  }
+
+  if (placeName) {
+    return `Visit ${placeName}`;
+  }
+
+  const titlesByType = {
+    food: 'Meal break',
+    rest: 'Rest and recharge',
+    transport: 'Travel and check-in',
+    shopping: 'Browse local shops',
+    experience: 'Local experience',
+    nature: 'Outdoor time',
+    culture: 'Cultural visit',
+    attraction: 'Sightseeing visit',
+  };
+
+  return titlesByType[String(activity?.type || '').toLowerCase()] || 'Flexible trip time';
+}
+
 function normalizeTripPlanResult(result, input) {
   const source = result && typeof result === 'object' ? result : {};
   const sourceDays = Array.isArray(source.days) ? source.days : [];
   const sourceHasWeakDays = sourceDays.some((day) => !Array.isArray(day?.activities) || day.activities.length < 2);
-  const sourceHasPlaceholders =
-    (Array.isArray(source.mustDo) && source.mustDo.some((place) => isPlaceholderPlace(place?.name))) ||
-    (Array.isArray(source.optional) && source.optional.some((place) => isPlaceholderPlace(place?.name))) ||
-    sourceDays.some((day) =>
-      (day?.activities || []).some(
-        (activity) => isPlaceholderPlace(activity?.placeName) || isPlaceholderPlace(activity?.title)
-      )
-    );
   if (sourceDays.length !== input.durationDays) {
     throw new Error(`AI trip plan must include exactly ${input.durationDays} day objects.`);
   }
 
   if (sourceHasWeakDays) {
     throw new Error('AI trip plan must include at least two activities for every day.');
-  }
-
-  if (sourceHasPlaceholders) {
-    throw new Error('AI trip plan included placeholder place names.');
   }
 
   const normalizedDays = sourceDays
@@ -227,13 +239,16 @@ function normalizeTripPlanResult(result, input) {
       editSuggestions: toStringArray(day.editSuggestions),
       activities: day.activities.map((activity) => {
         const placeName =
-          activity.placeName && !isPlaceholderPlace(activity.placeName)
+          activity.placeName &&
+          !isPlaceholderPlace(activity.placeName) &&
+          !isGenericPlaceName(activity.placeName)
             ? String(activity.placeName).trim()
             : undefined;
         const exactPlace = canOpenExactPlace({ ...activity, placeName });
 
         return {
           ...activity,
+          title: normalizeActivityTitle(activity, placeName),
           placeName,
           googleMapsUrl: exactPlace
             ? buildGoogleMapsUrl(placeName, input.destination)

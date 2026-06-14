@@ -173,6 +173,7 @@ Important:
 - Do not guess a full address. Leave fullAddress empty unless you are confident it is correct.
 - Leave googleMapsUrl empty. The server creates safe Google Maps search links from accepted real place names.
 - Only put a value in placeName when it is a specific named venue, attraction, park, museum, temple, or restaurant. Use an empty string for generic meals, broad neighborhoods, and labels such as "local dining area".
+- Activity title should describe what the traveler does. Generic activity titles are acceptable, but they must never be copied into placeName.
 - Respect arrival and departure times. Keep the first and last day lighter when those times reduce usable hours.
 - Adapt walking, heat exposure, crowds, cost, and pace to the traveler's avoid preferences.
 - Meal suggestions should recommend a food or neighborhood, not invent a restaurant.

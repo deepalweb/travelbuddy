@@ -12,6 +12,7 @@ import {
   CloudSun,
   Compass,
   ExternalLink,
+  FolderHeart,
   Footprints,
   Gauge,
   Heart,
@@ -106,7 +107,7 @@ const validateGeneratedPlan = (plan: TripPlanResult) => {
     plan.optional?.some((place) => isPlaceholderPlace(place.name)) ||
     plan.days.some((day) =>
       day.activities.some(
-        (activity) => isPlaceholderPlace(activity.title) || isPlaceholderPlace(activity.placeName || ''),
+        (activity) => isPlaceholderPlace(activity.placeName || ''),
       ),
     )
 
@@ -141,14 +142,27 @@ const ScoreRing = ({ score }: { score: number }) => (
   </div>
 )
 
-export const TripPlanningResetPage: React.FC = () => {
+type SavedPlanMetadata = {
+  generatedPlan?: TripPlanResult
+  input?: TripPlanInput
+}
+
+type TripPlanningResetPageProps = {
+  savedTrip?: TripPlan
+}
+
+export const TripPlanningResetPage: React.FC<TripPlanningResetPageProps> = ({ savedTrip }) => {
   const location = useLocation()
   const navigate = useNavigate()
   const { user } = useAuth()
   const routeState = (location.state || {}) as DiscoveryState
   const params = useMemo(() => new URLSearchParams(location.search), [location.search])
+  const savedMetadata = (savedTrip?.metadata || {}) as SavedPlanMetadata
+  const savedPlan = savedMetadata.generatedPlan
+  const savedInput = savedMetadata.input
 
   const routeDestination =
+    savedPlan?.destination ||
     params.get('destination') ||
     [
       routeState.discoveryRecommendation?.name,
@@ -156,37 +170,57 @@ export const TripPlanningResetPage: React.FC = () => {
       routeState.discoveryRecommendation?.country,
     ].filter(Boolean).join(', ')
 
-  const initialInterests = splitParam(params.get('interests')).length
+  const initialInterests = savedInput?.interests?.length
+    ? savedInput.interests
+    : splitParam(params.get('interests')).length
     ? splitParam(params.get('interests'))
     : routeState.discoveryBrief?.interests || ['culture', 'food']
-  const initialAvoid = splitParam(params.get('avoid')).length
+  const initialAvoid = savedInput?.avoid?.length
+    ? savedInput.avoid
+    : splitParam(params.get('avoid')).length
     ? splitParam(params.get('avoid'))
     : routeState.discoveryBrief?.avoid || []
 
   const [destination, setDestination] = useState(routeDestination)
-  const initialDurationDays = Math.min(14, Math.max(1, Number(params.get('days')) || 4))
+  const initialDurationDays = Math.min(
+    14,
+    Math.max(1, savedPlan?.durationDays || savedInput?.durationDays || Number(params.get('days')) || 4),
+  )
   const [durationDays, setDurationDays] = useState(initialDurationDays)
-  const [startDate, setStartDate] = useState(params.get('startDate') || '')
+  const [startDate, setStartDate] = useState(savedInput?.startDate || params.get('startDate') || '')
   const [endDate, setEndDate] = useState(
+    savedInput?.endDate ||
     params.get('endDate') ||
-      (params.get('startDate') ? addDays(params.get('startDate') as string, initialDurationDays - 1) : ''),
+      (savedInput?.startDate
+        ? addDays(savedInput.startDate, initialDurationDays - 1)
+        : params.get('startDate')
+          ? addDays(params.get('startDate') as string, initialDurationDays - 1)
+          : ''),
   )
   const [travelerType, setTravelerType] = useState(
-    params.get('style') || routeState.discoveryBrief?.travelerType || 'couple',
+    savedInput?.travelerType?.replace('_', '-') ||
+      params.get('style') ||
+      routeState.discoveryBrief?.travelerType ||
+      'couple',
   )
   const [budgetLevel, setBudgetLevel] = useState(
-    params.get('budget') || routeState.discoveryBrief?.budget || 'mid-range',
+    savedInput?.budgetLevel?.replace('_', '-') ||
+      params.get('budget') ||
+      routeState.discoveryBrief?.budget ||
+      'mid-range',
   )
-  const [pace, setPace] = useState<'relaxed' | 'balanced' | 'packed'>('balanced')
-  const [plan, setPlan] = useState<TripPlanResult | null>(null)
+  const [pace, setPace] = useState<'relaxed' | 'balanced' | 'packed'>(savedInput?.pace || 'balanced')
+  const [plan, setPlan] = useState<TripPlanResult | null>(savedPlan || null)
   const [isGenerating, setIsGenerating] = useState(false)
   const [generationError, setGenerationError] = useState<string | null>(null)
-  const [expandedDays, setExpandedDays] = useState<number[]>([1])
+  const [expandedDays, setExpandedDays] = useState<number[]>(
+    savedPlan?.days.map((day) => day.day) || [1],
+  )
   const [editNotice, setEditNotice] = useState<string | null>(null)
   const [visitedPlaces, setVisitedPlaces] = useState<string[]>([])
   const [isSaving, setIsSaving] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
-  const [savedTripId, setSavedTripId] = useState<string | null>(null)
+  const [savedTripId, setSavedTripId] = useState<string | null>(savedTrip?._id || null)
 
   const input = useMemo<TripPlanInput>(
     () => ({
@@ -310,6 +344,10 @@ export const TripPlanningResetPage: React.FC = () => {
       avoid: initialAvoid,
       planningStatus: 'draft',
       coverImageUrl: routeState.discoveryRecommendation?.image,
+      metadata: {
+        generatedPlan,
+        input,
+      },
       introduction: generatedPlan.tripSummary.shortDescription,
       tripOverview: {
         totalTravelDays: `${generatedPlan.durationDays} days`,
@@ -529,6 +567,13 @@ export const TripPlanningResetPage: React.FC = () => {
               {!isGenerating && <WandSparkles className="mr-2 h-5 w-5" />}
               {isGenerating ? 'Building Smart Plan...' : plan ? 'Refresh Smart Plan' : 'Generate Smart Plan'}
             </Button>
+            {user && (
+              <Link to="/saved-plans">
+                <Button variant="outline" size="lg" className="shrink-0 rounded-full border-white/25 text-white hover:bg-white/10">
+                  <FolderHeart className="mr-2 h-5 w-5" />Saved Trips
+                </Button>
+              </Link>
+            )}
           </div>
         </div>
       </section>
@@ -640,9 +685,14 @@ export const TripPlanningResetPage: React.FC = () => {
               {saveError && <p className="mt-2 text-sm font-semibold text-rose-600">{saveError}</p>}
             </div>
             {savedTripId ? (
-              <Button onClick={() => navigate(`/trips/${savedTripId}`)} className="rounded-xl bg-emerald-600 text-white">
-                Open Saved Trip<ArrowRight className="ml-2 h-4 w-4" />
-              </Button>
+              <div className="flex flex-wrap gap-3">
+                <Button onClick={() => navigate(`/trips/${savedTripId}`)} className="rounded-xl bg-emerald-600 text-white">
+                  Open Saved Trip<ArrowRight className="ml-2 h-4 w-4" />
+                </Button>
+                <Button onClick={() => navigate('/saved-plans')} variant="outline" className="rounded-xl">
+                  View All Saved Trips
+                </Button>
+              </div>
             ) : (
               <Button onClick={savePlan} loading={isSaving} className="rounded-xl bg-slate-950 text-white">
                 {!isSaving && <Save className="mr-2 h-4 w-4" />}Save Trip Plan

@@ -39,7 +39,7 @@ const navigationItems: NavigationItem[] = [
   { id: 'home', label: 'Home', path: '/', icon: Compass },
   { id: 'discover', label: 'Discover', path: '/discovery', icon: Compass, highlight: 'Core' },
   { id: 'planner', label: 'Plan', path: '/trips', icon: Sparkles, highlight: 'Reset' },
-  { id: 'my-trips', label: 'Trips', path: '/trips', icon: ClipboardList },
+  { id: 'my-trips', label: 'Trips', path: '/saved-plans', icon: ClipboardList },
   {
     id: 'more',
     label: 'More',

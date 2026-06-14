@@ -8,7 +8,8 @@ import DiscoveryPage from '../pages/DiscoveryPage'
 import DestinationDiscoveryPage from '../pages/DestinationDiscoveryPage'
 import PlaceDetailsPage from '../pages/PlaceDetailsPage'
 import { TripPlanningResetPage } from '../pages/TripPlanningResetPage'
-import { TripDetailPage } from '../pages/TripDetailPage'
+import { SavedTripPlanRoute } from '../pages/SavedTripPlanRoute'
+import { SavedTripPlansPage } from '../pages/SavedTripPlansPage'
 import { TravelAgentsPage } from '../pages/TravelAgentsPage'
 import { TransportationPage } from '../pages/TransportationPage'
 import { TravelPreferencesPage } from '../pages/TravelPreferencesPage'
@@ -89,7 +90,7 @@ export const Layout: React.FC = () => {
     
     // Check if it's a trip details route
     if (location.pathname.startsWith('/trips/') && !tripPlannerPaths.has(location.pathname)) {
-      return <TripDetailPage />
+      return <SavedTripPlanRoute />
     }
     
     // Use URL path instead of currentPage state
@@ -103,7 +104,6 @@ export const Layout: React.FC = () => {
       case '/compare':
       case '/prepare':
       case '/assistant':
-      case '/saved-plans':
       case '/trips/priorities':
       case '/trips/reality':
       case '/trips/compare':
@@ -111,6 +111,8 @@ export const Layout: React.FC = () => {
       case '/trips/prepare':
       case '/trips/saved':
         return <Navigate to="/trips" replace />
+      case '/saved-plans':
+        return <SavedTripPlansPage />
       case '/places':
         return <Navigate to="/trips" replace />
       case '/trips':

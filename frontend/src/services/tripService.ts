@@ -108,6 +108,7 @@ export interface TripPlan {
   avoid?: string[]
   planningStatus?: 'draft' | 'ready' | 'booked' | 'in_progress' | 'completed'
   coverImageUrl?: string
+  metadata?: Record<string, unknown>
   introduction: string
   tripOverview: TripOverview
   dailyItinerary: DailyPlan[]
