@@ -1,6 +1,9 @@
 import express from 'express';
 import fetch from 'node-fetch';
-import { buildTripPlanPrompt } from '../lib/ai/buildTripPlanPrompt.js';
+import {
+  buildTripPlanPrompt,
+  TRIP_PLAN_SYSTEM_PROMPT,
+} from '../lib/ai/buildTripPlanPrompt.js';
 
 const router = express.Router();
 
@@ -316,7 +319,7 @@ async function callTripPlanningAI(prompt, options = {}) {
     messages: [
       {
         role: 'system',
-        content: "You are TravelBuddy's trip planning engine. Return only valid JSON.",
+        content: TRIP_PLAN_SYSTEM_PROMPT,
       },
       {
         role: 'user',
