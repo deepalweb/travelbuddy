@@ -363,6 +363,13 @@ async function callTripPlanningAI(prompt, options = {}) {
       }
 
       const errorText = await response.text();
+      if (response.status === 400 && /content_filter|ResponsibleAIPolicyViolation/i.test(errorText)) {
+        const error = new Error(
+          'The trip request was blocked by the AI safety filter. Remove unusual instructions from the notes and try again.'
+        );
+        error.code = 'AI_CONTENT_FILTER';
+        throw error;
+      }
       const retryable = [408, 429, 500, 502, 503, 504].includes(response.status);
       if (!retryable || attempt === maxAttempts) {
         throw new Error(`AI request failed with status ${response.status}: ${errorText}`);
@@ -485,7 +492,7 @@ router.post('/generate', async (req, res) => {
     return res.status(500).json({
       success: false,
       error:
-        error instanceof Error && /timed out|truncated|at least two activities|placeholder|JSON|day objects/i.test(error.message)
+        error instanceof Error && /timed out|truncated|at least two activities|placeholder|JSON|day objects|safety filter/i.test(error.message)
           ? error.message
           : 'Failed to generate trip plan.',
     });
