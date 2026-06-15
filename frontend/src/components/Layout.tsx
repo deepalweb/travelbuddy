@@ -9,7 +9,6 @@ import DestinationDiscoveryPage from '../pages/DestinationDiscoveryPage'
 import PlaceDetailsPage from '../pages/PlaceDetailsPage'
 import { TripPlanningResetPage } from '../pages/TripPlanningResetPage'
 import { SavedTripPlanRoute } from '../pages/SavedTripPlanRoute'
-import { SavedTripPlansPage } from '../pages/SavedTripPlansPage'
 import { TravelAgentsPage } from '../pages/TravelAgentsPage'
 import { TransportationPage } from '../pages/TransportationPage'
 import { TravelPreferencesPage } from '../pages/TravelPreferencesPage'
@@ -112,7 +111,7 @@ export const Layout: React.FC = () => {
       case '/trips/saved':
         return <Navigate to="/trips" replace />
       case '/saved-plans':
-        return <SavedTripPlansPage />
+        return <Navigate to="/trips?view=saved" replace />
       case '/places':
         return <Navigate to="/trips" replace />
       case '/trips':

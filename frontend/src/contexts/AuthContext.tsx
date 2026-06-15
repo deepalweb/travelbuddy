@@ -22,10 +22,16 @@ interface User {
   phone?: string
   bio?: string
   homeCity?: string
+  languages?: string[]
+  homeCurrency?: string
+  language?: string
+  travelPreferences?: Record<string, unknown>
+  socialLinks?: Array<{ platform: string; url: string }> | Record<string, string>
   tier?: string
   profilePicture?: string
   firebaseUid?: string
   role?: string
+  activeRole?: string
   isAdmin?: boolean
 }
 
@@ -254,10 +260,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           phone: userData.phone,
           bio: userData.bio,
           homeCity: userData.homeCity,
+          languages: userData.languages || [],
+          homeCurrency: userData.homeCurrency || 'USD',
+          language: userData.language || 'en',
+          travelPreferences: userData.travelPreferences || {},
+          socialLinks: userData.socialLinks || {},
           tier: userData.tier || 'free',
           profilePicture: userData.profilePicture,
           firebaseUid: firebaseUser.uid,
           role: userData.role || 'regular',
+          activeRole: userData.activeRole || userData.role || 'user',
           isAdmin: userData.isAdmin || false
         }
         setUser(userObj)

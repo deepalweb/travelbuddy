@@ -217,7 +217,19 @@ router.get('/profile', requireAuth, async (req, res) => {
 router.put('/profile', requireAuth, async (req, res) => {
   try {
     const User = getUser();
-    const allowed = ['username', 'fullName', 'phone', 'bio', 'profilePicture', 'homeCity', 'socialLinks', 'travelPreferences'];
+    const allowed = [
+      'username',
+      'fullName',
+      'phone',
+      'bio',
+      'profilePicture',
+      'homeCity',
+      'languages',
+      'homeCurrency',
+      'language',
+      'socialLinks',
+      'travelPreferences'
+    ];
     const updates = {};
     allowed.forEach(key => {
       if (req.body[key] !== undefined) updates[key] = req.body[key];
@@ -285,6 +297,9 @@ router.get('/:id/stats', async (req, res) => {
       phone: user.phone,
       bio: user.bio,
       homeCity: user.homeCity,
+      languages: user.languages,
+      homeCurrency: user.homeCurrency,
+      language: user.language,
       totalTrips: tripCount,
       totalFavorites: user.favoritePlaces?.length || 0,
       totalPosts: postCount,

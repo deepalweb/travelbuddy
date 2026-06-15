@@ -1,27 +1,27 @@
-import React, { useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { motion } from 'framer-motion'
+import { AnimatePresence, motion } from 'framer-motion'
 import {
   AlertTriangle,
   ArrowRight,
-  BadgeCheck,
   Banknote,
   CalendarDays,
   Check,
+  ChevronLeft,
   ChevronRight,
   CircleDollarSign,
   Clock3,
-  CloudSun,
   Compass,
   Footprints,
   Gauge,
   Globe2,
   Heart,
-  Lightbulb,
   ListChecks,
   Map,
   MapPin,
   Minus,
+  Pause,
+  Play,
   Route,
   Search,
   ShieldCheck,
@@ -29,7 +29,6 @@ import {
   Sun,
   Users,
   WandSparkles,
-  X,
 } from 'lucide-react'
 import { Button } from './Button'
 import { Card, CardContent } from './Card'
@@ -44,10 +43,38 @@ const fadeUp = {
 }
 
 const problems = [
-  { icon: Compass, title: 'Too many choices', text: "You want to travel, but don't know where to go." },
-  { icon: WandSparkles, title: 'Generic AI plans', text: 'Nice-looking itineraries are not always realistic ones.' },
-  { icon: AlertTriangle, title: 'Bad trip decisions', text: 'Wrong season, overloaded days, poor pacing, and budget surprises.' },
-  { icon: ListChecks, title: 'Hard to know what to skip', text: 'Trying to do everything can make a good trip exhausting.' },
+  {
+    icon: Compass,
+    title: 'Too many choices',
+    text: "You want to travel, but don't know where to go.",
+    image: 'https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=900&q=82',
+    alt: 'Traveler looking across a wide mountain landscape full of possible routes',
+    label: 'Where next?',
+  },
+  {
+    icon: WandSparkles,
+    title: 'Generic AI plans',
+    text: 'Nice-looking itineraries are not always realistic ones.',
+    image: 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?auto=format&fit=crop&w=900&q=82',
+    alt: 'Travel map and planning essentials arranged for building an itinerary',
+    label: 'Plan vs reality',
+  },
+  {
+    icon: AlertTriangle,
+    title: 'Bad trip decisions',
+    text: 'Wrong season, overloaded days, poor pacing, and budget surprises.',
+    image: 'https://images.unsplash.com/photo-1501785888041-af3ef285b470?auto=format&fit=crop&w=900&q=82',
+    alt: 'Traveler facing difficult terrain and changing mountain weather',
+    label: 'Hidden tradeoffs',
+  },
+  {
+    icon: ListChecks,
+    title: 'Hard to know what to skip',
+    text: 'Trying to do everything can make a good trip exhausting.',
+    image: 'https://images.unsplash.com/photo-1527631746610-bca00a040d60?auto=format&fit=crop&w=900&q=82',
+    alt: 'Travelers exploring a destination together during a busy sightseeing day',
+    label: 'Too much to do',
+  },
 ]
 
 const productSteps = [
@@ -57,6 +84,9 @@ const productSteps = [
     title: 'Discover',
     text: 'Find destinations based on your month, budget, travel style, and interests.',
     color: 'bg-sky-100 text-sky-700',
+    image: 'https://images.unsplash.com/photo-1488085061387-422e29b40080?auto=format&fit=crop&w=1200&q=82',
+    alt: 'Traveler exploring a scenic destination with a backpack',
+    imageLabel: 'Explore possibilities',
   },
   {
     icon: Gauge,
@@ -64,6 +94,9 @@ const productSteps = [
     title: 'Decide',
     text: 'Compare trip fit, budget confidence, weather risk, and travel complexity.',
     color: 'bg-amber-100 text-amber-700',
+    image: 'https://images.unsplash.com/photo-1522202176988-66273c2fd55f?auto=format&fit=crop&w=1200&q=82',
+    alt: 'Travelers comparing plans and making a decision together',
+    imageLabel: 'Compare with confidence',
   },
   {
     icon: Route,
@@ -71,6 +104,9 @@ const productSteps = [
     title: 'Plan',
     text: 'Build a realistic itinerary with must-do, optional, and skip suggestions.',
     color: 'bg-emerald-100 text-emerald-700',
+    image: 'https://images.unsplash.com/photo-1488646953014-85cb44e25828?auto=format&fit=crop&w=1200&q=82',
+    alt: 'Traveler reviewing an itinerary while waiting for a journey',
+    imageLabel: 'Shape the journey',
   },
 ]
 
@@ -95,7 +131,7 @@ const recommendations = [
     month: 'Excellent weather',
     budget: 'Premium',
     risk: 'Crowds at sunset',
-    image: 'https://images.unsplash.com/photo-1613395877344-13d4a8e0d49e?auto=format&fit=crop&w=900&q=82',
+    image: 'https://images.unsplash.com/photo-1570077188670-e3a8d69ac5ff?auto=format&fit=crop&w=900&q=82',
   },
   {
     rank: 3,
@@ -110,11 +146,109 @@ const recommendations = [
   },
 ]
 
+const heroDestinations = [
+  {
+    category: 'Beach Escape',
+    name: 'Maldives',
+    country: 'Indian Ocean',
+    description: 'Clear lagoons, soft sand, and slow days beside the water.',
+    match: 94,
+    image: 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=2200&q=88',
+    alt: 'White sand tropical beach beside clear turquoise water',
+  },
+  {
+    category: 'Mountain Journey',
+    name: 'Swiss Alps',
+    country: 'Switzerland',
+    description: 'High peaks, alpine villages, and unforgettable scenic routes.',
+    match: 93,
+    image: 'https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?auto=format&fit=crop&w=2200&q=88',
+    alt: 'Dramatic mountain peaks and alpine landscape in Switzerland',
+  },
+  {
+    category: 'Luxury Stay',
+    name: 'Private Island Resort',
+    country: 'Maldives',
+    description: 'Overwater suites, private pools, and polished island comfort.',
+    match: 91,
+    image: 'https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&w=2200&q=88',
+    alt: 'Luxury tropical resort hotel with a pool and palm trees',
+  },
+  {
+    category: 'Street Food',
+    name: 'Bangkok',
+    country: 'Thailand',
+    description: 'Night markets, sizzling local dishes, and streets full of flavor.',
+    match: 90,
+    image: 'https://images.unsplash.com/photo-1559314809-0d155014e29e?auto=format&fit=crop&w=2200&q=88',
+    alt: 'Colorful Asian street food served at a busy local market',
+  },
+  {
+    category: 'Iconic Destination',
+    name: 'Santorini',
+    country: 'Greece',
+    description: 'Clifftop villages, Aegean views, and golden-hour escapes.',
+    match: 92,
+    image: 'https://images.unsplash.com/photo-1613395877344-13d4a8e0d49e?auto=format&fit=crop&w=2200&q=88',
+    alt: 'Santorini cliffs and white architecture overlooking the Aegean Sea',
+  },
+  {
+    category: 'City Discovery',
+    name: 'Paris',
+    country: 'France',
+    description: 'Neighborhood cafés, timeless landmarks, and unhurried evenings.',
+    match: 89,
+    image: 'https://images.unsplash.com/photo-1502602898657-3e91760cbb34?auto=format&fit=crop&w=2200&q=88',
+    alt: 'The Eiffel Tower and Paris skyline in warm evening light',
+  },
+  {
+    category: 'Nature Adventure',
+    name: 'Patagonia',
+    country: 'Chile',
+    description: 'Glacier trails, wild landscapes, and journeys beyond the ordinary.',
+    match: 95,
+    image: 'https://images.unsplash.com/photo-1551632811-561732d1e306?auto=format&fit=crop&w=2200&q=88',
+    alt: 'Hiker exploring a dramatic mountain landscape in Patagonia',
+  },
+]
+
 const itinerary = [
-  { day: 'Day 1', title: 'Arrival + Sacred City Sunset', energy: 'Easy', walking: 'Low', color: 'bg-emerald-100 text-emerald-700' },
-  { day: 'Day 2', title: 'Ancient Kingdom Highlights', energy: 'Moderate', walking: 'Medium', color: 'bg-amber-100 text-amber-700' },
-  { day: 'Day 3', title: 'Mihintale + Nature', energy: 'Balanced', walking: 'Medium', color: 'bg-sky-100 text-sky-700' },
-  { day: 'Day 4', title: 'Slow Morning + Departure', energy: 'Easy', walking: 'Low', color: 'bg-emerald-100 text-emerald-700' },
+  {
+    day: 'Day 1',
+    title: 'Arrival + Sacred City Sunset',
+    energy: 'Easy',
+    walking: 'Low',
+    color: 'bg-emerald-100 text-emerald-700',
+    image: 'https://images.unsplash.com/photo-1500534314209-a25ddb2bd429?auto=format&fit=crop&w=900&q=82',
+    alt: 'Warm sunset across a peaceful travel landscape',
+  },
+  {
+    day: 'Day 2',
+    title: 'Ancient Kingdom Highlights',
+    energy: 'Moderate',
+    walking: 'Medium',
+    color: 'bg-amber-100 text-amber-700',
+    image: 'https://images.unsplash.com/photo-1524492412937-b28074a5d7da?auto=format&fit=crop&w=900&q=82',
+    alt: 'Historic temple architecture visited during a cultural journey',
+  },
+  {
+    day: 'Day 3',
+    title: 'Mihintale + Nature',
+    energy: 'Balanced',
+    walking: 'Medium',
+    color: 'bg-sky-100 text-sky-700',
+    image: 'https://images.unsplash.com/photo-1441974231531-c6227db76b6e?auto=format&fit=crop&w=900&q=82',
+    alt: 'Sunlight passing through a lush green forest during a nature excursion',
+  },
+  {
+    day: 'Day 4',
+    title: 'Slow Morning + Departure',
+    energy: 'Easy',
+    walking: 'Low',
+    color: 'bg-emerald-100 text-emerald-700',
+    image: 'https://images.unsplash.com/photo-1470770841072-f978cf4d019e?auto=format&fit=crop&w=900&q=82',
+    alt: 'Calm lakeside mountain view for a relaxed final travel morning',
+  },
 ]
 
 const smartEdits = [
@@ -126,34 +260,35 @@ const smartEdits = [
   { icon: Minus, label: 'Make Day 2 lighter' },
 ]
 
-const trustSignals = [
-  { icon: Banknote, label: 'Budget confidence' },
-  { icon: CloudSun, label: 'Weather suitability' },
-  { icon: Gauge, label: 'Pace comfort' },
-  { icon: Lightbulb, label: 'Common regrets' },
-  { icon: Route, label: 'Travel complexity' },
-  { icon: ShieldCheck, label: 'Avoid preferences' },
-]
-
-const ScoreRing = ({ score, label, dark = false }: { score: number; label: string; dark?: boolean }) => (
-  <div className="relative flex h-32 w-32 shrink-0 items-center justify-center rounded-full bg-[conic-gradient(#22c55e_var(--score),rgba(148,163,184,0.2)_0)] p-2" style={{ '--score': `${score}%` } as React.CSSProperties}>
-    <div className={`flex h-full w-full flex-col items-center justify-center rounded-full ${dark ? 'bg-[#101b2b]' : 'bg-white'}`}>
-      <strong className={`font-heading text-3xl ${dark ? 'text-white' : 'text-slate-950'}`}>{score}%</strong>
-      <span className={`mt-1 text-[10px] font-bold uppercase tracking-[0.16em] ${dark ? 'text-white/55' : 'text-slate-500'}`}>
-        {label}
-      </span>
-    </div>
-  </div>
-)
-
 export const OptimizedHomePage: React.FC = () => {
   const [heroDestination, setHeroDestination] = useState('')
+  const [activeHeroSlide, setActiveHeroSlide] = useState(0)
+  const [isHeroPaused, setIsHeroPaused] = useState(false)
   const [traveler, setTraveler] = useState('Couple')
   const [tripLength, setTripLength] = useState('4 days')
   const [activeEdit, setActiveEdit] = useState('Make Day 2 lighter')
+  const currentHeroDestination = heroDestinations[activeHeroSlide]
   const heroDecisionHref = heroDestination.trim()
     ? `/trips?destination=${encodeURIComponent(heroDestination.trim())}&days=${tripLength.split(' ')[0]}&traveler=${traveler.toLowerCase()}&quick=true`
     : '/discovery'
+
+  useEffect(() => {
+    if (isHeroPaused) return
+
+    const intervalId = window.setInterval(() => {
+      setActiveHeroSlide((current) => (current + 1) % heroDestinations.length)
+    }, 3500)
+
+    return () => window.clearInterval(intervalId)
+  }, [isHeroPaused])
+
+  const showPreviousHeroSlide = () => {
+    setActiveHeroSlide((current) => (current - 1 + heroDestinations.length) % heroDestinations.length)
+  }
+
+  const showNextHeroSlide = () => {
+    setActiveHeroSlide((current) => (current + 1) % heroDestinations.length)
+  }
 
   return (
     <div className="overflow-hidden bg-[#f7f7f3] text-slate-900">
@@ -163,14 +298,29 @@ export const OptimizedHomePage: React.FC = () => {
         keywords="travel confidence, trip confidence score, destination match, realistic itinerary, trip reality checker, travel planning"
       />
 
-      <section className="relative isolate min-h-[96vh] overflow-hidden bg-[#091321] text-white">
+      <section
+        className="relative isolate min-h-[96vh] overflow-hidden bg-[#091321] text-white"
+        aria-roledescription="carousel"
+        aria-label="Featured travel destinations"
+      >
         <div className="absolute inset-0">
-          <ImageWithFallback
-            src="https://images.unsplash.com/photo-1613395877344-13d4a8e0d49e?auto=format&fit=crop&w=2200&q=88"
-            alt="Santorini cliffs and white architecture overlooking the Aegean Sea"
-            className="h-full w-full object-cover"
-            loading="eager"
-          />
+          <AnimatePresence mode="sync">
+            <motion.div
+              key={currentHeroDestination.name}
+              initial={{ opacity: 0, scale: 1.035 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ opacity: { duration: 0.45 }, scale: { duration: 3.8, ease: 'linear' } }}
+              className="absolute inset-0"
+            >
+              <ImageWithFallback
+                src={currentHeroDestination.image}
+                alt={currentHeroDestination.alt}
+                className="h-full w-full object-cover"
+                loading={activeHeroSlide === 0 ? 'eager' : 'lazy'}
+              />
+            </motion.div>
+          </AnimatePresence>
           <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(4,12,24,0.48)_0%,rgba(4,13,27,0.57)_45%,rgba(4,13,27,0.9)_100%)]" />
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_28%,rgba(255,255,255,0.1),transparent_30%),radial-gradient(circle_at_80%_15%,rgba(244,114,93,0.24),transparent_24%)]" />
         </div>
@@ -250,7 +400,7 @@ export const OptimizedHomePage: React.FC = () => {
                     </span>
                   ))}
                 </div>
-                <a href="#example-plan" className="inline-flex items-center justify-center gap-2 text-xs font-bold uppercase tracking-[0.16em] text-[#ffad9c]">
+                <a href="#reality-checker" className="inline-flex items-center justify-center gap-2 text-xs font-bold uppercase tracking-[0.16em] text-[#ffad9c]">
                   See how certainty works
                   <ArrowRight className="h-3.5 w-3.5" />
                 </a>
@@ -259,24 +409,74 @@ export const OptimizedHomePage: React.FC = () => {
 
             <div className="mx-auto mt-5 flex w-fit items-center gap-3 rounded-full border border-white/15 bg-slate-950/35 px-4 py-2 text-xs text-white/65 backdrop-blur-xl">
               <ShieldCheck className="h-4 w-4 text-emerald-300" />
-              <span><strong className="text-white">91% match</strong> example: Santorini for a 4-day couple escape</span>
+              <span>
+                <strong className="text-white">{currentHeroDestination.match}% match</strong>
+                {' '}{currentHeroDestination.category.toLowerCase()} inspiration in {currentHeroDestination.name}
+              </span>
             </div>
           </motion.div>
 
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ duration: 0.8, delay: 0.45 }}
-            className="absolute bottom-5 left-1/2 hidden -translate-x-1/2 items-center gap-3 text-[10px] font-semibold uppercase tracking-[0.2em] text-white/40 sm:flex"
-          >
-            <span className="h-px w-10 bg-white/25" />
-            Santorini, Greece
-            <span className="h-px w-10 bg-white/25" />
-          </motion.div>
+          <div className="absolute bottom-4 left-1/2 flex w-[calc(100%-2rem)] max-w-4xl -translate-x-1/2 items-center justify-between gap-3 rounded-2xl border border-white/15 bg-slate-950/35 px-3 py-2.5 backdrop-blur-xl sm:bottom-5 sm:px-4">
+            <div className="min-w-0 text-left" aria-live="polite">
+              <p className="truncate text-[9px] font-bold uppercase tracking-[0.2em] text-[#ffad9c] sm:text-[10px]">
+                {currentHeroDestination.category}
+              </p>
+              <p className="mt-0.5 truncate text-[10px] font-bold uppercase tracking-[0.2em] text-white/85 sm:text-xs">
+                {currentHeroDestination.name}, {currentHeroDestination.country}
+              </p>
+              <p className="mt-0.5 hidden truncate text-xs text-white/50 sm:block">
+                {currentHeroDestination.description}
+              </p>
+            </div>
+
+            <div className="flex shrink-0 items-center gap-1.5">
+              <button
+                type="button"
+                onClick={showPreviousHeroSlide}
+                className="flex h-9 w-9 items-center justify-center rounded-full border border-white/15 bg-white/10 text-white transition hover:bg-white/20"
+                aria-label="Show previous destination"
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </button>
+
+              <div className="hidden items-center gap-1.5 md:flex" aria-label="Choose featured destination">
+                {heroDestinations.map((destination, index) => (
+                  <button
+                    key={destination.name}
+                    type="button"
+                    onClick={() => setActiveHeroSlide(index)}
+                    className={`h-2 rounded-full transition-all ${
+                      index === activeHeroSlide ? 'w-7 bg-[#ffad9c]' : 'w-2 bg-white/35 hover:bg-white/60'
+                    }`}
+                    aria-label={`Show ${destination.name}, ${destination.country}`}
+                    aria-current={index === activeHeroSlide ? 'true' : undefined}
+                  />
+                ))}
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setIsHeroPaused((current) => !current)}
+                className="flex h-9 w-9 items-center justify-center rounded-full border border-white/15 bg-white/10 text-white transition hover:bg-white/20"
+                aria-label={isHeroPaused ? 'Resume destination slider' : 'Pause destination slider'}
+              >
+                {isHeroPaused ? <Play className="h-3.5 w-3.5 fill-current" /> : <Pause className="h-3.5 w-3.5 fill-current" />}
+              </button>
+
+              <button
+                type="button"
+                onClick={showNextHeroSlide}
+                className="flex h-9 w-9 items-center justify-center rounded-full border border-white/15 bg-white/10 text-white transition hover:bg-white/20"
+                aria-label="Show next destination"
+              >
+                <ChevronRight className="h-4 w-4" />
+              </button>
+            </div>
+          </div>
         </div>
       </section>
 
-      <section className="py-20 lg:py-28">
+      <section className="py-16 lg:py-20">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <motion.div {...fadeUp} className="mx-auto max-w-3xl text-center">
             <p className="text-xs font-bold uppercase tracking-[0.22em] text-orange-600">The real problem</p>
@@ -288,12 +488,25 @@ export const OptimizedHomePage: React.FC = () => {
               const Icon = problem.icon
               return (
                 <motion.div key={problem.title} {...fadeUp} transition={{ duration: 0.45, delay: index * 0.06 }}>
-                  <Card className="h-full border-slate-200 bg-white p-6 transition hover:-translate-y-1 hover:shadow-[0_22px_50px_rgba(15,23,42,0.1)]">
-                    <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-100 text-slate-700">
-                      <Icon className="h-5 w-5" />
+                  <Card className="group h-full overflow-hidden border-slate-200 bg-white transition duration-300 hover:-translate-y-1.5 hover:shadow-[0_26px_60px_rgba(15,23,42,0.14)]">
+                    <div className="relative h-44 overflow-hidden">
+                      <ImageWithFallback
+                        src={problem.image}
+                        alt={problem.alt}
+                        className="h-full w-full object-cover transition duration-700 group-hover:scale-105"
+                      />
+                      <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-slate-950/15 to-transparent" />
+                      <div className="absolute left-4 top-4 flex h-11 w-11 items-center justify-center rounded-2xl border border-white/25 bg-slate-950/35 text-white shadow-lg backdrop-blur-md">
+                        <Icon className="h-5 w-5" />
+                      </div>
+                      <p className="absolute bottom-4 left-4 text-[10px] font-bold uppercase tracking-[0.2em] text-white/75">
+                        {problem.label}
+                      </p>
                     </div>
-                    <h3 className="font-heading mt-5 text-xl font-semibold">{problem.title}</h3>
-                    <p className="mt-3 text-sm leading-7 text-slate-600">{problem.text}</p>
+                    <div className="p-6">
+                      <h3 className="font-heading text-xl font-semibold">{problem.title}</h3>
+                      <p className="mt-3 text-sm leading-7 text-slate-600">{problem.text}</p>
+                    </div>
                   </Card>
                 </motion.div>
               )
@@ -302,7 +515,7 @@ export const OptimizedHomePage: React.FC = () => {
         </div>
       </section>
 
-      <section className="border-y border-slate-200 bg-white py-20 lg:py-28">
+      <section className="border-y border-slate-200 bg-white py-16 lg:py-20">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <motion.div {...fadeUp} className="max-w-3xl">
             <p className="text-xs font-bold uppercase tracking-[0.22em] text-sky-700">How it works</p>
@@ -313,13 +526,26 @@ export const OptimizedHomePage: React.FC = () => {
               const Icon = step.icon
               return (
                 <motion.div key={step.title} {...fadeUp} transition={{ duration: 0.45, delay: index * 0.08 }}>
-                  <Card className="relative h-full overflow-hidden border-slate-200 p-7">
-                    <span className="absolute right-6 top-4 font-heading text-6xl font-semibold text-slate-100">{step.number}</span>
-                    <div className={`relative flex h-12 w-12 items-center justify-center rounded-2xl ${step.color}`}>
-                      <Icon className="h-5 w-5" />
+                  <Card className="group relative h-full overflow-hidden border-slate-200 bg-white transition duration-300 hover:-translate-y-1.5 hover:shadow-[0_26px_60px_rgba(15,23,42,0.14)]">
+                    <div className="relative h-52 overflow-hidden">
+                      <ImageWithFallback
+                        src={step.image}
+                        alt={step.alt}
+                        className="h-full w-full object-cover transition duration-700 group-hover:scale-105"
+                      />
+                      <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-slate-950/10 to-transparent" />
+                      <span className="absolute right-5 top-3 font-heading text-6xl font-semibold text-white/40">{step.number}</span>
+                      <div className={`absolute bottom-4 left-4 flex h-12 w-12 items-center justify-center rounded-2xl shadow-lg ${step.color}`}>
+                        <Icon className="h-5 w-5" />
+                      </div>
+                      <p className="absolute bottom-5 left-20 text-[10px] font-bold uppercase tracking-[0.18em] text-white/80">
+                        {step.imageLabel}
+                      </p>
                     </div>
-                    <h3 className="relative font-heading mt-7 text-3xl font-semibold">{step.title}</h3>
-                    <p className="relative mt-3 text-base leading-8 text-slate-600">{step.text}</p>
+                    <div className="p-7">
+                      <h3 className="font-heading text-3xl font-semibold">{step.title}</h3>
+                      <p className="mt-3 text-base leading-8 text-slate-600">{step.text}</p>
+                    </div>
                   </Card>
                 </motion.div>
               )
@@ -328,54 +554,7 @@ export const OptimizedHomePage: React.FC = () => {
         </div>
       </section>
 
-      <section id="example-plan" className="relative overflow-hidden bg-[#0b1625] py-20 text-white lg:py-28">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_10%_20%,rgba(34,197,94,0.12),transparent_27%),radial-gradient(circle_at_90%_80%,rgba(249,115,22,0.14),transparent_25%)]" />
-        <div className="relative mx-auto grid max-w-7xl gap-12 px-4 sm:px-6 lg:grid-cols-[0.85fr_1.15fr] lg:items-center lg:px-8">
-          <motion.div {...fadeUp}>
-            <span className="inline-flex items-center gap-2 rounded-full border border-emerald-300/20 bg-emerald-300/10 px-4 py-2 text-xs font-bold uppercase tracking-[0.2em] text-emerald-300">
-              <BadgeCheck className="h-4 w-4" />
-              Signature feature
-            </span>
-            <h2 className="font-heading mt-6 text-4xl font-semibold tracking-tight sm:text-5xl">Know if your trip makes sense before you book.</h2>
-            <p className="mt-5 max-w-xl text-lg leading-8 text-white/65">
-              TravelBuddy checks pacing, budget fit, travel stress, weather concerns, and common mistakes.
-            </p>
-            <Link to="/trips" className="mt-8 inline-flex items-center gap-2 text-sm font-bold text-orange-300">
-              Test a trip
-              <ArrowRight className="h-4 w-4" />
-            </Link>
-          </motion.div>
-
-          <motion.div {...fadeUp} className="rounded-[2rem] border border-white/10 bg-white/[0.07] p-4 shadow-[0_30px_80px_rgba(0,0,0,0.25)] backdrop-blur sm:p-7">
-            <div className="flex flex-col gap-7 sm:flex-row sm:items-center">
-              <ScoreRing score={87} label="Confidence" dark />
-              <div className="flex-1">
-                <p className="text-xs font-bold uppercase tracking-[0.18em] text-white/45">Anuradhapura Couple Trip</p>
-                <h3 className="font-heading mt-2 text-3xl font-semibold">Planning Confidence</h3>
-                <div className="mt-6 grid gap-3 sm:grid-cols-2">
-                  {[
-                    { icon: Check, label: 'Budget fit: Good', tone: 'text-emerald-300' },
-                    { icon: Check, label: 'Pace: Relaxed', tone: 'text-emerald-300' },
-                    { icon: Check, label: 'Logistics: Easy', tone: 'text-emerald-300' },
-                    { icon: AlertTriangle, label: 'Heat risk: Medium', tone: 'text-amber-300' },
-                    { icon: AlertTriangle, label: 'Day 2 may feel busy', tone: 'text-amber-300' },
-                  ].map((signal) => {
-                    const Icon = signal.icon
-                    return (
-                      <div key={signal.label} className="flex items-center gap-2 rounded-xl bg-white/[0.06] px-3 py-3 text-sm text-white/78">
-                        <Icon className={`h-4 w-4 ${signal.tone}`} />
-                        {signal.label}
-                      </div>
-                    )
-                  })}
-                </div>
-              </div>
-            </div>
-          </motion.div>
-        </div>
-      </section>
-
-      <section className="py-20 lg:py-28">
+      <section className="py-16 lg:py-20">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <motion.div {...fadeUp} className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
             <div className="max-w-3xl">
@@ -458,7 +637,7 @@ export const OptimizedHomePage: React.FC = () => {
         </div>
       </section>
 
-      <section className="border-y border-slate-200 bg-white py-20 lg:py-28">
+      <section id="reality-checker" className="scroll-mt-24 border-y border-slate-200 bg-white py-16 lg:py-20">
         <div className="mx-auto grid max-w-7xl gap-12 px-4 sm:px-6 lg:grid-cols-[0.88fr_1.12fr] lg:items-center lg:px-8">
           <motion.div {...fadeUp}>
             <p className="text-xs font-bold uppercase tracking-[0.22em] text-orange-600">Trip Reality Checker</p>
@@ -466,6 +645,26 @@ export const OptimizedHomePage: React.FC = () => {
             <p className="mt-5 text-lg leading-8 text-slate-600">
               TravelBuddy checks if your itinerary is too packed, poorly timed, expensive, or stressful before you follow it.
             </p>
+            <div className="group relative mt-8 overflow-hidden rounded-[2rem] shadow-[0_24px_60px_rgba(15,23,42,0.14)]">
+              <ImageWithFallback
+                src="https://images.unsplash.com/photo-1522199710521-72d69614c702?auto=format&fit=crop&w=1400&q=84"
+                alt="Traveler reviewing a route and checking trip details before continuing"
+                className="h-64 w-full object-cover transition duration-700 group-hover:scale-105 sm:h-72"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-slate-950/85 via-slate-950/10 to-transparent" />
+              <div className="absolute bottom-5 left-5 right-5 flex items-end justify-between gap-4">
+                <div>
+                  <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-orange-300">Before you follow the route</p>
+                  <p className="mt-1 max-w-sm text-sm font-semibold leading-6 text-white sm:text-base">
+                    Check timing, travel effort, and what the day will actually feel like.
+                  </p>
+                </div>
+                <div className="hidden shrink-0 items-center gap-2 rounded-full border border-white/20 bg-white/15 px-3 py-2 text-xs font-bold text-white backdrop-blur-md sm:flex">
+                  <Check className="h-4 w-4 text-emerald-300" />
+                  Reality checked
+                </div>
+              </div>
+            </div>
           </motion.div>
           <motion.div {...fadeUp} className="relative">
             <div className="absolute -inset-5 rounded-[2.5rem] bg-orange-100/70 blur-2xl" />
@@ -504,7 +703,7 @@ export const OptimizedHomePage: React.FC = () => {
         </div>
       </section>
 
-      <section className="py-20 lg:py-28">
+      <section className="py-16 lg:py-20">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <motion.div {...fadeUp} className="mx-auto max-w-3xl text-center">
             <p className="text-xs font-bold uppercase tracking-[0.22em] text-sky-700">Smart itinerary</p>
@@ -512,19 +711,30 @@ export const OptimizedHomePage: React.FC = () => {
             <p className="mt-5 text-lg text-slate-600">Clear days, realistic energy, and no walls of AI-generated text.</p>
           </motion.div>
           <div className="relative mt-14 grid gap-5 md:grid-cols-2 lg:grid-cols-4">
-            <div className="absolute left-[12%] right-[12%] top-8 hidden h-px bg-slate-200 lg:block" />
             {itinerary.map((day, index) => (
               <motion.div key={day.day} {...fadeUp} transition={{ duration: 0.45, delay: index * 0.07 }} className="relative">
-                <Card className="h-full border-slate-200 p-6">
-                  <div className="flex items-center justify-between">
-                    <span className="relative z-10 flex h-12 w-12 items-center justify-center rounded-full bg-slate-950 text-sm font-bold text-white">{index + 1}</span>
-                    <Clock3 className="h-5 w-5 text-slate-400" />
+                <Card className="group h-full overflow-hidden border-slate-200 bg-white transition duration-300 hover:-translate-y-1.5 hover:shadow-[0_26px_60px_rgba(15,23,42,0.14)]">
+                  <div className="relative h-44 overflow-hidden">
+                    <ImageWithFallback
+                      src={day.image}
+                      alt={day.alt}
+                      className="h-full w-full object-cover transition duration-700 group-hover:scale-105"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-slate-950/75 via-transparent to-transparent" />
+                    <span className="absolute left-4 top-4 flex h-12 w-12 items-center justify-center rounded-full border border-white/20 bg-slate-950/60 text-sm font-bold text-white backdrop-blur-md">
+                      {index + 1}
+                    </span>
+                    <div className="absolute bottom-4 left-4 flex items-center gap-2 text-white">
+                      <Clock3 className="h-4 w-4 text-sky-200" />
+                      <span className="text-[10px] font-bold uppercase tracking-[0.18em]">{day.day}</span>
+                    </div>
                   </div>
-                  <p className="mt-6 text-xs font-bold uppercase tracking-[0.18em] text-slate-400">{day.day}</p>
-                  <h3 className="font-heading mt-2 min-h-16 text-xl font-semibold leading-7">{day.title}</h3>
-                  <div className="mt-5 flex flex-wrap gap-2">
-                    <span className={`rounded-full px-3 py-1.5 text-xs font-bold ${day.color}`}>Energy: {day.energy}</span>
-                    <span className="rounded-full bg-slate-100 px-3 py-1.5 text-xs font-bold text-slate-600">Walking: {day.walking}</span>
+                  <div className="p-6">
+                    <h3 className="font-heading min-h-16 text-xl font-semibold leading-7">{day.title}</h3>
+                    <div className="mt-5 flex flex-wrap gap-2">
+                      <span className={`rounded-full px-3 py-1.5 text-xs font-bold ${day.color}`}>Energy: {day.energy}</span>
+                      <span className="rounded-full bg-slate-100 px-3 py-1.5 text-xs font-bold text-slate-600">Walking: {day.walking}</span>
+                    </div>
                   </div>
                 </Card>
               </motion.div>
@@ -533,48 +743,26 @@ export const OptimizedHomePage: React.FC = () => {
         </div>
       </section>
 
-      <section className="bg-[#eef3ee] py-20 lg:py-28">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          <motion.div {...fadeUp} className="max-w-3xl">
-            <p className="text-xs font-bold uppercase tracking-[0.22em] text-emerald-700">Practical priorities</p>
-            <h2 className="font-heading mt-4 text-4xl font-semibold tracking-tight text-slate-950 sm:text-5xl">Know what matters, and what doesn&apos;t.</h2>
-          </motion.div>
-          <div className="mt-12 grid gap-5 lg:grid-cols-3">
-            {[
-              { title: 'Must Do', tone: 'border-emerald-200 bg-white', icon: BadgeCheck, iconTone: 'bg-emerald-100 text-emerald-700', items: ['Ruwanwelisaya', 'Sri Maha Bodhi', 'Mihintale'] },
-              { title: 'Optional', tone: 'border-sky-200 bg-white', icon: Sparkles, iconTone: 'bg-sky-100 text-sky-700', items: ['Twin Ponds', 'Archaeology Museum'] },
-              { title: 'Skip if tired', tone: 'border-amber-200 bg-white', icon: X, iconTone: 'bg-amber-100 text-amber-700', items: ['Remote ruins far from your route'] },
-            ].map((group, index) => {
-              const Icon = group.icon
-              return (
-                <motion.div key={group.title} {...fadeUp} transition={{ duration: 0.45, delay: index * 0.07 }}>
-                  <Card className={`h-full border-2 p-6 ${group.tone}`}>
-                    <div className={`flex h-11 w-11 items-center justify-center rounded-2xl ${group.iconTone}`}>
-                      <Icon className="h-5 w-5" />
-                    </div>
-                    <h3 className="font-heading mt-5 text-2xl font-semibold">{group.title}</h3>
-                    <div className="mt-5 space-y-3">
-                      {group.items.map((item) => (
-                        <div key={item} className="flex items-center gap-3 rounded-xl bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-700">
-                          <Check className="h-4 w-4 text-slate-400" />
-                          {item}
-                        </div>
-                      ))}
-                    </div>
-                  </Card>
-                </motion.div>
-              )
-            })}
-          </div>
-        </div>
-      </section>
-
-      <section className="bg-white py-20 lg:py-28">
+      <section className="bg-white py-16 lg:py-20">
         <div className="mx-auto grid max-w-7xl gap-12 px-4 sm:px-6 lg:grid-cols-[0.8fr_1.2fr] lg:items-center lg:px-8">
           <motion.div {...fadeUp}>
             <p className="text-xs font-bold uppercase tracking-[0.22em] text-orange-600">Smart edits</p>
             <h2 className="font-heading mt-4 text-4xl font-semibold tracking-tight text-slate-950 sm:text-5xl">Change the plan without starting over.</h2>
             <p className="mt-5 text-lg leading-8 text-slate-600">No need to regenerate the whole trip. Adjust only what you want.</p>
+            <div className="group relative mt-8 overflow-hidden rounded-[2rem] shadow-[0_24px_60px_rgba(15,23,42,0.14)]">
+              <ImageWithFallback
+                src="https://images.unsplash.com/photo-1524661135-423995f22d0b?auto=format&fit=crop&w=1300&q=84"
+                alt="Travel map with route markers used to adjust an itinerary"
+                className="h-64 w-full object-cover transition duration-700 group-hover:scale-105"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-slate-950/85 via-slate-950/10 to-transparent" />
+              <div className="absolute bottom-5 left-5 right-5">
+                <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-orange-300">Refine, don&apos;t restart</p>
+                <p className="mt-1 max-w-sm text-sm font-semibold leading-6 text-white">
+                  Keep the route you like and change only the parts that need attention.
+                </p>
+              </div>
+            </div>
           </motion.div>
           <motion.div {...fadeUp}>
             <Card className="border-slate-200 bg-slate-50 p-5 sm:p-7">
@@ -614,35 +802,10 @@ export const OptimizedHomePage: React.FC = () => {
         </div>
       </section>
 
-      <section className="border-t border-slate-200 bg-[#f7f7f3] py-20 lg:py-28">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          <motion.div {...fadeUp} className="mx-auto max-w-3xl text-center">
-            <p className="text-xs font-bold uppercase tracking-[0.22em] text-emerald-700">Built for honest decisions</p>
-            <h2 className="font-heading mt-4 text-4xl font-semibold tracking-tight text-slate-950 sm:text-5xl">We don&apos;t pretend every trip is perfect.</h2>
-            <p className="mt-5 text-lg leading-8 text-slate-600">
-              TravelBuddy shows tradeoffs, risks, and common mistakes so you can make better travel decisions.
-            </p>
-          </motion.div>
-          <div className="mx-auto mt-12 grid max-w-5xl gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {trustSignals.map((signal, index) => {
-              const Icon = signal.icon
-              return (
-                <motion.div key={signal.label} {...fadeUp} transition={{ duration: 0.4, delay: index * 0.05 }} className="flex items-center gap-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50 text-emerald-700">
-                    <Icon className="h-5 w-5" />
-                  </div>
-                  <span className="text-sm font-bold text-slate-800">{signal.label}</span>
-                </motion.div>
-              )
-            })}
-          </div>
-        </div>
-      </section>
-
-      <section className="relative overflow-hidden bg-[#0a1524] py-20 text-white lg:py-28">
+      <section className="relative overflow-hidden bg-[#0a1524] py-16 text-white lg:py-20">
         <div className="absolute inset-0">
           <ImageWithFallback
-            src="https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=1800&q=80"
+            src="https://images.unsplash.com/photo-1469854523086-cc02fe5d8800?auto=format&fit=crop&w=1800&q=80"
             alt=""
             className="h-full w-full object-cover opacity-20"
           />

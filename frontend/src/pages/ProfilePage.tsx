@@ -16,6 +16,61 @@ import {
 import ProfilePictureUpload from '../components/ProfilePictureUpload'
 import { configService } from '../services/configService'
 import { motion, AnimatePresence } from 'framer-motion'
+import { getAuthToken, isDemoSession } from '../utils/authToken'
+
+type TravelPreferences = {
+  budgetRange: string
+  travelPace: string
+  interests: string[]
+  accessibility: string[]
+  dietaryNeeds: string[]
+  currency: string
+  language: string
+  defaultTravelerType: string
+  avoid: string[]
+  measurementUnit: string
+  temperatureUnit: string
+}
+
+const defaultTravelPreferences: TravelPreferences = {
+  budgetRange: 'moderate',
+  travelPace: 'balanced',
+  interests: [],
+  accessibility: [],
+  dietaryNeeds: [],
+  currency: 'USD',
+  language: 'en',
+  defaultTravelerType: 'couple',
+  avoid: [],
+  measurementUnit: 'metric',
+  temperatureUnit: 'celsius'
+}
+
+const currencyOptions = [
+  { value: 'USD', label: 'USD - US Dollar' },
+  { value: 'LKR', label: 'LKR - Sri Lankan Rupee' },
+  { value: 'EUR', label: 'EUR - Euro' },
+  { value: 'GBP', label: 'GBP - British Pound' },
+  { value: 'AUD', label: 'AUD - Australian Dollar' },
+  { value: 'CAD', label: 'CAD - Canadian Dollar' },
+  { value: 'INR', label: 'INR - Indian Rupee' },
+  { value: 'JPY', label: 'JPY - Japanese Yen' },
+  { value: 'SGD', label: 'SGD - Singapore Dollar' },
+  { value: 'AED', label: 'AED - UAE Dirham' }
+]
+
+const languageOptions = [
+  { value: 'en', label: 'English' },
+  { value: 'si', label: 'Sinhala' },
+  { value: 'ta', label: 'Tamil' },
+  { value: 'hi', label: 'Hindi' },
+  { value: 'fr', label: 'French' },
+  { value: 'de', label: 'German' },
+  { value: 'es', label: 'Spanish' },
+  { value: 'ja', label: 'Japanese' },
+  { value: 'zh', label: 'Chinese' },
+  { value: 'ar', label: 'Arabic' }
+]
 
 export const ProfilePage: React.FC = () => {
   const { user, updateProfile, logout } = useAuth()
@@ -47,12 +102,10 @@ export const ProfilePage: React.FC = () => {
   const [apiBaseUrl, setApiBaseUrl] = useState('')
   const [socialLinks, setSocialLinks] = useState<Array<{ platform: string, url: string }>>([])
   const [newPlatform, setNewPlatform] = useState('')
-  const [preferences, setPreferences] = useState({
-    budgetRange: 'moderate',
-    travelPace: 'moderate',
-    interests: [] as string[],
-    accessibility: false,
-    dietaryNeeds: [] as string[]
+  const [preferences, setPreferences] = useState<TravelPreferences>({
+    ...defaultTravelPreferences,
+    currency: user?.homeCurrency || defaultTravelPreferences.currency,
+    language: user?.language || defaultTravelPreferences.language
   })
   const [privacySettings, setPrivacySettings] = useState({
     profileVisibility: 'public',
@@ -106,7 +159,12 @@ export const ProfilePage: React.FC = () => {
         }
       }
       if ((user as any).travelPreferences) {
-        setPreferences(prev => ({ ...prev, ...(user as any).travelPreferences }))
+        setPreferences(prev => ({
+          ...prev,
+          ...(user as any).travelPreferences,
+          currency: user.homeCurrency || prev.currency,
+          language: user.language || prev.language
+        }))
       }
     }
   }, [user])
@@ -125,7 +183,7 @@ export const ProfilePage: React.FC = () => {
   const fetchUserStats = async () => {
     try {
       const config = await configService.getConfig()
-      const token = localStorage.getItem('token') || localStorage.getItem('demo_token')
+      const token = await getAuthToken()
       const headers: Record<string, string> = {}
 
       if (token) {
@@ -168,7 +226,12 @@ export const ProfilePage: React.FC = () => {
           }
         }
         if (data.travelPreferences) {
-          setPreferences(prev => ({ ...prev, ...data.travelPreferences }))
+          setPreferences(prev => ({
+            ...prev,
+            ...data.travelPreferences,
+            currency: data.homeCurrency || prev.currency,
+            language: data.language || prev.language
+          }))
         }
       }
     } catch (error) {
@@ -179,8 +242,28 @@ export const ProfilePage: React.FC = () => {
   const handleSave = async () => {
     setLoading(true)
     try {
+      const profileUpdates = {
+        username: formData.username,
+        fullName: formData.fullName,
+        phone: formData.phone,
+        bio: formData.bio,
+        homeCity: formData.homeCity,
+        languages: formData.languages,
+        homeCurrency: preferences.currency,
+        language: preferences.language,
+        socialLinks: Object.fromEntries(socialLinks.map(link => [link.platform, link.url])),
+        travelPreferences: preferences as any
+      }
+
+      if (isDemoSession()) {
+        await updateProfile(profileUpdates)
+        setIsEditing(false)
+        alert('Profile updated successfully!')
+        return
+      }
+
       const config = await configService.getConfig()
-      const token = localStorage.getItem('token') || localStorage.getItem('demo_token')
+      const token = await getAuthToken()
       const headers: Record<string, string> = {
         'Content-Type': 'application/json'
       }
@@ -195,24 +278,33 @@ export const ProfilePage: React.FC = () => {
       const response = await fetch(`${config.apiBaseUrl}/api/users/profile`, {
         method: 'PUT',
         headers,
-        body: JSON.stringify({ ...formData, socialLinks, travelPreferences: preferences })
+        body: JSON.stringify({
+          ...formData,
+          homeCurrency: preferences.currency,
+          language: preferences.language,
+          socialLinks: Object.fromEntries(socialLinks.map(link => [link.platform, link.url])),
+          travelPreferences: {
+            budgetRange: preferences.budgetRange,
+            travelPace: preferences.travelPace,
+            interests: preferences.interests,
+            accessibility: preferences.accessibility,
+            dietaryNeeds: preferences.dietaryNeeds,
+            defaultTravelerType: preferences.defaultTravelerType,
+            avoid: preferences.avoid,
+            measurementUnit: preferences.measurementUnit,
+            temperatureUnit: preferences.temperatureUnit
+          }
+        })
       })
 
       if (response.ok) {
         await response.json()
-        await updateProfile({
-          username: formData.username,
-          fullName: formData.fullName,
-          phone: formData.phone,
-          bio: formData.bio,
-          homeCity: formData.homeCity,
-          socialLinks: socialLinks as any,
-          travelPreferences: preferences as any
-        })
+        await updateProfile(profileUpdates)
         setIsEditing(false)
         alert('Profile updated successfully!')
       } else {
-        throw new Error('Failed to update profile')
+        const errorData = await response.json().catch(() => null)
+        throw new Error(errorData?.error || 'Failed to update profile')
       }
     } catch (error) {
       console.error('Failed to update profile:', error)
@@ -232,6 +324,7 @@ export const ProfilePage: React.FC = () => {
       homeCity: user?.homeCity || '',
       languages: user?.languages || []
     })
+    void fetchUserStats()
     setIsEditing(false)
   }
 
@@ -325,6 +418,22 @@ export const ProfilePage: React.FC = () => {
     { id: 'art', label: 'Art & Museums', icon: Sparkles },
     { id: 'music', label: 'Music & Festivals', icon: Bell }
   ]
+  const travelerTypeOptions = ['solo', 'couple', 'family', 'friends', 'business_leisure']
+  const accessibilityOptions = ['Low walking', 'Wheelchair access', 'Frequent rest stops', 'Step-free routes']
+  const avoidOptions = ['Crowds', 'Extreme heat', 'Rainy season', 'Long travel days', 'Tourist traps', 'Tight schedules', 'Expensive places']
+  const spokenLanguageOptions = ['English', 'Sinhala', 'Tamil', 'Hindi', 'French', 'German', 'Spanish', 'Japanese', 'Chinese', 'Arabic']
+
+  const togglePreferenceItem = (
+    key: 'interests' | 'dietaryNeeds' | 'accessibility' | 'avoid',
+    value: string
+  ) => {
+    setPreferences(current => ({
+      ...current,
+      [key]: current[key].includes(value)
+        ? current[key].filter(item => item !== value)
+        : [...current[key], value]
+    }))
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -707,6 +816,57 @@ export const ProfilePage: React.FC = () => {
                   <CardContent className="p-8">
                     {isEditing ? (
                       <div className="space-y-8">
+                        <div className="rounded-3xl border border-sky-100 bg-gradient-to-br from-sky-50 to-white p-5 sm:p-6">
+                          <div className="mb-5">
+                            <p className="text-xs font-black uppercase tracking-[0.18em] text-sky-700">Regional settings</p>
+                            <h3 className="mt-2 text-xl font-bold text-slate-900">How TravelBuddy should speak and display costs</h3>
+                          </div>
+                          <div className="grid gap-5 sm:grid-cols-2">
+                            <label className="space-y-2">
+                              <span className="text-sm font-bold text-gray-700">Preferred Currency</span>
+                              <select
+                                value={preferences.currency}
+                                onChange={event => setPreferences({ ...preferences, currency: event.target.value })}
+                                className="w-full rounded-xl border border-sky-100 bg-white px-4 py-3 text-sm font-semibold outline-none focus:border-sky-400 focus:ring-2 focus:ring-sky-100"
+                              >
+                                {currencyOptions.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
+                              </select>
+                            </label>
+                            <label className="space-y-2">
+                              <span className="text-sm font-bold text-gray-700">App Language</span>
+                              <select
+                                value={preferences.language}
+                                onChange={event => setPreferences({ ...preferences, language: event.target.value })}
+                                className="w-full rounded-xl border border-sky-100 bg-white px-4 py-3 text-sm font-semibold outline-none focus:border-sky-400 focus:ring-2 focus:ring-sky-100"
+                              >
+                                {languageOptions.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
+                              </select>
+                            </label>
+                            <label className="space-y-2">
+                              <span className="text-sm font-bold text-gray-700">Distance</span>
+                              <select
+                                value={preferences.measurementUnit}
+                                onChange={event => setPreferences({ ...preferences, measurementUnit: event.target.value })}
+                                className="w-full rounded-xl border border-sky-100 bg-white px-4 py-3 text-sm font-semibold outline-none"
+                              >
+                                <option value="metric">Kilometers (km)</option>
+                                <option value="imperial">Miles (mi)</option>
+                              </select>
+                            </label>
+                            <label className="space-y-2">
+                              <span className="text-sm font-bold text-gray-700">Temperature</span>
+                              <select
+                                value={preferences.temperatureUnit}
+                                onChange={event => setPreferences({ ...preferences, temperatureUnit: event.target.value })}
+                                className="w-full rounded-xl border border-sky-100 bg-white px-4 py-3 text-sm font-semibold outline-none"
+                              >
+                                <option value="celsius">Celsius (C)</option>
+                                <option value="fahrenheit">Fahrenheit (F)</option>
+                              </select>
+                            </label>
+                          </div>
+                        </div>
+
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                           <div className="space-y-4">
                             <label className="text-sm font-bold text-gray-700 block">Typical Budget</label>
@@ -725,7 +885,7 @@ export const ProfilePage: React.FC = () => {
                           <div className="space-y-4">
                             <label className="text-sm font-bold text-gray-700 block">Travel Pace</label>
                             <div className="grid grid-cols-3 gap-3">
-                              {['relaxed', 'moderate', 'fast'].map(pace => (
+                              {['relaxed', 'balanced', 'packed'].map(pace => (
                                 <button
                                   key={pace}
                                   onClick={() => setPreferences({ ...preferences, travelPace: pace })}
@@ -739,16 +899,33 @@ export const ProfilePage: React.FC = () => {
                         </div>
 
                         <div className="space-y-4">
+                          <label className="text-sm font-bold text-gray-700 block">Who do you usually travel with?</label>
+                          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+                            {travelerTypeOptions.map(type => (
+                              <button
+                                type="button"
+                                key={type}
+                                onClick={() => setPreferences({ ...preferences, defaultTravelerType: type })}
+                                className={`rounded-xl border-2 px-3 py-3 text-sm font-bold transition-all ${
+                                  preferences.defaultTravelerType === type
+                                    ? 'border-violet-500 bg-violet-50 text-violet-700'
+                                    : 'border-gray-100 bg-gray-50 text-gray-500'
+                                }`}
+                              >
+                                {type.replace('_', ' + ')}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+
+                        <div className="space-y-4">
                           <label className="text-sm font-bold text-gray-700 block text-center md:text-left">Interests (Choose your favorites)</label>
                           <div className="flex flex-wrap gap-2">
                             {interestOptions.map(opt => (
                               <button
                                 key={opt.id}
                                 onClick={() => {
-                                  const newInterests = preferences.interests.includes(opt.id)
-                                    ? preferences.interests.filter(i => i !== opt.id)
-                                    : [...preferences.interests, opt.id]
-                                  setPreferences({ ...preferences, interests: newInterests })
+                                  togglePreferenceItem('interests', opt.id)
                                 }}
                                 className={`flex items-center space-x-2 px-4 py-2 rounded-full border-2 transition-all text-sm font-semibold ${preferences.interests.includes(opt.id) ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-gray-100 bg-white text-gray-500'}`}
                               >
@@ -766,14 +943,81 @@ export const ProfilePage: React.FC = () => {
                               <button
                                 key={diet}
                                 onClick={() => {
-                                  const newDiet = preferences.dietaryNeeds.includes(diet)
-                                    ? preferences.dietaryNeeds.filter(d => d !== diet)
-                                    : [...preferences.dietaryNeeds, diet]
-                                  setPreferences({ ...preferences, dietaryNeeds: newDiet })
+                                  if (diet === 'No Preferences') {
+                                    setPreferences({ ...preferences, dietaryNeeds: [] })
+                                  } else {
+                                    togglePreferenceItem('dietaryNeeds', diet)
+                                  }
                                 }}
                                 className={`px-4 py-2 rounded-xl border-2 transition-all text-sm font-bold ${preferences.dietaryNeeds.includes(diet) ? 'border-green-500 bg-green-50 text-green-700' : 'border-gray-100 bg-gray-50 text-gray-400'}`}
                               >
                                 {diet}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+
+                        <div className="grid gap-8 lg:grid-cols-2">
+                          <div className="space-y-4">
+                            <label className="text-sm font-bold text-gray-700 block">Comfort & Accessibility</label>
+                            <div className="flex flex-wrap gap-2">
+                              {accessibilityOptions.map(item => (
+                                <button
+                                  type="button"
+                                  key={item}
+                                  onClick={() => togglePreferenceItem('accessibility', item)}
+                                  className={`rounded-xl border-2 px-4 py-2 text-sm font-bold transition-all ${
+                                    preferences.accessibility.includes(item)
+                                      ? 'border-emerald-500 bg-emerald-50 text-emerald-700'
+                                      : 'border-gray-100 bg-gray-50 text-gray-500'
+                                  }`}
+                                >
+                                  {item}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                          <div className="space-y-4">
+                            <label className="text-sm font-bold text-gray-700 block">Prefer to Avoid</label>
+                            <div className="flex flex-wrap gap-2">
+                              {avoidOptions.map(item => (
+                                <button
+                                  type="button"
+                                  key={item}
+                                  onClick={() => togglePreferenceItem('avoid', item)}
+                                  className={`rounded-xl border-2 px-4 py-2 text-sm font-bold transition-all ${
+                                    preferences.avoid.includes(item)
+                                      ? 'border-amber-500 bg-amber-50 text-amber-800'
+                                      : 'border-gray-100 bg-gray-50 text-gray-500'
+                                  }`}
+                                >
+                                  {item}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="space-y-4">
+                          <label className="text-sm font-bold text-gray-700 block">Languages You Speak</label>
+                          <div className="flex flex-wrap gap-2">
+                            {spokenLanguageOptions.map(language => (
+                              <button
+                                type="button"
+                                key={language}
+                                onClick={() => setFormData(current => ({
+                                  ...current,
+                                  languages: current.languages.includes(language)
+                                    ? current.languages.filter(item => item !== language)
+                                    : [...current.languages, language]
+                                }))}
+                                className={`rounded-full border-2 px-4 py-2 text-sm font-semibold transition-all ${
+                                  formData.languages.includes(language)
+                                    ? 'border-sky-500 bg-sky-50 text-sky-700'
+                                    : 'border-gray-100 bg-white text-gray-500'
+                                }`}
+                              >
+                                {language}
                               </button>
                             ))}
                           </div>
@@ -793,7 +1037,26 @@ export const ProfilePage: React.FC = () => {
                         </div>
                       </div>
                     ) : (
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
+                      <div className="space-y-8">
+                        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                          {[
+                            { label: 'Currency', value: preferences.currency, icon: Wallet },
+                            { label: 'Language', value: languageOptions.find(item => item.value === preferences.language)?.label || preferences.language, icon: Globe },
+                            { label: 'Distance', value: preferences.measurementUnit === 'imperial' ? 'Miles' : 'Kilometers', icon: MapPin },
+                            { label: 'Temperature', value: preferences.temperatureUnit === 'fahrenheit' ? 'Fahrenheit' : 'Celsius', icon: Sparkles }
+                          ].map(item => {
+                            const Icon = item.icon
+                            return (
+                              <div key={item.label} className="rounded-2xl border border-sky-100 bg-gradient-to-br from-sky-50 to-white p-4">
+                                <Icon className="h-5 w-5 text-sky-600" />
+                                <p className="mt-3 text-[10px] font-black uppercase tracking-widest text-slate-400">{item.label}</p>
+                                <p className="mt-1 font-bold text-slate-900">{item.value}</p>
+                              </div>
+                            )
+                          })}
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
                         <div className="space-y-8">
                           <div>
                             <h4 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-4">Core Preferences</h4>
@@ -815,6 +1078,15 @@ export const ProfilePage: React.FC = () => {
                                   <span className="font-bold text-gray-700">Travel Pace</span>
                                 </div>
                                 <span className="bg-blue-500 text-white px-3 py-1 rounded-lg text-xs font-black uppercase tracking-tighter italic">{preferences.travelPace}</span>
+                              </div>
+                              <div className="flex items-center justify-between p-4 bg-gray-50 rounded-2xl border border-gray-100 group hover:bg-white hover:shadow-md transition-all">
+                                <div className="flex items-center space-x-4">
+                                  <div className="w-10 h-10 bg-violet-100 rounded-xl flex items-center justify-center">
+                                    <Users className="w-5 h-5 text-violet-600" />
+                                  </div>
+                                  <span className="font-bold text-gray-700">Usually Travels</span>
+                                </div>
+                                <span className="rounded-lg bg-violet-500 px-3 py-1 text-xs font-black uppercase text-white">{preferences.defaultTravelerType.replace('_', ' + ')}</span>
                               </div>
                             </div>
                           </div>
@@ -846,7 +1118,24 @@ export const ProfilePage: React.FC = () => {
                               )
                             }) : <div className="text-gray-400 italic font-medium p-8 bg-gray-50 rounded-2xl border border-gray-100 border-dashed w-full text-center">Tap 'Edit' to add your interests!</div>}
                           </div>
+                          <div className="mt-8">
+                            <h4 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-4">Comfort & Avoid Preferences</h4>
+                            <div className="flex flex-wrap gap-2">
+                              {[...preferences.accessibility, ...preferences.avoid].length > 0 ? (
+                                [...preferences.accessibility, ...preferences.avoid].map(item => (
+                                  <span key={item} className="rounded-xl border border-amber-100 bg-amber-50 px-3 py-2 text-sm font-bold text-amber-800">{item}</span>
+                                ))
+                              ) : (
+                                <p className="text-sm italic text-gray-400">No comfort or avoid preferences set.</p>
+                              )}
+                            </div>
+                          </div>
+                          <div className="mt-8">
+                            <h4 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-4">Languages Spoken</h4>
+                            <p className="font-semibold text-slate-700">{formData.languages.length > 0 ? formData.languages.join(', ') : 'Not set'}</p>
+                          </div>
                         </div>
+                      </div>
                       </div>
                     )}
                   </CardContent>
@@ -993,7 +1282,12 @@ export const ProfilePage: React.FC = () => {
                   className="flex-1 bg-red-600 hover:bg-red-700 text-white"
                   onClick={async () => {
                     if (confirm('Type DELETE to confirm')) {
-                      const token = localStorage.getItem('token') || localStorage.getItem('demo_token')
+                      if (isDemoSession()) {
+                        logout()
+                        return
+                      }
+
+                      const token = await getAuthToken()
                       const headers: Record<string, string> = {}
                       if (token) headers['Authorization'] = `Bearer ${token}`
                       await fetch(`${apiBaseUrl}/api/users/profile`, { method: 'DELETE', headers })

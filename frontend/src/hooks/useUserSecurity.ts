@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useAuth } from '../contexts/AuthContext'
 import { configService } from '../services/configService'
+import { getAuthToken, isDemoSession } from '../utils/authToken'
 
 interface SecuritySettings {
   emailVerified: boolean
@@ -23,10 +24,21 @@ export const useUserSecurity = () => {
 
   const fetchSecurity = async () => {
     if (!user?.id) return
+
+    if (isDemoSession()) {
+      setSecurity({
+        emailVerified: true,
+        phoneVerified: false,
+        twoFactorEnabled: false,
+        lastLogin: new Date(),
+        loginHistory: []
+      })
+      return
+    }
     
     try {
       const config = await configService.getConfig()
-      const token = localStorage.getItem('token') || localStorage.getItem('demo_token')
+      const token = await getAuthToken()
       const headers: Record<string, string> = {}
       
       if (token) {
@@ -65,8 +77,13 @@ export const useUserSecurity = () => {
   const updateSecurity = async (updates: Partial<SecuritySettings>) => {
     setLoading(true)
     try {
+      if (isDemoSession()) {
+        setSecurity(prev => ({ ...prev, ...updates }))
+        return true
+      }
+
       const config = await configService.getConfig()
-      const token = localStorage.getItem('token') || localStorage.getItem('demo_token')
+      const token = await getAuthToken()
       const headers: Record<string, string> = {
         'Content-Type': 'application/json'
       }

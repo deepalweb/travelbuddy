@@ -32,6 +32,7 @@ import {
 } from 'lucide-react'
 import { Button } from '../components/Button'
 import { Card, CardContent } from '../components/Card'
+import { SavedTripsPanel } from '../components/SavedTripsPanel'
 import { apiService } from '../lib/api'
 import { useAuth } from '../contexts/AuthContext'
 import { tripService, type TripPlan } from '../services/tripService'
@@ -147,6 +148,14 @@ type SavedPlanMetadata = {
   input?: TripPlanInput
 }
 
+type ProfileTravelPreferences = {
+  budgetRange?: string
+  travelPace?: 'relaxed' | 'balanced' | 'packed'
+  interests?: string[]
+  defaultTravelerType?: string
+  avoid?: string[]
+}
+
 type TripPlanningResetPageProps = {
   savedTrip?: TripPlan
 }
@@ -157,9 +166,11 @@ export const TripPlanningResetPage: React.FC<TripPlanningResetPageProps> = ({ sa
   const { user } = useAuth()
   const routeState = (location.state || {}) as DiscoveryState
   const params = useMemo(() => new URLSearchParams(location.search), [location.search])
+  const workspaceView = params.get('view') === 'saved' && !savedTrip ? 'saved' : 'plan'
   const savedMetadata = (savedTrip?.metadata || {}) as SavedPlanMetadata
   const savedPlan = savedMetadata.generatedPlan
   const savedInput = savedMetadata.input
+  const profilePreferences = (user?.travelPreferences || {}) as ProfileTravelPreferences
 
   const routeDestination =
     savedPlan?.destination ||
@@ -174,12 +185,18 @@ export const TripPlanningResetPage: React.FC<TripPlanningResetPageProps> = ({ sa
     ? savedInput.interests
     : splitParam(params.get('interests')).length
     ? splitParam(params.get('interests'))
-    : routeState.discoveryBrief?.interests || ['culture', 'food']
+    : routeState.discoveryBrief?.interests?.length
+      ? routeState.discoveryBrief.interests
+      : profilePreferences.interests?.length
+        ? profilePreferences.interests
+        : ['culture', 'food']
   const initialAvoid = savedInput?.avoid?.length
     ? savedInput.avoid
     : splitParam(params.get('avoid')).length
     ? splitParam(params.get('avoid'))
-    : routeState.discoveryBrief?.avoid || []
+    : routeState.discoveryBrief?.avoid?.length
+      ? routeState.discoveryBrief.avoid
+      : profilePreferences.avoid || []
 
   const [destination, setDestination] = useState(routeDestination)
   const initialDurationDays = Math.min(
@@ -201,15 +218,23 @@ export const TripPlanningResetPage: React.FC<TripPlanningResetPageProps> = ({ sa
     savedInput?.travelerType?.replace('_', '-') ||
       params.get('style') ||
       routeState.discoveryBrief?.travelerType ||
+      profilePreferences.defaultTravelerType?.replace('_', '-') ||
       'couple',
   )
   const [budgetLevel, setBudgetLevel] = useState(
     savedInput?.budgetLevel?.replace('_', '-') ||
       params.get('budget') ||
       routeState.discoveryBrief?.budget ||
+      (profilePreferences.budgetRange === 'economy'
+        ? 'budget'
+        : profilePreferences.budgetRange === 'luxury'
+          ? 'luxury'
+          : 'mid-range') ||
       'mid-range',
   )
-  const [pace, setPace] = useState<'relaxed' | 'balanced' | 'packed'>(savedInput?.pace || 'balanced')
+  const [pace, setPace] = useState<'relaxed' | 'balanced' | 'packed'>(
+    savedInput?.pace || profilePreferences.travelPace || 'balanced',
+  )
   const [plan, setPlan] = useState<TripPlanResult | null>(savedPlan || null)
   const [isGenerating, setIsGenerating] = useState(false)
   const [generationError, setGenerationError] = useState<string | null>(null)
@@ -239,7 +264,7 @@ export const TripPlanningResetPage: React.FC<TripPlanningResetPageProps> = ({ sa
       interests: initialInterests,
       avoid: initialAvoid,
       origin: params.get('origin') || routeState.discoveryBrief?.departure,
-      currency: 'USD',
+      currency: user?.homeCurrency || 'USD',
       notes: routeState.discoveryRecommendation?.supportPlaces?.length
         ? `Discovery suggested these real places for consideration: ${routeState.discoveryRecommendation.supportPlaces.join(', ')}`
         : undefined,
@@ -257,6 +282,7 @@ export const TripPlanningResetPage: React.FC<TripPlanningResetPageProps> = ({ sa
       startDate,
       endDate,
       travelerType,
+      user?.homeCurrency,
     ],
   )
 
@@ -524,6 +550,35 @@ export const TripPlanningResetPage: React.FC<TripPlanningResetPageProps> = ({ sa
     setEditNotice(`${label} is not connected yet. Your generated plan has not been changed.`)
   }
 
+  if (workspaceView === 'saved') {
+    return (
+      <div className="min-h-screen bg-[linear-gradient(180deg,#f6f7f4_0%,#ffffff_38%,#eef4f7_100%)]">
+        <section className="bg-[#091523] text-white">
+          <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
+            <div className="flex flex-col gap-6 sm:flex-row sm:items-end sm:justify-between">
+              <div>
+                <span className="inline-flex items-center gap-2 rounded-full bg-white/10 px-4 py-2 text-xs font-bold uppercase tracking-[0.18em] text-white/70">
+                  <FolderHeart className="h-4 w-4 text-emerald-300" />
+                  Trips Workspace
+                </span>
+                <h1 className="font-heading mt-5 text-4xl font-semibold sm:text-5xl">Plan and manage your trips</h1>
+              </div>
+              <div className="flex rounded-full border border-white/15 bg-white/10 p-1.5">
+                <button type="button" onClick={() => navigate('/trips')} className="rounded-full px-5 py-2.5 text-sm font-semibold text-white/65 hover:text-white">
+                  Plan a Trip
+                </button>
+                <button type="button" className="rounded-full bg-white px-5 py-2.5 text-sm font-semibold text-slate-950">
+                  Saved Trips
+                </button>
+              </div>
+            </div>
+          </div>
+        </section>
+        <SavedTripsPanel />
+      </div>
+    )
+  }
+
   return (
     <div className="min-h-screen bg-[linear-gradient(180deg,#f6f7f4_0%,#ffffff_34%,#eef4f7_100%)] pb-24 lg:pb-0">
       <section className="relative overflow-hidden bg-[#091523] text-white">
@@ -568,11 +623,9 @@ export const TripPlanningResetPage: React.FC<TripPlanningResetPageProps> = ({ sa
               {isGenerating ? 'Building Smart Plan...' : plan ? 'Refresh Smart Plan' : 'Generate Smart Plan'}
             </Button>
             {user && (
-              <Link to="/saved-plans">
-                <Button variant="outline" size="lg" className="shrink-0 rounded-full border-white/25 text-white hover:bg-white/10">
-                  <FolderHeart className="mr-2 h-5 w-5" />Saved Trips
-                </Button>
-              </Link>
+              <Button onClick={() => navigate('/trips?view=saved')} variant="outline" size="lg" className="shrink-0 rounded-full border-white/25 text-white hover:bg-white/10">
+                <FolderHeart className="mr-2 h-5 w-5" />Saved Trips
+              </Button>
             )}
           </div>
         </div>
@@ -689,7 +742,7 @@ export const TripPlanningResetPage: React.FC<TripPlanningResetPageProps> = ({ sa
                 <Button onClick={() => navigate(`/trips/${savedTripId}`)} className="rounded-xl bg-emerald-600 text-white">
                   Open Saved Trip<ArrowRight className="ml-2 h-4 w-4" />
                 </Button>
-                <Button onClick={() => navigate('/saved-plans')} variant="outline" className="rounded-xl">
+                <Button onClick={() => navigate('/trips?view=saved')} variant="outline" className="rounded-xl">
                   View All Saved Trips
                 </Button>
               </div>

@@ -1276,6 +1276,7 @@ const userSchema = new mongoose.Schema({
   phone: String,
   bio: String,
   homeCity: String,
+  languages: [String],
   socialLinks: {
     instagram: String,
     linkedin: String,
@@ -1286,7 +1287,12 @@ const userSchema = new mongoose.Schema({
     budgetRange: String,
     travelPace: String,
     interests: [String],
-    accessibility: [String]
+    accessibility: [String],
+    dietaryNeeds: [String],
+    defaultTravelerType: String,
+    avoid: [String],
+    measurementUnit: { type: String, default: 'metric' },
+    temperatureUnit: { type: String, default: 'celsius' }
   },
 
   // Social Features
