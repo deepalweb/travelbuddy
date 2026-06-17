@@ -1,77 +1,226 @@
-import 'dart:convert';
-import 'package:http/http.dart' as http;
-import '../config/environment.dart';
+import 'package:dio/dio.dart';
+
+import 'mobile_api_client.dart';
 
 class AITripService {
   static Future<Map<String, dynamic>> generateTripPlan({
     required String destination,
     required String duration,
+    int? durationDays,
     String? interests,
+    List<String>? interestList,
+    List<String>? avoid,
     String? pace,
     String? budget,
+    String? travelerType,
+    String? startDate,
+    String? endDate,
   }) async {
+    final days = durationDays ??
+        int.tryParse(RegExp(r'\d+').firstMatch(duration)?.group(0) ?? '') ??
+        3;
+    final normalizedBudget = switch (budget?.toLowerCase()) {
+      'budget' || 'budget-friendly' => 'budget',
+      'luxury' => 'luxury',
+      _ => 'mid_range',
+    };
+    final normalizedPace = switch (pace?.toLowerCase()) {
+      'relaxed' => 'relaxed',
+      'fast' => 'busy',
+      _ => 'balanced',
+    };
+    final normalizedInterests = interestList?.isNotEmpty == true
+        ? interestList!
+        : (interests ?? '')
+            .split(',')
+            .map((item) => item.trim().toLowerCase())
+            .where((item) => item.isNotEmpty)
+            .toList();
+
     try {
-      print('🤖 Generating AI trip plan for: $destination');
-      
-      final response = await http.post(
-        Uri.parse('${Environment.backendUrl}/api/ai/generate-trip-plan'),
-        headers: {'Content-Type': 'application/json'},
-        body: json.encode({
+      final response = await MobileApiClient.instance.dio.post<dynamic>(
+        '/api/trip-plan/generate',
+        data: {
           'destination': destination,
-          'duration': duration,
-          'interests': interests ?? 'general sightseeing',
-          'pace': pace ?? 'Moderate',
-          'travelStyles': [interests ?? 'Cultural'],
-          'budget': budget ?? 'Mid-Range',
-        }),
+          'startDate': startDate,
+          'endDate': endDate,
+          'durationDays': days,
+          'travelerType': travelerType ?? 'couple',
+          'budgetLevel': normalizedBudget,
+          'pace': normalizedPace,
+          'interests': normalizedInterests,
+          'avoid': avoid ?? const [],
+        },
+        options: Options(
+          receiveTimeout: const Duration(seconds: 150),
+          sendTimeout: const Duration(seconds: 30),
+        ),
       );
-      
-      if (response.statusCode == 200) {
-        final data = json.decode(response.body);
-        print('✅ AI trip plan generated successfully');
-        return data;
-      } else {
-        throw Exception('AI service failed: ${response.statusCode}');
+
+      final body = response.data;
+      if (body is! Map || body['success'] != true || body['tripPlan'] is! Map) {
+        throw Exception('The planning service returned an invalid response.');
       }
-    } catch (e) {
-      print('❌ AI trip service error: $e');
-      // Return fallback plan
-      return _getFallbackPlan(destination, duration);
+
+      final generatedPlan = Map<String, dynamic>.from(body['tripPlan'] as Map);
+      return _toLegacyViewModel(generatedPlan, destination, days);
+    } on DioException catch (error) {
+      throw Exception(_friendlyGenerateError(error));
     }
   }
 
-  static Map<String, dynamic> _getFallbackPlan(String destination, String duration) {
+  static Future<Map<String, dynamic>> editTripPlan({
+    required Map<String, dynamic> currentPlan,
+    required String actionType,
+    String? actionLabel,
+    String? instruction,
+    required String destination,
+    required int durationDays,
+    String? budget,
+    String? pace,
+    String? travelerType,
+    List<String>? interests,
+    List<String>? avoid,
+    String? startDate,
+    String? endDate,
+  }) async {
+    final normalizedBudget = switch (budget?.toLowerCase()) {
+      'budget' || 'budget-friendly' => 'budget',
+      'luxury' => 'luxury',
+      _ => 'mid_range',
+    };
+    final normalizedPace = switch (pace?.toLowerCase()) {
+      'relaxed' => 'relaxed',
+      'fast' => 'busy',
+      'packed' => 'packed',
+      _ => 'balanced',
+    };
+
+    try {
+      final response = await MobileApiClient.instance.dio.post<dynamic>(
+        '/api/trip-plan/edit',
+        data: {
+          'currentPlan': currentPlan,
+          'actionType': actionType,
+          'actionLabel': actionLabel,
+          'instruction': instruction,
+          'input': {
+            'destination': destination,
+            'startDate': startDate,
+            'endDate': endDate,
+            'durationDays': durationDays,
+            'travelerType': travelerType ?? 'couple',
+            'budgetLevel': normalizedBudget,
+            'pace': normalizedPace,
+            'interests': interests ?? const [],
+            'avoid': avoid ?? const [],
+          },
+        },
+        options: Options(
+          receiveTimeout: const Duration(seconds: 150),
+          sendTimeout: const Duration(seconds: 30),
+        ),
+      );
+
+      final body = response.data;
+      if (body is! Map || body['success'] != true || body['tripPlan'] is! Map) {
+        throw Exception(
+            'The planning service returned an invalid edit response.');
+      }
+
+      final editedPlan = Map<String, dynamic>.from(body['tripPlan'] as Map);
+      return _toLegacyViewModel(editedPlan, destination, durationDays);
+    } on DioException catch (error) {
+      throw Exception(_friendlyGenerateError(error));
+    }
+  }
+
+  static String _friendlyGenerateError(DioException error) {
+    final responseData = error.response?.data;
+    final serverMessage = responseData is Map
+        ? (responseData['error'] ?? responseData['message'])?.toString()
+        : null;
+
+    if (serverMessage != null && serverMessage.trim().isNotEmpty) {
+      return serverMessage;
+    }
+
+    final statusCode = error.response?.statusCode;
+    if (statusCode == 401) {
+      return 'Your session expired. Please sign in again and retry.';
+    }
+    if (statusCode != null && statusCode >= 500) {
+      return 'The trip planning server had a problem. Please retry in a moment.';
+    }
+
+    return switch (error.type) {
+      DioExceptionType.connectionTimeout ||
+      DioExceptionType.receiveTimeout ||
+      DioExceptionType.sendTimeout =>
+        'Trip planning took too long. Please retry with a shorter trip.',
+      DioExceptionType.connectionError =>
+        'Could not connect to TravelBuddy. Check your internet connection.',
+      _ => 'Failed to generate a smart trip plan.',
+    };
+  }
+
+  static Map<String, dynamic> _toLegacyViewModel(
+    Map<String, dynamic> plan,
+    String destination,
+    int days,
+  ) {
+    final rawDays = plan['days'] as List? ?? const [];
+    final dailyPlans = rawDays.whereType<Map>().map((rawDay) {
+      final day = Map<String, dynamic>.from(rawDay);
+      final rawActivities = day['activities'] as List? ?? const [];
+      return {
+        'day': day['day'],
+        'title': day['title'],
+        'theme': day['theme'],
+        'activities': rawActivities.whereType<Map>().map((rawActivity) {
+          final activity = Map<String, dynamic>.from(rawActivity);
+          final placeName = (activity['placeName'] ?? '').toString();
+          return {
+            'timeOfDay': activity['timeOfDay'],
+            'activityTitle': activity['title'],
+            'description': activity['description'],
+            'category': activity['type'],
+            'icon': _activityIcon(activity['type']?.toString()),
+            'location': placeName,
+            'estimatedDuration': activity['estimatedDuration'],
+            'estimatedCost': '',
+            'notes': [
+              activity['localTip'],
+              activity['reservationAdvice'],
+            ]
+                .where((item) => item != null && item.toString().isNotEmpty)
+                .join(' • '),
+          };
+        }).toList(),
+      };
+    }).toList();
+
     return {
-      'tripTitle': 'Essential $duration in $destination',
-      'destination': destination,
-      'duration': duration,
-      'introduction': 'Discover the highlights of $destination with this curated itinerary.',
-      'dailyPlans': [
-        {
-          'day': 1,
-          'title': 'Day 1: City Highlights',
-          'theme': 'Essential Sights & Local Culture',
-          'activities': [
-            {
-              'timeOfDay': 'Morning (09:00-11:00)',
-              'activityTitle': 'Historic City Center',
-              'description': 'Explore the main attractions and historic sites. 🚶 Transport: Walking 💰 Cost: Free 🕒 Best Time: Morning',
-              'icon': '🏛️',
-              'category': 'Sightseeing',
-              'effortLevel': 'Easy'
-            },
-            {
-              'timeOfDay': 'Lunch (12:00-13:30)',
-              'activityTitle': 'Local Restaurant',
-              'description': 'Experience authentic local cuisine. 🚇 Transport: Short walk 💰 Cost: \$20-30 🕒 Best Time: Lunch hours',
-              'icon': '🍽️',
-              'category': 'Dining',
-              'effortLevel': 'Easy'
-            }
-          ]
-        }
-      ],
-      'conclusion': 'Enjoy your memorable time in $destination!'
+      'tripTitle': plan['tripTitle'] ?? 'Smart Trip to $destination',
+      'destination': plan['destination'] ?? destination,
+      'duration': '${plan['durationDays'] ?? days} days',
+      'introduction':
+          plan['tripSummary']?['shortDescription'] ?? plan['finalAdvice'] ?? '',
+      'dailyPlans': dailyPlans,
+      'conclusion': plan['finalAdvice'] ?? '',
+      'generatedPlan': plan,
+    };
+  }
+
+  static String _activityIcon(String? type) {
+    return switch (type) {
+      'food' => '🍽️',
+      'nature' => '🌿',
+      'culture' => '🏛️',
+      'transport' => '🚆',
+      'shopping' => '🛍️',
+      'rest' => '☕',
+      _ => '📍',
     };
   }
 }

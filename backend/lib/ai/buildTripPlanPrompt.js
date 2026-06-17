@@ -20,9 +20,9 @@ When requirements conflict, use this order:
 4. Traveler interests and variety.
 5. Completeness and presentation.
 
-Plan silently before writing the JSON. Do not reveal hidden reasoning or add commentary outside the schema.
 
 TRAVELER INPUT
+Plan silently before writing the JSON. Do not reveal hidden reasoning or add commentary outside the schema.
 The JSON below contains traveler preferences and trip details.
 <traveler_input>
 ${JSON.stringify(input, null, 2)}

@@ -598,7 +598,7 @@ const DestinationDiscoveryPage: React.FC = () => {
 
                 {currentStep.id === 'vibes' && (
                   <div>
-                    <p className="mb-4 text-sm text-slate-500">Choose as many as you like. These values stay in <code>form.interests</code> for ranking.</p>
+                    <p className="mb-4 text-sm text-slate-500">Choose as many as you like. Your strongest interests shape the ranking.</p>
                     <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
                       {discoveryInterests.map((interest) => (
                         <SelectionCard
@@ -626,6 +626,21 @@ const DestinationDiscoveryPage: React.FC = () => {
                           onClick={() => toggleAvoid(option)}
                         />
                       ))}
+                    </div>
+                    <div className="mt-7">
+                      <label className="text-xs font-extrabold uppercase tracking-[0.18em] text-slate-400">
+                        Anything else?
+                      </label>
+                      <textarea
+                        value={form.tripNotes}
+                        onChange={(event) => setForm((current) => ({ ...current, tripNotes: event.target.value }))}
+                        rows={4}
+                        placeholder="Example: quiet beaches, easy public transport, street food, no party areas..."
+                        className="mt-3 w-full resize-none rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4 text-sm font-semibold text-slate-950 outline-none transition focus:border-[#f47f6b] focus:bg-white focus:ring-4 focus:ring-orange-100"
+                      />
+                      <p className="mt-2 text-xs text-slate-500">
+                        Notes help TravelBuddy catch preferences that do not fit neatly into a button.
+                      </p>
                     </div>
                   </div>
                 )}

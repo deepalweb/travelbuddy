@@ -36,7 +36,7 @@ import { SavedTripsPanel } from '../components/SavedTripsPanel'
 import { apiService } from '../lib/api'
 import { useAuth } from '../contexts/AuthContext'
 import { tripService, type TripPlan } from '../services/tripService'
-import type { TripPlanInput, TripPlanResult } from '../types/tripPlan'
+import type { SmartEditAction, TripPlanInput, TripPlanResult } from '../types/tripPlan'
 
 type DiscoveryState = {
   discoveryBrief?: {
@@ -242,6 +242,7 @@ export const TripPlanningResetPage: React.FC<TripPlanningResetPageProps> = ({ sa
     savedPlan?.days.map((day) => day.day) || [1],
   )
   const [editNotice, setEditNotice] = useState<string | null>(null)
+  const [editingActionType, setEditingActionType] = useState<string | null>(null)
   const [visitedPlaces, setVisitedPlaces] = useState<string[]>([])
   const [isSaving, setIsSaving] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
@@ -546,8 +547,42 @@ export const TripPlanningResetPage: React.FC<TripPlanningResetPageProps> = ({ sa
     )
   }
 
-  const handleSmartEdit = (label: string) => {
-    setEditNotice(`${label} is not connected yet. Your generated plan has not been changed.`)
+  const handleSmartEdit = async (action: SmartEditAction) => {
+    if (!plan || editingActionType) return
+
+    setEditingActionType(action.actionType)
+    setEditNotice(null)
+    setGenerationError(null)
+    setSaveError(null)
+
+    try {
+      const response = await apiService.editTripPlan({
+        currentPlan: plan,
+        input,
+        actionType: action.actionType,
+        actionLabel: action.label,
+        instruction: action.description,
+      })
+      const editedPlan = validateGeneratedPlan(response.tripPlan)
+      setPlan(editedPlan)
+      setExpandedDays(editedPlan.days.map((day) => day.day))
+      setVisitedPlaces([])
+      setSavedTripId(null)
+      setEditNotice(`${action.label} applied. Review the updated plan before saving.`)
+      window.setTimeout(
+        () => document.getElementById('trip-dashboard')?.scrollIntoView({ behavior: 'smooth' }),
+        50,
+      )
+    } catch (error) {
+      console.error('Smart trip edit failed:', error)
+      setEditNotice(
+        error instanceof Error
+          ? error.message
+          : 'Smart edit failed. Please try again.',
+      )
+    } finally {
+      setEditingActionType(null)
+    }
   }
 
   if (workspaceView === 'saved') {
@@ -1075,9 +1110,17 @@ export const TripPlanningResetPage: React.FC<TripPlanningResetPageProps> = ({ sa
                   }
                   const Icon = iconMap[action.actionType] || Sparkles
                   return (
-                    <button key={action.actionType} type="button" onClick={() => handleSmartEdit(action.label)} className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-left hover:border-orange-300">
+                    <button
+                      key={action.actionType}
+                      type="button"
+                      onClick={() => handleSmartEdit(action)}
+                      disabled={Boolean(editingActionType)}
+                      className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-left hover:border-orange-300 disabled:cursor-not-allowed disabled:opacity-60"
+                    >
                       <Icon className="h-5 w-5 text-[#e96855]" />
-                      <p className="mt-3 text-sm font-bold">{action.label}</p>
+                      <p className="mt-3 text-sm font-bold">
+                        {editingActionType === action.actionType ? 'Applying...' : action.label}
+                      </p>
                       <p className="mt-1 text-xs text-slate-500">{action.description}</p>
                     </button>
                   )

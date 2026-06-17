@@ -1,5 +1,5 @@
 import { configService } from '../services/configService'
-import type { TripPlanInput, TripPlanResult } from '../types/tripPlan'
+import type { SmartEditAction, TripPlanInput, TripPlanResult } from '../types/tripPlan'
 
 let API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001'
 
@@ -65,11 +65,38 @@ export interface DiscoveryRecommendationPayload {
   tripNotes?: string
 }
 
+export interface TripPlanQualityMeta {
+  score: number
+  passed: boolean
+  issues: Array<{
+    severity: string
+    code: string
+    message: string
+  }>
+  blockingIssues: Array<{
+    severity: string
+    code: string
+    message: string
+  }>
+}
+
 export interface TripPlanGenerateResponse {
   success: boolean
   tripPlan: TripPlanResult
   meta?: {
     source?: string
+    quality?: TripPlanQualityMeta
+  }
+  error?: string
+}
+
+export interface TripPlanEditResponse {
+  success: boolean
+  tripPlan: TripPlanResult
+  meta?: {
+    source?: string
+    actionType?: string
+    quality?: TripPlanQualityMeta
   }
   error?: string
 }
@@ -401,6 +428,19 @@ class ApiService {
 
   async generateTripPlan(payload: TripPlanInput) {
     return this.request<TripPlanGenerateResponse>('/trip-plan/generate', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    })
+  }
+
+  async editTripPlan(payload: {
+    currentPlan: TripPlanResult
+    input: TripPlanInput
+    actionType: SmartEditAction['actionType']
+    actionLabel?: string
+    instruction?: string
+  }) {
+    return this.request<TripPlanEditResponse>('/trip-plan/edit', {
       method: 'POST',
       body: JSON.stringify(payload),
     })

@@ -137,3 +137,5 @@ export type TripPlanResult = {
   }>
   finalAdvice: string
 }
+
+export type SmartEditAction = TripPlanResult['smartEditActions'][number]
