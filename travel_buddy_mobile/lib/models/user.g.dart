@@ -51,13 +51,14 @@ class CurrentUserAdapter extends TypeAdapter<CurrentUser> {
           ?.map((dynamic e) => (e as Map).cast<String, String>())
           ?.toList(),
       travelPreferences: (fields[31] as Map?)?.cast<String, dynamic>(),
+      nationality: fields[32] as String?,
     );
   }
 
   @override
   void write(BinaryWriter writer, CurrentUser obj) {
     writer
-      ..writeByte(32)
+      ..writeByte(33)
       ..writeByte(0)
       ..write(obj.username)
       ..writeByte(1)
@@ -121,7 +122,9 @@ class CurrentUserAdapter extends TypeAdapter<CurrentUser> {
       ..writeByte(30)
       ..write(obj.socialLinks)
       ..writeByte(31)
-      ..write(obj.travelPreferences);
+      ..write(obj.travelPreferences)
+      ..writeByte(32)
+      ..write(obj.nationality);
   }
 
   @override
@@ -137,7 +140,7 @@ class CurrentUserAdapter extends TypeAdapter<CurrentUser> {
 
 class SubscriptionStatusAdapter extends TypeAdapter<SubscriptionStatus> {
   @override
-  final int typeId = 7;
+  final int typeId = 11;
 
   @override
   SubscriptionStatus read(BinaryReader reader) {
@@ -191,7 +194,7 @@ class SubscriptionStatusAdapter extends TypeAdapter<SubscriptionStatus> {
 
 class SubscriptionTierAdapter extends TypeAdapter<SubscriptionTier> {
   @override
-  final int typeId = 8;
+  final int typeId = 12;
 
   @override
   SubscriptionTier read(BinaryReader reader) {
@@ -240,7 +243,7 @@ class SubscriptionTierAdapter extends TypeAdapter<SubscriptionTier> {
 
 class UserInterestAdapter extends TypeAdapter<UserInterest> {
   @override
-  final int typeId = 9;
+  final int typeId = 13;
 
   @override
   UserInterest read(BinaryReader reader) {
