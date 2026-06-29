@@ -26,19 +26,33 @@ class StorageService {
   Future<void> initialize() async {
     await Hive.initFlutter();
     
-    // Register adapters
-    if (!Hive.isAdapterRegistered(0)) Hive.registerAdapter(PlaceAdapter());
-    if (!Hive.isAdapterRegistered(1)) Hive.registerAdapter(DealAdapter());
-    if (!Hive.isAdapterRegistered(2)) Hive.registerAdapter(CurrentUserAdapter());
-    if (!Hive.isAdapterRegistered(3)) Hive.registerAdapter(TripPlanAdapter());
-    if (!Hive.isAdapterRegistered(4)) Hive.registerAdapter(DailyTripPlanAdapter());
-    if (!Hive.isAdapterRegistered(5)) Hive.registerAdapter(ActivityDetailAdapter());
-    if (!Hive.isAdapterRegistered(6)) Hive.registerAdapter(OneDayItineraryAdapter());
-    if (!Hive.isAdapterRegistered(7)) Hive.registerAdapter(SubscriptionStatusAdapter());
-    if (!Hive.isAdapterRegistered(8)) Hive.registerAdapter(SubscriptionTierAdapter());
-    if (!Hive.isAdapterRegistered(9)) Hive.registerAdapter(UserInterestAdapter());
-    if (!Hive.isAdapterRegistered(20)) Hive.registerAdapter(PriceInfoAdapter());
-    if (!Hive.isAdapterRegistered(25)) Hive.registerAdapter(TravelStyleAdapter());
+    // Register all generated Hive adapters (use the adapter's typeId to avoid collisions)
+    try {
+      if (!Hive.isAdapterRegistered(0)) Hive.registerAdapter(PlaceAdapter());
+      if (!Hive.isAdapterRegistered(1)) Hive.registerAdapter(DealAdapter());
+      if (!Hive.isAdapterRegistered(2)) Hive.registerAdapter(CurrentUserAdapter());
+      if (!Hive.isAdapterRegistered(3)) Hive.registerAdapter(TripPlanAdapter());
+      if (!Hive.isAdapterRegistered(4)) Hive.registerAdapter(DailyTripPlanAdapter());
+      if (!Hive.isAdapterRegistered(5)) Hive.registerAdapter(ActivityDetailAdapter());
+      if (!Hive.isAdapterRegistered(6)) Hive.registerAdapter(OneDayItineraryAdapter());
+      // Trip-related nested types
+      if (!Hive.isAdapterRegistered(7)) Hive.registerAdapter(PlaceInfoAdapter());
+      if (!Hive.isAdapterRegistered(8)) Hive.registerAdapter(CoordinatesAdapter());
+      if (!Hive.isAdapterRegistered(9)) Hive.registerAdapter(TransportInfoAdapter());
+      if (!Hive.isAdapterRegistered(10)) Hive.registerAdapter(WeatherBackupAdapter());
+
+      // User-related enums/adapters
+      if (!Hive.isAdapterRegistered(11)) Hive.registerAdapter(SubscriptionStatusAdapter());
+      if (!Hive.isAdapterRegistered(12)) Hive.registerAdapter(SubscriptionTierAdapter());
+      if (!Hive.isAdapterRegistered(13)) Hive.registerAdapter(UserInterestAdapter());
+
+      // Other generated adapters
+      if (!Hive.isAdapterRegistered(20)) Hive.registerAdapter(PriceInfoAdapter());
+      if (!Hive.isAdapterRegistered(25)) Hive.registerAdapter(TravelStyleAdapter());
+      if (!Hive.isAdapterRegistered(21)) Hive.registerAdapter(DealLocationAdapter());
+    } catch (e) {
+      print('⚠️ Warning registering Hive adapters: $e');
+    }
 
     // Open boxes with error handling for corrupted data
     try {

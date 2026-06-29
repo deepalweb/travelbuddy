@@ -154,13 +154,17 @@ class DealAdapter extends TypeAdapter<Deal> {
       discountedPrice: fields[18] as double?,
       currency: fields[19] as String?,
       location: fields[20] as DealLocation?,
+      businessAddress: fields[21] as String?,
+      businessPhone: fields[22] as String?,
+      businessWebsite: fields[23] as String?,
+      contactInfo: fields[24] as ContactInfo?,
     );
   }
 
   @override
   void write(BinaryWriter writer, Deal obj) {
     writer
-      ..writeByte(21)
+      ..writeByte(25)
       ..writeByte(0)
       ..write(obj.id)
       ..writeByte(1)
@@ -202,7 +206,15 @@ class DealAdapter extends TypeAdapter<Deal> {
       ..writeByte(19)
       ..write(obj.currency)
       ..writeByte(20)
-      ..write(obj.location);
+      ..write(obj.location)
+      ..writeByte(21)
+      ..write(obj.businessAddress)
+      ..writeByte(22)
+      ..write(obj.businessPhone)
+      ..writeByte(23)
+      ..write(obj.businessWebsite)
+      ..writeByte(24)
+      ..write(obj.contactInfo);
   }
 
   @override
@@ -229,17 +241,23 @@ class DealLocationAdapter extends TypeAdapter<DealLocation> {
     return DealLocation(
       type: fields[0] as String,
       coordinates: (fields[1] as List).cast<double>(),
+      lat: fields[2] as double?,
+      lng: fields[3] as double?,
     );
   }
 
   @override
   void write(BinaryWriter writer, DealLocation obj) {
     writer
-      ..writeByte(2)
+      ..writeByte(4)
       ..writeByte(0)
       ..write(obj.type)
       ..writeByte(1)
-      ..write(obj.coordinates);
+      ..write(obj.coordinates)
+      ..writeByte(2)
+      ..write(obj.lat)
+      ..writeByte(3)
+      ..write(obj.lng);
   }
 
   @override
@@ -249,6 +267,55 @@ class DealLocationAdapter extends TypeAdapter<DealLocation> {
   bool operator ==(Object other) =>
       identical(this, other) ||
       other is DealLocationAdapter &&
+          runtimeType == other.runtimeType &&
+          typeId == other.typeId;
+}
+
+class ContactInfoAdapter extends TypeAdapter<ContactInfo> {
+  @override
+  final int typeId = 22;
+
+  @override
+  ContactInfo read(BinaryReader reader) {
+    final numOfFields = reader.readByte();
+    final fields = <int, dynamic>{
+      for (int i = 0; i < numOfFields; i++) reader.readByte(): reader.read(),
+    };
+    return ContactInfo(
+      website: fields[0] as String?,
+      phone: fields[1] as String?,
+      whatsapp: fields[2] as String?,
+      facebook: fields[3] as String?,
+      instagram: fields[4] as String?,
+      email: fields[5] as String?,
+    );
+  }
+
+  @override
+  void write(BinaryWriter writer, ContactInfo obj) {
+    writer
+      ..writeByte(6)
+      ..writeByte(0)
+      ..write(obj.website)
+      ..writeByte(1)
+      ..write(obj.phone)
+      ..writeByte(2)
+      ..write(obj.whatsapp)
+      ..writeByte(3)
+      ..write(obj.facebook)
+      ..writeByte(4)
+      ..write(obj.instagram)
+      ..writeByte(5)
+      ..write(obj.email);
+  }
+
+  @override
+  int get hashCode => typeId.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is ContactInfoAdapter &&
           runtimeType == other.runtimeType &&
           typeId == other.typeId;
 }

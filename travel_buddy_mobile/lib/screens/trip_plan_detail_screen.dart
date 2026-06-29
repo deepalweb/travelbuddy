@@ -39,6 +39,19 @@ class _TripPlanDetailScreenState extends State<TripPlanDetailScreen> {
   void initState() {
     super.initState();
     _currentTripPlan = widget.tripPlan;
+    
+    // Debug initial trip data
+    print('📱 DEBUG: Trip detail screen initialized');
+    print('   Trip ID: ${widget.tripPlan.id}');
+    print('   Trip Title: ${widget.tripPlan.tripTitle}');
+    print('   DailyPlans count: ${widget.tripPlan.dailyPlans.length}');
+    int initialActivities = 0;
+    for (final day in widget.tripPlan.dailyPlans) {
+      print('   Day ${day.day}: ${day.activities.length} activities');
+      initialActivities += day.activities.length;
+    }
+    print('   Total initial activities: $initialActivities');
+    
     _loadVisitStatus();
     _loadEnhancedIntroduction();
     // Refresh AFTER loading initial status
@@ -60,12 +73,23 @@ class _TripPlanDetailScreenState extends State<TripPlanDetailScreen> {
     final storageService = StorageService();
     final localTrips = await storageService.getTripPlans();
     
+    print('🔍 DEBUG: Looking for trip $tripId in storage');
+    print('🔍 DEBUG: Found ${localTrips.length} trips in storage');
+    
     TripPlan? latestTrip;
     
     try {
       latestTrip = localTrips.firstWhere((trip) => trip.id == tripId);
       print('✅ Found trip plan in storage: ${latestTrip.tripTitle}');
+      print('🔍 DEBUG: Trip has ${latestTrip.dailyPlans.length} days');
+      int totalActivities = 0;
+      for (final day in latestTrip.dailyPlans) {
+        print('🔍 DEBUG:   Day ${day.day}: ${day.activities.length} activities');
+        totalActivities += day.activities.length;
+      }
+      print('🔍 DEBUG: Total activities loaded: $totalActivities');
     } catch (e) {
+      print('❌ Trip not found, error: $e');
       try {
         final localItineraries = await storageService.getItineraries();
         final itinerary = localItineraries.firstWhere((it) => it.id == tripId);
@@ -326,11 +350,117 @@ class _TripPlanDetailScreenState extends State<TripPlanDetailScreen> {
       _visitStatus[activity.activityTitle] ?? activity.isVisited
     ).length;
     
+    print('📊 STATS CARD DEBUG:');
+    print('   Total places: $totalPlaces');
+    print('   Visited count: $visitedCount');
+    print('   DailyPlans: ${_currentTripPlan!.dailyPlans.length}');
+    for (int i = 0; i < _currentTripPlan!.dailyPlans.length; i++) {
+      print('   Day ${i+1}: ${_currentTripPlan!.dailyPlans[i].activities.length} activities');
+    }
+    
     // Get trip summary from metadata
     final tripSummary = _currentTripPlan!.metadata?['tripSummary'] as Map<String, dynamic>?;
     final totalWalking = tripSummary?['totalWalkingDistance'] ?? 'N/A';
     final totalTime = tripSummary?['totalSightseeingTime'] ?? 'N/A';
     final totalBudget = tripSummary?['estimatedBudget'] ?? _currentTripPlan!.totalEstimatedCost;
+    
+    // If no activities, show helpful message
+    if (totalPlaces == 0) {
+      return Card(
+        elevation: 3,
+        color: Colors.white,
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: Colors.amber[50],
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Icon(Icons.info, color: Colors.amber[700], size: 24),
+                  ),
+                  const SizedBox(width: 12),
+                  const Text(
+                    'Trip Summary',
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.amber[50],
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.amber[200]!),
+                ),
+                child: Column(
+                  children: [
+                    Icon(Icons.travel_explore, size: 40, color: Colors.amber[700]),
+                    const SizedBox(height: 12),
+                    const Text(
+                      'No Activities Yet',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'This trip was created but no activities have been added yet.',
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: Colors.grey[700],
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 12),
+                    if (_currentTripPlan!.introduction.isNotEmpty) ...[
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'Trip Overview:',
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                                color: Colors.grey,
+                              ),
+                            ),
+                            const SizedBox(height: 6),
+                            Text(
+                              _currentTripPlan!.introduction,
+                              style: const TextStyle(
+                                fontSize: 13,
+                                height: 1.4,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
     
     return Card(
       elevation: 3,
@@ -392,7 +522,7 @@ class _TripPlanDetailScreenState extends State<TripPlanDetailScreen> {
             ),
             const SizedBox(height: 8),
             Text(
-              '$visitedCount of $totalPlaces completed (• ${((visitedCount / totalPlaces) * 100).toInt()}%)',
+              '$visitedCount of $totalPlaces completed (• ${totalPlaces > 0 ? ((visitedCount / totalPlaces) * 100).toInt() : 0}%)',
               style: TextStyle(
                 fontSize: 13,
                 color: Colors.grey[700],
@@ -1485,12 +1615,23 @@ class _TripPlanDetailScreenState extends State<TripPlanDetailScreen> {
         if (duration.contains('hr') || duration.contains('h')) {
           final match = RegExp(r'(\d+\.?\d*)').firstMatch(duration);
           if (match != null) {
-            totalMinutes += (double.parse(match.group(1)!) * 60).toInt();
+            try {
+              final parsed = double.parse(match.group(1)!);
+              if (parsed.isFinite && parsed > 0) {
+                totalMinutes += (parsed * 60).toInt();
+              }
+            } catch (e) {
+              // Skip invalid duration
+            }
           }
         } else if (duration.contains('min')) {
           final match = RegExp(r'(\d+)').firstMatch(duration);
           if (match != null) {
-            totalMinutes += int.parse(match.group(1)!);
+            try {
+              totalMinutes += int.parse(match.group(1)!);
+            } catch (e) {
+              // Skip invalid duration
+            }
           }
         }
       }

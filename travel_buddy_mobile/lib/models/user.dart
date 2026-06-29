@@ -3,7 +3,7 @@ import 'travel_style.dart';
 
 part 'user.g.dart';
 
-@HiveType(typeId: 7)
+@HiveType(typeId: 11)
 enum SubscriptionStatus {
   @HiveField(0)
   none,
@@ -17,7 +17,7 @@ enum SubscriptionStatus {
   canceled,
 }
 
-@HiveType(typeId: 8)
+@HiveType(typeId: 12)
 enum SubscriptionTier {
   @HiveField(0)
   free,
@@ -29,7 +29,7 @@ enum SubscriptionTier {
   pro,
 }
 
-@HiveType(typeId: 9)
+@HiveType(typeId: 13)
 enum UserInterest {
   @HiveField(0)
   adventure,

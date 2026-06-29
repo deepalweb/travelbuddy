@@ -1150,7 +1150,7 @@ class _PlannerScreenState extends State<PlannerScreen> {
                       ),
                     ),
                     Text(
-                      '${(statusInfo['progress'] * 100).toInt()}%',
+                      '${((statusInfo['progress'] as double?)?.isFinite ?? false ? ((statusInfo['progress'] as double) * 100).toInt() : 0)}%',
                       style: TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.bold,

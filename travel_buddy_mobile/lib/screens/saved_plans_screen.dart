@@ -101,7 +101,7 @@ class _SavedPlansScreenState extends State<SavedPlansScreen> {
   }
 
   Widget _buildPlanCard(TripPlan plan, AppProvider provider) {
-    final totalActivities = plan.itinerary.fold<int>(0, (sum, day) => sum + day.activities.length);
+    final totalActivities = plan.dailyPlans.fold<int>(0, (sum, day) => sum + day.activities.length);
     
     return Card(
       elevation: 3,
@@ -152,7 +152,7 @@ class _SavedPlansScreenState extends State<SavedPlansScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  '${plan.duration} • ${plan.itinerary.length} days',
+                  '${plan.duration} • ${plan.dailyPlans.length} days',
                   style: TextStyle(color: Colors.grey[600], fontSize: 12),
                 ),
                 const SizedBox(height: 8),
