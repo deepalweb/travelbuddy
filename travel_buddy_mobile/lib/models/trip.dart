@@ -70,28 +70,47 @@ class TripPlan extends HiveObject {
   });
 
   factory TripPlan.fromJson(Map<String, dynamic> json) {
+    final rawDays = json['dailyPlans'] ?? json['dailyItinerary'];
+    final metadata = json['metadata'] is Map
+        ? Map<String, dynamic>.from(json['metadata'])
+        : null;
+    final generatedPlan = metadata?['generatedPlan'] is Map
+        ? Map<String, dynamic>.from(metadata!['generatedPlan'])
+        : null;
+
     return TripPlan(
       id: json['_id'] ?? json['id'] ?? '',
       tripTitle: json['tripTitle'] ?? '',
       destination: json['destination'] ?? '',
-      duration: json['duration'] ?? '',
-      introduction: json['introduction'] ?? '',
-      dailyPlans: (json['dailyPlans'] as List?)
+      duration: json['duration'] ?? '${json['durationDays'] ?? ''} days',
+      introduction: json['introduction'] ??
+          generatedPlan?['tripSummary']?['shortDescription'] ??
+          '',
+      dailyPlans: (rawDays as List?)
               ?.map((e) => DailyTripPlan.fromJson(e))
               .toList() ??
           [],
-      conclusion: json['conclusion'] ?? '',
+      conclusion: json['conclusion'] ??
+          json['notes'] ??
+          generatedPlan?['finalAdvice'] ??
+          '',
       accommodationSuggestions: (json['accommodationSuggestions'] as List?)
           ?.map((e) => e.toString())
           .toList(),
       transportationTips:
           (json['transportationTips'] as List?)?.map((e) => e.toString()).toList(),
       budgetConsiderations: json['budgetConsiderations'],
-      durationDays: json['durationDays'] ?? 1,
-      totalEstimatedCost: json['totalEstimatedCost'] ?? '€0',
+      durationDays: json['durationDays'] ??
+          generatedPlan?['durationDays'] ??
+          (rawDays is List ? rawDays.length : null) ??
+          1,
+      totalEstimatedCost: json['totalEstimatedCost'] ??
+          json['budgetRange'] ??
+          generatedPlan?['budget']?['estimatedTotalRange'] ??
+          'Not estimated',
       estimatedWalkingDistance: json['estimatedWalkingDistance'] ?? '0 km',
       mapPolyline: json['mapPolyline'],
-      metadata: json['metadata'],
+      metadata: metadata,
     );
   }
 
@@ -174,17 +193,17 @@ class DailyTripPlan extends HiveObject {
   factory DailyTripPlan.fromJson(Map<String, dynamic> json) {
     return DailyTripPlan(
       day: json['day'] ?? 0,
-      title: json['title'] ?? '',
-      theme: json['theme'],
+      title: json['title'] ?? json['theme'] ?? '',
+      theme: json['theme'] ?? json['dayGoal'],
       activities: (json['activities'] as List?)
               ?.map((e) => ActivityDetail.fromJson(e))
               .toList() ??
           [],
       photoUrl: json['photoUrl'],
-      dayEstimatedCost: json['dayEstimatedCost'] ?? '€0',
+      dayEstimatedCost: json['dayEstimatedCost'] ?? json['estimatedDayCost'] ?? 'Not estimated',
       dayWalkingDistance: json['dayWalkingDistance'] ?? '0 km',
       date: json['date'] ?? '',
-      summary: json['summary'] ?? '',
+      summary: json['summary'] ?? json['dayGoal'] ?? '',
       totalWalkingTime: json['totalWalkingTime'] ?? '0 min',
       totalTravelTime: json['totalTravelTime'] ?? '0 min',
       dailyRecap: json['dailyRecap'] ?? '',
@@ -471,18 +490,18 @@ class ActivityDetail extends HiveObject {
     }
     
     return ActivityDetail(
-      timeOfDay: json['timeOfDay'] ?? json['start_time'] ?? '',
-      activityTitle: unescape.convert(json['activityTitle'] ?? json['name'] ?? ''),
-      description: unescape.convert(json['description'] ?? ''),
+      timeOfDay: json['timeOfDay'] ?? json['timeSlot'] ?? json['start_time'] ?? '',
+      activityTitle: unescape.convert(json['activityTitle'] ?? json['title'] ?? json['name'] ?? ''),
+      description: unescape.convert(json['description'] ?? json['details'] ?? ''),
       estimatedDuration: json['estimatedDuration'] ?? json['duration'],
-      location: locationStr,
+      location: locationStr ?? json['placeName'] ?? json['fullAddress'],
       notes: json['notes'] != null ? unescape.convert(json['notes']) : null,
       icon: json['icon'],
-      category: json['category'],
+      category: json['category'] ?? json['activityType'],
       startTime: json['start_time'] ?? '09:00',
       endTime: json['end_time'] ?? '10:00',
       duration: json['duration'] ?? '1h',
-      estimatedCost: json['estimatedCost'] ?? '€0',
+      estimatedCost: json['estimatedCost'] ?? json['cost'] ?? 'Not estimated',
       googlePlaceId: json['google_place_id'] ?? json['googlePlaceId'],
       fullAddress: json['fullAddress'] ?? json['address'],
       highlight: json['highlight'] != null ? unescape.convert(json['highlight']) : null,

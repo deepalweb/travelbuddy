@@ -2404,7 +2404,7 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
       }
       
       // Try to fetch from backend
-      if (_currentUser?.mongoId != null) {
+      if (FirebaseAuth.instance.currentUser != null) {
         try {
           final backendPlans = await TripPlansApiService.getUserTripPlans();
           if (backendPlans.isNotEmpty) {
@@ -2536,9 +2536,9 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
       await _storageService.saveTripPlan(tripPlan);
       print('✅ Trip plan saved to local storage');
       
-      // Save to backend database
-      if (_currentUser?.mongoId != null) {
-        print('✅ User has mongoId, saving to backend...');
+      // Firebase authentication is the source of truth for cloud ownership.
+      if (FirebaseAuth.instance.currentUser != null) {
+        print('✅ Firebase user available, saving to backend...');
         final savedPlan = await TripPlansApiService.saveTripPlan(tripPlan);
         if (savedPlan != null) {
           final existingIndex = _tripPlans.indexWhere((p) => p.id == tripPlan.id);

@@ -82,31 +82,31 @@ const productSteps = [
     icon: Compass,
     number: '01',
     title: 'Discover',
-    text: 'Find destinations based on your month, budget, travel style, and interests.',
+    text: "Don't know where to go? AI recommends destinations based on timing, budget, travel style, and what you want to avoid.",
     color: 'bg-sky-100 text-sky-700',
     image: 'https://images.unsplash.com/photo-1488085061387-422e29b40080?auto=format&fit=crop&w=1200&q=82',
     alt: 'Traveler exploring a scenic destination with a backpack',
-    imageLabel: 'Explore possibilities',
+    imageLabel: 'Where next?',
   },
   {
     icon: Gauge,
     number: '02',
-    title: 'Decide',
-    text: 'Compare trip fit, budget confidence, weather risk, and travel complexity.',
+    title: 'Plan',
+    text: 'Know where you are going? AI builds a realistic itinerary and scores the trip before you trust it.',
     color: 'bg-amber-100 text-amber-700',
     image: 'https://images.unsplash.com/photo-1522202176988-66273c2fd55f?auto=format&fit=crop&w=1200&q=82',
     alt: 'Travelers comparing plans and making a decision together',
-    imageLabel: 'Compare with confidence',
+    imageLabel: 'Build a smarter plan',
   },
   {
     icon: Route,
     number: '03',
-    title: 'Plan',
-    text: 'Build a realistic itinerary with must-do, optional, and skip suggestions.',
+    title: 'Travel',
+    text: 'Already on the road? Get live guidance for weather, crowds, timing, nearby food, and smarter changes.',
     color: 'bg-emerald-100 text-emerald-700',
     image: 'https://images.unsplash.com/photo-1488646953014-85cb44e25828?auto=format&fit=crop&w=1200&q=82',
     alt: 'Traveler reviewing an itinerary while waiting for a journey',
-    imageLabel: 'Shape the journey',
+    imageLabel: 'Adapt in the moment',
   },
 ]
 
@@ -293,9 +293,9 @@ export const OptimizedHomePage: React.FC = () => {
   return (
     <div className="overflow-hidden bg-[#f7f7f3] text-slate-900">
       <SEOHead
-        title="TravelBuddy | Find the Trip That Actually Fits You"
-        description="Choose better trips, test realistic plans, and travel with confidence using destination match scores, reality checks, and practical itineraries."
-        keywords="travel confidence, trip confidence score, destination match, realistic itinerary, trip reality checker, travel planning"
+        title="TravelBuddy | Where Should You Travel Next?"
+        description="An AI-powered travel companion that helps you decide where to go, builds realistic itineraries, and guides you throughout your journey."
+        keywords="AI travel companion, where should I travel next, AI trip planner, trip health score, destination discovery, realistic itinerary"
       />
 
       <section
@@ -329,14 +329,14 @@ export const OptimizedHomePage: React.FC = () => {
           <motion.div initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.7 }} className="max-w-5xl">
             <span className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-slate-950/20 px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.24em] text-white/80 backdrop-blur-xl sm:text-xs">
               <Globe2 className="h-4 w-4 text-[#ff9a86]" />
-              Global Decision Intelligence
+              AI Travel Companion
             </span>
             <h1 className="font-luxury mt-7 text-6xl font-medium leading-[0.88] tracking-[-0.045em] text-white sm:text-7xl lg:text-[7.5rem]">
-              The World,
-              <span className="block italic text-[#ffad9c]">Decided.</span>
+              Where Should
+              <span className="block italic text-[#ffad9c]">You Travel Next?</span>
             </h1>
             <p className="mx-auto mt-7 max-w-2xl text-base leading-8 text-white/78 sm:text-lg">
-              Move from endless possibilities to one confident decision. TravelBuddy tests destination fit, timing, budget, and pace before you commit.
+              TravelBuddy helps you decide where to go, builds realistic itineraries, and guides you throughout your journey.
             </p>
           </motion.div>
 
@@ -385,7 +385,7 @@ export const OptimizedHomePage: React.FC = () => {
                 </label>
                 <Link to={heroDecisionHref} className="flex">
                   <Button className="min-h-16 w-full rounded-xl bg-[linear-gradient(135deg,#f47f6b,#ff9b85)] px-6 text-white shadow-[0_16px_36px_rgba(244,127,107,0.32)] hover:brightness-105">
-                    Decide My Trip
+                    {heroDestination.trim() ? 'Plan My Trip' : 'Find My Next Adventure'}
                     <ArrowRight className="ml-2 h-4 w-4" />
                   </Button>
                 </Link>
@@ -393,15 +393,15 @@ export const OptimizedHomePage: React.FC = () => {
 
               <div className="flex flex-col gap-4 px-3 pb-2 pt-5 sm:flex-row sm:items-center sm:justify-between sm:px-5">
                 <div className="flex flex-wrap justify-center gap-x-5 gap-y-2 text-xs font-semibold text-white/62 sm:justify-start">
-                  {['Destination fit', 'Budget confidence', 'Reality warnings'].map((item) => (
+                  {['Destination fit', 'Realistic itinerary', 'AI Trip Health'].map((item) => (
                     <span key={item} className="flex items-center gap-2">
                       <Check className="h-3.5 w-3.5 text-emerald-300" />
                       {item}
                     </span>
                   ))}
                 </div>
-                <a href="#reality-checker" className="inline-flex items-center justify-center gap-2 text-xs font-bold uppercase tracking-[0.16em] text-[#ffad9c]">
-                  See how certainty works
+                <a href="#trip-health" className="inline-flex items-center justify-center gap-2 text-xs font-bold uppercase tracking-[0.16em] text-[#ffad9c]">
+                  See Trip Health
                   <ArrowRight className="h-3.5 w-3.5" />
                 </a>
               </div>
@@ -518,8 +518,11 @@ export const OptimizedHomePage: React.FC = () => {
       <section className="border-y border-slate-200 bg-white py-16 lg:py-20">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <motion.div {...fadeUp} className="max-w-3xl">
-            <p className="text-xs font-bold uppercase tracking-[0.22em] text-sky-700">How it works</p>
-            <h2 className="font-heading mt-4 text-4xl font-semibold tracking-tight text-slate-950 sm:text-5xl">Decide, plan, and travel smarter.</h2>
+            <p className="text-xs font-bold uppercase tracking-[0.22em] text-sky-700">The product</p>
+            <h2 className="font-heading mt-4 text-4xl font-semibold tracking-tight text-slate-950 sm:text-5xl">Discover, plan, and travel with AI.</h2>
+            <p className="mt-5 max-w-2xl text-lg leading-8 text-slate-600">
+              Everything in TravelBuddy should support one of these three jobs.
+            </p>
           </motion.div>
           <div className="mt-12 grid gap-5 lg:grid-cols-3">
             {productSteps.map((step, index) => {
@@ -637,13 +640,13 @@ export const OptimizedHomePage: React.FC = () => {
         </div>
       </section>
 
-      <section id="reality-checker" className="scroll-mt-24 border-y border-slate-200 bg-white py-16 lg:py-20">
+      <section id="trip-health" className="scroll-mt-24 border-y border-slate-200 bg-white py-16 lg:py-20">
         <div className="mx-auto grid max-w-7xl gap-12 px-4 sm:px-6 lg:grid-cols-[0.88fr_1.12fr] lg:items-center lg:px-8">
           <motion.div {...fadeUp}>
-            <p className="text-xs font-bold uppercase tracking-[0.22em] text-orange-600">Trip Reality Checker</p>
-            <h2 className="font-heading mt-4 text-4xl font-semibold tracking-tight text-slate-950 sm:text-5xl">AI plans are easy. Realistic plans are harder.</h2>
+            <p className="text-xs font-bold uppercase tracking-[0.22em] text-orange-600">AI Trip Health</p>
+            <h2 className="font-heading mt-4 text-4xl font-semibold tracking-tight text-slate-950 sm:text-5xl">Every trip gets a score before you trust it.</h2>
             <p className="mt-5 text-lg leading-8 text-slate-600">
-              TravelBuddy checks if your itinerary is too packed, poorly timed, expensive, or stressful before you follow it.
+              TravelBuddy checks budget balance, travel time, weather, crowd risk, attraction mix, and pacing so users know whether a plan is realistic.
             </p>
             <div className="group relative mt-8 overflow-hidden rounded-[2rem] shadow-[0_24px_60px_rgba(15,23,42,0.14)]">
               <ImageWithFallback
@@ -654,14 +657,14 @@ export const OptimizedHomePage: React.FC = () => {
               <div className="absolute inset-0 bg-gradient-to-t from-slate-950/85 via-slate-950/10 to-transparent" />
               <div className="absolute bottom-5 left-5 right-5 flex items-end justify-between gap-4">
                 <div>
-                  <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-orange-300">Before you follow the route</p>
+                  <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-orange-300">92% Excellent Trip</p>
                   <p className="mt-1 max-w-sm text-sm font-semibold leading-6 text-white sm:text-base">
-                    Check timing, travel effort, and what the day will actually feel like.
+                    Budget balanced, low travel time, good weather, and a strong attraction mix.
                   </p>
                 </div>
                 <div className="hidden shrink-0 items-center gap-2 rounded-full border border-white/20 bg-white/15 px-3 py-2 text-xs font-bold text-white backdrop-blur-md sm:flex">
                   <Check className="h-4 w-4 text-emerald-300" />
-                  Reality checked
+                  Health checked
                 </div>
               </div>
             </div>
@@ -675,18 +678,18 @@ export const OptimizedHomePage: React.FC = () => {
                     <AlertTriangle className="h-5 w-5" />
                   </div>
                   <div>
-                    <p className="text-xs font-bold uppercase tracking-[0.16em] text-orange-600">Reality check</p>
-                    <h3 className="font-heading text-xl font-semibold">Day 2 needs attention</h3>
+                    <p className="text-xs font-bold uppercase tracking-[0.16em] text-orange-600">AI Trip Health</p>
+                    <h3 className="font-heading text-xl font-semibold">92% Excellent Trip</h3>
                   </div>
                 </div>
-                <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-bold text-amber-700">2 warnings</span>
+                <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-bold text-amber-700">1 watchout</span>
               </div>
               <div className="mt-6 grid gap-3">
                 {[
-                  { type: 'warning', text: 'Day 2 has too many temple visits' },
-                  { type: 'warning', text: 'Avoid ruins between 12 PM - 3 PM' },
-                  { type: 'better', text: 'Better: move one stop to Day 3' },
-                  { type: 'better', text: 'Add rest time after lunch' },
+                  { type: 'better', text: 'Budget balanced for your travel style' },
+                  { type: 'better', text: 'Low travel time between major stops' },
+                  { type: 'better', text: 'Good weather window for outdoor activities' },
+                  { type: 'warning', text: 'Slight crowd risk on Day 2 afternoon' },
                 ].map((item) => (
                   <div key={item.text} className="flex items-center gap-3 rounded-2xl border border-white bg-white p-4 shadow-sm">
                     {item.type === 'warning' ? (

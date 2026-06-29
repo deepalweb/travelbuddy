@@ -138,7 +138,7 @@ const ScoreRing = ({ score }: { score: number }) => (
   >
     <div className="flex h-full w-full flex-col items-center justify-center rounded-full bg-white">
       <strong className="font-heading text-4xl text-slate-950">{score}%</strong>
-      <span className="mt-1 text-[10px] font-extrabold uppercase tracking-[0.16em] text-slate-400">Confidence</span>
+      <span className="mt-1 text-[10px] font-extrabold uppercase tracking-[0.16em] text-slate-400">Trip Health</span>
     </div>
   </div>
 )
@@ -792,8 +792,8 @@ export const TripPlanningResetPage: React.FC<TripPlanningResetPageProps> = ({ sa
               <CardContent className="flex flex-col gap-7 p-6 sm:flex-row sm:items-center sm:p-8">
                 <ScoreRing score={plan.planningConfidenceScore} />
                 <div>
-                  <p className="text-xs font-extrabold uppercase tracking-[0.18em] text-emerald-700">Planning Confidence</p>
-                  <h2 className="font-heading mt-2 text-3xl font-semibold">{plan.tripHealth.overall === 'excellent' ? 'Strong trip confidence' : 'Good plan with watchouts'}</h2>
+                  <p className="text-xs font-extrabold uppercase tracking-[0.18em] text-emerald-700">AI Trip Health</p>
+                  <h2 className="font-heading mt-2 text-3xl font-semibold">{plan.tripHealth.overall === 'excellent' ? 'Excellent trip' : 'Good trip with watchouts'}</h2>
                   <p className="mt-3 text-sm leading-7 text-slate-600">{plan.tripSummary.shortDescription}</p>
                   <div className="mt-5 grid grid-cols-2 gap-2 sm:grid-cols-3">
                     {confidenceSignals.map((signal) => (
@@ -808,7 +808,7 @@ export const TripPlanningResetPage: React.FC<TripPlanningResetPageProps> = ({ sa
             </Card>
             <Card className="border-slate-200 bg-white">
               <CardContent className="p-6 sm:p-8">
-                <p className="text-xs font-extrabold uppercase tracking-[0.18em] text-slate-400">Trip health</p>
+                <p className="text-xs font-extrabold uppercase tracking-[0.18em] text-slate-400">What drives the score</p>
                 <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
                   {[
                     { icon: Banknote, label: 'Budget fit', value: plan.tripHealth.budgetFit },

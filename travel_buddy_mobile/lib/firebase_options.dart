@@ -51,7 +51,7 @@ class DefaultFirebaseOptions {
 
   static const FirebaseOptions android = FirebaseOptions(
     apiKey: 'AIzaSyDWoN1G8x6-GIdb91iKdjWQmpEDeEtyFPk',
-    appId: '1:45425409967:android:8808750a02d7c77356b95a',
+    appId: '1:45425409967:android:c7b5d67c5169045c56b95a',
     messagingSenderId: '45425409967',
     projectId: 'travelbuddy-2d1c5',
     storageBucket: 'travelbuddy-2d1c5.firebasestorage.app',
