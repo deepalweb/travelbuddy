@@ -2,11 +2,19 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 
 class Environment {
-  // Backend configuration - AZURE PRODUCTION
-  static const String backendUrl = 'https://travelbuddy-b2c6hgbbgeh4esdh.eastus2-01.azurewebsites.net';
+  static const String backendUrl = String.fromEnvironment(
+    'TRAVELBUDDY_API_URL',
+    defaultValue: 'https://travelbuddy-b2c6hgbbgeh4esdh.eastus2-01.azurewebsites.net',
+  );
   static const String baseUrl = backendUrl;
-  static const bool isProduction = true;
-  static const bool enableDebugLogging = true;
+  static const bool isProduction = bool.fromEnvironment(
+    'TRAVELBUDDY_PRODUCTION',
+    defaultValue: true,
+  );
+  static const bool enableDebugLogging = bool.fromEnvironment(
+    'TRAVELBUDDY_DEBUG_LOGGING',
+    defaultValue: false,
+  );
   
   // API keys loaded from backend
   static String? _googleMapsApiKey;

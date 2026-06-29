@@ -38,8 +38,6 @@
       gtag('config', 'G-4F3SD0WVQ8');
     </script>
     
-    <!-- Google Maps API -->
-    <script async defer src="https://maps.googleapis.com/maps/api/js?key=AIzaSyDTV_5KiXOuYRtG2TEMIvrHPCsht3sSWEQ&libraries=places"></script>
     <script type="module" crossorigin src="/assets/index-DnTtePOS.js"></script>
     <link rel="modulepreload" crossorigin href="/assets/vendor-CF71wElY.js">
     <link rel="modulepreload" crossorigin href="/assets/icons-qHODle67.js">
@@ -48,5 +46,15 @@
   <body>
     <div id="root"></div>
     <script src="/config.js"></script>
+    <script>
+      const googleMapsApiKey = window.ENV?.VITE_GOOGLE_MAPS_API_KEY;
+      if (googleMapsApiKey && !googleMapsApiKey.startsWith('#{')) {
+        const script = document.createElement('script');
+        script.src = `https://maps.googleapis.com/maps/api/js?key=${googleMapsApiKey}&libraries=places`;
+        script.async = true;
+        script.defer = true;
+        document.head.appendChild(script);
+      }
+    </script>
   </body>
 </html>

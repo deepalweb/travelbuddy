@@ -401,7 +401,7 @@ const DestinationDiscoveryPage: React.FC = () => {
                 size="lg"
                 className="mt-8 rounded-full bg-[linear-gradient(135deg,#f47f6b,#fb923c)] px-7 text-white"
               >
-                Start Discovery
+                Find My Next Adventure
                 <ArrowRight className="ml-2 h-4 w-4" />
               </Button>
             )}

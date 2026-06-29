@@ -244,7 +244,7 @@ export const TripDetailPage: React.FC = () => {
               <p className="mt-2 text-3xl font-semibold">{planningReadiness}%</p>
             </div>
             <div className="rounded-2xl border border-white/10 bg-white/10 p-4 backdrop-blur-sm">
-              <p className="text-xs uppercase tracking-[0.18em] text-white/60">Trip confidence</p>
+              <p className="text-xs uppercase tracking-[0.18em] text-white/60">AI Trip Health</p>
               <p className="mt-2 text-3xl font-semibold">{confidence.overall}%</p>
             </div>
             <div className="rounded-2xl border border-white/10 bg-white/10 p-4 backdrop-blur-sm">
@@ -260,10 +260,10 @@ export const TripDetailPage: React.FC = () => {
           <div className="grid gap-6 lg:grid-cols-[0.9fr_1.1fr]">
             <Card className="bg-white shadow-sm border-t-4 border-sky-500">
               <CardContent className="p-6">
-                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Confidence Summary</p>
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">AI Trip Health</p>
                 <h2 className="mt-3 text-3xl font-semibold text-slate-900">{confidence.summary}</h2>
                 <p className="mt-3 text-sm leading-7 text-slate-600">
-                  This score helps answer the traveler’s real question: “Can I trust this plan to feel good in real life, not just on paper?”
+                  This score helps answer the traveler’s real question: can I trust this plan to feel good in real life, not just on paper?
                 </p>
                 <div className="mt-5 flex items-center gap-3">
                   <div className="h-3 flex-1 overflow-hidden rounded-full bg-slate-200">

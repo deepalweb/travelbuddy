@@ -187,6 +187,18 @@ class CurrentUser extends HiveObject {
   });
 
   factory CurrentUser.fromJson(Map<String, dynamic> json) {
+    final rawSocialLinks = json['socialLinks'];
+    final socialLinks = rawSocialLinks is Map
+        ? rawSocialLinks.entries
+            .map((entry) => {
+                  'platform': entry.key.toString(),
+                  'url': entry.value.toString(),
+                })
+            .toList()
+        : (rawSocialLinks as List?)
+            ?.map((entry) => Map<String, String>.from(entry))
+            .toList();
+
     return CurrentUser(
       username: json['username'] ?? '',
       uid: json['firebaseUid'] ?? json['uid'], // Use firebaseUid from backend
@@ -235,7 +247,7 @@ class CurrentUser extends HiveObject {
       fullName: json['fullName'],
       phone: json['phone'],
       homeCity: json['homeCity'],
-      socialLinks: (json['socialLinks'] as List?)?.map((e) => Map<String, String>.from(e)).toList(),
+      socialLinks: socialLinks,
       travelPreferences: json['travelPreferences'] as Map<String, dynamic>?,
       nationality: json['nationality'],
     );

@@ -1,97 +1,22 @@
 import 'package:dio/dio.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import '../config/environment.dart';
 import '../models/user.dart';
+import 'mobile_api_client.dart';
 
 class AuthApiService {
   static final AuthApiService _instance = AuthApiService._internal();
   factory AuthApiService() => _instance;
   
-  final Dio _dio = Dio(BaseOptions(
-    baseUrl: Environment.backendUrl,
-    connectTimeout: const Duration(seconds: 15),
-    receiveTimeout: const Duration(seconds: 20),
-    sendTimeout: const Duration(seconds: 15),
-    headers: {
-      'Content-Type': 'application/json',
-      'Accept': 'application/json',
-    },
-  ));
+  final Dio _dio = MobileApiClient.instance.dio;
 
-  AuthApiService._internal() {
-    // Add Firebase Auth interceptor
-    _dio.interceptors.add(InterceptorsWrapper(
-      onRequest: (options, handler) async {
-        await _addAuthHeader(options);
-        handler.next(options);
-      },
-      onError: (error, handler) async {
-        if (error.response?.statusCode == 401) {
-          // Token expired, try to refresh
-          final refreshed = await _refreshToken();
-          if (refreshed) {
-            // Retry the request with new token
-            final retryOptions = error.requestOptions;
-            await _addAuthHeader(retryOptions);
-            final response = await _dio.fetch(retryOptions);
-            handler.resolve(response);
-            return;
-          }
-        }
-        handler.next(error);
-      },
-    ));
-  }
-
-  Future<void> _addAuthHeader(RequestOptions options) async {
-    try {
-      final user = FirebaseAuth.instance.currentUser;
-      if (user != null) {
-        final token = await user.getIdToken(true); // Force refresh token
-        options.headers['Authorization'] = 'Bearer $token';
-        options.headers['X-Firebase-UID'] = user.uid;
-        
-        // Add user context to request
-        if (options.method != 'GET') {
-          options.data ??= {};
-          if (options.data is Map && !options.data.containsKey('userId')) {
-            options.data['userId'] = user.uid;
-          }
-        }
-        
-        // Add userId to query params for GET requests
-        if (options.method == 'GET' && !options.queryParameters.containsKey('userId')) {
-          options.queryParameters['userId'] = user.uid;
-        }
-        
-        print('✅ Added Firebase auth headers for user: ${user.email}');
-      } else {
-        print('⚠️ No Firebase user found for auth headers');
-      }
-    } catch (e) {
-      print('❌ Error adding auth header: $e');
-    }
-  }
-
-  Future<bool> _refreshToken() async {
-    try {
-      final user = FirebaseAuth.instance.currentUser;
-      if (user != null) {
-        await user.getIdToken(true); // Force refresh
-        return true;
-      }
-    } catch (e) {
-      print('❌ Error refreshing token: $e');
-    }
-    return false;
-  }
+  AuthApiService._internal();
 
   // Get current authenticated user info
   Map<String, dynamic>? getCurrentUserInfo() {
     final user = FirebaseAuth.instance.currentUser;
     if (user != null) {
       return {
-        'uid': user.uid,
+        'firebaseUid': user.uid,
         'email': user.email,
         'displayName': user.displayName,
         'photoURL': user.photoURL,
