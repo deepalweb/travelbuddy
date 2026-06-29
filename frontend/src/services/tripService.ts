@@ -294,22 +294,16 @@ class TripService {
 
   // Get user's trip plans
   async getUserTripPlans(): Promise<TripPlan[]> {
-    try {
-      const headers = await this.getAuthHeaders()
-      const timestamp = Date.now()
-      const response = await this.request<TripPlan[]>(`/users/trip-plans?_t=${timestamp}`, {
-        headers: {
-          ...headers,
-          'Cache-Control': 'no-cache, no-store, must-revalidate',
-          'Pragma': 'no-cache'
-        },
-        cache: 'no-store'
-      })
-      return response
-    } catch (error) {
-      console.error('Error fetching trip plans:', error)
-      return []
-    }
+    const headers = await this.getAuthHeaders()
+    const timestamp = Date.now()
+    return this.request<TripPlan[]>(`/users/trip-plans?_t=${timestamp}`, {
+      headers: {
+        ...headers,
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'Pragma': 'no-cache'
+      },
+      cache: 'no-store'
+    })
   }
 
   // Save trip plan

@@ -131,6 +131,73 @@ async function extractUid(token) {
   return null;
 }
 
+function decodeTokenClaims(token) {
+  try {
+    const parts = token.split('.');
+    if (parts.length !== 3) return {};
+    return JSON.parse(Buffer.from(parts[1], 'base64').toString('utf8'));
+  } catch {
+    return {};
+  }
+}
+
+async function getAuthenticatedUser(req, { createIfMissing = false } = {}) {
+  const User = getUser();
+  const authHeader = req.headers.authorization;
+  if (!authHeader?.startsWith('Bearer ')) {
+    return { status: 401, error: 'Authentication required' };
+  }
+
+  const token = authHeader.substring(7);
+  const uid = await extractUid(token);
+  if (!uid) {
+    return { status: 401, error: 'Invalid token' };
+  }
+
+  const claims = decodeTokenClaims(token);
+  const isDemo = token.startsWith('demo-token-');
+  const email = claims.email || (isDemo ? 'demo@travelbuddy.com' : `${uid}@firebase.local`);
+
+  let user = await User.findOne({ firebaseUid: uid });
+  if (!user && email) {
+    user = await User.findOneAndUpdate(
+      { email },
+      { $set: { firebaseUid: uid } },
+      { new: true }
+    );
+  }
+
+  if (!user && createIfMissing) {
+    const username =
+      claims.name ||
+      claims.displayName ||
+      email.split('@')[0] ||
+      (isDemo ? 'Demo User' : uid.slice(-8));
+
+    user = await User.findOneAndUpdate(
+      { firebaseUid: uid },
+      {
+        $setOnInsert: {
+          firebaseUid: uid,
+          email,
+          username,
+          tier: isDemo ? 'premium' : 'free',
+          role: isDemo ? 'admin' : 'regular',
+          isAdmin: isDemo,
+          createdAt: new Date()
+        }
+      },
+      { upsert: true, new: true }
+    );
+  }
+
+  if (!user) {
+    return { status: 404, error: 'User not found' };
+  }
+
+  return { user, uid };
+}
+
 // Sync user with account merging
 router.post('/sync', async (req, res) => {
   try {
@@ -366,21 +433,10 @@ router.delete('/favorites/:placeId', requireAuth, async (req, res) => {
 // Trip plans
 router.get('/trip-plans', async (req, res) => {
   try {
-    const User = getUser();
     const TripPlan = getTripPlan();
-    
-    const authHeader = req.headers.authorization;
-    if (!authHeader?.startsWith('Bearer ')) {
-      return res.status(401).json({ error: 'Authentication required' });
-    }
-
-    const token = authHeader.substring(7);
-    const uid = await extractUid(token);
-    
-    if (!uid) return res.status(401).json({ error: 'Invalid token' });
-    
-    const user = await User.findOne({ firebaseUid: uid });
-    if (!user) return res.status(404).json({ error: 'User not found' });
+    const authResult = await getAuthenticatedUser(req, { createIfMissing: true });
+    if (!authResult.user) return res.status(authResult.status).json({ error: authResult.error });
+    const { user } = authResult;
 
     console.log('📝 Fetching trip plans for user._id:', user._id);
     const trips = TripPlan ? await TripPlan.find({ userId: user._id }).sort({ createdAt: -1 }) : [];
@@ -404,22 +460,11 @@ router.get('/trip-plans', async (req, res) => {
 
 router.post('/trip-plans', async (req, res) => {
   try {
-    const User = getUser();
     const TripPlan = getTripPlan();
     if (!TripPlan) return res.status(500).json({ error: 'TripPlan model not available' });
-    
-    const authHeader = req.headers.authorization;
-    if (!authHeader?.startsWith('Bearer ')) {
-      return res.status(401).json({ error: 'Authentication required' });
-    }
-
-    const token = authHeader.substring(7);
-    const uid = await extractUid(token);
-    
-    if (!uid) return res.status(401).json({ error: 'Invalid token' });
-    
-    const user = await User.findOne({ firebaseUid: uid });
-    if (!user) return res.status(404).json({ error: 'User not found' });
+    const authResult = await getAuthenticatedUser(req, { createIfMissing: true });
+    if (!authResult.user) return res.status(authResult.status).json({ error: authResult.error });
+    const { user } = authResult;
 
     console.log('💾 Saving trip plan for user._id:', user._id);
     console.log('📝 Trip plan data:', JSON.stringify(req.body).substring(0, 200));
@@ -442,21 +487,10 @@ router.post('/trip-plans', async (req, res) => {
 
 router.get('/trip-plans/:id', async (req, res) => {
   try {
-    const User = getUser();
     const TripPlan = getTripPlan();
-    
-    const authHeader = req.headers.authorization;
-    if (!authHeader?.startsWith('Bearer ')) {
-      return res.status(401).json({ error: 'Authentication required' });
-    }
-
-    const token = authHeader.substring(7);
-    const uid = await extractUid(token);
-    
-    if (!uid) return res.status(401).json({ error: 'Invalid token' });
-    
-    const user = await User.findOne({ firebaseUid: uid });
-    if (!user) return res.status(404).json({ error: 'User not found' });
+    const authResult = await getAuthenticatedUser(req, { createIfMissing: true });
+    if (!authResult.user) return res.status(authResult.status).json({ error: authResult.error });
+    const { user } = authResult;
 
     const trip = await TripPlan.findOne({ _id: req.params.id, userId: user._id });
     if (!trip) return res.status(404).json({ error: 'Trip not found' });
@@ -467,39 +501,45 @@ router.get('/trip-plans/:id', async (req, res) => {
   }
 });
 
+router.put('/trip-plans/:id', async (req, res) => {
+  try {
+    const TripPlan = getTripPlan();
+    if (!TripPlan) return res.status(500).json({ error: 'TripPlan model not available' });
+
+    const authResult = await getAuthenticatedUser(req, { createIfMissing: true });
+    if (!authResult.user) return res.status(authResult.status).json({ error: authResult.error });
+    const { user } = authResult;
+
+    const trip = await TripPlan.findOneAndUpdate(
+      { _id: req.params.id, userId: user._id },
+      { $set: sanitizeTripPlanForSchema(req.body) },
+      { new: true, runValidators: true }
+    );
+
+    if (!trip) return res.status(404).json({ error: 'Trip plan not found' });
+    res.json(trip);
+  } catch (error) {
+    console.error('❌ Error updating trip plan:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 router.delete('/trip-plans/:id', async (req, res) => {
   try {
     console.log('🗑️ DELETE request for trip:', req.params.id);
     
-    const User = getUser();
     const TripPlan = getTripPlan();
     
     if (!TripPlan) {
       console.error('❌ TripPlan model not available');
       return res.status(500).json({ error: 'TripPlan model not available' });
     }
-    
-    const authHeader = req.headers.authorization;
-    if (!authHeader?.startsWith('Bearer ')) {
-      console.error('❌ No auth header');
-      return res.status(401).json({ error: 'Authentication required' });
-    }
 
-    const token = authHeader.substring(7);
-    console.log('🔑 Extracting UID from token...');
-    const uid = await extractUid(token);
-    
-    if (!uid) {
-      console.error('❌ Invalid token');
-      return res.status(401).json({ error: 'Invalid token' });
-    }
-    
-    console.log('👤 Looking up user with UID:', uid);
-    const user = await User.findOne({ firebaseUid: uid });
-    if (!user) {
-      console.error('❌ User not found for UID:', uid);
-      return res.status(404).json({ error: 'User not found' });
-    }
+    const authResult = await getAuthenticatedUser(req, { createIfMissing: true });
+    if (!authResult.user) return res.status(authResult.status).json({ error: authResult.error });
+    const { user, uid } = authResult;
+
+    console.log('👤 Resolved user with UID:', uid);
 
     console.log('🔍 Deleting trip with _id:', req.params.id, 'userId:', user._id);
     const result = await TripPlan.deleteOne({ _id: req.params.id, userId: user._id });
