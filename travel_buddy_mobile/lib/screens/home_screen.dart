@@ -11,17 +11,18 @@ import '../models/trip.dart';
 import '../providers/app_provider.dart';
 import '../providers/language_provider.dart';
 import '../services/offline_geocoding_service.dart';
+import '../theme/app_theme.dart';
 import 'language_assistant_screen.dart';
 import 'place_details_screen.dart';
 import 'safety_hub_screen.dart';
 import 'transport_hub_screen.dart';
 import 'trip_plan_detail_screen.dart';
 
-const _primary = Color(0xFF007AFF);
-const _navy = Color(0xFF1C1C1E);
-const _surface = Color(0xFFF5F5F7);
+const _primary = AppTheme.primary;
+const _navy = AppTheme.textPrimary;
+const _surface = AppTheme.background;
 const _border = Color(0xFFE5E5EA);
-const _secondaryText = Color(0xFF6E6E73);
+const _secondaryText = AppTheme.textSecondary;
 
 class PlaceSearchDelegate extends SearchDelegate<String> {
   @override

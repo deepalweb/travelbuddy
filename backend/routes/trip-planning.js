@@ -336,6 +336,9 @@ function normalizeTripPlanResult(result, input) {
       0,
       Math.min(100, Number(source.planningConfidenceScore) || 0)
     ),
+    scoreBreakdown: source.scoreBreakdown && typeof source.scoreBreakdown === 'object'
+      ? source.scoreBreakdown
+      : undefined,
     tripStyle: Array.isArray(source.tripStyle) ? source.tripStyle : [],
     days: normalizedDays,
     mustDo,
@@ -387,6 +390,26 @@ function evaluateTripPlanQuality(plan = {}, input = {}) {
 
   if (!Number.isFinite(Number(plan.planningConfidenceScore))) {
     addQualityIssue(issues, 'major', 'confidence_missing', 'planningConfidenceScore is missing or not numeric.');
+  }
+
+  const sb = plan.scoreBreakdown;
+  if (!sb || typeof sb !== 'object') {
+    addQualityIssue(issues, 'major', 'score_breakdown_missing', 'scoreBreakdown is missing.');
+  } else {
+    const dims = ['budgetFit', 'paceComfort', 'routeLogic', 'destinationMatch', 'contentConfidence'];
+    const allNumeric = dims.every((d) => Number.isFinite(Number(sb[d])));
+    if (!allNumeric) {
+      addQualityIssue(issues, 'major', 'score_breakdown_incomplete', 'scoreBreakdown must have numeric values for all 5 dimensions.');
+    } else {
+      const avg = Math.round(dims.reduce((sum, d) => sum + Number(sb[d]), 0) / dims.length);
+      const reported = Number(plan.planningConfidenceScore);
+      if (Math.abs(avg - reported) > 5) {
+        addQualityIssue(issues, 'major', 'confidence_score_mismatch', `planningConfidenceScore (${reported}) deviates more than 5 points from scoreBreakdown average (${avg}).`);
+      }
+    }
+    if (!sb.scoreReasoning || String(sb.scoreReasoning).length < 40) {
+      addQualityIssue(issues, 'minor', 'score_reasoning_thin', 'scoreBreakdown.scoreReasoning must explain the scores in context.');
+    }
   }
 
   if (Number(plan.planningConfidenceScore) > 89 && plan.tripHealth?.overall === 'risky') {

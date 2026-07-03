@@ -277,7 +277,7 @@ export const OptimizedHomePage: React.FC = () => {
 
     const intervalId = window.setInterval(() => {
       setActiveHeroSlide((current) => (current + 1) % heroDestinations.length)
-    }, 3500)
+    }, 5500)
 
     return () => window.clearInterval(intervalId)
   }, [isHeroPaused])

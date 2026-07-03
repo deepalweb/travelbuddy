@@ -5,12 +5,10 @@ import {
   signOut, 
   onAuthStateChanged,
   GoogleAuthProvider,
-  signInWithRedirect,
-  getRedirectResult,
+  signInWithPopup,
   type User as FirebaseUser
 } from 'firebase/auth'
 import { auth } from '../lib/firebase'
-import { logger } from '../utils/logger'
 
 export const useFirebaseAuth = () => {
   const [firebaseUser, setFirebaseUser] = useState<FirebaseUser | null>(null)
@@ -21,12 +19,6 @@ export const useFirebaseAuth = () => {
       setLoading(false)
       return
     }
-
-    getRedirectResult(auth)
-      .then((result) => {
-        if (result) logger.info('Google Sign-In redirect successful', result.user.email)
-      })
-      .catch((error) => logger.error('Google Sign-In redirect error', error))
 
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       setFirebaseUser(user)
@@ -50,7 +42,7 @@ export const useFirebaseAuth = () => {
     if (!auth) throw new Error('Firebase not initialized')
     const provider = new GoogleAuthProvider()
     provider.setCustomParameters({ prompt: 'select_account' })
-    await signInWithRedirect(auth, provider)
+    await signInWithPopup(auth, provider)
   }
 
   const logout = async () => {

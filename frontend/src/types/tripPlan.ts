@@ -79,6 +79,14 @@ export type TripPlanResult = {
   travelerType: string
   tripStyle: string[]
   planningConfidenceScore: number
+  scoreBreakdown?: {
+    budgetFit: number
+    paceComfort: number
+    routeLogic: number
+    destinationMatch: number
+    contentConfidence: number
+    scoreReasoning: string
+  }
   tripSummary: {
     shortDescription: string
     bestFor: string[]

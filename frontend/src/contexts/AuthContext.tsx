@@ -5,8 +5,7 @@ import {
   signOut, 
   onAuthStateChanged,
   GoogleAuthProvider,
-  signInWithRedirect,
-  getRedirectResult,
+  signInWithPopup,
   type User as FirebaseUser
 } from 'firebase/auth'
 import { auth } from '../lib/firebase'
@@ -74,23 +73,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (configLoading || !config) {
       debug.log('⏳ AUTH STEP 1: Waiting for dependencies')
       return
-    }
-
-    // Check for Google Sign-In redirect result BEFORE checking demo token
-    if (firebase?.auth && config?.firebase?.apiKey) {
-      getRedirectResult(firebase.auth)
-        .then((result) => {
-          if (result) {
-            debug.log('✅ Google Sign-In redirect successful', result.user.email)
-            // User will be synced by onAuthStateChanged
-          } else {
-            debug.log('ℹ️ No redirect result (normal page load)')
-          }
-        })
-        .catch((error) => {
-          debug.error('❌ Google Sign-In redirect error:', error)
-          // Don't block auth flow on redirect error
-        })
     }
 
     // Check for demo token first and restore demo user
@@ -328,13 +310,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       debug.log('🔐 Starting Google Sign-In')
       const provider = new GoogleAuthProvider()
-      provider.setCustomParameters({
-        prompt: 'select_account'
-      })
-      // Use redirect instead of popup for Azure compatibility
-      await signInWithRedirect(firebase.auth, provider)
-      // User will be redirected to Google, then back to app
-      // Result handled by getRedirectResult in useEffect
+      provider.setCustomParameters({ prompt: 'select_account' })
+      const result = await signInWithPopup(firebase.auth, provider)
+      // onAuthStateChanged will fire and call syncUserProfile
+      debug.log('✅ Google Sign-In popup successful', result.user.email)
     } catch (error: any) {
       debug.error('❌ Google Sign-In failed:', error)
       throw new Error(error.message || 'Google Sign-In failed')

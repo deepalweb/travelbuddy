@@ -119,6 +119,7 @@ class TravelBuddyApp extends StatelessWidget {
             title: 'Travel Buddy',
             debugShowCheckedModeBanner: false,
             theme: AppTheme.lightTheme,
+            darkTheme: AppTheme.darkTheme,
             themeMode: appProvider.isDarkMode ? ThemeMode.dark : ThemeMode.light,
             locale: Locale(languageProvider.currentLanguage),
             supportedLocales: const [
