@@ -58,6 +58,39 @@ const SMART_EDIT_ACTION_TYPES = new Set([
   'replace_activity',
 ]);
 
+const DEFAULT_SMART_EDIT_ACTIONS = [
+  {
+    label: 'Make it cheaper',
+    actionType: 'make_cheaper',
+    description: 'Swap paid or premium choices for lower-cost alternatives while keeping the route realistic.',
+  },
+  {
+    label: 'Reduce walking',
+    actionType: 'reduce_walking',
+    description: 'Group closer stops, add rest time, and use easier transport options.',
+  },
+  {
+    label: 'Make it relaxed',
+    actionType: 'make_relaxed',
+    description: 'Lower the daily intensity and create more buffer between activities.',
+  },
+  {
+    label: 'Avoid crowds',
+    actionType: 'avoid_crowds',
+    description: 'Shift timing or replace crowded stops with quieter alternatives.',
+  },
+  {
+    label: 'Add food focus',
+    actionType: 'add_food',
+    description: 'Add practical local dining or food experiences without overpacking the itinerary.',
+  },
+  {
+    label: 'Add hidden gems',
+    actionType: 'add_hidden_gems',
+    description: 'Add credible lower-crowd local alternatives where they fit the route.',
+  },
+];
+
 function normalizeTripPlanInput(input = {}) {
   return {
     destination: String(input.destination || '').trim(),
@@ -270,6 +303,65 @@ function normalizeActivityTitle(activity, placeName) {
   return titlesByType[String(activity?.type || '').toLowerCase()] || 'Flexible trip time';
 }
 
+function normalizeSmartEditActions(value) {
+  const seen = new Set();
+  const normalized = [];
+
+  for (const action of Array.isArray(value) ? value : []) {
+    const actionType = String(action?.actionType || '').trim();
+    if (!SMART_EDIT_ACTION_TYPES.has(actionType) || seen.has(actionType)) {
+      continue;
+    }
+
+    seen.add(actionType);
+    normalized.push({
+      label: String(action?.label || DEFAULT_SMART_EDIT_ACTIONS.find((item) => item.actionType === actionType)?.label || actionType).trim(),
+      actionType,
+      description: String(action?.description || DEFAULT_SMART_EDIT_ACTIONS.find((item) => item.actionType === actionType)?.description || 'Adjust this trip plan.').trim(),
+    });
+  }
+
+  for (const action of DEFAULT_SMART_EDIT_ACTIONS) {
+    if (normalized.length >= 6) break;
+    if (!seen.has(action.actionType)) {
+      seen.add(action.actionType);
+      normalized.push(action);
+    }
+  }
+
+  return normalized;
+}
+
+function fallbackTimeWindow(timeOfDay = '', index = 0) {
+  const windowsByTimeOfDay = {
+    morning: ['09:00-11:00', '11:00-12:30'],
+    afternoon: ['13:30-15:30', '15:30-17:00'],
+    evening: ['17:30-19:00', '19:00-21:00'],
+    night: ['20:00-22:00', '22:00-23:30'],
+  };
+  const windows = windowsByTimeOfDay[String(timeOfDay || '').toLowerCase()] || ['Flexible'];
+  return windows[Math.min(index, windows.length - 1)];
+}
+
+function normalizeActivityAdvice(activity = {}, day = {}, activityIndex = 0) {
+  const title = String(activity.title || '').trim() || 'this stop';
+  const timeWindow = String(activity.timeWindow || '').trim() || fallbackTimeWindow(activity.timeOfDay, activityIndex);
+  const costNote =
+    String(activity.costNote || '').trim() ||
+    (day.estimatedCostRange ? `Included in the day's ${day.estimatedCostRange} estimate.` : 'Cost depends on local choices.');
+  const transportAdvice =
+    String(activity.transportAdvice || '').trim() ||
+    (activity.travelTimeFromPrevious
+      ? `Allow ${activity.travelTimeFromPrevious} from the previous stop.`
+      : `Use the most practical local transport option for ${title}.`);
+
+  return {
+    timeWindow,
+    costNote,
+    transportAdvice,
+  };
+}
+
 function normalizeTripPlanResult(result, input) {
   const source = result && typeof result === 'object' ? result : {};
   const sourceDays = Array.isArray(source.days) ? source.days : [];
@@ -290,7 +382,7 @@ function normalizeTripPlanResult(result, input) {
       estimatedCostRange: normalizeRange(day.estimatedCostRange),
       dayWarnings: toStringArray(day.dayWarnings),
       editSuggestions: toStringArray(day.editSuggestions),
-      activities: day.activities.map((activity) => {
+      activities: day.activities.map((activity, activityIndex) => {
         const placeName =
           activity.placeName &&
           !isPlaceholderPlace(activity.placeName) &&
@@ -298,11 +390,15 @@ function normalizeTripPlanResult(result, input) {
             ? String(activity.placeName).trim()
             : undefined;
         const exactPlace = canOpenExactPlace({ ...activity, placeName });
+        const advice = normalizeActivityAdvice(activity, day, activityIndex);
 
         return {
           ...activity,
           title: normalizeActivityTitle(activity, placeName),
           placeName,
+          timeWindow: advice.timeWindow,
+          costNote: advice.costNote,
+          transportAdvice: advice.transportAdvice,
           googleMapsUrl: exactPlace
             ? buildGoogleMapsUrl(placeName, input.destination)
             : undefined,
@@ -355,7 +451,7 @@ function normalizeTripPlanResult(result, input) {
         : [],
     },
     commonMistakes: Array.isArray(source.commonMistakes) ? source.commonMistakes : [],
-    smartEditActions: Array.isArray(source.smartEditActions) ? source.smartEditActions : [],
+    smartEditActions: normalizeSmartEditActions(source.smartEditActions),
     practicalInfo: {
       transportationAdvice: toStringArray(source.practicalInfo?.transportationAdvice),
       culturalEtiquette: toStringArray(source.practicalInfo?.culturalEtiquette),
@@ -525,6 +621,18 @@ function evaluateTripPlanQuality(plan = {}, input = {}) {
         addQualityIssue(issues, 'major', 'duration_missing', `${label} is missing estimatedDuration.`);
       }
 
+      if (!activity?.timeWindow || String(activity.timeWindow).length < 5) {
+        addQualityIssue(issues, 'minor', 'time_window_missing', `${label} needs a usable timeWindow.`);
+      }
+
+      if (!activity?.transportAdvice || String(activity.transportAdvice).length < 15) {
+        addQualityIssue(issues, 'minor', 'transport_advice_thin', `${label} needs practical transportAdvice.`);
+      }
+
+      if (!activity?.costNote || String(activity.costNote).length < 8) {
+        addQualityIssue(issues, 'minor', 'cost_note_missing', `${label} needs a costNote.`);
+      }
+
       if (!activity?.localTip || String(activity.localTip).length < 12) {
         addQualityIssue(issues, 'minor', 'local_tip_thin', `${label} needs a destination-specific local tip.`);
       }
@@ -582,7 +690,7 @@ Rules:
 - Fix every quality issue concretely; do not only mention the fix.
 - Keep every day at 2-4 activities.
 - Make routeLogic specific and geographically sensible for every day.
-- Make descriptions, local tips, weather backups, warnings, and budget notes practical and destination-specific.
+- Make descriptions, timeWindow, transportAdvice, costNote, local tips, weather backups, warnings, and budget notes practical and destination-specific.
 - Respect avoid preferences and requested pace.
 - Lower planningConfidenceScore if important uncertainty remains.
 - Do not invent exact prices, opening hours, addresses, place IDs, booking links, or guaranteed availability.
@@ -724,6 +832,8 @@ Rules:
 - Do not merely say the plan changed; actually change the plan.
 - Keep every day at 2-4 activities.
 - Keep route order geographically sensible.
+- Keep activity timeWindow values realistic and consistent with transfer time and estimatedDuration.
+- Include transportAdvice and costNote for every activity.
 - Use specific real place names only when highly confident.
 - Leave googleMapsUrl empty; the server will recreate safe map links.
 - Do not invent exact prices, opening hours, or booking links.

@@ -143,6 +143,7 @@ Return ONLY valid JSON matching this schema:
       "activities": [
         {
           "timeOfDay": "morning | afternoon | evening | night",
+          "timeWindow": "estimated start-end window such as 09:00-11:00 or 16:30-18:00",
           "title": "string — what the traveler does",
           "placeName": "specific real named venue or empty string",
           "fullAddress": "confirmed address or empty string",
@@ -154,6 +155,8 @@ Return ONLY valid JSON matching this schema:
           "travelTimeFromPrevious": "realistic local travel time or empty string",
           "localTip": "one factual destination-specific tip",
           "reservationAdvice": "book ahead | same-day booking | walk-in | not needed | unknown",
+          "transportAdvice": "one short practical note on how to get there from the previous stop or accommodation",
+          "costNote": "estimated cost range or free/paid note for this activity",
           "tips": ["one short practical tip maximum"]
         }
       ],
@@ -230,6 +233,8 @@ Hard constraints:
 - Buffer in budget breakdown must be at least 10% of the estimated total minimum.
 - Keep planningConfidenceScore, tripHealth, and realityCheck consistent. A risky or unrealistic trip cannot receive a high confidence score.
 - Sequence activities in chronological order within each day.
+- Give every activity a realistic timeWindow that fits the day's bestTimeToStart, estimatedDuration, meal rhythm, and transfers. Do not imply exact reservations unless the traveler supplied them.
+- Give every activity a transportAdvice and costNote, even when approximate.
 - Do not repeat the same named place on multiple days unless a return visit is genuinely useful.
 - estimatedCostRange values, budget breakdown ranges, and estimatedTotalRange must be broadly consistent with each other and with budgetAmount when provided.
 - Before returning, silently verify: valid JSON, exact day count, activity count per day, enum values, chronological order, budget consistency, unique priority lists, scoreBreakdown weighted average matches planningConfidenceScore.

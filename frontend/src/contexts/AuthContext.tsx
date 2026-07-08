@@ -13,6 +13,11 @@ import { useConfig } from './ConfigContext'
 import { apiService } from '../lib/api'
 import { debug } from '../utils/debug'
 
+const isAuthPopupCancelled = (error: unknown) => {
+  const code = typeof error === 'object' && error && 'code' in error ? String((error as { code?: string }).code) : ''
+  return code === 'auth/popup-closed-by-user' || code === 'auth/cancelled-popup-request'
+}
+
 interface User {
   id: string
   email: string
@@ -315,6 +320,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // onAuthStateChanged will fire and call syncUserProfile
       debug.log('✅ Google Sign-In popup successful', result.user.email)
     } catch (error: any) {
+      if (isAuthPopupCancelled(error)) {
+        debug.log('Google Sign-In cancelled by user')
+        return
+      }
+
       debug.error('❌ Google Sign-In failed:', error)
       throw new Error(error.message || 'Google Sign-In failed')
     }
