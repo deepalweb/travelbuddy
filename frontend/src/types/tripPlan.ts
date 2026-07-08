@@ -21,6 +21,7 @@ export type TripPlanInput = {
 
 export type TripActivity = {
   timeOfDay: 'morning' | 'afternoon' | 'evening' | 'night'
+  timeWindow?: string
   title: string
   placeName?: string
   fullAddress?: string
@@ -42,6 +43,8 @@ export type TripActivity = {
   travelTimeFromPrevious?: string
   localTip?: string
   reservationAdvice?: 'book ahead' | 'same-day booking' | 'walk-in' | 'not needed' | 'unknown'
+  transportAdvice?: string
+  costNote?: string
   tips: string[]
 }
 

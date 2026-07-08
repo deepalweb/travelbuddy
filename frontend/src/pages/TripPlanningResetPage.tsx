@@ -9,6 +9,7 @@ import {
   ChevronDown,
   ChevronUp,
   CircleDollarSign,
+  Clock,
   CloudSun,
   Compass,
   ExternalLink,
@@ -67,6 +68,12 @@ const splitParam = (value: string | null) =>
   value
     ? value.split(',').map((item) => item.trim()).filter(Boolean)
     : []
+
+const splitListText = (value: string) =>
+  value
+    .split(',')
+    .map((item) => item.trim())
+    .filter(Boolean)
 
 const toIsoDate = (date: Date) => {
   const year = date.getFullYear()
@@ -235,6 +242,11 @@ export const TripPlanningResetPage: React.FC<TripPlanningResetPageProps> = ({ sa
   const [pace, setPace] = useState<'relaxed' | 'balanced' | 'packed'>(
     savedInput?.pace || profilePreferences.travelPace || 'balanced',
   )
+  const [origin, setOrigin] = useState(savedInput?.origin || params.get('origin') || routeState.discoveryBrief?.departure || '')
+  const [budgetAmount, setBudgetAmount] = useState(savedInput?.budgetAmount ? String(savedInput.budgetAmount) : '')
+  const [interestsText, setInterestsText] = useState(initialInterests.join(', '))
+  const [avoidText, setAvoidText] = useState(initialAvoid.join(', '))
+  const [plannerNotes, setPlannerNotes] = useState(savedInput?.notes || '')
   const [plan, setPlan] = useState<TripPlanResult | null>(savedPlan || null)
   const [isGenerating, setIsGenerating] = useState(false)
   const [generationError, setGenerationError] = useState<string | null>(null)
@@ -247,6 +259,16 @@ export const TripPlanningResetPage: React.FC<TripPlanningResetPageProps> = ({ sa
   const [isSaving, setIsSaving] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
   const [savedTripId, setSavedTripId] = useState<string | null>(savedTrip?._id || null)
+  const interests = useMemo(() => splitListText(interestsText), [interestsText])
+  const avoid = useMemo(() => splitListText(avoidText), [avoidText])
+
+  const resetGeneratedPlan = () => {
+    setPlan(null)
+    setSavedTripId(null)
+    setGenerationError(null)
+    setEditNotice(null)
+    setSaveError(null)
+  }
 
   const input = useMemo<TripPlanInput>(
     () => ({
@@ -262,21 +284,28 @@ export const TripPlanningResetPage: React.FC<TripPlanningResetPageProps> = ({ sa
       budgetLevel:
         budgetLevel === 'mid-range' ? 'mid_range' : (budgetLevel as TripPlanInput['budgetLevel']),
       pace,
-      interests: initialInterests,
-      avoid: initialAvoid,
-      origin: params.get('origin') || routeState.discoveryBrief?.departure,
+      interests: interests.length ? interests : ['culture', 'food'],
+      avoid,
+      origin: origin || undefined,
       currency: user?.homeCurrency || 'USD',
-      notes: routeState.discoveryRecommendation?.supportPlaces?.length
-        ? `Discovery suggested these real places for consideration: ${routeState.discoveryRecommendation.supportPlaces.join(', ')}`
-        : undefined,
+      budgetAmount: budgetAmount ? Number(budgetAmount) : undefined,
+      notes: [
+        plannerNotes,
+        routeState.discoveryRecommendation?.supportPlaces?.length
+          ? `Discovery suggested these real places for consideration: ${routeState.discoveryRecommendation.supportPlaces.join(', ')}`
+          : '',
+      ].filter(Boolean).join('\n') || undefined,
     }),
     [
       budgetLevel,
+      budgetAmount,
       destination,
       durationDays,
-      initialAvoid,
-      initialInterests,
+      avoid,
+      interests,
+      origin,
       pace,
+      plannerNotes,
       params,
       routeState.discoveryBrief,
       routeState.discoveryRecommendation,
@@ -321,15 +350,13 @@ export const TripPlanningResetPage: React.FC<TripPlanningResetPageProps> = ({ sa
     if (startDate) {
       setEndDate(addDays(startDate, days - 1))
     }
-    setPlan(null)
-    setSavedTripId(null)
+    resetGeneratedPlan()
   }
 
   const changeStartDate = (value: string) => {
     setStartDate(value)
     setEndDate(value ? addDays(value, durationDays - 1) : '')
-    setPlan(null)
-    setSavedTripId(null)
+    resetGeneratedPlan()
   }
 
   const changeEndDate = (value: string) => {
@@ -340,8 +367,7 @@ export const TripPlanningResetPage: React.FC<TripPlanningResetPageProps> = ({ sa
         setDurationDays(days)
       }
     }
-    setPlan(null)
-    setSavedTripId(null)
+    resetGeneratedPlan()
   }
 
   const buildSavedTrip = (generatedPlan: TripPlanResult): Omit<TripPlan, '_id' | 'createdAt'> => {
@@ -368,7 +394,7 @@ export const TripPlanningResetPage: React.FC<TripPlanningResetPageProps> = ({ sa
       travelStyle: generatedPlan.tripStyle.join(', '),
       notes: generatedPlan.finalAdvice,
       mustSee: generatedPlan.mustDo.map((place) => place.name),
-      avoid: initialAvoid,
+      avoid,
       planningStatus: 'draft',
       coverImageUrl: routeState.discoveryRecommendation?.image,
       metadata: {
@@ -386,6 +412,7 @@ export const TripPlanningResetPage: React.FC<TripPlanningResetPageProps> = ({ sa
         transportSummary: generatedPlan.practicalInfo.transportationAdvice.join(' '),
         hotels: [],
         estimatedTotalBudget: generatedPlan.budget.estimatedTotalRange,
+        budgetPerDay: generatedPlan.days.map((day) => `Day ${day.day}: ${day.estimatedCostRange}`).join(' | '),
         tripStyle: generatedPlan.tripStyle.join(', '),
         bestFor: generatedPlan.tripSummary.bestFor,
         bookingPriority: bookingAdvice,
@@ -410,8 +437,8 @@ export const TripPlanningResetPage: React.FC<TripPlanningResetPageProps> = ({ sa
           activityTitle: activity.title,
           placeName: activity.placeName,
           details: activity.description,
-          cost: day.estimatedCostRange,
-          notes: [activity.localTip, ...activity.tips].filter(Boolean).join(' '),
+          cost: activity.costNote || day.estimatedCostRange,
+          notes: [activity.localTip, activity.transportAdvice, ...activity.tips].filter(Boolean).join(' '),
           estimatedDuration: activity.estimatedDuration,
           priority: activity.priority,
           travelNote: activity.travelTimeFromPrevious,
@@ -510,6 +537,18 @@ export const TripPlanningResetPage: React.FC<TripPlanningResetPageProps> = ({ sa
 
   const confidenceSignals = useMemo(() => {
     if (!plan) return []
+    if (plan.scoreBreakdown) {
+      return [
+        { label: 'Budget fit', score: plan.scoreBreakdown.budgetFit },
+        { label: 'Pace comfort', score: plan.scoreBreakdown.paceComfort },
+        { label: 'Route logic', score: plan.scoreBreakdown.routeLogic },
+        { label: 'Destination match', score: plan.scoreBreakdown.destinationMatch },
+        { label: 'Content confidence', score: plan.scoreBreakdown.contentConfidence },
+      ].map((signal) => ({
+        ...signal,
+        score: Math.max(0, Math.min(100, Math.round(Number(signal.score) || 0))),
+      }))
+    }
     const scoreMap: Record<string, number> = {
       excellent: 94,
       good: 84,
@@ -528,10 +567,22 @@ export const TripPlanningResetPage: React.FC<TripPlanningResetPageProps> = ({ sa
       { label: 'Budget fit', score: scoreMap[plan.tripHealth.budgetFit] || 70 },
       { label: 'Pace comfort', score: scoreMap[plan.tripHealth.paceComfort] || 70 },
       { label: 'Route logic', score: scoreMap[plan.tripHealth.logistics] || 70 },
-      { label: 'Destination match', score: Math.min(95, 74 + Math.min(initialInterests.length, 4) * 5) },
+      { label: 'Destination match', score: Math.min(95, 74 + Math.min(interests.length, 4) * 5) },
       { label: 'Content confidence', score: namedActivities.length >= 5 ? 92 : namedActivities.length >= 2 ? 78 : 58 },
     ]
-  }, [initialInterests.length, plan])
+  }, [interests.length, plan])
+
+  const dailyAtAGlance = useMemo(() => {
+    if (!plan) return []
+    return plan.days.map((day) => ({
+      day: day.day,
+      title: day.title,
+      start: day.bestTimeToStart,
+      cost: day.estimatedCostRange,
+      energy: titleCase(day.energyLevel),
+      topStop: day.activities.find((activity) => activity.priority === 'must_do')?.title || day.activities[0]?.title,
+    }))
+  }, [plan])
 
   const toggleDay = (day: number) => {
     setExpandedDays((current) =>
@@ -635,15 +686,15 @@ export const TripPlanningResetPage: React.FC<TripPlanningResetPageProps> = ({ sa
                 {durationDays}-Day {titleCase(travelerType)} Trip to {destination || 'Your Destination'}
               </h1>
               <div className="mt-5 flex flex-wrap gap-2">
-                {initialInterests.map((interest) => (
+                {(interests.length ? interests : ['culture', 'food']).map((interest) => (
                   <span key={interest} className="rounded-full bg-white/10 px-3 py-1.5 text-xs font-bold text-white/75">
                     {titleCase(interest)}
                   </span>
                 ))}
               </div>
-              {initialAvoid.length > 0 && (
+              {avoid.length > 0 && (
                 <p className="mt-4 text-sm text-white/60">
-                  Avoiding: <span className="font-semibold text-white/80">{initialAvoid.map(titleCase).join(' · ')}</span>
+                  Avoiding: <span className="font-semibold text-white/80">{avoid.map(titleCase).join(' · ')}</span>
                 </p>
               )}
             </div>
@@ -691,7 +742,10 @@ export const TripPlanningResetPage: React.FC<TripPlanningResetPageProps> = ({ sa
                     <input
                       type="text"
                       value={destination}
-                      onChange={(event) => setDestination(event.target.value)}
+                      onChange={(event) => {
+                        setDestination(event.target.value)
+                        resetGeneratedPlan()
+                      }}
                       placeholder="Polonnaruwa, Sri Lanka"
                       className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold outline-none focus:border-orange-300"
                     />
@@ -704,13 +758,19 @@ export const TripPlanningResetPage: React.FC<TripPlanningResetPageProps> = ({ sa
                   </label>
                   <label>
                     <span className="mb-2 block text-xs font-bold text-slate-500">Traveler type</span>
-                    <select value={travelerType} onChange={(event) => setTravelerType(event.target.value)} className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold outline-none">
+                    <select value={travelerType} onChange={(event) => {
+                      setTravelerType(event.target.value)
+                      resetGeneratedPlan()
+                    }} className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold outline-none">
                       {['solo', 'couple', 'family', 'friends', 'business-leisure'].map((type) => <option key={type} value={type}>{titleCase(type)}</option>)}
                     </select>
                   </label>
                   <label>
                     <span className="mb-2 block text-xs font-bold text-slate-500">Budget</span>
-                    <select value={budgetLevel} onChange={(event) => setBudgetLevel(event.target.value)} className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold outline-none">
+                    <select value={budgetLevel} onChange={(event) => {
+                      setBudgetLevel(event.target.value)
+                      resetGeneratedPlan()
+                    }} className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold outline-none">
                       <option value="budget">Budget</option>
                       <option value="mid-range">Mid-range</option>
                       <option value="luxury">Luxury</option>
@@ -718,7 +778,10 @@ export const TripPlanningResetPage: React.FC<TripPlanningResetPageProps> = ({ sa
                   </label>
                   <label>
                     <span className="mb-2 block text-xs font-bold text-slate-500">Pace</span>
-                    <select value={pace} onChange={(event) => setPace(event.target.value as typeof pace)} className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold outline-none">
+                    <select value={pace} onChange={(event) => {
+                      setPace(event.target.value as typeof pace)
+                      resetGeneratedPlan()
+                    }} className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold outline-none">
                       <option value="relaxed">Relaxed</option>
                       <option value="balanced">Balanced</option>
                       <option value="packed">Packed</option>
@@ -731,6 +794,72 @@ export const TripPlanningResetPage: React.FC<TripPlanningResetPageProps> = ({ sa
                   <label>
                     <span className="mb-2 block text-xs font-bold text-slate-500">To date</span>
                     <input type="date" value={endDate} min={startDate || toIsoDate(new Date())} max={startDate ? addDays(startDate, 13) : undefined} disabled={!startDate} onChange={(event) => changeEndDate(event.target.value)} className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold outline-none focus:border-orange-300 disabled:opacity-50" />
+                  </label>
+                  <label>
+                    <span className="mb-2 block text-xs font-bold text-slate-500">Starting from</span>
+                    <input
+                      type="text"
+                      value={origin}
+                      onChange={(event) => {
+                        setOrigin(event.target.value)
+                        resetGeneratedPlan()
+                      }}
+                      placeholder="Colombo, airport, hotel area"
+                      className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold outline-none focus:border-orange-300"
+                    />
+                  </label>
+                  <label>
+                    <span className="mb-2 block text-xs font-bold text-slate-500">Budget amount</span>
+                    <input
+                      type="number"
+                      min="0"
+                      value={budgetAmount}
+                      onChange={(event) => {
+                        setBudgetAmount(event.target.value)
+                        resetGeneratedPlan()
+                      }}
+                      placeholder="Optional total"
+                      className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold outline-none focus:border-orange-300"
+                    />
+                  </label>
+                  <label className="sm:col-span-2">
+                    <span className="mb-2 block text-xs font-bold text-slate-500">Interests</span>
+                    <input
+                      type="text"
+                      value={interestsText}
+                      onChange={(event) => {
+                        setInterestsText(event.target.value)
+                        resetGeneratedPlan()
+                      }}
+                      placeholder="culture, food, beaches"
+                      className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold outline-none focus:border-orange-300"
+                    />
+                  </label>
+                  <label className="sm:col-span-2">
+                    <span className="mb-2 block text-xs font-bold text-slate-500">Avoid</span>
+                    <input
+                      type="text"
+                      value={avoidText}
+                      onChange={(event) => {
+                        setAvoidText(event.target.value)
+                        resetGeneratedPlan()
+                      }}
+                      placeholder="crowds, long drives, heavy walking"
+                      className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold outline-none focus:border-orange-300"
+                    />
+                  </label>
+                  <label className="sm:col-span-2">
+                    <span className="mb-2 block text-xs font-bold text-slate-500">Planner notes</span>
+                    <textarea
+                      value={plannerNotes}
+                      onChange={(event) => {
+                        setPlannerNotes(event.target.value)
+                        resetGeneratedPlan()
+                      }}
+                      rows={3}
+                      placeholder="Arrival time, must-see places, mobility needs, hotel area, dietary preferences"
+                      className="w-full resize-none rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold outline-none focus:border-orange-300"
+                    />
                   </label>
                 </div>
                 {startDate && endDate && (
@@ -803,6 +932,11 @@ export const TripPlanningResetPage: React.FC<TripPlanningResetPageProps> = ({ sa
                       </div>
                     ))}
                   </div>
+                  {plan.scoreBreakdown?.scoreReasoning && (
+                    <p className="mt-4 rounded-xl bg-slate-50 px-4 py-3 text-xs leading-5 text-slate-600">
+                      {plan.scoreBreakdown.scoreReasoning}
+                    </p>
+                  )}
                 </div>
               </CardContent>
             </Card>
@@ -828,6 +962,34 @@ export const TripPlanningResetPage: React.FC<TripPlanningResetPageProps> = ({ sa
                 </div>
               </CardContent>
             </Card>
+          </section>
+
+          <section>
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+              <div>
+                <p className="text-xs font-extrabold uppercase tracking-[0.18em] text-slate-500">Daily overview</p>
+                <h2 className="font-heading mt-2 text-3xl font-semibold">Trip at a glance</h2>
+              </div>
+              <p className="max-w-xl text-sm leading-6 text-slate-500">{plan.finalAdvice}</p>
+            </div>
+            <div className="mt-6 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+              {dailyAtAGlance.map((day) => (
+                <Card key={day.day} className="border-slate-200 bg-white">
+                  <CardContent className="p-5">
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-950 text-sm font-bold text-white">D{day.day}</span>
+                      <span className="rounded-full bg-sky-50 px-2.5 py-1 text-[10px] font-bold text-sky-700">{day.start}</span>
+                    </div>
+                    <h3 className="mt-4 font-semibold leading-6 text-slate-950">{day.title}</h3>
+                    {day.topStop && <p className="mt-2 text-sm leading-5 text-slate-500">{day.topStop}</p>}
+                    <div className="mt-4 flex flex-wrap gap-2">
+                      <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-[10px] font-bold text-emerald-700">{day.energy}</span>
+                      <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-bold text-slate-600">{day.cost}</span>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
           </section>
 
           <Card className="overflow-hidden border-amber-200 bg-[linear-gradient(135deg,#fffaf0,#ffffff)]">
@@ -936,14 +1098,22 @@ export const TripPlanningResetPage: React.FC<TripPlanningResetPageProps> = ({ sa
                             <div key={`${activity.timeOfDay}-${activity.title}`} className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
                               <div className="flex items-center justify-between">
                                 <span className="text-[10px] font-extrabold uppercase tracking-[0.18em] text-[#e96855]">{activity.timeOfDay}</span>
-                                <span className="text-[10px] font-bold text-slate-500">{activity.estimatedDuration}</span>
+                                <span className="text-[10px] font-bold text-slate-500">{activity.timeWindow || activity.estimatedDuration}</span>
                               </div>
                               <h3 className="mt-3 font-semibold text-slate-950">{activity.title}</h3>
                               <p className="mt-2 text-sm leading-6 text-slate-600">{activity.description}</p>
                               <div className="mt-3 flex flex-wrap gap-2">
+                                <span className="rounded-full bg-white px-2.5 py-1 text-[10px] font-bold text-slate-600 ring-1 ring-slate-200">
+                                  <Clock className="mr-1 inline h-3 w-3" />{activity.estimatedDuration}
+                                </span>
                                 {activity.travelTimeFromPrevious && (
                                   <span className="rounded-full bg-white px-2.5 py-1 text-[10px] font-bold text-slate-600 ring-1 ring-slate-200">
                                     Transfer: {activity.travelTimeFromPrevious}
+                                  </span>
+                                )}
+                                {activity.costNote && (
+                                  <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-[10px] font-bold text-emerald-700">
+                                    {activity.costNote}
                                   </span>
                                 )}
                                 {activity.reservationAdvice && activity.reservationAdvice !== 'unknown' && (
@@ -954,6 +1124,7 @@ export const TripPlanningResetPage: React.FC<TripPlanningResetPageProps> = ({ sa
                                   </span>
                                 )}
                               </div>
+                              {activity.transportAdvice && <p className="mt-3 text-xs leading-5 text-slate-500"><strong>Getting there:</strong> {activity.transportAdvice}</p>}
                               {activity.localTip && <p className="mt-3 text-xs leading-5 text-emerald-700"><strong>Local tip:</strong> {activity.localTip}</p>}
                               {activity.tips?.length > 0 && <p className="mt-2 text-xs leading-5 text-slate-500">{activity.tips.join(' · ')}</p>}
                               {activity.googleMapsUrl && activity.placeName && (

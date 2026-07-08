@@ -172,6 +172,7 @@ export const LoginPage: React.FC = () => {
                 // Will redirect to Google, no need to navigate
               } catch (error: any) {
                 setError(error.message)
+              } finally {
                 setLoading(false)
               }
             }}
