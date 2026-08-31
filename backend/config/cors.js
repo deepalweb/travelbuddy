@@ -6,7 +6,9 @@ export const getCorsOptions = () => {
     process.env.CLIENT_URL,
     'https://travelbuddylk.com',
     'https://www.travelbuddylk.com',
-    'https://travelbuddy-b2c6hgbbgeh4esdh.eastus2-01.azurewebsites.net'
+    'https://travelbuddy-b2c6hgbbgeh4esdh.eastus2-01.azurewebsites.net',
+    'https://travelbuddy-g6gm.onrender.com',
+    'https://travelbuddy.onrender.com'
   ].filter(Boolean);
 
   // Only allow localhost in development
