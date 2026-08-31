@@ -208,23 +208,23 @@ class TripService {
 
   // Helper method to get authentication token
   private async getAuthToken(): Promise<string | null> {
-    // Try demo token first (for demo login)
-    const demoToken = localStorage.getItem('demo_token')
-    if (demoToken) {
-      console.log('🔐 Using demo token for authentication')
-      return demoToken
-    }
-
-    // Try Firebase token
+    // A real Firebase session always takes precedence over device-local demo state.
     try {
       const { auth } = await import('../lib/firebase')
       if (auth?.currentUser) {
-        const token = await auth.currentUser.getIdToken()
+        const token = await auth.currentUser.getIdToken(true)
+        localStorage.removeItem('demo_token')
         console.log('🔐 Using Firebase token for authentication')
         return token
       }
     } catch (firebaseError: any) {
       console.log('⚠️ Firebase not available:', firebaseError?.message || 'Unknown error')
+    }
+
+    const demoToken = localStorage.getItem('demo_token')
+    if (demoToken) {
+      console.log('🔐 Using demo token for authentication')
+      return demoToken
     }
 
     // Fallback to other stored tokens
@@ -344,12 +344,8 @@ class TripService {
     isVisited: boolean
   ): Promise<boolean> {
     try {
-      const token = localStorage.getItem('auth_token')
       await this.request(`/users/trip-plans/${tripPlanId}/activities`, {
         method: 'PATCH',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
         body: JSON.stringify({
           dayIndex,
           activityIndex,
@@ -367,12 +363,8 @@ class TripService {
   // Share trip plan
   async shareTripPlan(tripPlanId: string): Promise<string | null> {
     try {
-      const token = localStorage.getItem('auth_token')
       const response = await this.request<{ shareUrl: string }>(`/users/trip-plans/${tripPlanId}/share`, {
         method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
       })
       return response.shareUrl
     } catch (error) {
