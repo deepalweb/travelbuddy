@@ -818,10 +818,12 @@ app.options('/api/posts/community', (req, res) => {
 
 
 // Firebase user sync endpoint is now handled by routes/users.js
-// Serve static files from public directory (Azure deployment)
+// Serve the newest built frontend first, then fall back to legacy public assets.
+// This prevents stale hashed asset files in backend/public from overriding a fresh dist build.
 const staticPaths = [
   path.join(__dirname, '../frontend/dist'),
   path.join(__dirname, '../dist'),
+  path.join(process.cwd(), 'frontend/dist'),
   path.join(__dirname, 'public'),
   path.join('/home/site/wwwroot/public'),
   path.join(process.cwd(), 'public')
