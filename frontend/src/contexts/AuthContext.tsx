@@ -80,17 +80,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return
     }
 
-    // Check for demo token first and restore demo user
-    const demoToken = localStorage.getItem('demo_token')
-    if (demoToken) {
-      debug.log('🔐 AUTH STEP 2: Demo token found, restoring demo user')
-      restoreDemoUser()
-      return
-    }
-
     if (!firebase?.auth || !config?.firebase?.apiKey) {
-      debug.log('✅ AUTH STEP 2: Firebase disabled or not configured, no demo token - setting loading false')
-      setIsLoading(false)
+      const demoToken = localStorage.getItem('demo_token')
+      if (demoToken) {
+        debug.log('🔐 AUTH STEP 2: Firebase unavailable, restoring demo user')
+        void restoreDemoUser()
+      } else {
+        debug.log('✅ AUTH STEP 2: Firebase disabled or not configured, setting loading false')
+        setIsLoading(false)
+      }
       return
     }
     
@@ -124,13 +122,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       if (firebaseUser) {
         debug.log('🔐 AUTH STEP 5: User found, syncing profile')
+        // A real Firebase session must never be shadowed by a device-local demo session.
+        localStorage.removeItem('demo_token')
         await syncUserProfile(firebaseUser)
       } else {
-        // Don't clear user if demo token exists
         const demoToken = localStorage.getItem('demo_token')
         if (demoToken) {
-          debug.log('🔐 AUTH STEP 5: No Firebase user but demo token exists, keeping demo user')
-          // Don't clear user state
+          debug.log('🔐 AUTH STEP 5: No Firebase user, restoring demo user')
+          await restoreDemoUser()
         } else {
           debug.log('🔐 AUTH STEP 5: No user, setting null')
           setUser(null)
@@ -300,6 +299,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const login = async (email: string, password: string) => {
     if (!firebase) throw new Error('Firebase not initialized')
     try {
+      localStorage.removeItem('demo_token')
       debug.log('🔐 Starting login for:', email)
       const userCredential = await signInWithEmailAndPassword(firebase.auth, email, password)
       debug.log('✅ Login successful, waiting for auth state change')
@@ -313,6 +313,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const loginWithGoogle = async () => {
     if (!firebase) throw new Error('Firebase not initialized')
     try {
+      localStorage.removeItem('demo_token')
       debug.log('🔐 Starting Google Sign-In')
       const provider = new GoogleAuthProvider()
       provider.setCustomParameters({ prompt: 'select_account' })
@@ -333,6 +334,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const register = async (username: string, email: string, password: string) => {
     if (!firebase) throw new Error('Firebase not initialized')
     try {
+      localStorage.removeItem('demo_token')
       const userCredential = await createUserWithEmailAndPassword(firebase.auth, email, password)
       // User state will be updated by onAuthStateChanged with username
     } catch (error: any) {

@@ -34,6 +34,8 @@ import {
 import { Button } from '../components/Button'
 import { Card, CardContent } from '../components/Card'
 import { SavedTripsPanel } from '../components/SavedTripsPanel'
+import { TripDayCard } from '../components/TripDayCard'
+import { TripResultOverview } from '../components/TripResultOverview'
 import { apiService } from '../lib/api'
 import { useAuth } from '../contexts/AuthContext'
 import { tripService, type TripPlan } from '../services/tripService'
@@ -101,6 +103,12 @@ const isPlaceholderPlace = (value = '') =>
     value.trim(),
   )
 
+const legacyToneClass = (value: string) => {
+  if (/excellent|good|relaxed|balanced|easy|low/i.test(value)) return 'bg-emerald-50 text-emerald-700 ring-emerald-100'
+  if (/poor|too_busy|complex|risky|high/i.test(value)) return 'bg-rose-50 text-rose-700 ring-rose-100'
+  return 'bg-amber-50 text-amber-700 ring-amber-100'
+}
+
 const validateGeneratedPlan = (plan: TripPlanResult) => {
   if (!plan || !Array.isArray(plan.days) || plan.days.length === 0) {
     throw new Error('The AI did not return a usable itinerary.')
@@ -125,30 +133,6 @@ const validateGeneratedPlan = (plan: TripPlanResult) => {
 
   return plan
 }
-
-const toneClass = (tone: 'good' | 'watch' | 'risk') => {
-  if (tone === 'good') return 'bg-emerald-50 text-emerald-700 ring-emerald-100'
-  if (tone === 'risk') return 'bg-rose-50 text-rose-700 ring-rose-100'
-  return 'bg-amber-50 text-amber-700 ring-amber-100'
-}
-
-const healthTone = (value: string): 'good' | 'watch' | 'risk' => {
-  if (/excellent|good|relaxed|balanced|easy/i.test(value)) return 'good'
-  if (/poor|too_busy|complex|risky/i.test(value)) return 'risk'
-  return 'watch'
-}
-
-const ScoreRing = ({ score }: { score: number }) => (
-  <div
-    className="flex h-36 w-36 shrink-0 items-center justify-center rounded-full bg-[conic-gradient(#22c55e_var(--score),#e2e8f0_0)] p-2"
-    style={{ '--score': `${score}%` } as React.CSSProperties}
-  >
-    <div className="flex h-full w-full flex-col items-center justify-center rounded-full bg-white">
-      <strong className="font-heading text-4xl text-slate-950">{score}%</strong>
-      <span className="mt-1 text-[10px] font-extrabold uppercase tracking-[0.16em] text-slate-400">Trip Health</span>
-    </div>
-  </div>
-)
 
 type SavedPlanMetadata = {
   generatedPlan?: TripPlanResult
@@ -250,9 +234,7 @@ export const TripPlanningResetPage: React.FC<TripPlanningResetPageProps> = ({ sa
   const [plan, setPlan] = useState<TripPlanResult | null>(savedPlan || null)
   const [isGenerating, setIsGenerating] = useState(false)
   const [generationError, setGenerationError] = useState<string | null>(null)
-  const [expandedDays, setExpandedDays] = useState<number[]>(
-    savedPlan?.days.map((day) => day.day) || [1],
-  )
+  const [expandedDays, setExpandedDays] = useState<number[]>([])
   const [editNotice, setEditNotice] = useState<string | null>(null)
   const [editingActionType, setEditingActionType] = useState<string | null>(null)
   const [visitedPlaces, setVisitedPlaces] = useState<string[]>([])
@@ -326,7 +308,6 @@ export const TripPlanningResetPage: React.FC<TripPlanningResetPageProps> = ({ sa
       const response = await apiService.generateTripPlan(input)
       const generatedPlan = validateGeneratedPlan(response.tripPlan)
       setPlan(generatedPlan)
-      setExpandedDays(generatedPlan.days.map((day) => day.day))
       setVisitedPlaces([])
       window.setTimeout(
         () => document.getElementById('trip-dashboard')?.scrollIntoView({ behavior: 'smooth' }),
@@ -535,67 +516,16 @@ export const TripPlanningResetPage: React.FC<TripPlanningResetPageProps> = ({ sa
     )
   }, [plan])
 
-  const confidenceSignals = useMemo(() => {
-    if (!plan) return []
-    if (plan.scoreBreakdown) {
-      return [
-        { label: 'Budget fit', score: plan.scoreBreakdown.budgetFit },
-        { label: 'Pace comfort', score: plan.scoreBreakdown.paceComfort },
-        { label: 'Route logic', score: plan.scoreBreakdown.routeLogic },
-        { label: 'Destination match', score: plan.scoreBreakdown.destinationMatch },
-        { label: 'Content confidence', score: plan.scoreBreakdown.contentConfidence },
-      ].map((signal) => ({
-        ...signal,
-        score: Math.max(0, Math.min(100, Math.round(Number(signal.score) || 0))),
-      }))
-    }
-    const scoreMap: Record<string, number> = {
-      excellent: 94,
-      good: 84,
-      tight: 62,
-      poor: 38,
-      relaxed: 92,
-      balanced: 84,
-      busy: 64,
-      too_busy: 38,
-      easy: 92,
-      moderate: 76,
-      complex: 48,
-    }
-    const namedActivities = plan.days.flatMap((day) => day.activities).filter((activity) => activity.placeName)
-    return [
-      { label: 'Budget fit', score: scoreMap[plan.tripHealth.budgetFit] || 70 },
-      { label: 'Pace comfort', score: scoreMap[plan.tripHealth.paceComfort] || 70 },
-      { label: 'Route logic', score: scoreMap[plan.tripHealth.logistics] || 70 },
-      { label: 'Destination match', score: Math.min(95, 74 + Math.min(interests.length, 4) * 5) },
-      { label: 'Content confidence', score: namedActivities.length >= 5 ? 92 : namedActivities.length >= 2 ? 78 : 58 },
-    ]
-  }, [interests.length, plan])
-
-  const dailyAtAGlance = useMemo(() => {
-    if (!plan) return []
-    return plan.days.map((day) => ({
-      day: day.day,
-      title: day.title,
-      start: day.bestTimeToStart,
-      cost: day.estimatedCostRange,
-      energy: titleCase(day.energyLevel),
-      topStop: day.activities.find((activity) => activity.priority === 'must_do')?.title || day.activities[0]?.title,
-    }))
-  }, [plan])
-
-  const toggleDay = (day: number) => {
-    setExpandedDays((current) =>
-      current.includes(day) ? current.filter((item) => item !== day) : [...current, day],
-    )
-  }
-
   const toggleVisited = (placeName: string) => {
     setVisitedPlaces((current) =>
       current.includes(placeName)
         ? current.filter((item) => item !== placeName)
         : [...current, placeName],
     )
+  }
+
+  const toggleLegacyDay = (day: number) => {
+    setExpandedDays((current) => current.includes(day) ? current.filter((item) => item !== day) : [...current, day])
   }
 
   const handleSmartEdit = async (action: SmartEditAction) => {
@@ -616,7 +546,6 @@ export const TripPlanningResetPage: React.FC<TripPlanningResetPageProps> = ({ sa
       })
       const editedPlan = validateGeneratedPlan(response.tripPlan)
       setPlan(editedPlan)
-      setExpandedDays(editedPlan.days.map((day) => day.day))
       setVisitedPlaces([])
       setSavedTripId(null)
       setEditNotice(`${action.label} applied. Review the updated plan before saving.`)
@@ -916,105 +845,45 @@ export const TripPlanningResetPage: React.FC<TripPlanningResetPageProps> = ({ sa
               </Button>
             )}
           </section>
-          <section className="grid gap-6 lg:grid-cols-[0.9fr_1.1fr]">
-            <Card className="border-slate-200 bg-white">
-              <CardContent className="flex flex-col gap-7 p-6 sm:flex-row sm:items-center sm:p-8">
-                <ScoreRing score={plan.planningConfidenceScore} />
-                <div>
-                  <p className="text-xs font-extrabold uppercase tracking-[0.18em] text-emerald-700">AI Trip Health</p>
-                  <h2 className="font-heading mt-2 text-3xl font-semibold">{plan.tripHealth.overall === 'excellent' ? 'Excellent trip' : 'Good trip with watchouts'}</h2>
-                  <p className="mt-3 text-sm leading-7 text-slate-600">{plan.tripSummary.shortDescription}</p>
-                  <div className="mt-5 grid grid-cols-2 gap-2 sm:grid-cols-3">
-                    {confidenceSignals.map((signal) => (
-                      <div key={signal.label} className={`rounded-xl px-3 py-2 ring-1 ${toneClass(signal.score >= 80 ? 'good' : signal.score >= 60 ? 'watch' : 'risk')}`}>
-                        <p className="text-[9px] font-bold uppercase tracking-wider opacity-65">{signal.label}</p>
-                        <p className="mt-1 text-sm font-extrabold">{signal.score}%</p>
-                      </div>
-                    ))}
-                  </div>
-                  {plan.scoreBreakdown?.scoreReasoning && (
-                    <p className="mt-4 rounded-xl bg-slate-50 px-4 py-3 text-xs leading-5 text-slate-600">
-                      {plan.scoreBreakdown.scoreReasoning}
-                    </p>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-            <Card className="border-slate-200 bg-white">
-              <CardContent className="p-6 sm:p-8">
-                <p className="text-xs font-extrabold uppercase tracking-[0.18em] text-slate-400">What drives the score</p>
-                <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
-                  {[
-                    { icon: Banknote, label: 'Budget fit', value: plan.tripHealth.budgetFit },
-                    { icon: Gauge, label: 'Pace comfort', value: plan.tripHealth.paceComfort },
-                    { icon: Route, label: 'Logistics', value: plan.tripHealth.logistics },
-                    { icon: CloudSun, label: 'Overall', value: plan.tripHealth.overall },
-                  ].map((signal) => {
-                    const Icon = signal.icon
-                    return (
-                      <div key={signal.label} className={`rounded-2xl p-4 text-center ring-1 ${toneClass(healthTone(signal.value))}`}>
-                        <Icon className="mx-auto h-5 w-5" />
-                        <p className="mt-2 text-[9px] font-bold uppercase tracking-wider opacity-65">{signal.label}</p>
-                        <p className="mt-1 text-sm font-extrabold">{titleCase(signal.value)}</p>
-                      </div>
-                    )
-                  })}
-                </div>
-              </CardContent>
-            </Card>
-          </section>
+          <TripResultOverview plan={plan} />
+
+          <Card className="border-slate-200 bg-white">
+            <CardContent className="p-6 sm:p-8">
+              <p className="text-xs font-extrabold uppercase tracking-[0.18em] text-[#e96855]">Smart edits</p>
+              <h2 className="font-heading mt-2 text-3xl font-semibold">Change one thing without starting over</h2>
+              <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
+                {plan.smartEditActions.map((action) => {
+                  const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
+                    make_cheaper: WalletCards, reduce_walking: Footprints, add_food: Utensils,
+                    add_romantic: Heart, avoid_crowds: Users, make_relaxed: Gauge,
+                    add_hidden_gems: Compass, replace_activity: RefreshCw,
+                  }
+                  const Icon = iconMap[action.actionType] || Sparkles
+                  return (
+                    <button key={action.actionType} type="button" onClick={() => handleSmartEdit(action)} disabled={Boolean(editingActionType)} className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-left hover:border-orange-300 disabled:cursor-not-allowed disabled:opacity-60">
+                      <Icon className="h-5 w-5 text-[#e96855]" />
+                      <p className="mt-3 text-sm font-bold">{editingActionType === action.actionType ? 'Applying...' : action.label}</p>
+                      <p className="mt-1 text-xs leading-5 text-slate-500">{action.description}</p>
+                    </button>
+                  )
+                })}
+              </div>
+              {editNotice && <div className="mt-5 rounded-xl border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-900">{editNotice}</div>}
+            </CardContent>
+          </Card>
 
           <section>
             <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
               <div>
-                <p className="text-xs font-extrabold uppercase tracking-[0.18em] text-slate-500">Daily overview</p>
-                <h2 className="font-heading mt-2 text-3xl font-semibold">Trip at a glance</h2>
+                <p className="text-xs font-extrabold uppercase tracking-[0.18em] text-[#e96855]">Day-by-day itinerary</p>
+                <h2 className="font-heading mt-2 text-3xl font-semibold">Scan the trip, expand the details</h2>
               </div>
               <p className="max-w-xl text-sm leading-6 text-slate-500">{plan.finalAdvice}</p>
             </div>
-            <div className="mt-6 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-              {dailyAtAGlance.map((day) => (
-                <Card key={day.day} className="border-slate-200 bg-white">
-                  <CardContent className="p-5">
-                    <div className="flex items-center justify-between gap-3">
-                      <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-950 text-sm font-bold text-white">D{day.day}</span>
-                      <span className="rounded-full bg-sky-50 px-2.5 py-1 text-[10px] font-bold text-sky-700">{day.start}</span>
-                    </div>
-                    <h3 className="mt-4 font-semibold leading-6 text-slate-950">{day.title}</h3>
-                    {day.topStop && <p className="mt-2 text-sm leading-5 text-slate-500">{day.topStop}</p>}
-                    <div className="mt-4 flex flex-wrap gap-2">
-                      <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-[10px] font-bold text-emerald-700">{day.energy}</span>
-                      <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-bold text-slate-600">{day.cost}</span>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
+            <div className="mt-6 space-y-4">
+              {plan.days.map((day, index) => <TripDayCard key={day.day} day={day} defaultExpanded={index === 0} />)}
             </div>
           </section>
-
-          <Card className="overflow-hidden border-amber-200 bg-[linear-gradient(135deg,#fffaf0,#ffffff)]">
-            <CardContent className="p-6 sm:p-8">
-              <div className="grid gap-7 lg:grid-cols-[0.68fr_1.32fr]">
-                <div>
-                  <AlertTriangle className="h-10 w-10 text-amber-600" />
-                  <h2 className="font-heading mt-4 text-3xl font-semibold">Reality Check</h2>
-                  <p className="mt-3 text-sm leading-7 text-slate-600">{plan.realityCheck.summary}</p>
-                </div>
-                <div className="grid gap-3 sm:grid-cols-2">
-                  {plan.realityCheck.warnings.map((warning) => (
-                    <div key={warning} className="flex items-start gap-3 rounded-2xl border border-amber-100 bg-white p-4 text-sm text-slate-700">
-                      <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-500" />{warning}
-                    </div>
-                  ))}
-                  {plan.realityCheck.recommendations.map((item) => (
-                    <div key={item} className="flex items-start gap-3 rounded-2xl border border-emerald-100 bg-white p-4 text-sm text-slate-700">
-                      <Check className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />{item}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </CardContent>
-          </Card>
 
           <section>
             <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
@@ -1036,10 +905,7 @@ export const TripPlanningResetPage: React.FC<TripPlanningResetPageProps> = ({ sa
                         </button>
                         <div>
                           <p className={`font-bold ${visited ? 'text-emerald-900 line-through' : 'text-slate-950'}`}>{place.name}</p>
-                          <div className="mt-2 flex flex-wrap gap-2">
-                            {place.day && <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-bold text-slate-600">Day {place.day}</span>}
-                            {place.time && <span className="rounded-full bg-sky-50 px-2.5 py-1 text-[10px] font-bold text-sky-700">{place.time}</span>}
-                          </div>
+                          <p className="mt-1 text-xs text-slate-500">{place.priority}</p>
                         </div>
                       </div>
                       {place.googleMapsUrl && (
@@ -1054,7 +920,7 @@ export const TripPlanningResetPage: React.FC<TripPlanningResetPageProps> = ({ sa
             </div>
           </section>
 
-          <section>
+          <section className="hidden" aria-hidden="true">
             <p className="text-xs font-extrabold uppercase tracking-[0.18em] text-[#e96855]">Day-by-day itinerary</p>
             <h2 className="font-heading mt-2 text-3xl font-semibold">A plan you can scan and adjust</h2>
             <div className="mt-6 space-y-4">
@@ -1062,14 +928,14 @@ export const TripPlanningResetPage: React.FC<TripPlanningResetPageProps> = ({ sa
                 const expanded = expandedDays.includes(day.day)
                 return (
                   <Card key={day.day} className="overflow-hidden border-slate-200 bg-white">
-                    <button type="button" onClick={() => toggleDay(day.day)} className="flex w-full items-start gap-4 p-5 text-left sm:p-6">
+                    <button type="button" onClick={() => toggleLegacyDay(day.day)} className="flex w-full items-start gap-4 p-5 text-left sm:p-6">
                       <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-slate-950 font-bold text-white">{day.day}</span>
                       <span className="flex-1">
                         <span className="font-heading block text-xl font-semibold text-slate-950 sm:text-2xl">{day.title}</span>
                         <span className="mt-1 block text-sm text-slate-500">{day.theme}</span>
                         <span className="mt-3 flex flex-wrap gap-2">
-                          <span className={`rounded-full px-3 py-1 text-xs font-bold ${toneClass(healthTone(day.energyLevel))}`}>Energy: {titleCase(day.energyLevel)}</span>
-                          <span className={`rounded-full px-3 py-1 text-xs font-bold ${toneClass(healthTone(day.walkingLevel))}`}>Walking: {titleCase(day.walkingLevel)}</span>
+                          <span className={`rounded-full px-3 py-1 text-xs font-bold ${legacyToneClass(day.energyLevel)}`}>Energy: {titleCase(day.energyLevel)}</span>
+                          <span className={`rounded-full px-3 py-1 text-xs font-bold ${legacyToneClass(day.walkingLevel)}`}>Walking: {titleCase(day.walkingLevel)}</span>
                           <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-600">{day.estimatedCostRange}</span>
                           <span className="rounded-full bg-sky-50 px-3 py-1 text-xs font-bold text-sky-700">Start {day.bestTimeToStart}</span>
                         </span>
@@ -1263,7 +1129,7 @@ export const TripPlanningResetPage: React.FC<TripPlanningResetPageProps> = ({ sa
             </Card>
           )}
 
-          <Card className="border-slate-200 bg-white">
+          <Card className="hidden border-slate-200 bg-white" aria-hidden="true">
             <CardContent className="p-6 sm:p-8">
               <p className="text-xs font-extrabold uppercase tracking-[0.18em] text-[#e96855]">Smart edits</p>
               <h2 className="font-heading mt-2 text-3xl font-semibold">Change one thing without starting over</h2>
