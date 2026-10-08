@@ -4,7 +4,34 @@ Build a realistic, honest trip plan and then score it based on what you actually
 Follow the supplied schema and constraints exactly. Return only valid JSON.
 `.trim();
 
-export function buildTripPlanPrompt(input) {
+function formatCandidatePlacesBlock(grounding) {
+  const groups = grounding?.candidatesByType || [];
+  if (!groups.length) {
+    return 'CANDIDATE_PLACES: none available for this destination. Leave placeName empty rather than inventing a venue.';
+  }
+
+  const lines = groups.map((group) => {
+    const names = group.candidates
+      .map((c) => (c.rating ? `${c.name} (${c.rating}★)` : c.name))
+      .join('; ');
+    return `- ${group.type}: ${names}`;
+  });
+
+  return `CANDIDATE_PLACES (real, verified via Google Places — one query per activity type):\n${lines.join('\n')}`;
+}
+
+function groundingRule(grounding) {
+  const quality = grounding?.groundingQuality || 'unavailable';
+  if (quality === 'verified') {
+    return `PLACE GROUNDING RULE (hard constraint):
+For activities of type attraction, food, nature, culture, shopping, or experience, placeName MUST exactly match one name from CANDIDATE_PLACES for that type. If no candidate genuinely fits the day's route or interests, leave placeName empty and describe the area/activity generically instead — do not invent a venue name even when you believe it exists.`;
+  }
+
+  return `PLACE GROUNDING RULE (guidance only — verified place data is limited for this destination):
+Prefer a name from CANDIDATE_PLACES when one fits. If the list is empty, you MAY use a specific, well-known place you are highly confident exists in the destination. Never create plausible-sounding venue names. Lower contentConfidence and treat unverified names as AI-estimated.`;
+}
+
+export function buildTripPlanPrompt(input, grounding) {
   return `
 You are TravelBuddy's Trip Planning Engine.
 
@@ -36,10 +63,16 @@ It should rarely be the same number twice for different trips.
 DECISION PRIORITY
 When requirements conflict, use this order:
 1. Safety, arrival/departure limits, and explicit avoid preferences.
-2. Geographic route logic and realistic transfer time.
-3. Budget and requested pace.
-4. Traveler interests and variety.
+2. Traveler interests, traveler type, and requested experiences.
+3. Geographic route logic and realistic transfer time.
+4. Budget and requested pace.
 5. Completeness and presentation.
+
+PRIMARY PRODUCT GOAL
+- The plan's main purpose is to recommend specific places that match this traveler's preferences.
+- Every named place must have a clear connection to at least one stated interest, traveler need, budget choice, pace choice, or avoidance.
+- Do not add a famous place only because it is famous. Prefer fewer, stronger matches over a generic sightseeing checklist.
+- Make each activity description briefly explain why that place fits this traveler.
 
 TRAVELER INPUT
 Plan silently before writing the JSON. Do not reveal hidden reasoning or add commentary outside the schema.
@@ -47,9 +80,13 @@ Plan silently before writing the JSON. Do not reveal hidden reasoning or add com
 ${JSON.stringify(input, null, 2)}
 </traveler_input>
 
+${formatCandidatePlacesBlock(grounding)}
+
+${groundingRule(grounding)}
+
 INPUT INTERPRETATION
 - Treat omitted information as unknown. Do not assume a car, central hotel, full arrival day, or full departure day.
-- Treat budgetAmount, when supplied, as the total in-destination budget for all travelers, including accommodation but excluding travel to and from the destination unless notes clearly say otherwise.
+- Treat budgetAmount, when supplied, as the total in-destination budget for all travelers (see groupSize), including accommodation but excluding travel to and from the destination unless notes clearly say otherwise.
 - Use the requested currency for all budget ranges.
 - Use origin only to improve arrival, departure, and transport realism; do not invent flight schedules or fares.
 - Treat places mentioned in notes as candidates, not mandatory stops, unless the traveler explicitly marks them as required.
@@ -61,7 +98,7 @@ PLANNING METHOD
 Before producing the response, silently:
 1. Calculate usable time on the first and last day from arrival and departure information.
 2. Divide the destination into sensible geographic clusters, normally one main area per day.
-3. Select one or two anchor experiences per day, then add only activities that fit the remaining time and energy.
+3. Rank CANDIDATE_PLACES by fit with the traveler's interests, traveler type, pace, budget, and avoid list. Select the strongest one or two anchors per day, then add only activities that fit the remaining time and energy.
 4. Allow realistic transfer, meal, rest, queue, and weather buffer time.
 5. Check that daily costs, the budget breakdown, and the total range agree. Buffer must be at least 10% of the estimated total minimum.
 6. Classify activities into must-do, optional, and skip lists without duplication.
@@ -73,15 +110,15 @@ QUALITY STANDARD
 - Make advice specific to the destination and traveler, not reusable filler.
 - Use neutral, direct language with no marketing claims.
 - Be honest about risks, tradeoffs, missing information, and weak budget fit.
-- Never invent a venue, address, place ID, booking link, exact price, opening hour, visa rule, live weather condition, or guaranteed availability.
+- Never invent a venue. When live candidates are unavailable, use only established places you are highly confident exist; omit uncertain names. Never invent an address, place ID, booking link, exact price, opening hour, visa rule, live weather condition, or guaranteed availability.
 - Use estimated ranges and qualify uncertainty when reliable current facts are unavailable.
 
 PLACE NAMING RULES
-- Use specific real place names only when you are confident they exist at this destination.
+- Use a name from CANDIDATE_PLACES when it fits; otherwise follow the PLACE GROUNDING RULE above and use only high-confidence established places.
 - Leave placeName empty for: rest, transport, hotel check-in, generic meals, broad neighborhoods.
 - Never invent a venue, address, or booking link.
 - Leave fullAddress empty unless you are highly confident it is correct.
-- Leave googleMapsUrl empty always — the server generates this from placeName.
+- Leave googleMapsUrl empty always — the server generates this from placeName or the matched candidate.
 - Activity title describes what the traveler does — it is not the same as placeName.
 
 TRAVEL TIME RULE
@@ -145,7 +182,7 @@ Return ONLY valid JSON matching this schema:
           "timeOfDay": "morning | afternoon | evening | night",
           "timeWindow": "estimated start-end window such as 09:00-11:00 or 16:30-18:00",
           "title": "string — what the traveler does",
-          "placeName": "specific real named venue or empty string",
+          "placeName": "a name from CANDIDATE_PLACES or empty string",
           "fullAddress": "confirmed address or empty string",
           "googleMapsUrl": "",
           "description": "string — one short practical sentence",
@@ -237,6 +274,7 @@ Hard constraints:
 - Give every activity a transportAdvice and costNote, even when approximate.
 - Do not repeat the same named place on multiple days unless a return visit is genuinely useful.
 - estimatedCostRange values, budget breakdown ranges, and estimatedTotalRange must be broadly consistent with each other and with budgetAmount when provided.
+- Follow the PLACE GROUNDING RULE for every groundable activity.
 - Before returning, silently verify: valid JSON, exact day count, activity count per day, enum values, chronological order, budget consistency, unique priority lists, scoreBreakdown weighted average matches planningConfidenceScore.
 - Return JSON only — no markdown, no preamble.
 `.trim();

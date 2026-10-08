@@ -1,7 +1,12 @@
 import React, { useState } from 'react'
-import { AlertTriangle, ChevronDown, Clock, ExternalLink, MapPin } from 'lucide-react'
+import { AlertTriangle, BadgeCheck, ChevronDown, Clock, ExternalLink, MapPin, Star } from 'lucide-react'
 import { Card, CardContent } from './Card'
 import type { TripActivity, TripPlanDay } from '../types/tripPlan'
+
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001'
+
+const placePhotoUrl = (photoReference: string) =>
+  `${API_BASE_URL}/api/places/photo?ref=${encodeURIComponent(photoReference)}&w=160`
 
 interface TripDayCardProps {
   day: TripPlanDay
@@ -21,50 +26,69 @@ const walkingLabel: Record<TripPlanDay['walkingLevel'], string> = {
 }
 
 const ActivityBlock = ({ activity }: { activity: TripActivity }) => (
-  <div className="border-l-2 border-slate-200 pl-4">
-    <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-sky-700">
-      {activity.timeOfDay}
-      {activity.timeWindow ? ` · ${activity.timeWindow}` : ''}
-    </span>
-    <h4 className="mt-1 text-sm font-semibold text-slate-950">{activity.title}</h4>
-    <p className="mt-1 text-xs leading-5 text-slate-600">{activity.description}</p>
+  <div className="flex gap-3 border-l-2 border-slate-200 pl-4">
+    {activity.photoReference && (
+      <img
+        src={placePhotoUrl(activity.photoReference)}
+        alt={activity.placeName || activity.title}
+        className="h-16 w-16 shrink-0 rounded-lg object-cover"
+        loading="lazy"
+      />
+    )}
+    <div className="min-w-0 flex-1">
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-sky-700">
+          {activity.timeOfDay}
+          {activity.timeWindow ? ` · ${activity.timeWindow}` : ''}
+        </span>
+        {activity.groundingSource === 'verified' && (
+          <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-700">
+            <BadgeCheck className="h-3 w-3" />Verified place
+          </span>
+        )}
+        {typeof activity.rating === 'number' && (
+          <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-600">
+            <Star className="h-3 w-3 fill-current" />{activity.rating.toFixed(1)}
+            {activity.userRatingsTotal ? ` (${activity.userRatingsTotal})` : ''}
+          </span>
+        )}
+      </div>
+      <h4 className="mt-1 text-base font-semibold text-slate-950">{activity.placeName || activity.title}</h4>
+      {activity.placeName && activity.title !== activity.placeName && (
+        <p className="mt-0.5 text-xs font-medium text-sky-700">{activity.title}</p>
+      )}
+      <p className="mt-1 text-xs leading-5 text-slate-600">{activity.description}</p>
 
-    <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-slate-500">
-      <span>{activity.estimatedDuration}</span>
-      {activity.travelTimeFromPrevious && <span>Transfer: {activity.travelTimeFromPrevious}</span>}
-      {activity.costNote && <span>{activity.costNote}</span>}
-      {activity.reservationAdvice && activity.reservationAdvice !== 'unknown' && (
-        <span className="capitalize">{activity.reservationAdvice}</span>
+      <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-slate-500">
+        <span>{activity.estimatedDuration}</span>
+        {activity.travelTimeFromPrevious && <span>Transfer: {activity.travelTimeFromPrevious}</span>}
+        {activity.reservationAdvice && activity.reservationAdvice !== 'unknown' && (
+          <span className="capitalize">{activity.reservationAdvice}</span>
+        )}
+      </div>
+
+      {activity.localTip && (
+        <p className="mt-1 text-xs leading-5 text-emerald-700">
+          <strong>Local tip:</strong> {activity.localTip}
+        </p>
+      )}
+
+      {(activity.googleMapsUrl || activity.nearbySearchUrl) && (
+        <a
+          href={activity.googleMapsUrl || activity.nearbySearchUrl}
+          target="_blank"
+          rel="noreferrer"
+          className="mt-2 inline-flex items-center gap-1.5 text-xs font-semibold text-sky-700"
+        >
+          {activity.googleMapsUrl ? <MapPin className="h-3.5 w-3.5" /> : <ExternalLink className="h-3.5 w-3.5" />}
+          {activity.googleMapsUrl ? 'Open in Maps' : 'Search nearby'}
+        </a>
       )}
     </div>
-
-    {activity.transportAdvice && (
-      <p className="mt-2 text-xs leading-5 text-slate-600">
-        <strong className="text-slate-900">Getting there:</strong> {activity.transportAdvice}
-      </p>
-    )}
-    {activity.localTip && (
-      <p className="mt-1 text-xs leading-5 text-emerald-700">
-        <strong>Local tip:</strong> {activity.localTip}
-      </p>
-    )}
-    {activity.tips.length > 0 && <p className="mt-1 text-xs leading-5 text-slate-500">{activity.tips.join(' · ')}</p>}
-
-    {(activity.googleMapsUrl || activity.nearbySearchUrl) && (
-      <a
-        href={activity.googleMapsUrl || activity.nearbySearchUrl}
-        target="_blank"
-        rel="noreferrer"
-        className="mt-2 inline-flex items-center gap-1.5 text-xs font-semibold text-sky-700"
-      >
-        {activity.googleMapsUrl ? <MapPin className="h-3.5 w-3.5" /> : <ExternalLink className="h-3.5 w-3.5" />}
-        {activity.googleMapsUrl ? 'Open in Maps' : 'Search nearby'}
-      </a>
-    )}
   </div>
 )
 
-export const TripDayCard: React.FC<TripDayCardProps> = ({ day, defaultExpanded = false }) => {
+export const TripDayCard: React.FC<TripDayCardProps> = ({ day, defaultExpanded = true }) => {
   const [expanded, setExpanded] = useState(defaultExpanded)
   const panelId = `trip-day-${day.day}-details`
 
@@ -89,7 +113,6 @@ export const TripDayCard: React.FC<TripDayCardProps> = ({ day, defaultExpanded =
                 <span className="inline-flex items-center gap-1"><Clock className="h-3 w-3" />Starts {day.bestTimeToStart}</span>
                 <span>{energyLabel[day.energyLevel]}</span>
                 <span>{walkingLabel[day.walkingLevel]}</span>
-                <span>{day.estimatedCostRange}</span>
               </div>
             </div>
           </div>
@@ -101,44 +124,11 @@ export const TripDayCard: React.FC<TripDayCardProps> = ({ day, defaultExpanded =
 
         {expanded && (
           <div id={panelId} className="mt-5 space-y-5 border-t border-slate-100 pt-5">
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div>
-                <p className="text-[11px] font-semibold text-slate-500">Why this day works</p>
-                <p className="mt-1 text-xs leading-5 text-slate-800">{day.whyThisDayWorks}</p>
-              </div>
-              {day.routeLogic && (
-                <div>
-                  <p className="text-[11px] font-semibold text-slate-500">Route logic</p>
-                  <p className="mt-1 text-xs leading-5 text-slate-800">{day.routeLogic}</p>
-                </div>
-              )}
-            </div>
-
             <div className="space-y-5">
               {day.activities.map((activity, index) => (
                 <ActivityBlock key={`${activity.timeOfDay}-${activity.title}-${index}`} activity={activity} />
               ))}
             </div>
-
-            {(day.mealSuggestions || day.weatherBackup) && (
-              <div className="grid gap-3 sm:grid-cols-2">
-                {day.mealSuggestions && Object.values(day.mealSuggestions).some(Boolean) && (
-                  <div className="rounded-xl bg-slate-50 p-4">
-                    <p className="text-[11px] font-semibold text-slate-500">Meal rhythm</p>
-                    <div className="mt-2 space-y-1 text-xs text-slate-800">
-                      {Object.entries(day.mealSuggestions).filter(([, value]) => value).map(([meal, value]) => (
-                        <p key={meal}><strong className="capitalize">{meal}:</strong> {value}</p>
-                      ))}
-                    </div>
-                  </div>
-                )}
-                {day.weatherBackup && (
-                  <div className="rounded-xl bg-sky-50 p-4 text-xs leading-5 text-sky-950">
-                    <strong>Weather backup:</strong> {day.weatherBackup}
-                  </div>
-                )}
-              </div>
-            )}
 
             {day.dayWarnings.length > 0 && (
               <div className="space-y-2 rounded-xl border border-rose-200 bg-rose-50 p-4">

@@ -1,16 +1,10 @@
 import React, { useMemo, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import {
-  AlertTriangle,
   ArrowRight,
   Banknote,
-  CalendarDays,
   Check,
-  ChevronDown,
-  ChevronUp,
   CircleDollarSign,
-  Clock,
-  CloudSun,
   Compass,
   ExternalLink,
   FolderHeart,
@@ -20,7 +14,6 @@ import {
   Lightbulb,
   MapPin,
   RefreshCw,
-  Route,
   Save,
   ShieldCheck,
   Sparkles,
@@ -36,6 +29,7 @@ import { Card, CardContent } from '../components/Card'
 import { SavedTripsPanel } from '../components/SavedTripsPanel'
 import { TripDayCard } from '../components/TripDayCard'
 import { TripResultOverview } from '../components/TripResultOverview'
+import { TripPlanWizard } from '../components/tripPlanning/TripPlanWizard'
 import { apiService } from '../lib/api'
 import { useAuth } from '../contexts/AuthContext'
 import { tripService, type TripPlan } from '../services/tripService'
@@ -102,12 +96,6 @@ const isPlaceholderPlace = (value = '') =>
   /(signature highlight|food stop|scenic moment|culture highlight|cultural core|local dining area|sunset viewpoint|secondary museum or viewpoint|local market detour|highlight$| stop$)/i.test(
     value.trim(),
   )
-
-const legacyToneClass = (value: string) => {
-  if (/excellent|good|relaxed|balanced|easy|low/i.test(value)) return 'bg-emerald-50 text-emerald-700 ring-emerald-100'
-  if (/poor|too_busy|complex|risky|high/i.test(value)) return 'bg-rose-50 text-rose-700 ring-rose-100'
-  return 'bg-amber-50 text-amber-700 ring-amber-100'
-}
 
 const validateGeneratedPlan = (plan: TripPlanResult) => {
   if (!plan || !Array.isArray(plan.days) || plan.days.length === 0) {
@@ -227,14 +215,17 @@ export const TripPlanningResetPage: React.FC<TripPlanningResetPageProps> = ({ sa
     savedInput?.pace || profilePreferences.travelPace || 'balanced',
   )
   const [origin, setOrigin] = useState(savedInput?.origin || params.get('origin') || routeState.discoveryBrief?.departure || '')
+  const [groupSize, setGroupSize] = useState(savedInput?.groupSize || 2)
   const [budgetAmount, setBudgetAmount] = useState(savedInput?.budgetAmount ? String(savedInput.budgetAmount) : '')
   const [interestsText, setInterestsText] = useState(initialInterests.join(', '))
   const [avoidText, setAvoidText] = useState(initialAvoid.join(', '))
+  const [accommodationArea, setAccommodationArea] = useState(savedInput?.accommodationArea || '')
+  const [arrivalTime, setArrivalTime] = useState(savedInput?.arrivalTime || '')
+  const [departureTime, setDepartureTime] = useState(savedInput?.departureTime || '')
   const [plannerNotes, setPlannerNotes] = useState(savedInput?.notes || '')
   const [plan, setPlan] = useState<TripPlanResult | null>(savedPlan || null)
   const [isGenerating, setIsGenerating] = useState(false)
   const [generationError, setGenerationError] = useState<string | null>(null)
-  const [expandedDays, setExpandedDays] = useState<number[]>([])
   const [editNotice, setEditNotice] = useState<string | null>(null)
   const [editingActionType, setEditingActionType] = useState<string | null>(null)
   const [visitedPlaces, setVisitedPlaces] = useState<string[]>([])
@@ -263,6 +254,7 @@ export const TripPlanningResetPage: React.FC<TripPlanningResetPageProps> = ({ sa
         travelerType === 'business-leisure'
           ? 'business_leisure'
           : (travelerType as TripPlanInput['travelerType']),
+      groupSize,
       budgetLevel:
         budgetLevel === 'mid-range' ? 'mid_range' : (budgetLevel as TripPlanInput['budgetLevel']),
       pace,
@@ -271,6 +263,9 @@ export const TripPlanningResetPage: React.FC<TripPlanningResetPageProps> = ({ sa
       origin: origin || undefined,
       currency: user?.homeCurrency || 'USD',
       budgetAmount: budgetAmount ? Number(budgetAmount) : undefined,
+      accommodationArea: accommodationArea || undefined,
+      arrivalTime: arrivalTime || undefined,
+      departureTime: departureTime || undefined,
       notes: [
         plannerNotes,
         routeState.discoveryRecommendation?.supportPlaces?.length
@@ -286,6 +281,10 @@ export const TripPlanningResetPage: React.FC<TripPlanningResetPageProps> = ({ sa
       avoid,
       interests,
       origin,
+      groupSize,
+      accommodationArea,
+      arrivalTime,
+      departureTime,
       pace,
       plannerNotes,
       params,
@@ -425,9 +424,17 @@ export const TripPlanningResetPage: React.FC<TripPlanningResetPageProps> = ({ sa
           travelNote: activity.travelTimeFromPrevious,
           googleMapsUrl: activity.googleMapsUrl,
           fullAddress: activity.fullAddress,
+          googlePlaceId: activity.googlePlaceId,
+          coordinates: activity.geometry,
+          rating: activity.rating,
+          userRatingsTotal: activity.userRatingsTotal,
+          priceLevel: activity.priceLevel,
+          photoReference: activity.photoReference,
+          groundingSource: activity.groundingSource,
           isVisited: false,
         })),
       })),
+      groundingMeta: generatedPlan.groundingMeta,
       expenseBreakdown: {
         fixed: {
           accommodation: budgetItem('accommodation', 'Estimated accommodation range'),
@@ -522,10 +529,6 @@ export const TripPlanningResetPage: React.FC<TripPlanningResetPageProps> = ({ sa
         ? current.filter((item) => item !== placeName)
         : [...current, placeName],
     )
-  }
-
-  const toggleLegacyDay = (day: number) => {
-    setExpandedDays((current) => current.includes(day) ? current.filter((item) => item !== day) : [...current, day])
   }
 
   const handleSmartEdit = async (action: SmartEditAction) => {
@@ -647,170 +650,44 @@ export const TripPlanningResetPage: React.FC<TripPlanningResetPageProps> = ({ sa
       </section>
 
       {!plan && !isGenerating && (
-        <section className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8 lg:py-14">
-          {generationError && (
-            <div className="mb-6 rounded-2xl border border-rose-200 bg-rose-50 p-5 text-rose-900">
-              <div className="flex items-start gap-3">
-                <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-rose-600" />
-                <div>
-                  <p className="font-bold">Smart plan generation failed</p>
-                  <p className="mt-1 text-sm leading-6">{generationError}</p>
-                </div>
-              </div>
-            </div>
-          )}
-          <div className="grid gap-6 lg:grid-cols-[0.82fr_1.18fr]">
-            <Card className="border-slate-200 bg-white">
-              <CardContent className="p-6">
-                <p className="text-xs font-extrabold uppercase tracking-[0.18em] text-[#e96855]">Trip inputs</p>
-                <h2 className="font-heading mt-2 text-3xl font-semibold">Shape the first draft</h2>
-                <p className="mt-3 text-sm leading-7 text-slate-600">Generation uses the configured AI service directly and validates the plan before displaying it.</p>
-                <div className="mt-6 grid gap-4 sm:grid-cols-2">
-                  <label className="sm:col-span-2">
-                    <span className="mb-2 block text-xs font-bold text-slate-500">Destination</span>
-                    <input
-                      type="text"
-                      value={destination}
-                      onChange={(event) => {
-                        setDestination(event.target.value)
-                        resetGeneratedPlan()
-                      }}
-                      placeholder="Polonnaruwa, Sri Lanka"
-                      className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold outline-none focus:border-orange-300"
-                    />
-                  </label>
-                  <label>
-                    <span className="mb-2 block text-xs font-bold text-slate-500">Duration</span>
-                    <select value={durationDays} onChange={(event) => changeDuration(Number(event.target.value))} className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold outline-none">
-                      {Array.from({ length: 14 }, (_, index) => index + 1).map((days) => <option key={days} value={days}>{days} {days === 1 ? 'day' : 'days'}</option>)}
-                    </select>
-                  </label>
-                  <label>
-                    <span className="mb-2 block text-xs font-bold text-slate-500">Traveler type</span>
-                    <select value={travelerType} onChange={(event) => {
-                      setTravelerType(event.target.value)
-                      resetGeneratedPlan()
-                    }} className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold outline-none">
-                      {['solo', 'couple', 'family', 'friends', 'business-leisure'].map((type) => <option key={type} value={type}>{titleCase(type)}</option>)}
-                    </select>
-                  </label>
-                  <label>
-                    <span className="mb-2 block text-xs font-bold text-slate-500">Budget</span>
-                    <select value={budgetLevel} onChange={(event) => {
-                      setBudgetLevel(event.target.value)
-                      resetGeneratedPlan()
-                    }} className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold outline-none">
-                      <option value="budget">Budget</option>
-                      <option value="mid-range">Mid-range</option>
-                      <option value="luxury">Luxury</option>
-                    </select>
-                  </label>
-                  <label>
-                    <span className="mb-2 block text-xs font-bold text-slate-500">Pace</span>
-                    <select value={pace} onChange={(event) => {
-                      setPace(event.target.value as typeof pace)
-                      resetGeneratedPlan()
-                    }} className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold outline-none">
-                      <option value="relaxed">Relaxed</option>
-                      <option value="balanced">Balanced</option>
-                      <option value="packed">Packed</option>
-                    </select>
-                  </label>
-                  <label>
-                    <span className="mb-2 block text-xs font-bold text-slate-500">From date</span>
-                    <input type="date" value={startDate} min={toIsoDate(new Date())} onChange={(event) => changeStartDate(event.target.value)} className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold outline-none focus:border-orange-300" />
-                  </label>
-                  <label>
-                    <span className="mb-2 block text-xs font-bold text-slate-500">To date</span>
-                    <input type="date" value={endDate} min={startDate || toIsoDate(new Date())} max={startDate ? addDays(startDate, 13) : undefined} disabled={!startDate} onChange={(event) => changeEndDate(event.target.value)} className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold outline-none focus:border-orange-300 disabled:opacity-50" />
-                  </label>
-                  <label>
-                    <span className="mb-2 block text-xs font-bold text-slate-500">Starting from</span>
-                    <input
-                      type="text"
-                      value={origin}
-                      onChange={(event) => {
-                        setOrigin(event.target.value)
-                        resetGeneratedPlan()
-                      }}
-                      placeholder="Colombo, airport, hotel area"
-                      className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold outline-none focus:border-orange-300"
-                    />
-                  </label>
-                  <label>
-                    <span className="mb-2 block text-xs font-bold text-slate-500">Budget amount</span>
-                    <input
-                      type="number"
-                      min="0"
-                      value={budgetAmount}
-                      onChange={(event) => {
-                        setBudgetAmount(event.target.value)
-                        resetGeneratedPlan()
-                      }}
-                      placeholder="Optional total"
-                      className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold outline-none focus:border-orange-300"
-                    />
-                  </label>
-                  <label className="sm:col-span-2">
-                    <span className="mb-2 block text-xs font-bold text-slate-500">Interests</span>
-                    <input
-                      type="text"
-                      value={interestsText}
-                      onChange={(event) => {
-                        setInterestsText(event.target.value)
-                        resetGeneratedPlan()
-                      }}
-                      placeholder="culture, food, beaches"
-                      className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold outline-none focus:border-orange-300"
-                    />
-                  </label>
-                  <label className="sm:col-span-2">
-                    <span className="mb-2 block text-xs font-bold text-slate-500">Avoid</span>
-                    <input
-                      type="text"
-                      value={avoidText}
-                      onChange={(event) => {
-                        setAvoidText(event.target.value)
-                        resetGeneratedPlan()
-                      }}
-                      placeholder="crowds, long drives, heavy walking"
-                      className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold outline-none focus:border-orange-300"
-                    />
-                  </label>
-                  <label className="sm:col-span-2">
-                    <span className="mb-2 block text-xs font-bold text-slate-500">Planner notes</span>
-                    <textarea
-                      value={plannerNotes}
-                      onChange={(event) => {
-                        setPlannerNotes(event.target.value)
-                        resetGeneratedPlan()
-                      }}
-                      rows={3}
-                      placeholder="Arrival time, must-see places, mobility needs, hotel area, dietary preferences"
-                      className="w-full resize-none rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold outline-none focus:border-orange-300"
-                    />
-                  </label>
-                </div>
-                {startDate && endDate && (
-                  <p className="mt-4 flex items-center gap-2 text-xs font-semibold text-sky-700"><CalendarDays className="h-4 w-4" />{durationDays}-day trip · {startDate} to {endDate}</p>
-                )}
-              </CardContent>
-            </Card>
-            <Card className="overflow-hidden border-slate-200 bg-[#0d1a2a] text-white">
-              <CardContent className="p-6 sm:p-8">
-                <Gauge className="h-10 w-10 text-emerald-300" />
-                <h2 className="font-heading mt-5 text-3xl font-semibold">What the smart plan will test</h2>
-                <div className="mt-6 grid gap-3 sm:grid-cols-2">
-                  {['Budget fit and ranges', 'Pace and walking', 'Route complexity', 'Weather comfort', 'Real named places', 'Common mistakes'].map((item) => (
-                    <p key={item} className="flex items-start gap-2 rounded-xl bg-white/[0.06] p-3 text-sm text-white/72">
-                      <Check className="mt-0.5 h-4 w-4 shrink-0 text-emerald-300" />
-                      {item}
-                    </p>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          </div>
+        <section className="mx-auto max-w-4xl px-4 py-10 sm:px-6 lg:px-8 lg:py-14">
+          <TripPlanWizard
+            destination={destination}
+            onDestinationChange={(value) => { setDestination(value); resetGeneratedPlan() }}
+            origin={origin}
+            onOriginChange={(value) => { setOrigin(value); resetGeneratedPlan() }}
+            durationDays={durationDays}
+            onDurationChange={changeDuration}
+            startDate={startDate}
+            onStartDateChange={changeStartDate}
+            endDate={endDate}
+            onEndDateChange={changeEndDate}
+            travelerType={travelerType}
+            onTravelerTypeChange={(value) => { setTravelerType(value); resetGeneratedPlan() }}
+            groupSize={groupSize}
+            onGroupSizeChange={(value) => { setGroupSize(value); resetGeneratedPlan() }}
+            budgetLevel={budgetLevel}
+            onBudgetLevelChange={(value) => { setBudgetLevel(value); resetGeneratedPlan() }}
+            budgetAmount={budgetAmount}
+            onBudgetAmountChange={(value) => { setBudgetAmount(value); resetGeneratedPlan() }}
+            pace={pace}
+            onPaceChange={(value) => { setPace(value); resetGeneratedPlan() }}
+            interestsText={interestsText}
+            onInterestsChange={(value) => { setInterestsText(value); resetGeneratedPlan() }}
+            avoidText={avoidText}
+            onAvoidChange={(value) => { setAvoidText(value); resetGeneratedPlan() }}
+            accommodationArea={accommodationArea}
+            onAccommodationAreaChange={(value) => { setAccommodationArea(value); resetGeneratedPlan() }}
+            arrivalTime={arrivalTime}
+            onArrivalTimeChange={(value) => { setArrivalTime(value); resetGeneratedPlan() }}
+            departureTime={departureTime}
+            onDepartureTimeChange={(value) => { setDepartureTime(value); resetGeneratedPlan() }}
+            plannerNotes={plannerNotes}
+            onPlannerNotesChange={(value) => { setPlannerNotes(value); resetGeneratedPlan() }}
+            onGenerate={generatePlan}
+            isGenerating={isGenerating}
+            generationError={generationError}
+          />
         </section>
       )}
 
@@ -827,7 +704,7 @@ export const TripPlanningResetPage: React.FC<TripPlanningResetPageProps> = ({ sa
           <section className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between">
             <div>
               <p className="font-bold text-slate-950">{savedTripId ? 'Trip plan saved' : 'Keep this plan in your account'}</p>
-              <p className="mt-1 text-sm text-slate-500">{savedTripId ? 'Your generated itinerary is ready in saved trips.' : 'Save the itinerary, dates, budget, places, and reality checks.'}</p>
+              <p className="mt-1 text-sm text-slate-500">{savedTripId ? 'Your itinerary is ready in saved trips.' : 'Save these recommended places and your day-by-day plan.'}</p>
               {saveError && <p className="mt-2 text-sm font-semibold text-rose-600">{saveError}</p>}
             </div>
             {savedTripId ? (
@@ -847,8 +724,9 @@ export const TripPlanningResetPage: React.FC<TripPlanningResetPageProps> = ({ sa
           </section>
           <TripResultOverview plan={plan} />
 
-          <Card className="border-slate-200 bg-white">
-            <CardContent className="p-6 sm:p-8">
+          <details className="rounded-2xl border border-slate-200 bg-white">
+            <summary className="cursor-pointer px-6 py-4 font-semibold text-slate-800">Want to adjust the suggested places?</summary>
+            <CardContent className="border-t border-slate-100 p-6 sm:p-8">
               <p className="text-xs font-extrabold uppercase tracking-[0.18em] text-[#e96855]">Smart edits</p>
               <h2 className="font-heading mt-2 text-3xl font-semibold">Change one thing without starting over</h2>
               <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
@@ -870,22 +748,22 @@ export const TripPlanningResetPage: React.FC<TripPlanningResetPageProps> = ({ sa
               </div>
               {editNotice && <div className="mt-5 rounded-xl border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-900">{editNotice}</div>}
             </CardContent>
-          </Card>
+          </details>
 
           <section>
             <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
               <div>
-                <p className="text-xs font-extrabold uppercase tracking-[0.18em] text-[#e96855]">Day-by-day itinerary</p>
-                <h2 className="font-heading mt-2 text-3xl font-semibold">Scan the trip, expand the details</h2>
+                <p className="text-xs font-extrabold uppercase tracking-[0.18em] text-[#e96855]">Your preference-matched plan</p>
+                <h2 className="font-heading mt-2 text-3xl font-semibold">Places to visit, organized by day</h2>
               </div>
               <p className="max-w-xl text-sm leading-6 text-slate-500">{plan.finalAdvice}</p>
             </div>
             <div className="mt-6 space-y-4">
-              {plan.days.map((day, index) => <TripDayCard key={day.day} day={day} defaultExpanded={index === 0} />)}
+              {plan.days.map((day) => <TripDayCard key={day.day} day={day} defaultExpanded />)}
             </div>
           </section>
 
-          <section>
+          <section className="hidden" aria-hidden="true">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
               <div>
                 <p className="text-xs font-extrabold uppercase tracking-[0.18em] text-sky-700">Places to visit</p>
@@ -920,126 +798,9 @@ export const TripPlanningResetPage: React.FC<TripPlanningResetPageProps> = ({ sa
             </div>
           </section>
 
-          <section className="hidden" aria-hidden="true">
-            <p className="text-xs font-extrabold uppercase tracking-[0.18em] text-[#e96855]">Day-by-day itinerary</p>
-            <h2 className="font-heading mt-2 text-3xl font-semibold">A plan you can scan and adjust</h2>
-            <div className="mt-6 space-y-4">
-              {plan.days.map((day) => {
-                const expanded = expandedDays.includes(day.day)
-                return (
-                  <Card key={day.day} className="overflow-hidden border-slate-200 bg-white">
-                    <button type="button" onClick={() => toggleLegacyDay(day.day)} className="flex w-full items-start gap-4 p-5 text-left sm:p-6">
-                      <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-slate-950 font-bold text-white">{day.day}</span>
-                      <span className="flex-1">
-                        <span className="font-heading block text-xl font-semibold text-slate-950 sm:text-2xl">{day.title}</span>
-                        <span className="mt-1 block text-sm text-slate-500">{day.theme}</span>
-                        <span className="mt-3 flex flex-wrap gap-2">
-                          <span className={`rounded-full px-3 py-1 text-xs font-bold ${legacyToneClass(day.energyLevel)}`}>Energy: {titleCase(day.energyLevel)}</span>
-                          <span className={`rounded-full px-3 py-1 text-xs font-bold ${legacyToneClass(day.walkingLevel)}`}>Walking: {titleCase(day.walkingLevel)}</span>
-                          <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-600">{day.estimatedCostRange}</span>
-                          <span className="rounded-full bg-sky-50 px-3 py-1 text-xs font-bold text-sky-700">Start {day.bestTimeToStart}</span>
-                        </span>
-                      </span>
-                      <span className="flex shrink-0 items-center gap-2 text-xs font-bold text-slate-500">
-                        {expanded ? 'Hide details' : `Show ${day.activities.length} activities`}
-                        {expanded ? <ChevronUp className="h-5 w-5 text-slate-400" /> : <ChevronDown className="h-5 w-5 text-slate-400" />}
-                      </span>
-                    </button>
-                    {expanded && (
-                      <CardContent className="border-t border-slate-100 p-5 sm:p-6">
-                        <div className="mb-5 grid gap-3 sm:grid-cols-2">
-                          <div className="rounded-2xl bg-sky-50 p-4 text-sm text-sky-950">
-                            <p className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-sky-700">Why this day works</p>
-                            <p className="mt-2 leading-6">{day.whyThisDayWorks}</p>
-                          </div>
-                          {day.routeLogic && (
-                            <div className="rounded-2xl bg-emerald-50 p-4 text-sm text-emerald-950">
-                              <p className="flex items-center gap-2 text-[10px] font-extrabold uppercase tracking-[0.16em] text-emerald-700"><Route className="h-4 w-4" />Route logic</p>
-                              <p className="mt-2 leading-6">{day.routeLogic}</p>
-                            </div>
-                          )}
-                        </div>
-                        <div className="grid gap-4 lg:grid-cols-3">
-                          {day.activities.map((activity) => (
-                            <div key={`${activity.timeOfDay}-${activity.title}`} className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                              <div className="flex items-center justify-between">
-                                <span className="text-[10px] font-extrabold uppercase tracking-[0.18em] text-[#e96855]">{activity.timeOfDay}</span>
-                                <span className="text-[10px] font-bold text-slate-500">{activity.timeWindow || activity.estimatedDuration}</span>
-                              </div>
-                              <h3 className="mt-3 font-semibold text-slate-950">{activity.title}</h3>
-                              <p className="mt-2 text-sm leading-6 text-slate-600">{activity.description}</p>
-                              <div className="mt-3 flex flex-wrap gap-2">
-                                <span className="rounded-full bg-white px-2.5 py-1 text-[10px] font-bold text-slate-600 ring-1 ring-slate-200">
-                                  <Clock className="mr-1 inline h-3 w-3" />{activity.estimatedDuration}
-                                </span>
-                                {activity.travelTimeFromPrevious && (
-                                  <span className="rounded-full bg-white px-2.5 py-1 text-[10px] font-bold text-slate-600 ring-1 ring-slate-200">
-                                    Transfer: {activity.travelTimeFromPrevious}
-                                  </span>
-                                )}
-                                {activity.costNote && (
-                                  <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-[10px] font-bold text-emerald-700">
-                                    {activity.costNote}
-                                  </span>
-                                )}
-                                {activity.reservationAdvice && activity.reservationAdvice !== 'unknown' && (
-                                  <span className="rounded-full bg-amber-50 px-2.5 py-1 text-[10px] font-bold text-amber-700">
-                                    {activity.reservationAdvice === 'not needed'
-                                      ? 'No advance booking needed'
-                                      : titleCase(activity.reservationAdvice)}
-                                  </span>
-                                )}
-                              </div>
-                              {activity.transportAdvice && <p className="mt-3 text-xs leading-5 text-slate-500"><strong>Getting there:</strong> {activity.transportAdvice}</p>}
-                              {activity.localTip && <p className="mt-3 text-xs leading-5 text-emerald-700"><strong>Local tip:</strong> {activity.localTip}</p>}
-                              {activity.tips?.length > 0 && <p className="mt-2 text-xs leading-5 text-slate-500">{activity.tips.join(' · ')}</p>}
-                              {activity.googleMapsUrl && activity.placeName && (
-                                <a href={activity.googleMapsUrl} target="_blank" rel="noreferrer" className="mt-3 inline-flex items-center gap-1.5 text-xs font-bold text-sky-700">
-                                  View place<ExternalLink className="h-3.5 w-3.5" />
-                                </a>
-                              )}
-                              {!activity.googleMapsUrl && activity.nearbySearchUrl && (
-                                <a href={activity.nearbySearchUrl} target="_blank" rel="noreferrer" className="mt-3 inline-flex items-center gap-1.5 text-xs font-bold text-sky-700">
-                                  Search nearby<ExternalLink className="h-3.5 w-3.5" />
-                                </a>
-                              )}
-                            </div>
-                          ))}
-                        </div>
-                        {(day.weatherBackup || Object.values(day.mealSuggestions || {}).some(Boolean)) && (
-                          <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                            {day.weatherBackup && (
-                              <div className="rounded-2xl bg-sky-50 p-4 text-sm text-sky-900">
-                                <p className="flex items-center gap-2 font-bold"><CloudSun className="h-4 w-4" />Weather backup</p>
-                                <p className="mt-2 leading-6">{day.weatherBackup}</p>
-                              </div>
-                            )}
-                            {Object.values(day.mealSuggestions || {}).some(Boolean) && (
-                              <div className="rounded-2xl bg-orange-50 p-4 text-sm text-orange-950">
-                                <p className="flex items-center gap-2 font-bold"><Utensils className="h-4 w-4" />Meal rhythm</p>
-                                <div className="mt-2 space-y-1 leading-6">
-                                  {Object.entries(day.mealSuggestions || {}).filter(([, value]) => value).map(([meal, value]) => (
-                                    <p key={meal}><strong>{titleCase(meal)}:</strong> {value}</p>
-                                  ))}
-                                </div>
-                              </div>
-                            )}
-                          </div>
-                        )}
-                        {day.dayWarnings.length > 0 && (
-                          <div className="mt-4 rounded-2xl bg-amber-50 p-4 text-sm text-amber-900">
-                            {day.dayWarnings.map((warning) => <p key={warning}>{warning}</p>)}
-                          </div>
-                        )}
-                      </CardContent>
-                    )}
-                  </Card>
-                )
-              })}
-            </div>
-          </section>
-
-          <section className="grid gap-5 lg:grid-cols-3">
+          <details className="hidden rounded-2xl border border-slate-200 bg-white p-5">
+            <summary className="cursor-pointer font-semibold text-slate-800">Show budget, alternatives, and travel advice</summary>
+          <section className="mt-6 grid gap-5 lg:grid-cols-3">
             {[
               { title: 'Must Do', items: plan.mustDo, icon: Check, tone: 'border-emerald-200 bg-emerald-50/40 text-emerald-700' },
               { title: 'Optional', items: plan.optional, icon: Sparkles, tone: 'border-sky-200 bg-sky-50/40 text-sky-700' },
@@ -1054,8 +815,18 @@ export const TripPlanningResetPage: React.FC<TripPlanningResetPageProps> = ({ sa
                     <div className="mt-5 space-y-4">
                       {group.items.map((item) => (
                         <div key={item.name}>
-                          <p className="font-bold text-slate-900">{item.name}</p>
+                          <div className="flex flex-wrap items-center gap-2">
+                            <p className="font-bold text-slate-900">{item.name}</p>
+                            {typeof item.rating === 'number' && (
+                              <span className="text-xs font-bold text-amber-600">★ {item.rating.toFixed(1)}</span>
+                            )}
+                          </div>
                           <p className="mt-1 text-sm text-slate-600">{item.reason}</p>
+                          {item.googleMapsUrl && (
+                            <a href={item.googleMapsUrl} target="_blank" rel="noreferrer" className="mt-1 inline-block text-xs font-semibold text-sky-700">
+                              Open in Maps
+                            </a>
+                          )}
                         </div>
                       ))}
                     </div>
@@ -1128,44 +899,7 @@ export const TripPlanningResetPage: React.FC<TripPlanningResetPageProps> = ({ sa
               </CardContent>
             </Card>
           )}
-
-          <Card className="hidden border-slate-200 bg-white" aria-hidden="true">
-            <CardContent className="p-6 sm:p-8">
-              <p className="text-xs font-extrabold uppercase tracking-[0.18em] text-[#e96855]">Smart edits</p>
-              <h2 className="font-heading mt-2 text-3xl font-semibold">Change one thing without starting over</h2>
-              <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
-                {plan.smartEditActions.map((action) => {
-                  const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
-                    make_cheaper: WalletCards,
-                    reduce_walking: Footprints,
-                    add_food: Utensils,
-                    add_romantic: Heart,
-                    avoid_crowds: Users,
-                    make_relaxed: Gauge,
-                    add_hidden_gems: Compass,
-                    replace_activity: RefreshCw,
-                  }
-                  const Icon = iconMap[action.actionType] || Sparkles
-                  return (
-                    <button
-                      key={action.actionType}
-                      type="button"
-                      onClick={() => handleSmartEdit(action)}
-                      disabled={Boolean(editingActionType)}
-                      className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-left hover:border-orange-300 disabled:cursor-not-allowed disabled:opacity-60"
-                    >
-                      <Icon className="h-5 w-5 text-[#e96855]" />
-                      <p className="mt-3 text-sm font-bold">
-                        {editingActionType === action.actionType ? 'Applying...' : action.label}
-                      </p>
-                      <p className="mt-1 text-xs text-slate-500">{action.description}</p>
-                    </button>
-                  )
-                })}
-              </div>
-              {editNotice && <div className="mt-5 rounded-xl border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-900">{editNotice}</div>}
-            </CardContent>
-          </Card>
+          </details>
         </main>
       )}
 

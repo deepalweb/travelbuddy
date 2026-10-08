@@ -86,6 +86,8 @@ export interface TripPlanGenerateResponse {
   meta?: {
     source?: string
     quality?: TripPlanQualityMeta
+    groundingQuality?: 'verified' | 'sparse' | 'unavailable'
+    groundedActivityRate?: number
   }
   error?: string
 }
@@ -97,11 +99,33 @@ export interface TripPlanEditResponse {
     source?: string
     actionType?: string
     quality?: TripPlanQualityMeta
+    groundingQuality?: 'verified' | 'sparse' | 'unavailable'
+    groundedActivityRate?: number
   }
   error?: string
 }
 
 class ApiService {
+  // Mirrors tripService.ts's getAuthToken(): a live Firebase session takes precedence,
+  // falling back to a stored demo/auth token so logged-out flows fail gracefully.
+  private async getFirebaseAuthToken(): Promise<string | null> {
+    try {
+      const { auth } = await import('./firebase')
+      if (auth?.currentUser) {
+        return await auth.currentUser.getIdToken(true)
+      }
+    } catch {
+      // Firebase unavailable — fall through to stored tokens.
+    }
+
+    return localStorage.getItem('demo_token') || localStorage.getItem('auth_token') || null
+  }
+
+  private async getAuthHeaders(): Promise<Record<string, string>> {
+    const token = await this.getFirebaseAuthToken()
+    return token ? { Authorization: `Bearer ${token}` } : {}
+  }
+
   private async getBaseUrl(): Promise<string> {
     try {
       const config = await configService.getConfig()
@@ -116,11 +140,11 @@ class ApiService {
     const url = `${baseUrl}${endpoint}`
     
     const config: RequestInit = {
+      ...options,
       headers: {
         'Content-Type': 'application/json',
         ...options.headers,
       },
-      ...options,
     }
 
     try {
@@ -429,6 +453,7 @@ class ApiService {
   async generateTripPlan(payload: TripPlanInput) {
     return this.request<TripPlanGenerateResponse>('/trip-plan/generate', {
       method: 'POST',
+      headers: await this.getAuthHeaders(),
       body: JSON.stringify(payload),
     })
   }
@@ -442,6 +467,7 @@ class ApiService {
   }) {
     return this.request<TripPlanEditResponse>('/trip-plan/edit', {
       method: 'POST',
+      headers: await this.getAuthHeaders(),
       body: JSON.stringify(payload),
     })
   }

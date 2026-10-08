@@ -1902,8 +1902,17 @@ const tripPlanSchema = new mongoose.Schema({
       location: String,
       googlePlaceId: String,
       fullAddress: String,
+      userRatingsTotal: Number,
+      priceLevel: Number,
+      photoReference: String,
+      groundingSource: { type: String, enum: ['verified', 'ai_estimated'], default: 'ai_estimated' },
     }]
   }],
+  groundingMeta: {
+    quality: String,
+    candidatePoolSize: Number,
+    groundedActivityRate: Number
+  },
   tripOverview: {
     totalTravelDays: String,
     summaryHeadline: String,

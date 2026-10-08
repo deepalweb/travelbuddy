@@ -17,6 +17,13 @@ export default {
           600: '#ea580c',
           700: '#c2410c',
         },
+        brand: {
+          coral: '#f47f6b',
+          coralDark: '#e96855',
+          navy: '#091523',
+          navySoft: '#0d1a2a',
+          navySofter: '#0e1a2a',
+        },
       },
     },
   },
