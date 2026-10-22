@@ -2,6 +2,7 @@
 
 // New detailed trip structure
 export interface Activity {
+  stopId?: string
   timeSlot: string
   activityType: string
   activityTitle: string
@@ -124,6 +125,7 @@ export interface TripPlan {
     candidatePoolSize: number
     groundedActivityRate: number
   }
+  version?: number
   createdAt: string
   // Legacy fields for backward compatibility
   totalEstimatedCost?: string

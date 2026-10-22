@@ -21,6 +21,7 @@ export type TripPlanInput = {
 }
 
 export type TripActivity = {
+  stopId?: string
   timeOfDay: 'morning' | 'afternoon' | 'evening' | 'night'
   timeWindow?: string
   title: string

@@ -3,7 +3,7 @@ import { logger } from '../utils/logger'
 
 class PlacesApiService extends BaseApiClient {
   async getNearbyPlaces(lat: number, lng: number, query?: string, radius?: number) {
-    if (!lat || !lng || isNaN(lat) || isNaN(lng)) {
+    if (typeof lat !== 'number' || typeof lng !== 'number' || !Number.isFinite(lat) || !Number.isFinite(lng)) {
       throw new Error('Valid latitude and longitude are required')
     }
     

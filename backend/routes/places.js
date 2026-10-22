@@ -5,6 +5,7 @@ import { AzureMapsSearch } from '../services/azureMapsSearch.js';
 import { PlacesOptimizer } from '../places-optimization.js';
 import PlacesCache from '../models/PlacesCache.js';
 import costTracker from '../services/costTracker.js';
+import { isValidCoordinate } from '../middleware/validation.js';
 
 function generateMockPlaces(lat, lng, query, count) {
   const places = [];
@@ -177,8 +178,8 @@ router.get('/mobile/nearby', async (req, res) => {
       return res.status(500).json({ error: 'AZURE_MAPS_API_KEY not configured' });
     }
 
-    if (!lat || !lng) {
-      return res.status(400).json({ error: 'lat and lng are required' });
+    if (!isValidCoordinate(lat, lng)) {
+      return res.status(400).json({ error: 'Valid numerical lat (-90 to 90) and lng (-180 to 180) are required' });
     }
 
     const query = (q || '').toString().trim() || 'tourist attractions';

@@ -1,6 +1,7 @@
-import React, { useMemo, useState } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import {
+  AlertTriangle,
   ArrowRight,
   Banknote,
   Check,
@@ -33,7 +34,7 @@ import { TripPlanWizard } from '../components/tripPlanning/TripPlanWizard'
 import { apiService } from '../lib/api'
 import { useAuth } from '../contexts/AuthContext'
 import { tripService, type TripPlan } from '../services/tripService'
-import type { SmartEditAction, TripPlanInput, TripPlanResult } from '../types/tripPlan'
+import type { SmartEditAction, TripActivity, TripPlanInput, TripPlanResult } from '../types/tripPlan'
 
 type DiscoveryState = {
   discoveryBrief?: {
@@ -232,15 +233,173 @@ export const TripPlanningResetPage: React.FC<TripPlanningResetPageProps> = ({ sa
   const [isSaving, setIsSaving] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
   const [savedTripId, setSavedTripId] = useState<string | null>(savedTrip?._id || null)
+  const [tripVersion, setTripVersion] = useState<number>(savedTrip?.version || 1)
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState<boolean>(false)
   const interests = useMemo(() => splitListText(interestsText), [interestsText])
   const avoid = useMemo(() => splitListText(avoidText), [avoidText])
 
+  // Handle incoming draft stop from Nearby discovery
+  useEffect(() => {
+    const draftStop = (location.state as any)?.draftStop
+    if (!draftStop) return
+
+    if (!destination && draftStop.name) {
+      setDestination(draftStop.name)
+    }
+
+    // Seed draft itinerary if no plan exists yet
+    setPlan((prevPlan) => {
+      const newStop: TripActivity = {
+        stopId: `stop_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+        title: `Visit ${draftStop.name}`,
+        type: 'attraction',
+        placeName: draftStop.name,
+        timeOfDay: 'morning',
+        estimatedDuration: '1 - 2 hours',
+        description: draftStop.address ? `Discovered nearby: ${draftStop.address}` : `Explore ${draftStop.name}`,
+        tips: ['Added from Nearby discovery'],
+        groundingSource: 'verified',
+        googleMapsUrl: draftStop.mapsUrl,
+        fullAddress: draftStop.address,
+        googlePlaceId: draftStop.placeId,
+        geometry: draftStop.coordinates,
+      }
+
+      if (!prevPlan) {
+        return {
+          tripTitle: `Trip to ${draftStop.name}`,
+          destination: draftStop.name,
+          durationDays: 1,
+          travelerType: 'solo',
+          tripStyle: ['Discovery'],
+          finalAdvice: 'Draft itinerary created from Nearby discovery. Add more stops or use Smart Plan to complete.',
+          realityCheck: {
+            summary: 'Custom draft itinerary created from Nearby places.',
+            warnings: [],
+            weatherWatch: 'Check local weather conditions before traveling.',
+          },
+          tripSummary: {
+            headline: `Custom itinerary for ${draftStop.name}`,
+            shortDescription: `Custom itinerary featuring places discovered nearby.`,
+            bestFor: ['Nearby discovery', 'Flexible exploration'],
+          },
+          budget: {
+            confidence: 'moderate',
+            estimatedTotalRange: 'Estimated on booking',
+            breakdown: [],
+          },
+          tripHealth: {
+            paceComfort: 'Comfortable',
+            logistics: 'Efficient',
+          },
+          practicalInfo: {
+            bestTimeToBook: 'Standard',
+            transportationAdvice: ['Check local transit or walking directions.'],
+            packingTips: ['Comfortable walking shoes'],
+            culturalEtiquette: [],
+            sustainabilityTips: [],
+          },
+          smartEditActions: [],
+          mustDo: [{ name: draftStop.name, bestTime: 'Morning', reason: 'Discovered nearby' }],
+          optional: [],
+          skipIfShortOnTime: [],
+          days: [
+            {
+              day: 1,
+              title: 'Day 1: Local Discovery',
+              theme: 'Local Highlights',
+              energyLevel: 'moderate',
+              walkingLevel: 'medium',
+              whyThisDayWorks: 'Focused start with discovered nearby places.',
+              estimatedCostRange: 'Free - Moderate',
+              editSuggestions: [],
+              activities: [newStop],
+            },
+          ],
+        }
+      }
+
+      // Add to Day 1 of existing plan
+      const updatedDays = [...prevPlan.days]
+      if (updatedDays.length > 0) {
+        updatedDays[0] = {
+          ...updatedDays[0],
+          activities: [...updatedDays[0].activities, newStop],
+        }
+      }
+      return {
+        ...prevPlan,
+        days: updatedDays,
+      }
+    })
+    setHasUnsavedChanges(true)
+  }, [location.state])
+
+  const handleAddStop = (dayNumber: number, newStop: TripActivity) => {
+    setPlan((prevPlan) => {
+      if (!prevPlan) return prevPlan
+      const updatedDays = prevPlan.days.map((day) => {
+        if (day.day === dayNumber) {
+          const stopWithId: TripActivity = {
+            ...newStop,
+            stopId: newStop.stopId || `stop_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+          }
+          return {
+            ...day,
+            activities: [...day.activities, stopWithId],
+          }
+        }
+        return day
+      })
+      return { ...prevPlan, days: updatedDays }
+    })
+    setHasUnsavedChanges(true)
+  }
+
+  const handleRemoveStop = (dayNumber: number, activityIndex: number) => {
+    setPlan((prevPlan) => {
+      if (!prevPlan) return prevPlan
+      const updatedDays = prevPlan.days.map((day) => {
+        if (day.day === dayNumber) {
+          const newActivities = day.activities.filter((_, idx) => idx !== activityIndex)
+          return { ...day, activities: newActivities }
+        }
+        return day
+      })
+      return { ...prevPlan, days: updatedDays }
+    })
+    setHasUnsavedChanges(true)
+  }
+
+  const handleMoveStop = (dayNumber: number, activityIndex: number, direction: 'up' | 'down') => {
+    setPlan((prevPlan) => {
+      if (!prevPlan) return prevPlan
+      const updatedDays = prevPlan.days.map((day) => {
+        if (day.day === dayNumber) {
+          const targetIndex = direction === 'up' ? activityIndex - 1 : activityIndex + 1
+          if (targetIndex < 0 || targetIndex >= day.activities.length) return day
+          const newActivities = [...day.activities]
+          const [moved] = newActivities.splice(activityIndex, 1)
+          newActivities.splice(targetIndex, 0, moved)
+          return { ...day, activities: newActivities }
+        }
+        return day
+      })
+      return { ...prevPlan, days: updatedDays }
+    })
+    setHasUnsavedChanges(true)
+  }
+
   const resetGeneratedPlan = () => {
+    if (hasUnsavedChanges && !window.confirm('You have unsaved changes to your itinerary. Discard changes?')) {
+      return
+    }
     setPlan(null)
     setSavedTripId(null)
     setGenerationError(null)
     setEditNotice(null)
     setSaveError(null)
+    setHasUnsavedChanges(false)
   }
 
   const input = useMemo<TripPlanInput>(
@@ -469,11 +628,28 @@ export const TripPlanningResetPage: React.FC<TripPlanningResetPageProps> = ({ sa
     setIsSaving(true)
     setSaveError(null)
     try {
-      const saved = await tripService.createTrip(buildSavedTrip(plan))
-      if (!saved?._id) {
-        throw new Error('The trip was not saved.')
+      const tripData = buildSavedTrip(plan)
+      if (savedTripId) {
+        // Update existing trip with concurrency check
+        const success = await tripService.updateTrip(savedTripId, {
+          ...tripData,
+          version: tripVersion,
+        })
+        if (!success) {
+          throw new Error('Failed to update trip. Another update may have occurred. Please reload and try again.')
+        }
+        setTripVersion((prev) => prev + 1)
+        setHasUnsavedChanges(false)
+      } else {
+        // Create new trip
+        const saved = await tripService.createTrip(tripData)
+        if (!saved?._id) {
+          throw new Error('The trip was not saved.')
+        }
+        setSavedTripId(saved._id)
+        setTripVersion(saved.version || 1)
+        setHasUnsavedChanges(false)
       }
-      setSavedTripId(saved._id)
     } catch (error) {
       setSaveError(error instanceof Error ? error.message : 'Failed to save this trip plan.')
     } finally {
@@ -703,24 +879,44 @@ export const TripPlanningResetPage: React.FC<TripPlanningResetPageProps> = ({ sa
         <main id="trip-dashboard" className="mx-auto max-w-7xl space-y-8 px-4 py-10 sm:px-6 lg:px-8 lg:py-14">
           <section className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <p className="font-bold text-slate-950">{savedTripId ? 'Trip plan saved' : 'Keep this plan in your account'}</p>
-              <p className="mt-1 text-sm text-slate-500">{savedTripId ? 'Your itinerary is ready in saved trips.' : 'Save these recommended places and your day-by-day plan.'}</p>
+              <div className="flex items-center gap-2">
+                <p className="font-bold text-slate-950">
+                  {savedTripId ? (hasUnsavedChanges ? 'Trip plan has unsaved edits' : 'Trip plan saved') : 'Keep this plan in your account'}
+                </p>
+                {hasUnsavedChanges && (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-semibold text-amber-800">
+                    <AlertTriangle className="h-3 w-3" />Unsaved changes
+                  </span>
+                )}
+              </div>
+              <p className="mt-1 text-sm text-slate-500">
+                {savedTripId
+                  ? (hasUnsavedChanges ? 'Click "Update Trip Plan" to save your reordered stops and edits.' : 'Your itinerary is synchronized with your account.')
+                  : 'Save these recommended places and your day-by-day plan.'}
+              </p>
               {saveError && <p className="mt-2 text-sm font-semibold text-rose-600">{saveError}</p>}
             </div>
-            {savedTripId ? (
-              <div className="flex flex-wrap gap-3">
-                <Button onClick={() => navigate(`/trips/${savedTripId}`)} className="rounded-xl bg-emerald-600 text-white">
-                  Open Saved Trip<ArrowRight className="ml-2 h-4 w-4" />
+            <div className="flex flex-wrap gap-3">
+              {hasUnsavedChanges ? (
+                <Button onClick={savePlan} loading={isSaving} className="rounded-xl bg-orange-600 text-white hover:bg-orange-700">
+                  {!isSaving && <Save className="mr-2 h-4 w-4" />}
+                  {savedTripId ? 'Update Trip Plan' : 'Save Trip Plan'}
                 </Button>
-                <Button onClick={() => navigate('/trips?view=saved')} variant="outline" className="rounded-xl">
-                  View All Saved Trips
+              ) : savedTripId ? (
+                <>
+                  <Button onClick={() => navigate(`/trips/${savedTripId}`)} className="rounded-xl bg-emerald-600 text-white">
+                    Open Saved Trip<ArrowRight className="ml-2 h-4 w-4" />
+                  </Button>
+                  <Button onClick={() => navigate('/trips?view=saved')} variant="outline" className="rounded-xl">
+                    View All Saved Trips
+                  </Button>
+                </>
+              ) : (
+                <Button onClick={savePlan} loading={isSaving} className="rounded-xl bg-slate-950 text-white">
+                  {!isSaving && <Save className="mr-2 h-4 w-4" />}Save Trip Plan
                 </Button>
-              </div>
-            ) : (
-              <Button onClick={savePlan} loading={isSaving} className="rounded-xl bg-slate-950 text-white">
-                {!isSaving && <Save className="mr-2 h-4 w-4" />}Save Trip Plan
-              </Button>
-            )}
+              )}
+            </div>
           </section>
           <TripResultOverview plan={plan} />
 
@@ -759,7 +955,16 @@ export const TripPlanningResetPage: React.FC<TripPlanningResetPageProps> = ({ sa
               <p className="max-w-xl text-sm leading-6 text-slate-500">{plan.finalAdvice}</p>
             </div>
             <div className="mt-6 space-y-4">
-              {plan.days.map((day) => <TripDayCard key={day.day} day={day} defaultExpanded />)}
+              {plan.days.map((day) => (
+                <TripDayCard
+                  key={day.day}
+                  day={day}
+                  defaultExpanded
+                  onAddStop={handleAddStop}
+                  onRemoveStop={handleRemoveStop}
+                  onMoveStop={handleMoveStop}
+                />
+              ))}
             </div>
           </section>
 

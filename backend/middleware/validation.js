@@ -63,3 +63,12 @@ export const validateCoordinates = [
   query('lng').isFloat({ min: -180, max: 180 }),
   handleValidationErrors
 ];
+
+export function isValidCoordinate(lat, lng) {
+  if (lat === null || lat === undefined || lng === null || lng === undefined) return false;
+  const numLat = typeof lat === 'number' ? lat : Number(lat);
+  const numLng = typeof lng === 'number' ? lng : Number(lng);
+  return Number.isFinite(numLat) && Number.isFinite(numLng) &&
+         numLat >= -90 && numLat <= 90 &&
+         numLng >= -180 && numLng <= 180;
+}
