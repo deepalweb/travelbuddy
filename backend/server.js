@@ -7,7 +7,7 @@ import { fileURLToPath } from 'url';
 import { existsSync } from 'fs';
 import dotenv from 'dotenv';
 import { securityHeaders, apiRateLimit, sanitizeInput, requireAuth as securityRequireAuth, requireRole as securityRequireRole, requireAdmin as securityRequireAdmin } from './middleware/security.js';
-import { validateUser, validatePost, validateTrip, validateReview, validateCoordinates } from './middleware/validation.js';
+import { validateUser, validatePost, validateTrip, validateReview, validateCoordinates, isValidCoordinate } from './middleware/validation.js';
 import { requireAuth, optionalAuth, requireOwnership, requireAdmin } from './middleware/auth.js';
 import { errorHandler, asyncHandler, notFoundHandler } from './middleware/errorHandler.js';
 import { requireRole, requireFeature } from './middleware/roleAccess.js';
@@ -62,19 +62,25 @@ function haversineMeters(lat1, lon1, lat2, lon2) {
   return R * c;
 }
 
-function normalizeAndFilter(results, centerLat, centerLng, radiusMeters, options = { enforceRadius: true, sortByDistance: true }) {
+function normalizeAndFilter(results, centerLat, centerLng, radiusMeters, options = { enforceRadius: true, sortByDistance: true, limit: 50 }) {
   const list = (Array.isArray(results) ? results : []).map((r) => {
     const loc = r.geometry?.location;
     const d = loc ? haversineMeters(Number(centerLat), Number(centerLng), Number(loc.lat), Number(loc.lng)) : null;
     return {
       place_id: r.place_id,
+      placeId: r.place_id,
       name: r.name,
       formatted_address: r.formatted_address || r.vicinity || '',
+      address: r.formatted_address || r.vicinity || '',
+      category: Array.isArray(r.types) && r.types.length ? r.types[0].replace(/_/g, ' ') : 'attraction',
       types: r.types || ['establishment'],
       geometry: r.geometry,
-      rating: r.rating,
-      user_ratings_total: r.user_ratings_total,
+      location: loc ? { lat: Number(loc.lat), lng: Number(loc.lng) } : null,
+      rating: typeof r.rating === 'number' ? r.rating : null,
+      user_ratings_total: typeof r.user_ratings_total === 'number' ? r.user_ratings_total : 0,
+      userRatingsTotal: typeof r.user_ratings_total === 'number' ? r.user_ratings_total : 0,
       business_status: r.business_status || 'OPERATIONAL',
+      openNow: r.opening_hours && typeof r.opening_hours.open_now === 'boolean' ? r.opening_hours.open_now : null,
       photos: Array.isArray(r.photos)
         ? r.photos.slice(0, 3).map(p => ({
           photo_reference: p.photo_reference,
@@ -83,7 +89,10 @@ function normalizeAndFilter(results, centerLat, centerLng, radiusMeters, options
           html_attributions: p.html_attributions
         }))
         : [],
-      distance_m: d
+      photoReference: r.photos?.[0]?.photo_reference || null,
+      distance_m: d,
+      distanceMeters: d ? Math.round(d) : null,
+      googleMapsUrl: r.place_id ? `https://www.google.com/maps/place/?q=place_id:${encodeURIComponent(r.place_id)}` : (loc ? `https://www.google.com/maps/search/?api=1&query=${loc.lat},${loc.lng}` : null)
     };
   });
 
@@ -91,10 +100,13 @@ function normalizeAndFilter(results, centerLat, centerLng, radiusMeters, options
   if (options.enforceRadius) {
     filtered = filtered.filter((p) => (p.distance_m ?? 0) <= Number(radiusMeters));
   }
-  if (options.sortByDistance) {
+  if (options.sortBy === 'rating') {
+    filtered = filtered.sort((a, b) => (b.rating ?? 0) - (a.rating ?? 0));
+  } else if (options.sortByDistance !== false) {
     filtered = filtered.sort((a, b) => (a.distance_m ?? Infinity) - (b.distance_m ?? Infinity));
   }
-  return filtered.slice(0, 10);
+  const maxResults = typeof options.limit === 'number' && options.limit > 0 ? options.limit : 50;
+  return filtered.slice(0, maxResults);
 }
 
 const __filename = fileURLToPath(import.meta.url);
@@ -1807,6 +1819,7 @@ async function isAdminRequest(req) {
 // Trip Plan Schema - COMPLETE with ALL fields
 const tripPlanSchema = new mongoose.Schema({
   userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  version: { type: Number, default: 1 },
   tripTitle: String,
   destination: String,
   duration: String,
@@ -1876,6 +1889,7 @@ const tripPlanSchema = new mongoose.Schema({
       note: String
     },
     activities: [{
+      stopId: { type: String, default: () => 'stop_' + Math.random().toString(36).substring(2, 10) },
       timeSlot: String,
       activityType: String,
       activityTitle: String,
@@ -1902,8 +1916,17 @@ const tripPlanSchema = new mongoose.Schema({
       location: String,
       googlePlaceId: String,
       fullAddress: String,
+      userRatingsTotal: Number,
+      priceLevel: Number,
+      photoReference: String,
+      groundingSource: { type: String, enum: ['verified', 'ai_estimated'], default: 'ai_estimated' },
     }]
   }],
+  groundingMeta: {
+    quality: String,
+    candidatePoolSize: Number,
+    groundedActivityRate: Number
+  },
   tripOverview: {
     totalTravelDays: String,
     summaryHeadline: String,
@@ -2869,17 +2892,21 @@ app.get('/api/places/nearby', enforcePolicy('places'), async (req, res) => {
       return res.status(500).json({ error: 'GOOGLE_PLACES_API_KEY is not configured on the server' });
     }
 
-    if (!lat || !lng) {
-      return res.status(400).json({ error: 'lat and lng are required' });
+    if (!isValidCoordinate(lat, lng)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Valid latitude (-90 to 90) and longitude (-180 to 180) are required'
+      });
     }
 
     const query = (q || '').toString().trim() || 'points of interest';
-    const DEFAULT_RADIUS = parseInt(process.env.DEFAULT_PLACES_RADIUS_M || '20000', 10);
-    let searchRadius = parseInt((radius || String(DEFAULT_RADIUS)).toString(), 10);
+    const parsedRadius = parseInt((radius || '5000').toString(), 10);
+    let searchRadius = Number.isFinite(parsedRadius) ? Math.max(1000, Math.min(parsedRadius, 50000)) : 5000;
     const maxR = req._policy?.features?.radiusMaxM;
     if (maxR && Number.isFinite(maxR)) searchRadius = Math.min(searchRadius, maxR);
     const enforce = String(enforceRadius ?? 'true').toLowerCase() !== 'false';
-    const sortByDistance = String(sort || 'distance').toLowerCase() === 'distance';
+    const sortBy = String(sort || 'distance').toLowerCase() === 'rating' ? 'rating' : 'distance';
+    const sortByDistance = sortBy === 'distance';
 
     const key = makePlacesKey(lat, lng, query, searchRadius);
     const cached = getFromPlacesCache(key);
@@ -2923,7 +2950,7 @@ app.get('/api/places/nearby', enforcePolicy('places'), async (req, res) => {
             recordUsage({ api: 'places', action: 'nearby', status: 'error', durationMs: Date.now() - started, meta: { swr: true, status: data.status } });
             return;
           }
-          const normalized = normalizeAndFilter(data.results, lat, lng, searchRadius, { enforceRadius: enforce, sortByDistance });
+          const normalized = normalizeAndFilter(data.results, lat, lng, searchRadius, { enforceRadius: enforce, sortByDistance, sortBy, limit: 50 });
           setPlacesCache(key, normalized);
           recordUsage({ api: 'places', action: 'nearby', status: 'success', durationMs: Date.now() - started, meta: { swr: true, cache: 'set' } });
         })
@@ -2948,7 +2975,7 @@ app.get('/api/places/nearby', enforcePolicy('places'), async (req, res) => {
       return res.status(502).json({ error: 'Places API status not OK', details: data.status, message: data.error_message });
     }
 
-    let normalized = normalizeAndFilter(data.results, lat, lng, searchRadius, { enforceRadius: enforce, sortByDistance });
+    let normalized = normalizeAndFilter(data.results, lat, lng, searchRadius, { enforceRadius: enforce, sortByDistance, sortBy, limit: 50 });
 
     setPlacesCache(key, normalized);
     recordUsage({ api: 'places', action: 'nearby', status: 'success', durationMs: Date.now() - start, meta: { cache: 'set' } });
@@ -4380,7 +4407,7 @@ app.get('/api/users/:userId/trips', async (req, res) => {
   }
 });
 
-// User trip plans alias for mobile app
+// User trip plans CRUD with ownership authorization & optimistic concurrency
 app.get('/api/users/trip-plans', requireAuth, async (req, res) => {
   try {
     const firebaseUid = req.user.uid;
@@ -4394,13 +4421,40 @@ app.get('/api/users/trip-plans', requireAuth, async (req, res) => {
   }
 });
 
+app.get('/api/users/trip-plans/:id', requireAuth, async (req, res) => {
+  try {
+    const firebaseUid = req.user.uid;
+    const user = await User.findOne({ firebaseUid });
+    if (!user) return res.status(404).json({ error: 'User not found' });
+
+    const trip = await TripPlan.findOne({ _id: req.params.id, userId: user._id });
+    if (!trip) return res.status(404).json({ error: 'Trip plan not found' });
+
+    res.json(trip);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 app.post('/api/users/trip-plans', requireAuth, async (req, res) => {
   try {
     const firebaseUid = req.user.uid;
     const user = await User.findOne({ firebaseUid });
     if (!user) return res.status(404).json({ error: 'User not found' });
 
-    const tripData = { ...req.body, userId: user._id };
+    const tripData = { ...req.body, userId: user._id, version: 1 };
+    if (Array.isArray(tripData.dailyItinerary)) {
+      tripData.dailyItinerary.forEach((day, dIdx) => {
+        if (Array.isArray(day.activities)) {
+          day.activities.forEach((act, aIdx) => {
+            if (!act.stopId) {
+              act.stopId = `stop_${Date.now()}_${dIdx}_${aIdx}_${Math.random().toString(36).substring(2, 6)}`;
+            }
+          });
+        }
+      });
+    }
+
     const trip = new TripPlan(tripData);
     await trip.save();
     res.status(201).json(trip);
@@ -4415,13 +4469,42 @@ app.put('/api/users/trip-plans/:id', requireAuth, async (req, res) => {
     const user = await User.findOne({ firebaseUid });
     if (!user) return res.status(404).json({ error: 'User not found' });
 
+    const existingTrip = await TripPlan.findOne({ _id: req.params.id, userId: user._id });
+    if (!existingTrip) return res.status(404).json({ error: 'Trip plan not found' });
+
+    // Optimistic concurrency check
+    if (typeof req.body.version === 'number' && typeof existingTrip.version === 'number') {
+      if (req.body.version !== existingTrip.version) {
+        return res.status(409).json({
+          error: 'Conflict: Trip plan was modified in another session. Please reload the latest trip plan.',
+          currentVersion: existingTrip.version
+        });
+      }
+    }
+
+    const updateData = { ...req.body };
+    delete updateData._id;
+    delete updateData.userId;
+    updateData.version = (existingTrip.version || 1) + 1;
+
+    // Ensure all activities have stable stopId
+    if (Array.isArray(updateData.dailyItinerary)) {
+      updateData.dailyItinerary.forEach((day, dIdx) => {
+        if (Array.isArray(day.activities)) {
+          day.activities.forEach((act, aIdx) => {
+            if (!act.stopId) {
+              act.stopId = `stop_${Date.now()}_${dIdx}_${aIdx}_${Math.random().toString(36).substring(2, 6)}`;
+            }
+          });
+        }
+      });
+    }
+
     const trip = await TripPlan.findOneAndUpdate(
       { _id: req.params.id, userId: user._id },
-      req.body,
+      { $set: updateData },
       { new: true }
     );
-
-    if (!trip) return res.status(404).json({ error: 'Trip plan not found' });
     res.json(trip);
   } catch (error) {
     res.status(400).json({ error: error.message });
@@ -4434,7 +4517,8 @@ app.delete('/api/users/trip-plans/:id', requireAuth, async (req, res) => {
     const user = await User.findOne({ firebaseUid });
     if (!user) return res.status(404).json({ error: 'User not found' });
 
-    await TripPlan.findOneAndDelete({ _id: req.params.id, userId: user._id });
+    const deleted = await TripPlan.findOneAndDelete({ _id: req.params.id, userId: user._id });
+    if (!deleted) return res.status(404).json({ error: 'Trip plan not found' });
     res.json({ success: true });
   } catch (error) {
     res.status(500).json({ error: error.message });

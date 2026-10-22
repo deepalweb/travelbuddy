@@ -7,6 +7,7 @@ export type TripPlanInput = {
   month?: string
   durationDays: number
   travelerType: 'solo' | 'couple' | 'family' | 'friends' | 'business_leisure'
+  groupSize?: number
   budgetLevel: 'budget' | 'mid_range' | 'luxury'
   budgetAmount?: number
   currency?: string
@@ -20,6 +21,7 @@ export type TripPlanInput = {
 }
 
 export type TripActivity = {
+  stopId?: string
   timeOfDay: 'morning' | 'afternoon' | 'evening' | 'night'
   timeWindow?: string
   title: string
@@ -28,6 +30,12 @@ export type TripActivity = {
   googleMapsUrl?: string
   nearbySearchUrl?: string
   googlePlaceId?: string
+  geometry?: { lat: number; lng: number }
+  rating?: number
+  userRatingsTotal?: number
+  priceLevel?: number
+  photoReference?: string
+  groundingSource?: 'verified' | 'ai_estimated'
   description: string
   type:
     | 'attraction'
@@ -73,6 +81,9 @@ export type PriorityPlace = {
   name: string
   reason: string
   bestTime?: string
+  googleMapsUrl?: string
+  rating?: number
+  groundingSource?: 'verified' | 'ai_estimated'
 }
 
 export type TripPlanResult = {
@@ -147,6 +158,11 @@ export type TripPlanResult = {
     description: string
   }>
   finalAdvice: string
+  groundingMeta?: {
+    quality: 'verified' | 'sparse' | 'unavailable'
+    candidatePoolSize: number
+    groundedActivityRate: number
+  }
 }
 
 export type SmartEditAction = TripPlanResult['smartEditActions'][number]

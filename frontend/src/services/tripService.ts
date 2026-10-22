@@ -2,6 +2,7 @@
 
 // New detailed trip structure
 export interface Activity {
+  stopId?: string
   timeSlot: string
   activityType: string
   activityTitle: string
@@ -23,6 +24,11 @@ export interface Activity {
   isVisited?: boolean
   visitedDate?: string
   rating?: number
+  coordinates?: { lat: number; lng: number }
+  userRatingsTotal?: number
+  priceLevel?: number
+  photoReference?: string
+  groundingSource?: 'verified' | 'ai_estimated'
 }
 
 export interface DailyPlan {
@@ -114,6 +120,12 @@ export interface TripPlan {
   dailyItinerary: DailyPlan[]
   expenseBreakdown: ExpenseBreakdown
   preTripPreparation: PreTripPreparation
+  groundingMeta?: {
+    quality: 'verified' | 'sparse' | 'unavailable'
+    candidatePoolSize: number
+    groundedActivityRate: number
+  }
+  version?: number
   createdAt: string
   // Legacy fields for backward compatibility
   totalEstimatedCost?: string

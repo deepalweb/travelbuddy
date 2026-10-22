@@ -41,32 +41,20 @@ type NavigationItem = {
 
 const navigationItems: NavigationItem[] = [
   { id: 'home', label: 'Home', path: '/', icon: Compass },
-  { id: 'discover', label: 'Discover', path: '/discovery', icon: Globe2 },
-  {
-    id: 'trips',
-    label: 'Trips',
-    icon: ChevronDown,
-    highlight: 'AI',
-    dropdown: [
-      {
-        label: 'Create a Trip',
-        path: '/trips',
-        icon: Sparkles,
-        description: 'Build a realistic itinerary around your destination and travel style.',
-      },
-      {
-        label: 'Saved Trips',
-        path: '/trips?view=saved',
-        icon: ClipboardList,
-        description: 'Continue planning or review trips you have already saved.',
-      },
-    ],
-  },
+  { id: 'plan', label: 'Plan a trip', path: '/trips', icon: Sparkles },
+  { id: 'nearby', label: 'Nearby', path: '/nearby', icon: MapPin },
+  { id: 'my-trips', label: 'My trips', path: '/trips?view=saved', icon: ClipboardList },
   {
     id: 'explore',
     label: 'Explore',
     icon: ChevronDown,
     dropdown: [
+      {
+        label: 'Destination Inspiration',
+        path: '/discovery',
+        icon: Globe2,
+        description: 'Explore destinations, guides, and curated travel ideas.',
+      },
       {
         label: 'Deals',
         path: '/deals',
@@ -86,22 +74,22 @@ const navigationItems: NavigationItem[] = [
         description: 'Find happenings worth planning around.',
       },
       {
-        label: 'Transport Hub',
+        label: 'Transport Services',
         path: '/transport',
         icon: Car,
         description: 'Compare practical ways to move through the trip.',
       },
       {
-        label: 'Travel Agents',
+        label: 'Travel Services',
         path: '/services',
         icon: Users,
-        description: 'Get human help when you need it.',
+        description: 'Get human help from certified travel agents.',
       },
       {
-        label: 'About TravelBuddy',
-        path: '/about',
+        label: 'Subscriptions',
+        path: '/subscription',
         icon: Compass,
-        description: 'Learn how we help travelers make more confident decisions.',
+        description: 'Premium travel benefits and partner perks.',
       },
       {
         label: 'Help & Contact',

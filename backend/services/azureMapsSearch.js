@@ -25,8 +25,8 @@ export class AzureMapsSearch {
       const data = await response.json();
       
       if (!data.results || data.results.length === 0) {
-        console.log('⚠️ Azure Maps: 0 results - trying Azure OpenAI fallback');
-        return this.generateAIPlaces(lat, lng, simplifiedQuery);
+        console.log('ℹ️ Azure Maps: 0 results found');
+        return [];
       }
       
       // Deduplicate by Azure Maps ID
@@ -46,7 +46,7 @@ export class AzureMapsSearch {
       return this.rankResults(results, lat, lng, query);
     } catch (error) {
       console.error('❌ Azure Maps error:', error.message);
-      return this.generateAIPlaces(lat, lng, query);
+      throw error;
     }
   }
 

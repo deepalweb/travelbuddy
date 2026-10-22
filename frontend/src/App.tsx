@@ -22,6 +22,7 @@ const ProfilePage = lazyNamed(() => import('./pages/ProfilePage'), 'ProfilePage'
 const DiscoveryPage = lazy(() => import('./pages/DiscoveryPage'))
 const DestinationDiscoveryPage = lazy(() => import('./pages/DestinationDiscoveryPage'))
 const PlaceDetailsPage = lazy(() => import('./pages/PlaceDetailsPage'))
+const NearbyPage = lazyNamed(() => import('./pages/NearbyPage'), 'NearbyPage')
 const TripPlanningResetPage = lazyNamed(() => import('./pages/TripPlanningResetPage'), 'TripPlanningResetPage')
 const SavedTripPlanRoute = lazyNamed(() => import('./pages/SavedTripPlanRoute'), 'SavedTripPlanRoute')
 const TravelAgentsPage = lazyNamed(() => import('./pages/TravelAgentsPage'), 'TravelAgentsPage')
@@ -96,6 +97,7 @@ const AppContent: React.FC = () => {
                     <Route path="/" element={<OptimizedHomePage />} />
                     <Route path="/home" element={<OptimizedHomePage />} />
                     <Route path="/discovery" element={<DestinationDiscoveryPage />} />
+                    <Route path="/nearby" element={<NearbyPage />} />
                     <Route path="/trips" element={<TripPlanningResetPage />} />
                     <Route path="/trips/:id" element={<SavedTripPlanRoute />} />
                     <Route path="/places/:id" element={<PlaceDetailsPage />} />
@@ -130,7 +132,7 @@ const AppContent: React.FC = () => {
                     {/* Legacy redirects */}
                     <Route path="/compare" element={<Navigate to="/trips" replace />} />
                     <Route path="/prepare" element={<Navigate to="/trips" replace />} />
-                    <Route path="/places" element={<Navigate to="/trips" replace />} />
+                    <Route path="/places" element={<Navigate to="/nearby" replace />} />
                     <Route path="/saved-plans" element={<Navigate to="/trips?view=saved" replace />} />
                     <Route path="/trips/saved" element={<Navigate to="/trips?view=saved" replace />} />
 

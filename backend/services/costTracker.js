@@ -12,7 +12,8 @@ class CostTracker {
       nearby: 0.032,      // Nearby Search
       textsearch: 0.032,  // Text Search
       details: 0.017,     // Place Details
-      photos: 0.007       // Place Photos
+      photos: 0.007,      // Place Photos
+      geocode: 0.005      // Geocoding
     };
   }
   
